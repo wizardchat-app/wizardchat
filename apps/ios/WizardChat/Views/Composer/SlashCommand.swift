@@ -77,7 +77,7 @@ struct SlashCommand {
                 return .unknown
             }
         } catch {
-            timeline.sendError = error.localizedDescription
+            timeline.sendError = readableError(error)
         }
         return .handled
     }

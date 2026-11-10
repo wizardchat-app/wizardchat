@@ -191,6 +191,7 @@ final class TimelineModel: ObservableObject {
     @Published private(set) var typingNames: [String] = []
     @Published private(set) var typingIds: [String] = []
     @Published var sendError: String?
+    @Published var loadFailed = false
     @Published private(set) var firstUnreadId: String?
     @Published private(set) var pinnedIds: Set<String> = []
     @Published private(set) var uploads: [PendingUpload] = []
@@ -241,7 +242,7 @@ final class TimelineModel: ObservableObject {
                 })
             }
         } catch {
-            sendError = error.localizedDescription
+            sendError = readableError(error)
         }
     }
 
@@ -266,7 +267,7 @@ final class TimelineModel: ObservableObject {
             try await client.reportEvent(roomId: roomId, eventId: eventId, reason: reason)
             return true
         } catch {
-            sendError = error.localizedDescription
+            sendError = readableError(error)
             return false
         }
     }
@@ -317,10 +318,18 @@ final class TimelineModel: ObservableObject {
         guard let timeline, !isPaginating, !reachedStart else { return }
         isPaginating = true
         defer { isPaginating = false }
-        do {
-            reachedStart = try await timeline.paginateBack(events: 80)
-        } catch {
-            sendError = error.localizedDescription
+        let result: Bool? = await withTaskGroup(of: Bool?.self) { group in
+            group.addTask { try? await timeline.paginateBack(events: 80) }
+            group.addTask { try? await Task.sleep(for: .seconds(25)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        if let result {
+            reachedStart = result
+            loadFailed = false
+        } else {
+            loadFailed = true
         }
     }
 
@@ -493,7 +502,7 @@ final class TimelineModel: ObservableObject {
         do {
             try await work()
         } catch {
-            sendError = error.localizedDescription
+            sendError = readableError(error)
         }
     }
 
@@ -801,4 +810,13 @@ final class TimelineModel: ObservableObject {
         default: return nil
         }
     }
+}
+
+func readableError(_ error: Error) -> String {
+    let message = error.localizedDescription
+    if error is URLError || message.localizedCaseInsensitiveContains("error sending request")
+        || message.localizedCaseInsensitiveContains("timed out") {
+        return String(localized: "common.connectionFailed")
+    }
+    return message.isEmpty ? String(localized: "common.somethingWentWrong") : message
 }

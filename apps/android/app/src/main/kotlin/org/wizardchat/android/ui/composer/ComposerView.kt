@@ -482,13 +482,11 @@ fun ComposerView(
         verticalArrangement = Arrangement.spacedBy(WZ.Space.space3),
     ) {
         if (suggestions.isNotEmpty()) SuggestionList(suggestions, ::apply)
+        if (timeline.loadFailed) {
+            Notice(tr("timeline.loadFailed"), tr("common.retry")) { scope.launch { timeline.paginateBackwards() } }
+        }
         timeline.sendError?.let { error ->
-            Text(
-                error,
-                Modifier.padding(horizontal = WZ.Space.space6).clickable { timeline.sendError = null },
-                style = wizardFont(WZ.FontSize.sm),
-                color = theme.error,
-            )
+            Notice(error, modifier = Modifier.clickable { timeline.sendError = null })
         }
         if (isRecording) {
             RecordingBar(
@@ -852,6 +850,29 @@ private fun AttachmentTray(attachments: List<PendingAttachment>, preparing: Int,
             ) {
                 Spinner(color = theme.textMuted)
             }
+        }
+    }
+}
+
+@Composable
+private fun Notice(text: String, action: String? = null, modifier: Modifier = Modifier, onAction: () -> Unit = {}) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .floatingGlass(RoundedCornerShape(WZ.Radius.xl), theme.bgTertiary)
+            .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+    ) {
+        PhIcon("warning-circle", size = WZ.SizeIcon.sm, tint = theme.danger)
+        Text(text, Modifier.weight(1f), style = wizardFont(WZ.FontSize.sm), color = theme.textPrimary)
+        if (action != null) {
+            Text(
+                action,
+                Modifier.clickable(onClick = onAction),
+                style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
+                color = theme.accent,
+            )
         }
     }
 }

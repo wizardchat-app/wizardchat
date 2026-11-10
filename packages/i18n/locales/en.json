@@ -74,7 +74,8 @@
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit fullscreen",
     "verified": "Verified",
-    "name": "Name"
+    "name": "Name",
+    "connectionFailed": "Couldn't reach the server. Check your connection and try again."
   },
   "auth": {
     "sessionLoadFailed": "Couldn't restore your session",

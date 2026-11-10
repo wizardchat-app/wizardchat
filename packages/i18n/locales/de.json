@@ -74,7 +74,8 @@
     "fullscreen": "Vollbild",
     "exitFullscreen": "Vollbild beenden",
     "verified": "Verifiziert",
-    "name": "Name"
+    "name": "Name",
+    "connectionFailed": "Der Server ist nicht erreichbar. Prüf deine Verbindung und versuch es noch einmal."
   },
   "auth": {
     "sessionLoadFailed": "Sitzung konnte nicht wiederhergestellt werden",

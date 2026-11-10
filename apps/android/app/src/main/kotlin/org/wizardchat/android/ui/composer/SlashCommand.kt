@@ -1,5 +1,6 @@
 package org.wizardchat.android.ui.composer
 
+import org.wizardchat.android.matrix.readableError
 import org.wizardchat.android.matrix.MatrixSession
 import org.wizardchat.android.matrix.TimelineModel
 import org.wizardchat.android.ui.L10n
@@ -73,7 +74,7 @@ data class SlashCommand(val name: String, val description: String) {
                     else -> return Result.unknown
                 }
             } catch (e: Exception) {
-                timeline.sendError = e.message
+                timeline.sendError = readableError(e)
             }
             return Result.handled
         }

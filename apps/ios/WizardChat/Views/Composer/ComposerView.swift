@@ -45,13 +45,15 @@ struct ComposerView: View {
     var body: some View {
         VStack(spacing: WZ.Space.space3) {
             if !suggestions.isEmpty { suggestionList }
+            if timeline.loadFailed {
+                notice(String(localized: "timeline.loadFailed"), action: String(localized: "common.retry")) {
+                    Task { await timeline.paginateBackwards() }
+                }
+            }
             if let error = timeline.sendError {
-                Text(error)
-                    .font(.wizard(WZ.FontSize.sm))
-                    .foregroundStyle(theme.error)
-                    .padding(.horizontal, WZ.Space.space6)
+                notice(error)
                     .onTapGesture { timeline.sendError = nil }
-                    .task { try? await Task.sleep(for: .seconds(5)); timeline.sendError = nil }
+                    .task(id: error) { try? await Task.sleep(for: .seconds(5)); timeline.sendError = nil }
             }
             if isRecording {
                 recordingBar
@@ -597,6 +599,27 @@ struct ComposerView: View {
             return Array(custom) + Array(emoji)
         }
         return []
+    }
+
+    private func notice(_ text: String, action: String? = nil, perform: @escaping () -> Void = {}) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space4) {
+            Image("ph-warning-circle-regular")
+                .font(.system(size: WZ.SizeIcon.sm))
+                .foregroundStyle(theme.danger)
+            Text(text)
+                .font(.wizard(WZ.FontSize.sm))
+                .foregroundStyle(theme.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.leading)
+            if let action {
+                Button(action, action: perform)
+                    .font(.wizard(WZ.FontSize.sm, .semibold))
+                    .foregroundStyle(theme.accent)
+            }
+        }
+        .padding(.horizontal, WZ.Space.space5)
+        .padding(.vertical, WZ.Space.space4)
+        .floatingGlass(in: RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
     }
 
     private var suggestionList: some View {

@@ -14,6 +14,7 @@ import java.net.URLDecoder
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.roundToLong
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -218,6 +219,7 @@ class TimelineModel(
         private set
     var reachedStart by mutableStateOf(false)
         private set
+    var loadFailed by mutableStateOf(false)
     var typingNames by mutableStateOf<List<String>>(emptyList())
         private set
     var typingIds by mutableStateOf<List<String>>(emptyList())
@@ -264,7 +266,7 @@ class TimelineModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            sendError = e.message
+            sendError = readableError(e)
         } finally {
             starting = false
         }
@@ -294,7 +296,7 @@ class TimelineModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            sendError = e.message
+            sendError = readableError(e)
             false
         }
     }
@@ -341,11 +343,17 @@ class TimelineModel(
         if (isPaginating || reachedStart) return
         isPaginating = true
         try {
-            reachedStart = timeline.paginateBack(80)
+            val atStart = withTimeoutOrNull(25_000) { timeline.paginateBack(80) }
+            if (atStart == null) {
+                loadFailed = true
+            } else {
+                reachedStart = atStart
+                loadFailed = false
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            sendError = e.message
+            loadFailed = true
         } finally {
             isPaginating = false
         }
@@ -550,7 +558,7 @@ class TimelineModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            sendError = e.message ?: e.toString()
+            sendError = readableError(e)
         }
     }
 
@@ -867,5 +875,17 @@ class TimelineModel(
         /** The text without its rich-text tags (`<name>...</name>`) */
         private fun plain(key: String, vararg args: Any): String =
             L10n.format(key, *args).replace(Regex("</?(name|user|kicker)>"), "")
+    }
+}
+
+fun readableError(error: Throwable): String {
+    val message = error.message.orEmpty()
+    val network = message.contains("error sending request", ignoreCase = true) ||
+        message.contains("timed out", ignoreCase = true) ||
+        error is java.io.IOException
+    return when {
+        network -> L10n.format("common.connectionFailed")
+        message.isNotBlank() -> message
+        else -> L10n.format("common.somethingWentWrong")
     }
 }
