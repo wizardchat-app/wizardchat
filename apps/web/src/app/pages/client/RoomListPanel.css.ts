@@ -60,6 +60,22 @@ export const roomList = style({
   position: 'relative',
 });
 
+export const overviewNav = style({
+  padding: '6px 0 2px',
+});
+
+export const overviewItem = style({
+  width: 'calc(100% - 8px)',
+  border: 'none',
+  background: 'none',
+  fontFamily: 'inherit',
+  textAlign: 'left',
+});
+
+export const overviewIcon = style({
+  backgroundColor: vars.color.bgTertiary,
+});
+
 export const emptyList = style({
   padding: '16px',
   color: vars.color.textMuted,

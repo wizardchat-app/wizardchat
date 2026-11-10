@@ -4,12 +4,13 @@ import {
   ArrowUpIcon,
   CaretDownIcon,
   DotsThreeVerticalIcon,
+  HouseIcon,
   PencilSimpleIcon,
   PlusIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -59,6 +60,7 @@ import { UserPanel } from './UserPanel';
 import { isTextFieldTarget } from '@/app/features/keyboardShortcuts/keyEvents';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import * as css from './RoomListPanel.css';
+import * as itemCss from './ChatListItem.css';
 import {
   planSpaceReorder,
   saveFavouriteOrder,
@@ -312,6 +314,7 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   const [closedNavCategoriesArr, setClosedNavCategoriesArr] = useAtom(closedNavCategoriesAtom);
   const favouriteRooms = useAtomValue(favouriteRoomsAtom);
   const navigate = useNavigate();
+  const location = useLocation();
   const client = getMatrixClientOrNull();
   const toast = useToast();
   const { openContextMenu } = useContextMenu();
@@ -1672,6 +1675,25 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
           )}
         </div>
       </header>
+
+      {!isMobile && !isDmView && !isSpaceView && (
+        <div className={css.overviewNav}>
+          <button
+            type="button"
+            className={`${itemCss.roomItem} ${css.overviewItem}`}
+            data-active={location.pathname === '/'}
+            aria-current={location.pathname === '/' ? 'page' : undefined}
+            onClick={() => navigate('/', { state: { sidebarView: 'home', currentSpaceId: null } })}
+          >
+            <span className={itemCss.avatarWrap}>
+              <span className={`${itemCss.chatAvatar} ${css.overviewIcon}`}>
+                <HouseIcon size={18} weight={location.pathname === '/' ? 'fill' : 'regular'} />
+              </span>
+            </span>
+            <span className={itemCss.chatTextContent}>{t('home.overview')}</span>
+          </button>
+        </div>
+      )}
 
       {isDmView ? renderDmList() : isSpaceView ? renderSpaceList() : renderHomeList()}
 

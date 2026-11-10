@@ -135,11 +135,7 @@ function resolveTarget(
     return roomPath(data, remembered);
   }
 
-  if (view === 'home') {
-    const homeRooms = data.rooms.filter((r) => isRememberable(data, 'home', r.id));
-    const first = firstInListOrder(homeRooms, favourites);
-    if (first) return roomPath(data, first.id);
-  }
+  if (view === 'home') return '/';
 
   if (view === 'dms') {
     const latest = data.rooms
@@ -168,6 +164,8 @@ export function useRecordLastRoom() {
     const overviewMatch = location.pathname.match(/^\/space\/(.+)/);
     if (overviewMatch) {
       if (decodeURIComponent(overviewMatch[1]) === key) value = OVERVIEW;
+    } else if (location.pathname === '/' && key === 'home') {
+      value = OVERVIEW;
     } else if (currentRoomId && isRememberable(navData(rooms, graph), key, currentRoomId)) {
       value = currentRoomId;
     }

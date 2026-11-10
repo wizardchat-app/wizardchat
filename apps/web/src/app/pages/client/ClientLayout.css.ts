@@ -92,47 +92,6 @@ export const homeLayout = style({
   minHeight: 0,
 });
 
-export const welcomeHome = style({
-  flex: 1,
-  minWidth: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  gap: '16px',
-  padding: '0 24px',
-  textAlign: 'center',
-  color: vars.color.textMuted,
-  '@media': {
-    '(max-width: 768px)': {
-      padding: '0 16px',
-    },
-  },
-});
-
-export const welcomeTitle = style({
-  color: vars.color.textPrimary,
-  fontSize: '1.5rem',
-  fontWeight: 700,
-});
-
-export const welcomeActions = style({
-  display: 'flex',
-  gap: '12px',
-  marginTop: '8px',
-  '@media': {
-    '(max-width: 480px)': {
-      flexDirection: 'column',
-      width: '100%',
-    },
-  },
-});
-
-export const iconBefore = style({
-  marginRight: '6px',
-});
-
 export const panelDrawerOverlay = style({
   display: 'none',
   '@media': {

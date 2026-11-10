@@ -764,8 +764,6 @@
   },
   "timeline": {
     "copyText": "Copy text",
-    "welcomeTitle": "Welcome to WizardChat",
-    "welcomeBody": "Start a private chat or create a space to organize your conversations",
     "startDm": "New Direct Message",
     "startOfConversation": "This is the beginning of this room.",
     "startOfDm": "This is the beginning of your conversation with {{name}}.",
@@ -1757,5 +1755,12 @@
     "sendTo": "Send to",
     "noRoomsHint": "Open WizardChat once so your rooms show up here.",
     "searchRooms": "Search rooms"
+  },
+  "home": {
+    "overview": "Overview",
+    "welcome": "Welcome, {{name}}",
+    "exploreCommunities": "Explore communities",
+    "whatNext": "What would you like to do?",
+    "viewApps": "View apps"
   }
 }
