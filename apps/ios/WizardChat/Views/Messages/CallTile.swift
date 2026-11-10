@@ -4,62 +4,88 @@ import WizardChatCore
 struct CallTile: View {
     let call: CallHistoryView
     let roomId: String
+    var openProfile: (String) -> Void = { _ in }
 
+    @EnvironmentObject private var prefs: AppPreferences
     @EnvironmentObject private var calls: CallManager
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
+    @State private var starterName: String?
 
-    private static let visibleAvatars = 3
-
-    private var title: String {
-        switch call.outcome {
-        case .ongoing: String(localized: "call.event.ongoing")
-        case .ended: String(localized: "call.event.ended")
-        case .missed: String(localized: "call.event.missed")
-        case .declined: String(localized: "call.event.declined")
-        case .unanswered: String(localized: "call.event.unanswered")
-        }
-    }
-
-    private var tint: Color {
-        switch call.outcome {
-        case .ongoing: theme.success
-        case .missed, .declined, .unanswered: theme.danger
-        case .ended: theme.textMuted
-        }
-    }
+    private var answered: Bool { call.outcome == .ongoing || call.outcome == .ended }
 
     private var icon: String {
-        switch call.outcome {
-        case .ongoing: call.video ? "ph-video-camera-regular" : "ph-phone-regular"
-        case _ where call.video: "ph-video-camera-slash-regular"
-        case .ended: "ph-phone-disconnect-regular"
-        default: "ph-phone-x-regular"
-        }
+        if !answered { return "ph-phone-x-regular" }
+        return call.video ? "ph-video-camera-fill" : "ph-phone-fill"
     }
 
     private var canJoin: Bool { call.outcome == .ongoing && !calls.isInCall(roomId: roomId) }
 
-    var body: some View {
-        HStack(spacing: WZ.Space.space4) {
-            Image(icon)
-                .font(.system(size: WZ.SizeIcon.xs, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: WZ.Space.space8, height: WZ.Space.space8)
-                .background(theme.bgTertiary, in: Circle())
-            VStack(alignment: .leading, spacing: WZ.Space.space0) {
-                Text(title)
-                    .font(.wizard(WZ.FontSize.sm, .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                HStack(spacing: WZ.Space.space2) {
-                    Text(call.video ? String(localized: "timeline.videoCall") : String(localized: "timeline.voiceCall"))
-                    duration
-                }
-                .font(.wizard(WZ.FontSize.xs))
-                .foregroundStyle(theme.textMuted)
+    private var name: String {
+        starterName ?? call.participants.first { $0.userId == call.startedBy }?.displayName ?? call.startedBy
+    }
+
+    private var line: String {
+        let mine = call.startedBy == session.userId
+        switch call.outcome {
+        case .ongoing:
+            return mine ? L10n.plain("call.event.startedYou") : L10n.plain("call.event.started", name)
+        case .ended:
+            guard !call.partial, let endedAt = call.endedAt else {
+                return mine ? L10n.plain("call.event.startedYou") : L10n.plain("call.event.started", name)
             }
-            .lineLimit(1)
-            avatars
+            let duration = Self.duration(milliseconds: endedAt - call.startedAt)
+            return mine ? L10n.plain("call.event.lastedYou", duration) : L10n.plain("call.event.lasted", name, duration)
+        case .missed:
+            return L10n.plain("call.event.missedFrom", name)
+        case .declined:
+            if mine { return L10n.plain("call.event.declinedYours") }
+            if let me = session.userId, call.declinedBy.contains(me) {
+                return L10n.plain("call.event.declinedByYou", name)
+            }
+            return L10n.plain("call.event.declinedOther", name)
+        case .unanswered:
+            return mine ? L10n.plain("call.event.unansweredYours") : L10n.plain("call.event.unansweredOther", name)
+        }
+    }
+
+    static func duration(milliseconds: Int) -> String {
+        let minutes = Int((Double(milliseconds) / 60_000).rounded())
+        if minutes < 1 { return String(localized: "call.event.fewSeconds") }
+        if minutes < 60 { return L10n.format("call.event.minutes", minutes) }
+        let hours = Int((Double(minutes) / 60).rounded())
+        return L10n.format("call.event.hours", hours)
+    }
+
+    private var text: AttributedString {
+        var text = AttributedString(line)
+        text.foregroundColor = theme.textMuted
+        if call.startedBy != session.userId, let range = text.range(of: name) {
+            text[range].foregroundColor = theme.nameColor(call.startedBy, colored: prefs.colorUsernames)
+            text[range].font = .wizard(WZ.FontSize.md, .semibold)
+            text[range].link = URL(string: "wizardchat-profile:open")
+        }
+        let start = Date(timeIntervalSince1970: TimeInterval(call.startedAt) / 1000)
+        var time = AttributedString("  " + start.formatted(date: .omitted, time: .shortened))
+        time.font = .wizard(WZ.FontSize.xs)
+        time.foregroundColor = theme.textMuted
+        return text + time
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: WZ.Space.space5) {
+            Image(icon)
+                .font(.system(size: WZ.SizeIcon.md, weight: .semibold))
+                .foregroundStyle(answered ? theme.success : theme.danger)
+                .frame(width: WZ.SizeAvatar.md)
+            Text(text)
+                .font(.wizard(WZ.FontSize.md))
+                .tint(theme.nameColor(call.startedBy, colored: prefs.colorUsernames))
+                .environment(\.openURL, OpenURLAction { _ in
+                    openProfile(call.startedBy)
+                    return .handled
+                })
+                .frame(maxWidth: .infinity, alignment: .leading)
             if canJoin {
                 Button(String(localized: "common.join"), action: join)
                     .font(.wizard(WZ.FontSize.sm, .semibold))
@@ -68,49 +94,9 @@ struct CallTile: View {
                     .tint(theme.success)
             }
         }
-        .padding(.horizontal, WZ.Space.space5)
-        .padding(.vertical, WZ.Space.space3)
-        .background(theme.fill, in: Capsule())
         .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private var duration: some View {
-        if !call.partial {
-            let start = Date(timeIntervalSince1970: TimeInterval(call.startedAt) / 1000)
-            switch call.outcome {
-            case .ongoing:
-                Text(verbatim: "·")
-                Text(start, style: .timer).monospacedDigit()
-            case .ended:
-                if let endedAt = call.endedAt {
-                    let seconds = max(0, TimeInterval(endedAt - call.startedAt) / 1000)
-                    Text(verbatim: "·")
-                    Text(Duration.seconds(seconds).formatted(.time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond)))
-                        .monospacedDigit()
-                }
-            default:
-                EmptyView()
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var avatars: some View {
-        let shown = call.participants.prefix(Self.visibleAvatars)
-        if !shown.isEmpty {
-            HStack(spacing: -WZ.Space.space3) {
-                ForEach(shown, id: \.userId) { person in
-                    AvatarView(name: person.displayName ?? person.userId, url: person.avatarUrl, size: WZ.SizeAvatar.xs)
-                        .overlay(Circle().stroke(theme.bgSecondary, lineWidth: WZ.BorderWidth.thick))
-                }
-                if call.participants.count > Self.visibleAvatars {
-                    Text("+\(call.participants.count - Self.visibleAvatars)")
-                        .font(.wizard(WZ.FontSize.xs, .bold))
-                        .foregroundStyle(theme.textMuted)
-                        .padding(.leading, WZ.Space.space4)
-                }
-            }
+        .task(id: call.startedBy) {
+            starterName = await session.memberProfile(call.startedBy, in: roomId).name
         }
     }
 

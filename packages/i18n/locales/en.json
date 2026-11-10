@@ -972,12 +972,23 @@
   },
   "call": {
     "event": {
-      "ongoing": "Ongoing call",
-      "ended": "Call ended",
-      "participants": "Participants",
-      "missed": "Missed call",
       "declined": "Call declined",
-      "unanswered": "No answer"
+      "unanswered": "No answer",
+      "started": "<name>{{name}}</name> started a call.",
+      "startedYou": "You started a call.",
+      "lasted": "<name>{{name}}</name> started a call that lasted {{duration}}.",
+      "lastedYou": "You started a call that lasted {{duration}}.",
+      "missedFrom": "You missed a call from <name>{{name}}</name>.",
+      "declinedByYou": "You declined a call from <name>{{name}}</name>.",
+      "declinedOther": "The call from <name>{{name}}</name> was declined.",
+      "declinedYours": "Your call was declined.",
+      "unansweredOther": "The call from <name>{{name}}</name> wasn't answered.",
+      "unansweredYours": "Your call wasn't answered.",
+      "fewSeconds": "a few seconds",
+      "minutes_one": "a minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "an hour",
+      "hours_other": "{{count}} hours"
     },
     "mute": "Mute",
     "unmute": "Unmute",

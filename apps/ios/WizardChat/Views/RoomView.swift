@@ -741,7 +741,7 @@ private struct TimelineRow: View {
                 .padding(.horizontal, WZ.Space.space9)
                 .padding(.vertical, WZ.Space.space1)
         case .call(let call):
-            CallTile(call: call, roomId: actions.roomId)
+            CallTile(call: call, roomId: actions.roomId, openProfile: actions.openProfile)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, WZ.Space.space6)
                 .padding(.vertical, WZ.Space.space1)

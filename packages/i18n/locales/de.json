@@ -972,12 +972,23 @@
   },
   "call": {
     "event": {
-      "ongoing": "Anruf läuft",
-      "ended": "Anruf beendet",
-      "participants": "Teilnehmer",
-      "missed": "Verpasster Anruf",
       "declined": "Anruf abgelehnt",
-      "unanswered": "Keine Antwort"
+      "unanswered": "Keine Antwort",
+      "started": "<name>{{name}}</name> hat einen Anruf gestartet.",
+      "startedYou": "Du hast einen Anruf gestartet.",
+      "lasted": "<name>{{name}}</name> hat einen Anruf gestartet, der {{duration}} dauerte.",
+      "lastedYou": "Du hast einen Anruf gestartet, der {{duration}} dauerte.",
+      "missedFrom": "Du hast einen Anruf von <name>{{name}}</name> verpasst.",
+      "declinedByYou": "Du hast einen Anruf von <name>{{name}}</name> abgelehnt.",
+      "declinedOther": "Der Anruf von <name>{{name}}</name> wurde abgelehnt.",
+      "declinedYours": "Dein Anruf wurde abgelehnt.",
+      "unansweredOther": "Der Anruf von <name>{{name}}</name> wurde nicht angenommen.",
+      "unansweredYours": "Dein Anruf wurde nicht angenommen.",
+      "fewSeconds": "ein paar Sekunden",
+      "minutes_one": "eine Minute",
+      "minutes_other": "{{count}} Minuten",
+      "hours_one": "eine Stunde",
+      "hours_other": "{{count}} Stunden"
     },
     "mute": "Stummschalten",
     "unmute": "Mikrofon an",

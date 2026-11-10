@@ -1446,77 +1446,57 @@ export const systemMsgName = style({
   },
 });
 
-export const callPill = style({
+export const callLine = style({
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  width: 'fit-content',
-  maxWidth: '92%',
-  margin: '8px auto',
-  padding: '5px 12px 5px 8px',
-  borderRadius: vars.radius.lg,
-  backgroundColor: vars.color.bgPrimary,
-  border: `1px solid ${vars.color.border}`,
-  color: vars.color.textSecondary,
-  userSelect: 'none',
+  gap: '12px',
+  padding: `${chatSpace(6)} 16px ${chatSpace(4)}`,
+  color: vars.color.textMuted,
+  fontSize: chatSize(0.95),
+  lineHeight: 1.375,
 });
 
-export const callPillOngoing = style({
-  borderColor: vars.color.success,
-});
-
-export const callPillEnded = style({
-  opacity: 0.8,
-});
-
-export const callPillMissed = style({});
-
-export const callPillIcon = style({
+export const callLineIcon = style({
+  flexShrink: 0,
+  width: '36px',
   display: 'flex',
-  alignItems: 'center',
   justifyContent: 'center',
-  width: '22px',
-  height: '22px',
-  borderRadius: '50%',
-  flexShrink: 0,
-  backgroundColor: vars.color.bgTertiary,
-  color: vars.color.textMuted,
-  selectors: {
-    [`${callPillOngoing} &`]: {
-      color: vars.color.success,
-    },
-    [`${callPillMissed} &`]: {
-      color: vars.color.error,
-    },
-  },
+  color: vars.color.success,
 });
 
-export const callPillLabel = style({
-  fontSize: chatSize(0.82),
+export const callLineIconMissed = style([callLineIcon, { color: vars.color.error }]);
+
+export const callLineText = style({
+  minWidth: 0,
+  wordBreak: 'break-word',
+});
+
+export const callLineName = style({
+  font: 'inherit',
+  fontWeight: 600,
+  color: vars.color.textPrimary,
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  ':hover': { textDecoration: 'underline' },
+});
+
+export const callLineTime = style({
+  fontSize: chatSize(0.72),
   whiteSpace: 'nowrap',
+  opacity: 0,
+  transition: `opacity ${fast}`,
+  selectors: { [`${callLine}:hover &`]: { opacity: 1 } },
 });
 
-export const callAvatarStack = style({
-  display: 'flex',
-  alignItems: 'center',
-  flexShrink: 0,
-});
-
-export const callPillDuration = style({
-  fontSize: chatSize(0.74),
-  color: vars.color.textMuted,
-  fontVariantNumeric: 'tabular-nums',
-  whiteSpace: 'nowrap',
-  flexShrink: 0,
-});
-
-export const callPillJoin = style({
-  padding: '2px 10px',
+export const callLineJoin = style({
+  padding: '3px 12px',
   borderRadius: vars.radius.sm,
   border: 'none',
   backgroundColor: vars.color.success,
   color: '#fff',
-  fontSize: chatSize(0.74),
+  fontSize: chatSize(0.8),
   fontWeight: 600,
   cursor: 'pointer',
   fontFamily: 'inherit',

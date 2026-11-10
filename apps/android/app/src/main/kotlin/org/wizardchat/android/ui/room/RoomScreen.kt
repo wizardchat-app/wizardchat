@@ -89,6 +89,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
@@ -153,6 +154,8 @@ import org.wizardchat.core.RichSpan
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
+import java.time.Instant
+import org.wizardchat.android.ui.voice.rememberMemberProfile
 
 /** What a message row can do; null actions (settings preview, pinned list) make it read-only */
 class MessageActions(
@@ -779,97 +782,89 @@ private fun TimelineRow(entry: ChatEntry, actions: MessageActions, isPrivateRoom
             color = theme.textMuted,
             textAlign = TextAlign.Center,
         )
-        is ChatEntry.Kind.Call -> CallRow(kind.call, joinCall)
+        is ChatEntry.Kind.Call -> CallRow(kind.call, actions.roomId, joinCall, actions.openProfile)
         else -> MessageRow(entry, actions, isPrivateRoom)
     }
 }
 
-private const val CALL_AVATARS_SHOWN = 3
+private fun callDuration(milliseconds: Long): String {
+    val minutes = Math.round(milliseconds / 60_000.0).toInt()
+    return when {
+        minutes < 1 -> L10n.format("call.event.fewSeconds")
+        minutes < 60 -> L10n.plural("call.event.minutes", minutes, minutes)
+        else -> Math.round(minutes / 60.0).toInt().let { L10n.plural("call.event.hours", it, it) }
+    }
+}
 
-/** A call in the timeline: how it went, who was in it, and Join while it's going on */
 @Composable
-private fun CallRow(call: CallHistoryView, joinCall: (() -> Unit)?) {
-    val ongoing = call.outcome == CallOutcome.ongoing
-    val title = tr(
-        when (call.outcome) {
-            CallOutcome.ongoing -> "call.event.ongoing"
-            CallOutcome.ended -> "call.event.ended"
-            CallOutcome.missed -> "call.event.missed"
-            CallOutcome.declined -> "call.event.declined"
-            CallOutcome.unanswered -> "call.event.unanswered"
-        },
-    )
-    val tint = when (call.outcome) {
-        CallOutcome.ongoing -> theme.success
-        CallOutcome.missed, CallOutcome.declined, CallOutcome.unanswered -> theme.danger
-        CallOutcome.ended -> theme.textMuted
-    }
-    val icon = when {
-        ongoing -> if (call.video) "video-camera" else "phone"
-        call.video -> "video-camera-slash"
-        call.outcome == CallOutcome.ended -> "phone-disconnect"
-        else -> "phone-x"
-    }
+private fun CallRow(call: CallHistoryView, roomId: String, joinCall: (() -> Unit)?, openProfile: (String) -> Unit) {
+    val me = LocalSession.current.userId
+    val profile = rememberMemberProfile(call.startedBy, roomId)
+    val name = profile.name ?: call.participants.firstOrNull { it.userId == call.startedBy }?.displayName ?: call.startedBy
+    val mine = call.startedBy == me
+    val answered = call.outcome == CallOutcome.ongoing || call.outcome == CallOutcome.ended
     val endedAt = call.endedAt
-    val duration = if (call.outcome == CallOutcome.ended && endedAt != null && !call.partial) {
-        Formats.duration((endedAt - call.startedAt).coerceAtLeast(0) / 1000.0)
-    } else {
-        null
+    val line = when (call.outcome) {
+        CallOutcome.ongoing -> if (mine) tr("call.event.startedYou") else tr("call.event.started", name)
+        CallOutcome.ended -> if (call.partial || endedAt == null) {
+            if (mine) tr("call.event.startedYou") else tr("call.event.started", name)
+        } else {
+            val duration = callDuration(endedAt - call.startedAt)
+            if (mine) tr("call.event.lastedYou", duration) else tr("call.event.lasted", name, duration)
+        }
+        CallOutcome.missed -> tr("call.event.missedFrom", name)
+        CallOutcome.declined -> when {
+            mine -> tr("call.event.declinedYours")
+            me != null && me in call.declinedBy -> tr("call.event.declinedByYou", name)
+            else -> tr("call.event.declinedOther", name)
+        }
+        CallOutcome.unanswered -> if (mine) tr("call.event.unansweredYours") else tr("call.event.unansweredOther", name)
+    }.replace(Regex("</?name>"), "")
+    val starterColor = nameColor(call.startedBy)
+    val text = buildAnnotatedString {
+        val start = if (mine) -1 else line.indexOf(name)
+        if (start < 0) {
+            append(line)
+        } else {
+            append(line.substring(0, start))
+            val link = LinkAnnotation.Clickable(
+                "profile",
+                TextLinkStyles(SpanStyle(color = starterColor, fontWeight = FontWeight.SemiBold)),
+            ) { openProfile(call.startedBy) }
+            withLink(link) { append(name) }
+            append(line.substring(start + name.length))
+        }
+        withStyle(SpanStyle(fontSize = WZ.FontSize.xs.value.sp)) {
+            append("  ")
+            append(Formats.time(Instant.ofEpochMilli(call.startedAt)))
+        }
     }
-    val kindLabel = tr(if (call.video) "timeline.videoCall" else "timeline.voiceCall")
-    val shown = call.participants.take(CALL_AVATARS_SHOWN)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space2),
-        horizontalArrangement = Arrangement.Center,
+        Modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space3),
+        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier
-                .clip(CircleShape)
-                .background(theme.fill)
-                .padding(start = WZ.Space.space5, end = if (ongoing && joinCall != null) WZ.Space.space2 else WZ.Space.space5)
-                .padding(vertical = WZ.Space.space2)
-                .semantics(mergeDescendants = true) { contentDescription = listOfNotNull(kindLabel, title, duration).joinToString(", ") },
-            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(WZ.Space.space8).clip(CircleShape).background(theme.bgTertiary), contentAlignment = Alignment.Center) {
-                PhIcon(icon, size = WZ.SizeIcon.xs, tint = tint)
-            }
-            Text(title, style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = theme.textPrimary, maxLines = 1)
-            if (shown.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(-WZ.Space.space3), verticalAlignment = Alignment.CenterVertically) {
-                    shown.forEach { person ->
-                        Avatar(
-                            person.displayName ?: person.userId,
-                            person.avatarUrl,
-                            WZ.SizeAvatar.xs,
-                            modifier = Modifier.border(WZ.BorderWidth.thick, theme.fill, CircleShape),
-                        )
-                    }
-                    if (call.participants.size > shown.size) {
-                        Text(
-                            "+${call.participants.size - shown.size}",
-                            Modifier.padding(start = WZ.Space.space4),
-                            style = wizardFont(WZ.FontSize.xs, FontWeight.Bold),
-                            color = theme.textMuted,
-                        )
-                    }
-                }
-            }
-            duration?.let { Text(it, style = wizardFont(WZ.FontSize.sm), color = theme.textMuted, maxLines = 1) }
-            if (ongoing && joinCall != null) {
-                Text(
-                    tr("common.join"),
-                    Modifier
-                        .clip(CircleShape)
-                        .background(theme.success)
-                        .clickable(onClick = joinCall)
-                        .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space2),
-                    style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
-                    color = theme.textOnAccent,
-                    maxLines = 1,
-                )
-            }
+        Box(Modifier.width(WZ.SizeAvatar.md), contentAlignment = Alignment.Center) {
+            PhIcon(
+                if (!answered) "phone-x" else if (call.video) "video-camera" else "phone",
+                if (answered) PhWeight.fill else PhWeight.regular,
+                size = WZ.SizeIcon.md,
+                tint = if (answered) theme.success else theme.danger,
+            )
+        }
+        Text(text, Modifier.weight(1f), style = wizardFont(WZ.FontSize.md), color = theme.textMuted)
+        if (call.outcome == CallOutcome.ongoing && joinCall != null) {
+            Text(
+                tr("common.join"),
+                Modifier
+                    .clip(CircleShape)
+                    .background(theme.success)
+                    .clickable(onClick = joinCall)
+                    .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space2),
+                style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
+                color = theme.textOnAccent,
+                maxLines = 1,
+            )
         }
     }
 }
