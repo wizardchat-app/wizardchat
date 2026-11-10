@@ -8,6 +8,7 @@ stages:
 variables:
   DRY_RUN: 'false'
   VERSION: ''
+  PKGREL: '1'
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
   RUSTUP_HOME: $CI_PROJECT_DIR/.rustup
   CARGO_TERM_COLOR: always

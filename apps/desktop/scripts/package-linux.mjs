@@ -8,6 +8,8 @@ import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } 
 import { join, resolve } from 'node:path';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+const pkgrel = process.env.PKGREL || '1';
+if (!/^[1-9]\d*$/.test(pkgrel)) throw new Error(`PKGREL must be a positive number, got ${pkgrel}`);
 const bundle = 'target/release/bundle';
 
 function find(dir, suffix) {
@@ -51,6 +53,7 @@ const pkgbuild = readFileSync('packaging/aur/wizardchat-bin/PKGBUILD', 'utf8')
   .replace(/^#.*\n/, '')
   .replace(/^_version=.*$/m, `_version=${version}`)
   .replace(/^pkgver=.*$/m, `pkgver=${version.replaceAll('-', '_')}`)
+  .replace(/^pkgrel=.*$/m, `pkgrel=${pkgrel}`)
   .replace(/^sha256sums=.*$/m, `sha256sums=('${sha256}')`);
 writeFileSync(join(out, 'PKGBUILD'), pkgbuild);
 console.log(`packaged ${tarball} and its PKGBUILD`);

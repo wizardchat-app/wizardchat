@@ -1,4 +1,4 @@
-# CI fills in _version, pkgver and sha256sums and publishes this with every release (docs/BUILDING.md)
+# CI fills in _version, pkgver, pkgrel and sha256sums and publishes this with every release (docs/BUILDING.md)
 pkgname=wizardchat-bin
 _version=0.0.0
 pkgver=0.0.0

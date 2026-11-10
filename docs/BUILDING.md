@@ -23,7 +23,8 @@ stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publish
   Linux gets an AppImage, `.deb` and `.rpm`, which install their updates, and a tarball, its `PKGBUILD` (from
   `packaging/aur/wizardchat-bin/`) and the Arch package built from it, which point to the new release instead
   (`apps/desktop/scripts/package-linux.mjs`). Like the web app, stable installs only get stable releases and next
-  installs only next ones
+  installs only next ones. The `PKGBUILD` gets `pkgrel=1`; when the package of a release has to change, run the tag's
+  pipeline again with `PKGREL=2` (then 3, ...)
 - builds a signed Android APK (arm64) and lists it with the installers, for people who don't use Google Play
 - creates the GitLab release with the notes from the commits and the installers
 
