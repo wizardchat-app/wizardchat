@@ -58,7 +58,7 @@ pub use error::{Error, Result};
 pub use extras::{ThreadInfo, ThreadPage, UrlPreview};
 pub use features::{EmojiPack, Notification, PackImage, SearchHit};
 pub use profile::{
-    CustomStatus, Presence, PresenceInfo, UserProfile, MAX_STATUS_LENGTH, STATUS_FIELD,
+    CustomStatus, MutualRoom, Presence, PresenceInfo, UserProfile, MAX_STATUS_LENGTH, STATUS_FIELD,
 };
 pub use push::PusherConfig;
 pub use qr_login::{QrLoginControl, QrLoginStatus};

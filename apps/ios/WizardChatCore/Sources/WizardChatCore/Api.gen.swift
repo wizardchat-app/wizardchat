@@ -1038,6 +1038,22 @@ public enum MessageKind: String, Codable, Hashable, Sendable, CaseIterable {
     case notice = "notice"
 }
 
+public struct MutualRoom: Codable, Hashable, Sendable {
+    public var roomId: String
+    public var name: String?
+    public var avatarUrl: String?
+    public var isSpace: Bool
+    public var isDirect: Bool
+
+    public init(roomId: String, name: String? = nil, avatarUrl: String? = nil, isSpace: Bool, isDirect: Bool) {
+        self.roomId = roomId
+        self.name = name
+        self.avatarUrl = avatarUrl
+        self.isSpace = isSpace
+        self.isDirect = isDirect
+    }
+}
+
 /// Something that should notify the user, decided by their push rules
 public struct Notification: Codable, Hashable, Sendable {
     public var roomId: String
@@ -2073,7 +2089,6 @@ public struct StoreConfig: Codable, Hashable, Sendable {
     public var passphrase: String?
     /// Don't share keys with, or read messages from, devices their owner hasn't verified
     public var excludeInsecureDevices: Bool?
-    /// Leave setting up cross-signing and key backup to the app instead of doing it on sign-in
     public var manualEncryptionSetup: Bool?
     public var processName: String?
 
@@ -2876,6 +2891,10 @@ public final class WizardClient: Remote, @unchecked Sendable {
 
     public func userProfile(userId: String) async throws -> UserProfile {
         try await call("WizardClient.userProfile", [.value(userId)])
+    }
+
+    public func mutualRooms(userId: String) async throws -> [MutualRoom] {
+        try await call("WizardClient.mutualRooms", [.value(userId)])
     }
 
     public func ownProfile() async throws -> UserProfile {

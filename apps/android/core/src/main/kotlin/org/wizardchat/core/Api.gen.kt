@@ -660,6 +660,15 @@ enum class MessageKind {
     @SerialName("notice") notice,
 }
 
+@Serializable
+data class MutualRoom(
+    val roomId: String,
+    val name: String? = null,
+    val avatarUrl: String? = null,
+    val isSpace: Boolean,
+    val isDirect: Boolean,
+)
+
 /** Something that should notify the user, decided by their push rules */
 @Serializable
 data class Notification(
@@ -1908,6 +1917,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
 
     suspend fun userProfile(userId: String): UserProfile =
         Runtime.call("WizardClient.userProfile", handle, listOf(Arg.value<String>(userId)))
+
+    suspend fun mutualRooms(userId: String): List<MutualRoom> =
+        Runtime.call("WizardClient.mutualRooms", handle, listOf(Arg.value<String>(userId)))
 
     suspend fun ownProfile(): UserProfile =
         Runtime.call("WizardClient.ownProfile", handle, listOf())

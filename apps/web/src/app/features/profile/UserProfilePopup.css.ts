@@ -308,3 +308,77 @@ export const accountSwitcherSlot = style({
   paddingTop: '12px',
   borderTop: `1px solid ${vars.color.border}`,
 });
+
+export const mutual = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+});
+
+export const mutualToggle = style([
+  infoRow,
+  {
+    width: '100%',
+    padding: '8px 10px',
+    borderRadius: vars.radius.md,
+    border: `1px solid ${vars.color.border}`,
+    backgroundColor: vars.color.bgTertiary,
+    fontFamily: 'inherit',
+    textAlign: 'left',
+    cursor: 'pointer',
+    transition: `background-color ${fast}`,
+    ':hover': { backgroundColor: vars.color.bgHover },
+  },
+]);
+
+export const mutualCaret = style({
+  color: vars.color.textMuted,
+  flexShrink: 0,
+  transition: `transform ${fast}`,
+});
+
+export const mutualCaretOpen = style([mutualCaret, { transform: 'rotate(180deg)' }]);
+
+export const mutualList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  maxHeight: '180px',
+  overflowY: 'auto',
+});
+
+export const mutualGroup = style({
+  display: 'flex',
+  flexDirection: 'column',
+});
+
+export const mutualHeading = style({
+  padding: '6px 6px 2px',
+  fontSize: '0.72rem',
+  fontWeight: 600,
+  color: vars.color.textMuted,
+});
+
+export const mutualItem = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  width: '100%',
+  padding: '5px 6px',
+  borderRadius: vars.radius.sm,
+  border: 'none',
+  background: 'none',
+  color: vars.color.textPrimary,
+  fontFamily: 'inherit',
+  fontSize: '0.85rem',
+  textAlign: 'left',
+  cursor: 'pointer',
+  ':hover': { backgroundColor: vars.color.bgHover },
+});
+
+export const mutualName = style({
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});

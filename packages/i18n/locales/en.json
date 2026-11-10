@@ -1700,7 +1700,9 @@
     "ignoreFailed": "Failed to ignore user: {{error}}",
     "verifyUserFailed": "Couldn't start verification: {{error}}",
     "kick": "Remove from room",
-    "copyId": "Copy user ID"
+    "copyId": "Copy user ID",
+    "mutualRooms_one": "{{count}} mutual room",
+    "mutualRooms_other": "{{count}} mutual rooms"
   },
   "update": {
     "action": "Update WizardChat"

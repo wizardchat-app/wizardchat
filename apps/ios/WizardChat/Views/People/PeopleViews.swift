@@ -141,9 +141,11 @@ struct UserProfileSheet: View {
     @EnvironmentObject private var notifier: MessageNotifier
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
+    @Environment(\.roomOpener) private var roomOpener
     @State private var name: String?
     @State private var avatarUrl: String?
     @State private var statusText: String?
+    @State private var mutualRooms: [MutualRoom] = []
     @State private var rights = RoleRights(ownLevel: 0, canEditLevels: false)
     @State private var level: Int64 = 0
     @State private var isMember = false
@@ -157,6 +159,14 @@ struct UserProfileSheet: View {
     enum Action: Identifiable { case kick, ban, ignore; var id: Self { self } }
 
     private var isMe: Bool { userId == session.userId }
+
+    private var mutualGroups: [(title: String, rooms: [MutualRoom])] {
+        [
+            (String(localized: "nav.spaces"), mutualRooms.filter { $0.isSpace }),
+            (String(localized: "nav.rooms"), mutualRooms.filter { !$0.isSpace && !$0.isDirect }),
+            (String(localized: "room.dm.directMessages"), mutualRooms.filter { !$0.isSpace && $0.isDirect }),
+        ].filter { !$0.rooms.isEmpty }
+    }
 
     var body: some View {
         NavigationStack {
@@ -187,6 +197,19 @@ struct UserProfileSheet: View {
                     Section {
                         RoleMenu(roomId: roomId, userId: userId, currentLevel: level, rights: rights) {
                             Task { await load(); onChange?() }
+                        }
+                    }
+                }
+                if !mutualRooms.isEmpty {
+                    Section {
+                        NavigationLink {
+                            MutualRoomsList(groups: mutualGroups) { room in
+                                dismiss()
+                                roomOpener.open(room.roomId, room.isSpace)
+                            }
+                            .navigationTitle(L10n.format("profile.mutualRooms", mutualRooms.count))
+                        } label: {
+                            Label(L10n.format("profile.mutualRooms", mutualRooms.count), image: "ph-users-three-regular")
                         }
                     }
                 }
@@ -273,6 +296,9 @@ struct UserProfileSheet: View {
                 canBan = permissions.ban && level < rights.ownLevel
             }
         }
+        if !isMe, let rooms = try? await session.client?.mutualRooms(userId: userId) {
+            mutualRooms = rooms
+        }
         if let profile = await session.profile(of: userId) {
             name = name ?? profile.displayName
             avatarUrl = avatarUrl ?? profile.avatarUrl
@@ -306,6 +332,33 @@ struct UserProfileSheet: View {
             dismiss()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+}
+
+private struct MutualRoomsList: View {
+    let groups: [(title: String, rooms: [MutualRoom])]
+    let open: (MutualRoom) -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        ThemedList {
+            ForEach(groups, id: \.title) { group in
+                Section(group.title) {
+                    ForEach(group.rooms, id: \.roomId) { room in
+                        Button { open(room) } label: {
+                            HStack(spacing: WZ.Space.space4) {
+                                AvatarView(name: room.name ?? room.roomId, url: room.avatarUrl, size: WZ.SizeAvatar.sm)
+                                Text(room.name ?? room.roomId)
+                                    .font(.wizard(WZ.FontSize.lg))
+                                    .foregroundStyle(theme.textPrimary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

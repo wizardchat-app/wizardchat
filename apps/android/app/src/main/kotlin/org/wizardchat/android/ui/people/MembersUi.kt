@@ -1,8 +1,10 @@
 package org.wizardchat.android.ui.people
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -17,8 +19,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.ignore
@@ -30,6 +34,7 @@ import org.wizardchat.android.ui.ConfirmDialog
 import org.wizardchat.android.ui.GroupedRow
 import org.wizardchat.android.ui.GroupedSection
 import org.wizardchat.android.ui.L10n
+import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.RowDivider
 import org.wizardchat.android.ui.Spinner
 import org.wizardchat.android.ui.WizardSheet
@@ -40,6 +45,7 @@ import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.core.Member
+import org.wizardchat.core.MutualRoom
 import org.wizardchat.tokens.WZ
 
 /** A room's members grouped by role (a page inside room info or space settings) */
@@ -146,7 +152,13 @@ fun UserProfileSheet(userId: String, roomId: String?, onDismiss: () -> Unit, onC
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var reloads by remember { mutableIntStateOf(0) }
+    var mutualRooms by remember { mutableStateOf<List<MutualRoom>>(emptyList()) }
+    var mutualOpen by remember { mutableStateOf(false) }
     val isMe = userId == session.userId
+
+    LaunchedEffect(userId) {
+        if (!isMe) mutualRooms = runCatching { session.client?.mutualRooms(userId) }.getOrNull().orEmpty()
+    }
 
     LaunchedEffect(userId, roomId, reloads) {
         val client = session.client
@@ -242,6 +254,47 @@ fun UserProfileSheet(userId: String, roomId: String?, onDismiss: () -> Unit, onC
                         RoleMenu(roomId, userId, level, rights) {
                             reloads++
                             onChanged()
+                        }
+                    }
+                }
+            }
+            if (mutualRooms.isNotEmpty()) {
+                item {
+                    GroupedSection {
+                        GroupedRow(
+                            L10n.plural("profile.mutualRooms", mutualRooms.size, mutualRooms.size),
+                            icon = "users-three",
+                            iconTint = theme.accent,
+                            onClick = { mutualOpen = !mutualOpen },
+                        ) {
+                            PhIcon(
+                                "caret-down",
+                                size = WZ.SizeIcon.sm,
+                                tint = theme.textMuted,
+                                modifier = Modifier.rotate(if (mutualOpen) 180f else 0f),
+                            )
+                        }
+                        if (mutualOpen) {
+                            listOf(
+                                tr("nav.spaces") to mutualRooms.filter { it.isSpace },
+                                tr("nav.rooms") to mutualRooms.filter { !it.isSpace && !it.isDirect },
+                                tr("room.dm.directMessages") to mutualRooms.filter { !it.isSpace && it.isDirect },
+                            ).filter { it.second.isNotEmpty() }.forEach { (title, rooms) ->
+                                RowDivider()
+                                Text(
+                                    title,
+                                    Modifier.padding(start = WZ.Space.space5, top = WZ.Space.space3, bottom = WZ.Space.space1),
+                                    style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
+                                    color = theme.textMuted,
+                                )
+                                rooms.forEach { room ->
+                                    MutualRoomRow(room) {
+                                        onDismiss()
+                                        closeParents()
+                                        if (room.isSpace) navigator.openSpace(room.roomId) else navigator.openRoom(room.roomId)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -388,6 +441,29 @@ private fun RoleMenu(roomId: String, userId: String, currentLevel: Long, rights:
             onConfirm = { set(level) },
             onDismiss = { confirmLevel = null },
             message = tr(if (isSelf) "room.members.selfDemoteWarning" else "room.members.equalLevelWarning"),
+        )
+    }
+}
+
+@Composable
+private fun MutualRoomRow(room: MutualRoom, onClick: () -> Unit) {
+    val name = room.name ?: room.roomId
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space3),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+    ) {
+        Avatar(name, room.avatarUrl, WZ.SizeAvatar.sm)
+        Text(
+            name,
+            Modifier.weight(1f),
+            style = wizardFont(WZ.FontSize.md),
+            color = theme.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

@@ -60,6 +60,7 @@ import { anchorFromElement, isMenuOpenKey, useContextMenu } from '@/app/hooks/us
 import { contextMenuAtom } from '@/app/features/contextMenu/contextMenuAtom';
 import type { ContextMenuItem } from '@/app/features/contextMenu/contextMenuAtom';
 import * as css from './UserProfilePopup.css';
+import { MutualRooms } from './MutualRooms';
 
 import { makeUserPermalink } from '@/util/matrix';
 import { powerLevelOf, queryKeys, useAllRooms, useMembersIn, useRoomSettings } from '@/app/data';
@@ -694,6 +695,10 @@ export function UserProfilePopup() {
             )
           )}
         </div>
+
+        {!isOwn && client && (
+          <MutualRooms client={client} userId={profile.userId} onOpen={handleClose} />
+        )}
 
         {isOwn && profileState.source === 'userpanel' && (
           <div className={css.accountSwitcherSlot}>

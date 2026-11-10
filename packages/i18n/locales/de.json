@@ -1700,7 +1700,9 @@
     "ignoreFailed": "Benutzer konnte nicht ignoriert werden: {{error}}",
     "verifyUserFailed": "Verifizierung konnte nicht gestartet werden: {{error}}",
     "kick": "Aus dem Raum entfernen",
-    "copyId": "Nutzer-ID kopieren"
+    "copyId": "Nutzer-ID kopieren",
+    "mutualRooms_one": "{{count}} gemeinsamer Raum",
+    "mutualRooms_other": "{{count}} gemeinsame Räume"
   },
   "update": {
     "action": "WizardChat aktualisieren"

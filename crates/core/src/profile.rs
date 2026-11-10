@@ -1,5 +1,7 @@
+use futures_util::{stream, StreamExt};
 use matrix_sdk::ruma::{
     api::client::presence::get_presence::v3::Request as GetPresenceRequest,
+    events::room::member::MembershipState,
     presence::PresenceState,
     profile::{ProfileFieldName, ProfileFieldValue},
     Int, MilliSecondsSinceUnixEpoch, OwnedMxcUri,
@@ -54,6 +56,19 @@ pub struct UserProfile {
     pub presence: Option<PresenceInfo>,
     pub is_ignored: bool,
 }
+
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct MutualRoom {
+    pub room_id: String,
+    pub name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub is_space: bool,
+    pub is_direct: bool,
+}
+
+const MUTUAL_ROOM_MEMBER_FETCH_LIMIT: u64 = 1000;
 
 fn now_ms() -> u64 {
     u64::from(MilliSecondsSinceUnixEpoch::now().0)
@@ -119,6 +134,59 @@ impl WizardClient {
             presence: self.presence(user_id).await,
             is_ignored,
         })
+    }
+
+    pub async fn mutual_rooms(&self, user_id: &str) -> Result<Vec<MutualRoom>> {
+        let id = parse_user_id(user_id)?.to_owned();
+        if self.user_id().as_deref() == Some(id.as_str()) {
+            return Ok(Vec::new());
+        }
+        let mut rooms: Vec<MutualRoom> = stream::iter(self.sdk().joined_rooms())
+            .map(|room| {
+                let id = id.clone();
+                async move {
+                    if room.is_tombstoned() {
+                        return None;
+                    }
+                    let is_direct = room.is_direct().await.unwrap_or(false);
+                    let member = if room.joined_members_count() <= MUTUAL_ROOM_MEMBER_FETCH_LIMIT {
+                        room.get_member(&id).await
+                    } else {
+                        room.get_member_no_sync(&id).await
+                    };
+                    let member = member.ok().flatten()?;
+                    (*member.membership() == MembershipState::Join).then(|| MutualRoom {
+                        room_id: room.room_id().to_string(),
+                        name: room.cached_display_name().map(|name| name.to_string()),
+                        avatar_url: room
+                            .avatar_url()
+                            .or_else(|| {
+                                is_direct
+                                    .then(|| member.avatar_url().map(ToOwned::to_owned))
+                                    .flatten()
+                            })
+                            .map(|url| url.to_string()),
+                        is_space: room.is_space(),
+                        is_direct,
+                    })
+                }
+            })
+            .buffer_unordered(8)
+            .filter_map(|room| async move { room })
+            .collect()
+            .await;
+        let group = |r: &MutualRoom| {
+            if r.is_space {
+                0
+            } else if r.is_direct {
+                2
+            } else {
+                1
+            }
+        };
+        let name = |r: &MutualRoom| r.name.clone().unwrap_or_default().to_lowercase();
+        rooms.sort_by(|a, b| group(a).cmp(&group(b)).then_with(|| name(a).cmp(&name(b))));
+        Ok(rooms)
     }
 
     pub async fn own_profile(&self) -> Result<UserProfile> {

@@ -4,14 +4,18 @@ use serde_json::Value;
 
 use super::{Bytes, Listener, Subscription};
 use crate::{
-    EmojiPack, MentionRule, NotificationMode, NotificationPrefs, Presence, PresenceInfo, SearchHit,
-    UiaAuth, UiaOutcome, UserProfile, Widget, WizardClient,
+    EmojiPack, MentionRule, MutualRoom, NotificationMode, NotificationPrefs, Presence,
+    PresenceInfo, SearchHit, UiaAuth, UiaOutcome, UserProfile, Widget, WizardClient,
 };
 
 rpc_methods! {
     WizardClient(this: WizardClient) {
         call fn userProfile(user_id: String) -> UserProfile {
             this.user_profile(&user_id).await
+        }
+
+        call fn mutualRooms(user_id: String) -> Vec<MutualRoom> {
+            this.mutual_rooms(&user_id).await
         }
 
         call fn ownProfile() -> UserProfile {

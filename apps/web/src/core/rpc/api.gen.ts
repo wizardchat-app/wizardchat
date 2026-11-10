@@ -501,6 +501,14 @@ export type MentionsView = { userIds: Array<string>; room: boolean };
  */
 export type MessageKind = 'text' | 'emote' | 'notice';
 
+export type MutualRoom = {
+  roomId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  isSpace: boolean;
+  isDirect: boolean;
+};
+
 /**
  * Something that should notify the user, decided by their push rules
  */
@@ -1582,6 +1590,10 @@ export class WizardClient extends Remote {
 
   userProfile(userId: string): Promise<UserProfile> {
     return runtime.call('WizardClient.userProfile', this, [userId]) as Promise<UserProfile>;
+  }
+
+  mutualRooms(userId: string): Promise<Array<MutualRoom>> {
+    return runtime.call('WizardClient.mutualRooms', this, [userId]) as Promise<Array<MutualRoom>>;
   }
 
   ownProfile(): Promise<UserProfile> {
