@@ -860,11 +860,13 @@ fun ReactionsBar(reactions: List<ChatEntry.ReactionGroup>, onToggle: (String) ->
                 } else {
                     Text(reaction.key, fontSize = WZ.SizeIcon.sm.value.sp)
                 }
-                Text(
-                    "${reaction.count}",
-                    style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
-                    color = if (mine) theme.accent else theme.textMuted,
-                )
+                if (reaction.count > 1) {
+                    Text(
+                        "${reaction.count}",
+                        style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
+                        color = if (mine) theme.accent else theme.textMuted,
+                    )
+                }
             }
         }
     }

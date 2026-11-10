@@ -556,9 +556,11 @@ struct ReactionsBar: View {
                         } else {
                             Text(reaction.key).font(.system(size: WZ.SizeIcon.sm))
                         }
-                        Text("\(reaction.count)")
-                            .font(.wizard(WZ.FontSize.sm, .semibold).monospacedDigit())
-                            .foregroundStyle(reaction.reactedByMe ? theme.accent : theme.textMuted)
+                        if reaction.count > 1 {
+                            Text("\(reaction.count)")
+                                .font(.wizard(WZ.FontSize.sm, .semibold).monospacedDigit())
+                                .foregroundStyle(reaction.reactedByMe ? theme.accent : theme.textMuted)
+                        }
                     }
                     .padding(.horizontal, WZ.Space.space4)
                     .frame(height: WZ.Space.space8)
