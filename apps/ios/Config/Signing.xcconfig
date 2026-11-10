@@ -1,6 +1,6 @@
 // Signing of the official builds. To build with your own Apple account, copy
 // Local.example.xcconfig to Local.xcconfig (not committed) and set your values there.
-WZ_TEAM = QLN374H4MT
+WZ_TEAM = CF8GA2ZP6S
 WZ_BUNDLE_PREFIX = org.wizardchat
 WZ_APP_GROUP = group.$(WZ_BUNDLE_PREFIX).ios
 

@@ -75,6 +75,7 @@ final class MatrixSession: ObservableObject {
                 // Only forget the account when the server says it's gone; anything else (offline,
                 // a bug) keeps it so the user isn't signed out
                 SessionStore.remove(stored.session.userId)
+                Push.forget(stored.session.userId)
                 MessageNotifier.removeDelivered(userId: stored.session.userId)
                 reloadAccounts()
             } catch {
@@ -208,7 +209,16 @@ final class MatrixSession: ObservableObject {
 
     func resumeSync() async {
         guard let client, syncState != .running else { return }
+        await adoptRefreshedSession(client)
         try? await client.startSync()
+    }
+
+    private func adoptRefreshedSession(_ client: WizardClient) async {
+        guard var stored, let latest = SessionStore.all().first(where: { $0.session.userId == stored.session.userId }),
+              latest.session != stored.session else { return }
+        try? await client.adoptSession(session: latest.session)
+        stored.session = latest.session
+        self.stored = stored
     }
 
     init() {
@@ -393,6 +403,9 @@ final class MatrixSession: ObservableObject {
         avatarUrl = stored.avatarUrl
         roomList = RoomListModel(client: client)
         media = MediaLoader(client: client)
+        Push.activeClient = client
+        Push.start()
+        Task { await Push.registerAll() }
         subscriptions = [
             client.watchSession { [weak self] event in
                 MainActor.assumeIsolated { self?.sessionChanged(event) }
@@ -441,6 +454,7 @@ final class MatrixSession: ObservableObject {
     private func forget(_ stored: StoredSession) async {
         await close()
         SessionStore.remove(stored.session.userId)
+        Push.forget(stored.session.userId)
         MessageNotifier.removeDelivered(userId: stored.session.userId)
         reloadAccounts()
         state = .restoring

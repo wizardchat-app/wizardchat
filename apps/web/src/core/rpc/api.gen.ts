@@ -610,6 +610,7 @@ export type PusherConfig = {
   appName: string;
   deviceName: string;
   lang: string;
+  alertKey?: string | null;
 };
 
 export type QrLoginStatus =
@@ -1101,6 +1102,7 @@ export type StoreConfig = {
    */
   excludeInsecureDevices?: boolean;
   manualEncryptionSetup?: boolean;
+  processName?: string | null;
 };
 
 /**

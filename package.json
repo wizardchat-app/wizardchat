@@ -22,6 +22,7 @@
     "ios": "npm run assets && npm run ios:core && cd apps/ios && xcodegen generate && open WizardChat.xcodeproj",
     "ios:build": "npm run assets && apps/ios/scripts/build-core.sh && cd apps/ios && xcodegen generate && xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Release -destination generic/platform=iOS -derivedDataPath build -allowProvisioningUpdates build",
     "ios:core": "apps/ios/scripts/build-core.sh --debug",
+    "ios:release": "npm run assets && apps/ios/scripts/build-core.sh && cd apps/ios && xcodegen generate && open WizardChat.xcodeproj",
     "android": "npm run assets && npm run android:core && npm run android:install",
     "android:build": "npm run assets && apps/android/scripts/build-core.sh && cd apps/android && ./gradlew :app:assembleGplayRelease",
     "android:bundle": "npm run assets && apps/android/scripts/build-core.sh && cd apps/android && ./gradlew :app:bundleGplayRelease",
