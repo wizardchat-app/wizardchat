@@ -439,6 +439,10 @@ deploy:
       artifacts: false
     - job: build-desktop-arch
       artifacts: false
+    - job: build-android
+      artifacts: false
+    - job: release-notes
+      artifacts: false
   script:
     - |
       if [ "$DRY_RUN" = "true" ]; then
@@ -461,6 +465,12 @@ publish-desktop:
     - build-desktop-win
     - build-desktop-arch
     - build-android
+    - job: build-web-release
+      artifacts: false
+    - job: build-docker
+      artifacts: false
+    - job: release-notes
+      artifacts: false
   script:
     - node apps/desktop/scripts/publish-update.mjs
   artifacts:
