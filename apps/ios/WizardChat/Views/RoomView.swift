@@ -367,7 +367,7 @@ struct RoomView: View {
                 }
                 ForEach(timeline.entries.reversed()) { entry in
                     VStack(spacing: WZ.Space.space0) {
-                        if entry.id == unreadDividerId { NewMessagesDivider() }
+                        if entry.id == unreadDividerId { NewMessagesDivider { unreadDividerId = nil } }
                         TimelineRow(entry: entry, actions: actions, isPrivateRoom: room.isDirect)
                             .background(highlightedId == entry.id ? theme.accent.opacity(0.18) : .clear)
                     }
@@ -548,20 +548,30 @@ private struct UploadProgressRing: View {
 }
 
 private struct NewMessagesDivider: View {
+    let onDismiss: () -> Void
     @Environment(\.theme) private var theme
 
     var body: some View {
         HStack(spacing: WZ.Space.space4) {
-            Rectangle().fill(theme.danger).frame(height: WZ.Space.space0)
-            Text(String(localized: "timeline.unreadMessages"))
-                .font(.wizard(WZ.FontSize.sm, .semibold))
-                .foregroundStyle(theme.danger)
+            Rectangle().fill(theme.accent).frame(height: WZ.BorderWidth.thin)
+            Text(String(localized: "timeline.unreadMessages").uppercased())
+                .font(.wizard(WZ.FontSize.xs, .bold))
+                .tracking(0.4)
+                .foregroundStyle(theme.accent)
                 .fixedSize()
-            Rectangle().fill(theme.danger).frame(height: WZ.Space.space0)
+            Rectangle().fill(theme.accent).frame(height: WZ.BorderWidth.thin)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 16, height: 16)
+                    .background(theme.accent.opacity(0.8), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "common.dismiss"))
         }
         .padding(.horizontal, WZ.Space.space6)
-        .padding(.vertical, WZ.Space.space4)
-        .accessibilityElement(children: .combine)
+        .padding(.vertical, WZ.Space.space3)
     }
 }
 

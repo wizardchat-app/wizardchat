@@ -1,5 +1,6 @@
 package org.wizardchat.android.matrix
 
+import androidx.compose.ui.graphics.toArgb
 import android.Manifest
 import android.app.Activity
 import android.app.NotificationChannel
@@ -121,6 +122,7 @@ class MessageNotifier {
 
         val builder = NotificationCompat.Builder(context, if (sound) CHANNEL_MESSAGES else CHANNEL_SILENT)
             .setSmallIcon(smallIcon())
+            .setColor(brandColor)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -152,6 +154,7 @@ class MessageNotifier {
         val sound = prefs.notificationSounds
         val builder = NotificationCompat.Builder(context, if (sound) CHANNEL_MESSAGES else CHANNEL_SILENT)
             .setSmallIcon(smallIcon())
+            .setColor(brandColor)
             .setContentTitle(L10n.format("common.newMessage"))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setSilent(!sound)
@@ -176,6 +179,7 @@ class MessageNotifier {
         val title = L10n.format("call.missedFrom", callerName)
         val builder = NotificationCompat.Builder(context, if (sound) CHANNEL_MESSAGES else CHANNEL_SILENT)
             .setSmallIcon(smallIcon())
+            .setColor(brandColor)
             .setContentTitle(title)
             .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
             .setSilent(!sound)
@@ -232,8 +236,9 @@ class MessageNotifier {
         )
     }
 
-    private fun smallIcon(): Int =
-        PhIcons.id("chat-circle", PhWeight.fill).takeIf { it != 0 } ?: context.applicationInfo.icon
+    private fun smallIcon(): Int = org.wizardchat.android.R.drawable.ic_notification
+
+    private val brandColor: Int get() = org.wizardchat.android.ui.theme.WizardTheme.baseLogo[1].toArgb()
 
     private fun openIntent(roomId: String, userId: String): PendingIntent =
         PendingIntent.getActivity(

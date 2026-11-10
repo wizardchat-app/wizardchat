@@ -425,7 +425,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
                         label = "highlight",
                     )
                     Column(Modifier.fillMaxWidth()) {
-                        if (entry.id == unreadDividerId) NewMessagesDivider()
+                        if (entry.id == unreadDividerId) NewMessagesDivider { unreadDividerId = null }
                         Box(Modifier.background(highlight)) {
                             TimelineRow(entry, actions, room.isDirect, joinCall)
                         }
@@ -652,15 +652,31 @@ internal fun RoomTitle(room: RoomSummary) {
 }
 
 @Composable
-private fun NewMessagesDivider() {
+private fun NewMessagesDivider(onDismiss: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space4),
+        Modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space3),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
-        HorizontalDivider(Modifier.weight(1f), thickness = 1.dp, color = theme.danger)
-        Text(tr("timeline.unreadMessages"), style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = theme.danger, maxLines = 1)
-        HorizontalDivider(Modifier.weight(1f), thickness = 1.dp, color = theme.danger)
+        HorizontalDivider(Modifier.weight(1f), thickness = 1.dp, color = theme.accent)
+        Text(
+            tr("timeline.unreadMessages").uppercase(),
+            style = wizardFont(WZ.FontSize.xs, FontWeight.Bold).copy(letterSpacing = 0.4.sp),
+            color = theme.accent,
+            maxLines = 1,
+        )
+        HorizontalDivider(Modifier.weight(1f), thickness = 1.dp, color = theme.accent)
+        Box(
+            Modifier
+                .size(16.dp)
+                .clip(CircleShape)
+                .background(theme.accent.copy(alpha = 0.8f))
+                .clickable(onClick = onDismiss)
+                .semantics { contentDescription = L10n.format("common.dismiss") },
+            contentAlignment = Alignment.Center,
+        ) {
+            PhIcon("x", PhWeight.bold, size = 9.dp, tint = Color.White)
+        }
     }
 }
 

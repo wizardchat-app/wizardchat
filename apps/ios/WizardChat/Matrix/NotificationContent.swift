@@ -20,29 +20,23 @@ enum NotificationContent {
         if notification.highlight { content.interruptionLevel = .timeSensitive }
     }
 
+    /// A message notification as a conversation, so iOS shows a picture. iOS shows the sender's picture,
+    /// so the room itself is the sender: its avatar and name, like Android, with "Name: text" as the body
     static func asMessage(_ content: UNMutableNotificationContent, from notification: WizardChatCore.Notification,
                           senderAvatar: Data?, roomAvatar: Data?) async -> UNNotificationContent {
-        let senderImage = (notification.isDirect ? roomAvatar ?? senderAvatar : senderAvatar).map { INImage(imageData: $0) }
-        content.body = notification.body.isEmpty ? String(localized: "common.newMessage") : notification.body
-        let sender = INPerson(personHandle: INPersonHandle(value: notification.sender, type: .unknown),
-                              nameComponents: nil, displayName: notification.senderName ?? notification.sender,
-                              image: senderImage, contactIdentifier: nil,
-                              customIdentifier: notification.sender)
-        let group = notification.isDirect ? nil : notification.roomName.map { INSpeakableString(spokenPhrase: $0) }
-        var recipients: [INPerson]?
-        if group != nil, let me = content.userInfo["userId"] as? String {
-            recipients = [INPerson(personHandle: INPersonHandle(value: me, type: .unknown), nameComponents: nil,
-                                   displayName: nil, image: nil, contactIdentifier: nil, customIdentifier: me,
-                                   isMe: true),
-                          sender]
-        }
-        let intent = INSendMessageIntent(recipients: recipients, outgoingMessageType: .outgoingMessageText,
-                                         content: content.body, speakableGroupName: group,
+        let text = notification.body.isEmpty ? String(localized: "common.newMessage") : notification.body
+        let senderName = notification.senderName ?? notification.sender
+        let isRoom = !notification.isDirect && notification.roomName != nil
+        content.body = isRoom ? "\(senderName): \(text)" : text
+        let image = (roomAvatar ?? senderAvatar).map { INImage(imageData: $0) }
+        let id = isRoom ? notification.roomId : notification.sender
+        let sender = INPerson(personHandle: INPersonHandle(value: id, type: .unknown), nameComponents: nil,
+                              displayName: isRoom ? notification.roomName : senderName, image: image,
+                              contactIdentifier: nil, customIdentifier: id)
+        let intent = INSendMessageIntent(recipients: nil, outgoingMessageType: .outgoingMessageText,
+                                         content: content.body, speakableGroupName: nil,
                                          conversationIdentifier: notification.roomId, serviceName: nil, sender: sender,
                                          attachments: nil)
-        if group != nil, let roomAvatar {
-            intent.setImage(INImage(imageData: roomAvatar), forParameterNamed: \.speakableGroupName)
-        }
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .incoming
         try? await interaction.donate()
