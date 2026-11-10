@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -48,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +73,7 @@ import org.wizardchat.android.ui.WizardSheet
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.android.ui.trPlural
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.tokens.WZ
 import io.livekit.android.room.Room as LiveKitRoom
@@ -259,6 +263,42 @@ private fun ScreenShareTile(roomId: String, participant: CallParticipantInfo, tr
                 .background(theme.bgTertiary.copy(alpha = 0.85f))
                 .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
         )
+        Row(
+            Modifier.align(Alignment.TopStart).padding(WZ.Space.space4),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val chip = wizardFont(WZ.FontSize.xs, FontWeight.Bold)
+            Text(
+                tr("call.live"),
+                Modifier
+                    .height(18.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF593695))
+                    .padding(horizontal = 7.dp)
+                    .wrapContentHeight(),
+                style = chip,
+                color = Color.White,
+                letterSpacing = 0.3.sp,
+            )
+            val watchers = participant.screenWatchers.size
+            if (participant.isLocal && watchers > 0) {
+                val label = trPlural("call.streamViewers", watchers, watchers)
+                Row(
+                    Modifier
+                        .height(18.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(horizontal = 7.dp)
+                        .clearAndSetSemantics { contentDescription = label },
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PhIcon("eye", size = 12.dp, tint = Color.White)
+                    Text("$watchers", style = chip, color = Color.White)
+                }
+            }
+        }
     }
 }
 

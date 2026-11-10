@@ -165,6 +165,29 @@ private struct ScreenShareTile: View {
                     .background(.regularMaterial, in: Capsule())
                     .padding(WZ.Space.space4)
             }
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 6) {
+                    Text(String(localized: "call.live"))
+                        .tracking(0.3)
+                        .padding(.horizontal, 7)
+                        .frame(height: 18)
+                        .background(Color(red: 0x59 / 255, green: 0x36 / 255, blue: 0x95 / 255), in: Capsule())
+                    if participant.isLocal, !participant.screenWatchers.isEmpty {
+                        HStack(spacing: 4) {
+                            Image("ph-eye-regular").font(.system(size: 12, weight: .bold))
+                            Text(verbatim: "\(participant.screenWatchers.count)")
+                        }
+                        .padding(.horizontal, 7)
+                        .frame(height: 18)
+                        .background(.black.opacity(0.6), in: Capsule())
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(L10n.format("call.streamViewers", participant.screenWatchers.count))
+                    }
+                }
+                .font(.wizard(WZ.FontSize.xs, .bold))
+                .foregroundStyle(.white)
+                .padding(WZ.Space.space4)
+            }
             .task(id: participant.userId) {
                 name = await session.memberProfile(participant.userId, in: roomId).name
             }

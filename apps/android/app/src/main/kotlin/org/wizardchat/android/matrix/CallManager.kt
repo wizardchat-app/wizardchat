@@ -47,7 +47,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import livekit.org.webrtc.FrameCryptorKeyDerivationAlgorithm
 import livekit.org.webrtc.RtpParameters
 import org.wizardchat.android.WizardApplication
@@ -88,6 +95,7 @@ data class CallParticipantInfo(
     val reaction: String? = null,
     val volume: Double = 1.0,
     val locallyMuted: Boolean = false,
+    val screenWatchers: List<String> = emptyList(),
 ) {
     val id: String get() = identity
 }
@@ -226,6 +234,8 @@ class CallManager {
     private val appliedVolumes = mutableMapOf<String, Double>()
     private val reactions = mutableMapOf<String, String>()
     private val raisedHands = mutableSetOf<String>()
+    private var watchedScreens = setOf<String>()
+    private val streamWatchers = mutableSetOf<String>()
 
     init {
         notification.end()
@@ -380,6 +390,8 @@ class CallManager {
         participants = emptyList()
         reactions.clear()
         raisedHands.clear()
+        watchedScreens = emptySet()
+        streamWatchers.clear()
         handRaised = false
         cameraOn = false
         screenSharing = false
@@ -747,6 +759,22 @@ class CallManager {
         }
     }
 
+    private fun announceWatchedScreens(list: List<CallParticipantInfo>) {
+        val shown = list.filter { !it.isLocal && it.screenTrack != null }.map { it.identity }.toSet()
+        if (shown == watchedScreens) return
+        for (owner in shown - watchedScreens) sendData(buildJsonObject { put("owner", owner); put("watching", true) }, STREAM_WATCH_TOPIC)
+        for (owner in watchedScreens - shown) sendData(buildJsonObject { put("owner", owner); put("watching", false) }, STREAM_WATCH_TOPIC)
+        watchedScreens = shown
+    }
+
+    private fun receiveStreamWatch(data: ByteArray, from: String) {
+        val message = runCatching { Json.parseToJsonElement(data.decodeToString()).jsonObject }.getOrNull() ?: return
+        val own = publisher?.localParticipant?.identity?.value
+        if (from.isEmpty() || own == null || message["owner"]?.jsonPrimitive?.contentOrNull != own) return
+        if (message["watching"]?.jsonPrimitive?.booleanOrNull == true) streamWatchers.add(from) else streamWatchers.remove(from)
+        refresh()
+    }
+
     private fun refresh() {
         if (session == null) {
             if (participants.isNotEmpty()) participants = emptyList()
@@ -759,6 +787,7 @@ class CallManager {
         val publisher = publisher
         val local = publisher?.localParticipant
         if (local != null && screenSharing && !local.isScreenShareEnabled) screenSharing = false
+        if (screenSharing) streamWatchers.retainAll(remotes.keys) else streamWatchers.clear()
         val list = mutableListOf<CallParticipantInfo>()
         val seen = mutableSetOf<String>()
         for (member in members) {
@@ -793,6 +822,7 @@ class CallManager {
                 volume = userVolumes[member.userId] ?: 1.0,
                 locallyMuted = member.userId in mutedUsers,
             )
+            if (isLocal) info = info.copy(screenWatchers = members.filter { it.identity in streamWatchers }.map { it.userId }.distinct())
             list.add(info)
 
             // Deafen and per-person volume, applied only when they change
@@ -809,6 +839,7 @@ class CallManager {
             }
         }
         if (list != participants) participants = list
+        announceWatchedScreens(list)
         notification.update(activityState)
     }
 
@@ -816,8 +847,11 @@ class CallManager {
         when (event) {
             is RoomEvent.Reconnecting -> if (livekit === publisher) reconnecting = true
             is RoomEvent.Reconnected -> if (livekit === publisher) reconnecting = false
-            is RoomEvent.DataReceived ->
-                if (event.topic == WatchTogether.TOPIC) watch?.receive(event.data, event.participant?.identity?.value ?: "")
+            is RoomEvent.DataReceived -> {
+                val from = event.participant?.identity?.value ?: ""
+                if (event.topic == WatchTogether.TOPIC) watch?.receive(event.data, from)
+                if (event.topic == STREAM_WATCH_TOPIC) receiveStreamWatch(event.data, from)
+            }
             is RoomEvent.Disconnected -> {
                 if (livekit !in connections.values || state != State.Joined) return
                 val wasPublisher = livekit === publisher
@@ -953,6 +987,7 @@ class CallManager {
 
     companion object {
         private const val TAG = "WZCALL"
+        private const val STREAM_WATCH_TOPIC = "org.wizardchat.stream-watch"
         private const val REACTION_VISIBLE_MILLIS = 3000L
         private const val CONNECT_TIMEOUT_MILLIS = 30_000L
         private const val RECONNECT_GIVE_UP_MILLIS = 120_000L

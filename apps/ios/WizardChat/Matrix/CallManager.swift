@@ -19,12 +19,14 @@ struct CallParticipantInfo: Identifiable, Equatable {
     var reaction: String?
     var volume: Double = 1
     var locallyMuted = false
+    var screenWatchers: [String] = []
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.identity == rhs.identity && lhs.connected == rhs.connected && lhs.speaking == rhs.speaking
             && lhs.micMuted == rhs.micMuted && lhs.cameraTrack === rhs.cameraTrack
             && lhs.screenTrack === rhs.screenTrack && lhs.handRaised == rhs.handRaised
             && lhs.reaction == rhs.reaction && lhs.volume == rhs.volume && lhs.locallyMuted == rhs.locallyMuted
+            && lhs.screenWatchers == rhs.screenWatchers
     }
 }
 
@@ -96,6 +98,9 @@ final class CallManager: NSObject, ObservableObject {
     private var appliedVolumes: [String: Double] = [:]
     private var reactions: [String: String] = [:]
     private var raisedHands: Set<String> = []
+    private static let streamWatchTopic = "org.wizardchat.stream-watch"
+    private var watchedScreens: Set<String> = []
+    private var streamWatchers: Set<String> = []
 
     override init() {
         micMuted = UserDefaults.standard.bool(forKey: "voice.micMuted")
@@ -264,6 +269,8 @@ final class CallManager: NSObject, ObservableObject {
         participants = []
         reactions = [:]
         raisedHands = []
+        watchedScreens = []
+        streamWatchers = []
         handRaised = false
         cameraOn = false
         screenSharing = false
@@ -541,6 +548,21 @@ final class CallManager: NSObject, ObservableObject {
         }
     }
 
+    private func announceWatchedScreens(_ list: [CallParticipantInfo]) {
+        let shown = Set(list.filter { !$0.isLocal && $0.screenTrack != nil }.map(\.identity))
+        guard shown != watchedScreens else { return }
+        for owner in shown.subtracting(watchedScreens) { sendData(["owner": owner, "watching": true], topic: Self.streamWatchTopic) }
+        for owner in watchedScreens.subtracting(shown) { sendData(["owner": owner, "watching": false], topic: Self.streamWatchTopic) }
+        watchedScreens = shown
+    }
+
+    private func receiveStreamWatch(_ data: Data, from: String) {
+        guard !from.isEmpty, let message = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let owner = message["owner"] as? String, owner == publisher?.localParticipant.identity?.stringValue else { return }
+        if message["watching"] as? Bool == true { streamWatchers.insert(from) } else { streamWatchers.remove(from) }
+        refresh()
+    }
+
     private func refresh() {
         guard session != nil else { if !participants.isEmpty { participants = [] }; return }
         var remotes: [String: RemoteParticipant] = [:]
@@ -549,6 +571,7 @@ final class CallManager: NSObject, ObservableObject {
         }
         let local = publisher?.localParticipant
         if let local, screenSharing, !local.isScreenShareEnabled() { screenSharing = false }
+        if screenSharing { streamWatchers.formIntersection(remotes.keys) } else { streamWatchers = [] }
         var list: [CallParticipantInfo] = []
         var seen = Set<String>()
         for member in members where seen.insert(member.identity).inserted {
@@ -571,6 +594,11 @@ final class CallManager: NSObject, ObservableObject {
             info.reaction = reactions[member.identity]
             info.volume = userVolumes[member.userId] ?? 1
             info.locallyMuted = mutedUsers.contains(member.userId)
+            if isLocal {
+                var seenWatchers = Set<String>()
+                info.screenWatchers = members.filter { streamWatchers.contains($0.identity) }.map(\.userId)
+                    .filter { seenWatchers.insert($0).inserted }
+            }
             list.append(info)
 
             // Deafen and per-person volume, applied only when they change
@@ -587,6 +615,7 @@ final class CallManager: NSObject, ObservableObject {
             }
         }
         if list != participants { participants = list }
+        announceWatchedScreens(list)
         liveActivity.update(activityState)
     }
 }
@@ -759,6 +788,7 @@ extension CallManager: RoomDelegate {
         let from = participant?.identity?.stringValue ?? ""
         Task { @MainActor in
             if topic == WatchTogether.topic { self.watch?.receive(data, from: from) }
+            if topic == Self.streamWatchTopic { self.receiveStreamWatch(data, from: from) }
         }
     }
 
