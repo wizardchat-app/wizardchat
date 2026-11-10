@@ -12,8 +12,7 @@ struct GiphyGif: Identifiable, Codable, Hashable {
 struct GifPicker: View {
     let onPick: (GiphyGif) async -> Void
 
-    private static let apiKey = "TGnndTV82UWqYITMnla1ZOiPBJBesE7x"
-    private static let api = "https://api.giphy.com/v1/gifs"
+    private static let api = "https://gifs.wizardchat.org/v1/gifs"
 
     @Environment(\.theme) private var theme
     @AppStorage("gifConsent") private var consented = false
@@ -136,8 +135,8 @@ struct GifPicker: View {
         defer { loading = false }
         let query = search.trimmingCharacters(in: .whitespaces)
         let endpoint = query.isEmpty
-            ? "\(Self.api)/trending?api_key=\(Self.apiKey)&limit=30"
-            : "\(Self.api)/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&api_key=\(Self.apiKey)&limit=30"
+            ? "\(Self.api)/trending?limit=30"
+            : "\(Self.api)/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&limit=30"
         guard let url = URL(string: endpoint),
               let (data, _) = try? await URLSession.shared.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

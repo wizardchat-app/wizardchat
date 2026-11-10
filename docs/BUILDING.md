@@ -54,3 +54,10 @@ keystore, `base64 -i wizardchat-release.jks`) and `ANDROID_KEYSTORE_PASSWORD`; t
 Both build the `gplay` flavor, which gets push notifications through Firebase. Its config in
 `apps/android/app/src/gplay/res/values/firebase.xml` comes from the Firebase project's `google-services.json`. The
 `fdroid` flavor has no Google code.
+
+## GIF search
+
+The GIF pickers search Giphy through a small Cloudflare Worker (`packaging/gif-proxy/worker.js`) at
+`https://gifs.wizardchat.org`, which adds the API key from its secret `GIPHY_API_KEY`, so the key isn't in any app.
+The web and desktop builds take another address from `GIF_API_URL` (e.g. `GIF_API_URL=https://gifs.example.org npm run
+build`); the iOS and Android apps have it in their `GifPicker`.

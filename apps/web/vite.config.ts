@@ -72,6 +72,9 @@ export default defineConfig(({ mode }) => {
     define: {
       'import.meta.env.APP_VERSION': JSON.stringify(appVersion),
       'import.meta.env.DESKTOP': JSON.stringify(desktop),
+      'import.meta.env.GIF_API_URL': JSON.stringify(
+        process.env.GIF_API_URL ?? 'https://gifs.wizardchat.org'
+      ),
       'import.meta.env.APP_HOME_URL': JSON.stringify(
         packageJson.homepage ?? 'https://wizardchat.org'
       ),

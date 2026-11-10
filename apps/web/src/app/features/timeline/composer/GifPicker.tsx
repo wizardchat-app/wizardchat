@@ -14,8 +14,7 @@ import { getErrorMessage } from '@/util/error';
 import { GIF_FAVOURITES_CAP, useGifFavourites } from '@/app/hooks/useGifFavourites';
 import * as css from './GifPicker.css';
 
-const GIPHY_API_KEY = 'TGnndTV82UWqYITMnla1ZOiPBJBesE7x';
-const GIPHY_API = 'https://api.giphy.com/v1/gifs';
+const GIF_API = `${import.meta.env.GIF_API_URL}/v1/gifs`;
 
 interface GiphyImage {
   url: string;
@@ -95,7 +94,7 @@ export function GifPicker({
     mounted.current = true;
     (async () => {
       try {
-        const res = await fetch(`${GIPHY_API}/trending?api_key=${GIPHY_API_KEY}&limit=30`);
+        const res = await fetch(`${GIF_API}/trending?limit=30`);
         const data = await res.json();
         setTrending(data.data || []);
       } catch {
@@ -113,9 +112,7 @@ export function GifPicker({
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(
-          `${GIPHY_API}/search?q=${encodeURIComponent(query)}&api_key=${GIPHY_API_KEY}&limit=30`
-        );
+        const res = await fetch(`${GIF_API}/search?q=${encodeURIComponent(query)}&limit=30`);
         const data = await res.json();
         setResults(data.data || []);
       } catch {

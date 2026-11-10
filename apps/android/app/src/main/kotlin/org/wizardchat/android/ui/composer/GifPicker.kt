@@ -76,8 +76,7 @@ data class GiphyGif(
     val height: Int,
 )
 
-private const val GIPHY_API_KEY = "TGnndTV82UWqYITMnla1ZOiPBJBesE7x"
-private const val GIPHY_API = "https://api.giphy.com/v1/gifs"
+private const val GIF_API = "https://gifs.wizardchat.org/v1/gifs"
 private val favouritesSerializer = ListSerializer(GiphyGif.serializer())
 
 /** Downloads a URL's bytes (GIFs from Giphy) */
@@ -248,9 +247,9 @@ fun GifPicker(onPick: suspend (GiphyGif) -> Unit) {
 
 private suspend fun loadGifs(query: String): List<GiphyGif>? {
     val endpoint = if (query.isEmpty()) {
-        "$GIPHY_API/trending?api_key=$GIPHY_API_KEY&limit=30"
+        "$GIF_API/trending?limit=30"
     } else {
-        "$GIPHY_API/search?q=${URLEncoder.encode(query, "UTF-8")}&api_key=$GIPHY_API_KEY&limit=30"
+        "$GIF_API/search?q=${URLEncoder.encode(query, "UTF-8")}&limit=30"
     }
     val data = download(endpoint) ?: return null
     val json = runCatching { Json.parseToJsonElement(data.decodeToString()) as? JsonObject }.getOrNull() ?: return null
