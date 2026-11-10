@@ -1264,6 +1264,8 @@
       "previewOwnMessage": "Nachricht für {{mention}} wird gezaubert",
       "themedAppIcon": "Thematisches App-Icon",
       "colorUsernames": "Namen einfärben",
+      "groupImages": "Bilder zu Galerien zusammenfassen",
+      "groupImagesNote": "Nacheinander gesendete Bilder werden zusammen in einem Raster angezeigt.",
       "prettifyLinks": "Links kürzen",
       "prettifyLinksNote": "Zeige Links als saubere Domainnamen anstatt vollständige URLs.",
       "markdown": "Markdown aktivieren",

@@ -56,6 +56,7 @@ export interface Preferences {
   showRoomAvatars: boolean;
   showPresenceDots: boolean;
   colorUsernames: boolean;
+  groupImages: boolean;
   autoplayGifs: boolean;
   mediaVisibility: MediaVisibility;
   reducedMotion: ReducedMotion;
@@ -89,6 +90,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showRoomAvatars: true,
   showPresenceDots: true,
   colorUsernames: true,
+  groupImages: true,
   autoplayGifs: false,
   mediaVisibility: 'always',
   reducedMotion: 'system',
@@ -125,6 +127,7 @@ export const markdownAtom = preferenceFieldAtom('markdown');
 export const showRoomAvatarsAtom = preferenceFieldAtom('showRoomAvatars');
 export const showPresenceDotsAtom = preferenceFieldAtom('showPresenceDots');
 export const colorUsernamesAtom = preferenceFieldAtom('colorUsernames');
+export const groupImagesAtom = preferenceFieldAtom('groupImages');
 export const autoplayGifsAtom = preferenceFieldAtom('autoplayGifs');
 export const mediaVisibilityAtom = preferenceFieldAtom('mediaVisibility');
 export const reducedMotionAtom = preferenceFieldAtom('reducedMotion');

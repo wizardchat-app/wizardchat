@@ -564,7 +564,18 @@ final class TimelineModel: ObservableObject {
             entries[index].isGrouped = previous.sender == current.sender
                 && current.timestamp.timeIntervalSince(previous.timestamp) < Self.groupingInterval
         }
-        self.entries = kind == .main && onlyTypes == nil ? Self.collapseGalleries(entries) : entries
+        ungrouped = entries
+        regroup()
+    }
+
+    private var ungrouped: [ChatEntry] = []
+
+    var groupImages = UserDefaults.standard.object(forKey: "groupImages") as? Bool ?? true {
+        didSet { if groupImages != oldValue { regroup() } }
+    }
+
+    private func regroup() {
+        entries = groupImages && kind == .main && onlyTypes == nil ? Self.collapseGalleries(ungrouped) : ungrouped
     }
 
     private static func makeEntry(_ item: TimelineEntry, ownUserId: String) -> ChatEntry? {

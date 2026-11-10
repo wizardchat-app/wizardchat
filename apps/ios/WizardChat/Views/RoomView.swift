@@ -288,6 +288,7 @@ struct RoomView: View {
             UserProfileSheet(userId: item.id, roomId: room.id)
         }
         .task { await timeline.start() }
+        .onChange(of: prefs.groupImages, initial: true) { _, group in timeline.groupImages = group }
         .fullScreenCover(item: $menuTarget, onDismiss: {
             afterMenu?()
             afterMenu = nil

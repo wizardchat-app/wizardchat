@@ -90,6 +90,9 @@ struct AppearanceSettings: View {
                 SettingsDivider()
                 ToggleRow(label: "settings.appearance.colorUsernames", isOn: $prefs.colorUsernames)
                 SettingsDivider()
+                ToggleRow(label: "settings.appearance.groupImages", note: "settings.appearance.groupImagesNote",
+                          isOn: $prefs.groupImages)
+                SettingsDivider()
                 ToggleRow(label: "settings.appearance.prettifyLinks",
                           note: "settings.appearance.prettifyLinksNote",
                           isOn: $prefs.prettifyLinks)

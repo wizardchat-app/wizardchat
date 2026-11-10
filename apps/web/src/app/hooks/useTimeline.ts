@@ -1,4 +1,6 @@
+import { useAtomValue } from 'jotai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { groupImagesAtom } from '@/app/store/atoms/settings';
 import { useTranslation } from 'react-i18next';
 import type { RoomTimeline, TimelineEntry, TimelineKind, WizardClient } from '@wizardchat/core';
 import {
@@ -100,8 +102,8 @@ export interface BuildContext {
   pinnedIds: readonly string[];
   ignoredUsers: ReadonlySet<string>;
   lookupMember?: MemberLookup;
-  /** Undecryptable events still waiting for their keys ("decrypting...") */
   decryptingIds?: ReadonlySet<string>;
+  groupImages?: boolean;
 }
 
 export type BuildItemsSeed = { prevEvent?: EventEntry | null };
@@ -122,7 +124,15 @@ export function buildItems(
   optimisticEditBodies: ReadonlyMap<string, string> = EMPTY_EDITS,
   seed: BuildItemsSeed = {}
 ): TimelineItem[] {
-  const { myId, roomPerms, pinnedIds, ignoredUsers, lookupMember, decryptingIds } = ctx;
+  const {
+    myId,
+    roomPerms,
+    pinnedIds,
+    ignoredUsers,
+    lookupMember,
+    decryptingIds,
+    groupImages = true,
+  } = ctx;
   const items: TimelineItem[] = [];
   const events = entries.filter(isEventEntry);
 
@@ -167,7 +177,7 @@ export function buildItems(
 
     // Collapse consecutive image-only uploads from the same sender into a gallery.
     let galleryEvents: EventEntry[] | null = null;
-    if (isGalleryCandidate(event, optimisticRedactedIds)) {
+    if (groupImages && isGalleryCandidate(event, optimisticRedactedIds)) {
       const group = [event];
       let prevTs = ts;
       for (let j = i + 1; j < events.length; j++) {
@@ -315,6 +325,7 @@ export function useBuildContext(client: WizardClient, roomId: string | null): Bu
   const { data: settings } = useRoomSettings(roomId);
   const { data: members } = useMembers(roomId);
   const ignored = useIgnoredUsers();
+  const groupImages = useAtomValue(groupImagesAtom);
 
   const ignoredUsers = useMemo(() => new Set(ignored), [ignored]);
   const roomPerms = useMemo(
@@ -338,8 +349,9 @@ export function useBuildContext(client: WizardClient, roomId: string | null): Bu
       pinnedIds: pinnedIds ?? [],
       ignoredUsers,
       lookupMember,
+      groupImages,
     }),
-    [myId, roomPerms, pinnedIds, ignoredUsers, lookupMember]
+    [myId, roomPerms, pinnedIds, ignoredUsers, lookupMember, groupImages]
   );
   return context;
 }

@@ -24,6 +24,7 @@ const SYNCED_PREFERENCES = {
   showRoomAvatars: isBoolean,
   showPresenceDots: isBoolean,
   colorUsernames: isBoolean,
+  groupImages: isBoolean,
   themedAppIcon: isBoolean,
   chatFontSize: (value: unknown) =>
     typeof value === 'number' && Number.isInteger(value) && value >= 8 && value <= 48,

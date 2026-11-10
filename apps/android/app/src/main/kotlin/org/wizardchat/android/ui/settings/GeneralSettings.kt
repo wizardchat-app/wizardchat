@@ -157,6 +157,13 @@ internal fun AppearanceSettings(onBack: () -> Unit) {
             ToggleRow(tr("settings.appearance.colorUsernames"), prefs.colorUsernames, { prefs.colorUsernames = it })
             SettingsDivider()
             ToggleRow(
+                tr("settings.appearance.groupImages"),
+                prefs.groupImages,
+                { prefs.groupImages = it },
+                note = tr("settings.appearance.groupImagesNote"),
+            )
+            SettingsDivider()
+            ToggleRow(
                 tr("settings.appearance.prettifyLinks"),
                 prefs.prettifyLinks,
                 { prefs.prettifyLinks = it },

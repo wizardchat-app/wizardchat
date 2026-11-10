@@ -191,6 +191,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val timeline = remember(room.id, threadRoot) { TimelineModel(client, room.id, threadRoot) }
+    LaunchedEffect(timeline, prefs.groupImages) { timeline.groupImages = prefs.groupImages }
     val navigator = LocalNavigator.current
     var showThreads by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()

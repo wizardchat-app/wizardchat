@@ -621,7 +621,21 @@ class TimelineModel(
                     current.timestamp.toEpochMilli() - previous.timestamp.toEpochMilli() < GROUPING_INTERVAL_MS,
             )
         }
-        this.entries = if (kind == TimelineKind.Main && onlyTypes == null) collapseGalleries(entries) else entries
+        ungrouped = entries
+        regroup()
+    }
+
+    private var ungrouped: List<ChatEntry> = emptyList()
+
+    var groupImages: Boolean = WizardApplication.instance.prefs.groupImages
+        set(value) {
+            if (field == value) return
+            field = value
+            regroup()
+        }
+
+    private fun regroup() {
+        entries = if (groupImages && kind == TimelineKind.Main && onlyTypes == null) collapseGalleries(ungrouped) else ungrouped
     }
 
     private fun displayName(uri: Uri): String? = runCatching {

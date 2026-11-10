@@ -8,6 +8,7 @@ import {
   showRoomAvatarsAtom,
   showPresenceDotsAtom,
   colorUsernamesAtom,
+  groupImagesAtom,
   themedAppIconAtom,
   chatFontSizeAtom,
   chatDensityAtom,
@@ -203,6 +204,7 @@ export function Appearance() {
   const [showRoomAvatars, setShowRoomAvatars] = useAtom(showRoomAvatarsAtom);
   const [showPresenceDots, setShowPresenceDots] = useAtom(showPresenceDotsAtom);
   const [colorUsernames, setColorUsernames] = useAtom(colorUsernamesAtom);
+  const [groupImages, setGroupImages] = useAtom(groupImagesAtom);
   const [themedAppIcon, setThemedAppIcon] = useAtom(themedAppIconAtom);
   const [chatFontSize, setChatFontSize] = useAtom(chatFontSizeAtom);
   const [chatDensity, setChatDensity] = useAtom(chatDensityAtom);
@@ -305,6 +307,12 @@ export function Appearance() {
           label={t('settings.appearance.colorUsernames')}
           checked={colorUsernames}
           onChange={setColorUsernames}
+        />
+        <ToggleRow
+          label={t('settings.appearance.groupImages')}
+          description={t('settings.appearance.groupImagesNote')}
+          checked={groupImages}
+          onChange={setGroupImages}
         />
         <ToggleRow
           label={t('settings.appearance.prettifyLinks')}

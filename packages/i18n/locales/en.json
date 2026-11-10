@@ -1264,6 +1264,8 @@
       "previewOwnMessage": "casting a message for {{mention}}",
       "themedAppIcon": "Themed app icon",
       "colorUsernames": "Colour usernames",
+      "groupImages": "Group images into galleries",
+      "groupImagesNote": "Images sent one after another show together in a grid.",
       "prettifyLinks": "Prettify links",
       "prettifyLinksNote": "Display links as clean domain names instead of full URLs.",
       "markdown": "Enable Markdown",
