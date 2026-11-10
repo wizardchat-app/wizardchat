@@ -22,14 +22,21 @@ enum NotificationContent {
 
     static func asMessage(_ content: UNMutableNotificationContent, from notification: WizardChatCore.Notification,
                           senderAvatar: Data?, roomAvatar: Data?) async -> UNNotificationContent {
-        let senderImage = (senderAvatar ?? (notification.isDirect ? roomAvatar : nil)).map { INImage(imageData: $0) }
+        let senderImage = (notification.isDirect ? roomAvatar ?? senderAvatar : senderAvatar).map { INImage(imageData: $0) }
         content.body = notification.body.isEmpty ? String(localized: "common.newMessage") : notification.body
         let sender = INPerson(personHandle: INPersonHandle(value: notification.sender, type: .unknown),
                               nameComponents: nil, displayName: notification.senderName ?? notification.sender,
                               image: senderImage, contactIdentifier: nil,
                               customIdentifier: notification.sender)
         let group = notification.isDirect ? nil : notification.roomName.map { INSpeakableString(spokenPhrase: $0) }
-        let intent = INSendMessageIntent(recipients: nil, outgoingMessageType: .outgoingMessageText,
+        var recipients: [INPerson]?
+        if group != nil, let me = content.userInfo["userId"] as? String {
+            recipients = [INPerson(personHandle: INPersonHandle(value: me, type: .unknown), nameComponents: nil,
+                                   displayName: nil, image: nil, contactIdentifier: nil, customIdentifier: me,
+                                   isMe: true),
+                          sender]
+        }
+        let intent = INSendMessageIntent(recipients: recipients, outgoingMessageType: .outgoingMessageText,
                                          content: content.body, speakableGroupName: group,
                                          conversationIdentifier: notification.roomId, serviceName: nil, sender: sender,
                                          attachments: nil)
