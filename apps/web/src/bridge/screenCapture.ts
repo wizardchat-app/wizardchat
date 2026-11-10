@@ -5,6 +5,7 @@
  * (48 kHz stereo float samples) plays through an audio worklet into the audio track.
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import i18n from '@/i18n';
 
 interface NativeSource {
@@ -15,6 +16,8 @@ interface NativeSource {
 }
 
 type Choice = { id: string; name: string; audio: boolean } | null;
+
+export const SHARE_PICKER_EVENT = 'share-picker-choice';
 
 const pickerListeners = new Set<() => void>();
 let pendingChoice: ((choice: Choice) => void) | null = null;
@@ -45,12 +48,26 @@ export function selectDesktopSource(source: Record<string, unknown> | null) {
   resolve?.(source ? (source as Choice) : null);
 }
 
-/** Opens the in-app picker; resolves with the chosen source, or null if cancelled */
+/**
+ * Opens the picker, in the app or (when another app is in front, after the shortcut) in a small
+ * window of its own; resolves with the chosen source, or null if cancelled
+ */
 function pickSource(): Promise<Choice> {
   selectDesktopSource(null);
   return new Promise((resolve) => {
     pendingChoice = resolve;
-    pickerListeners.forEach((listener) => listener());
+    if (document.hasFocus()) {
+      pickerListeners.forEach((listener) => listener());
+      return;
+    }
+    const listening = listen<Choice>(SHARE_PICKER_EVENT, ({ payload }) => {
+      void listening.then((stop) => stop());
+      if (pendingChoice === resolve) selectDesktopSource(payload);
+    });
+    invoke('open_share_picker', { title: i18n.t('desktopPicker.title') }).catch(() => {
+      void listening.then((stop) => stop());
+      pickerListeners.forEach((listener) => listener());
+    });
   });
 }
 

@@ -10,7 +10,7 @@ use base64::Engine;
 use serde::Serialize;
 use tauri::{
     ipc::{Channel, InvokeResponseBody},
-    State,
+    AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 
 #[cfg(target_os = "macos")]
@@ -205,4 +205,48 @@ pub fn start_screen_capture(
 #[tauri::command]
 pub fn stop_screen_capture(capture: State<'_, Capture>) {
     capture.stop();
+}
+
+const PICKER: &str = "share-picker";
+const PICKER_SIZE: (f64, f64) = (760.0, 520.0);
+
+#[tauri::command]
+pub async fn open_share_picker(app: AppHandle, title: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(PICKER) {
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    let url = WebviewUrl::App("index.html?window=share-picker".into());
+    let (width, height) = PICKER_SIZE;
+    let builder = WebviewWindowBuilder::new(&app, PICKER, url)
+        .title(title)
+        .inner_size(width, height)
+        .min_inner_size(480.0, 360.0)
+        .always_on_top(true)
+        .focused(true);
+    let monitor = app
+        .cursor_position()
+        .ok()
+        .and_then(|p| app.monitor_from_point(p.x, p.y).ok().flatten());
+    let builder = match monitor {
+        Some(monitor) => {
+            let scale = monitor.scale_factor();
+            let origin = monitor.position().to_logical::<f64>(scale);
+            let size = monitor.size().to_logical::<f64>(scale);
+            builder.position(
+                origin.x + (size.width - width) / 2.0,
+                origin.y + (size.height - height) / 2.0,
+            )
+        }
+        None => builder.center(),
+    };
+    let window = builder.build().map_err(|e| e.to_string())?;
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::Destroyed = event {
+            let _ = handle.emit("share-picker-choice", None::<()>);
+        }
+    });
+    let _ = window.set_focus();
+    Ok(())
 }

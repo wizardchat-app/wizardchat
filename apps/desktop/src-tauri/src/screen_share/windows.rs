@@ -50,6 +50,7 @@ use windows::{
                 AUDIOCLIENT_ACTIVATION_PARAMS, AUDIOCLIENT_ACTIVATION_PARAMS_0,
                 AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK, AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS,
                 PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE,
+                PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE,
                 VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, WAVEFORMATEX,
             },
             Multimedia::WAVE_FORMAT_IEEE_FLOAT,
@@ -71,10 +72,10 @@ use windows::{
             },
         },
         UI::WindowsAndMessaging::{
-            EnumWindows, GetShellWindow, GetWindow, GetWindowLongW, GetWindowRect,
-            GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsHungAppWindow,
-            IsIconic, IsWindow, IsWindowVisible, GWL_EXSTYLE, GW_OWNER, WS_EX_APPWINDOW,
-            WS_EX_TOOLWINDOW,
+            EnumChildWindows, EnumWindows, GetShellWindow, GetWindow, GetWindowLongW,
+            GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+            IsHungAppWindow, IsIconic, IsWindow, IsWindowVisible, GWL_EXSTYLE, GW_OWNER,
+            WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
         },
     },
 };
@@ -207,8 +208,7 @@ fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain([0]).collect()
 }
 
-/// The program's description from its version info, like Task Manager shows, or its file name
-fn app_name(pid: u32) -> Option<String> {
+fn process_path(pid: u32) -> Option<String> {
     let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
     let mut path = vec![0u16; 1024];
     let mut length = path.len() as u32;
@@ -222,7 +222,11 @@ fn app_name(pid: u32) -> Option<String> {
     };
     let _ = unsafe { CloseHandle(process) };
     found.ok()?;
-    let path = String::from_utf16_lossy(&path[..length as usize]);
+    Some(String::from_utf16_lossy(&path[..length as usize]))
+}
+
+fn app_name(pid: u32) -> Option<String> {
+    let path = process_path(pid)?;
     description(&path).or_else(|| {
         std::path::Path::new(&path)
             .file_stem()
@@ -524,15 +528,48 @@ impl IActivateAudioInterfaceCompletionHandler_Impl for Activated_Impl {
     }
 }
 
-/// A loopback client for everything playing except this process and its children (the webview),
-/// so the call's own audio doesn't echo back to everyone. Needs Windows 10 2004 or later.
-fn loopback_client() -> windows::core::Result<IAudioClient> {
+fn window_process(window: HWND) -> Option<u32> {
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(window, Some(&mut pid)) };
+    if pid == 0 {
+        return None;
+    }
+    let host = process_path(pid).is_some_and(|path| {
+        path.to_ascii_lowercase()
+            .ends_with("\\applicationframehost.exe")
+    });
+    if !host {
+        return Some(pid);
+    }
+    unsafe extern "system" fn find(child: HWND, found: LPARAM) -> BOOL {
+        let (host, app) = unsafe { &mut *(found.0 as *mut (u32, u32)) };
+        let mut pid = 0;
+        unsafe { GetWindowThreadProcessId(child, Some(&mut pid)) };
+        if pid != 0 && pid != *host {
+            *app = pid;
+            return false.into();
+        }
+        true.into()
+    }
+    let mut found = (pid, 0u32);
+    let _ = unsafe { EnumChildWindows(Some(window), Some(find), LPARAM(&raw mut found as isize)) };
+    Some(if found.1 != 0 { found.1 } else { pid })
+}
+
+/// A loopback client for one app's audio (`app`, with its child processes), or for everything
+/// playing except this process and its children (the webview), so the call's own audio doesn't
+/// echo back to everyone. Needs Windows 10 2004 or later.
+fn loopback_client(app: Option<u32>) -> windows::core::Result<IAudioClient> {
     let params = AUDIOCLIENT_ACTIVATION_PARAMS {
         ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
         Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 {
             ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS {
-                TargetProcessId: std::process::id(),
-                ProcessLoopbackMode: PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE,
+                TargetProcessId: app.unwrap_or_else(std::process::id),
+                ProcessLoopbackMode: if app.is_some() {
+                    PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE
+                } else {
+                    PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE
+                },
             },
         },
     };
@@ -567,8 +604,8 @@ fn loopback_client() -> windows::core::Result<IAudioClient> {
         .cast()
 }
 
-fn capture_audio(sink: &Sink, stop: &AtomicBool) -> windows::core::Result<()> {
-    let client = loopback_client()?;
+fn capture_audio(sink: &Sink, stop: &AtomicBool, app: Option<u32>) -> windows::core::Result<()> {
+    let client = loopback_client(app)?;
     let format = WAVEFORMATEX {
         wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
         nChannels: 2,
@@ -665,11 +702,17 @@ pub fn start(id: &str, with_audio: bool, sink: Sink) -> Result<Box<dyn Session>,
     let (session, pool) = video(&item, sink.clone()).map_err(|e| e.message())?;
     let audio = Arc::new(AtomicBool::new(false));
     if with_audio {
+        let app = match kind {
+            "window" => {
+                Some(window_process(HWND(number as *mut c_void)).ok_or("window not found")?)
+            }
+            _ => None,
+        };
         let stop = audio.clone();
         std::thread::spawn(move || {
             let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
-            // Older Windows can't leave out our own audio; share without audio then
-            if let Err(error) = capture_audio(&sink, &stop) {
+            // Older Windows can't capture per process; share without audio then
+            if let Err(error) = capture_audio(&sink, &stop, app) {
                 eprintln!("[screen share] no system audio: {}", error.message());
             }
         });

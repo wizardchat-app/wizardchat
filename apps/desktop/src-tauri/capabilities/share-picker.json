@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "share-picker",
+  "description": "The screen share picker window",
+  "windows": ["share-picker"],
+  "permissions": ["core:default", "core:window:allow-close"]
+}

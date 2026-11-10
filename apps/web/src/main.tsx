@@ -38,8 +38,25 @@ const queryClient = new QueryClient({
   },
 });
 
-// The sign-in popup only hands its URL back and closes
-if (!handleAuthCallbackPopup()) {
+const sharePicker =
+  import.meta.env.DESKTOP && new URLSearchParams(location.search).get('window') === 'share-picker';
+
+// The share picker window shows only the picker; the sign-in popup only hands its URL back and closes
+if (sharePicker) {
+  void Promise.all([
+    import('@/bridge/desktopApi'),
+    import('@/app/features/calls/desktopPicker/SharePickerWindow'),
+  ]).then(([{ desktopApi }, { SharePickerWindow }]) => {
+    window.desktopAPI = desktopApi;
+    const root = document.getElementById('root');
+    if (!root) throw new Error('Root element not found');
+    createRoot(root).render(
+      <StrictMode>
+        <SharePickerWindow />
+      </StrictMode>
+    );
+  });
+} else if (!handleAuthCallbackPopup()) {
   void loadCore();
   void registerNotificationServiceWorker();
   installNativeAppHooks();

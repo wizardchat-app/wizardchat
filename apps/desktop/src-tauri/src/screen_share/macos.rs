@@ -25,8 +25,8 @@ use objc2_core_video::{
 };
 use objc2_foundation::{NSArray, NSError, NSObject, NSObjectProtocol};
 use objc2_screen_capture_kit::{
-    SCContentFilter, SCDisplay, SCScreenshotManager, SCShareableContent, SCStream,
-    SCStreamConfiguration, SCStreamOutput, SCStreamOutputType, SCWindow,
+    SCContentFilter, SCDisplay, SCRunningApplication, SCScreenshotManager, SCShareableContent,
+    SCStream, SCStreamConfiguration, SCStreamOutput, SCStreamOutputType, SCWindow,
 };
 
 use super::{thumbnail, Session, Sink, Source};
@@ -266,6 +266,7 @@ fn audio(sink: &Sink, sample: &CMSampleBuffer) {
 
 struct OutputIvars {
     sink: Sink,
+    video: bool,
 }
 
 define_class!(
@@ -285,7 +286,7 @@ define_class!(
             sample: &CMSampleBuffer,
             kind: SCStreamOutputType,
         ) {
-            if kind == SCStreamOutputType::Screen {
+            if kind == SCStreamOutputType::Screen && self.ivars().video {
                 video(&self.ivars().sink, sample);
             } else if kind == SCStreamOutputType::Audio {
                 audio(&self.ivars().sink, sample);
@@ -295,15 +296,19 @@ define_class!(
 );
 
 impl Output {
-    fn new(sink: Sink) -> Retained<Self> {
-        let this = Self::alloc().set_ivars(OutputIvars { sink });
+    fn new(sink: Sink, video: bool) -> Retained<Self> {
+        let this = Self::alloc().set_ivars(OutputIvars { sink, video });
         unsafe { msg_send![super(this), init] }
     }
 }
 
-struct Capture {
+struct Stream {
     stream: Retained<SCStream>,
     _output: Retained<Output>,
+}
+
+struct Capture {
+    streams: Vec<Stream>,
     _queue: DispatchRetained<DispatchQueue>,
 }
 
@@ -312,28 +317,117 @@ unsafe impl Send for Capture {}
 
 impl Session for Capture {
     fn stop(self: Box<Self>) {
-        unsafe { self.stream.stopCaptureWithCompletionHandler(None) };
+        for stream in &self.streams {
+            unsafe { stream.stream.stopCaptureWithCompletionHandler(None) };
+        }
     }
+}
+
+fn audio_config(config: &SCStreamConfiguration) {
+    unsafe {
+        config.setCapturesAudio(true);
+        config.setSampleRate(48_000);
+        config.setChannelCount(2);
+        config.setExcludesCurrentProcessAudio(true);
+    }
+}
+
+fn open(
+    filter: &SCContentFilter,
+    config: &SCStreamConfiguration,
+    sink: Sink,
+    video: bool,
+    audio: bool,
+    queue: &DispatchQueue,
+) -> Result<Stream, String> {
+    let stream = unsafe {
+        SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), filter, config, None)
+    };
+    let output = Output::new(sink, video);
+    let handler = ProtocolObject::from_ref(&*output);
+    unsafe {
+        stream
+            .addStreamOutput_type_sampleHandlerQueue_error(
+                handler,
+                SCStreamOutputType::Screen,
+                Some(queue),
+            )
+            .map_err(|e| e.localizedDescription().to_string())?;
+        if audio {
+            stream
+                .addStreamOutput_type_sampleHandlerQueue_error(
+                    handler,
+                    SCStreamOutputType::Audio,
+                    Some(queue),
+                )
+                .map_err(|e| e.localizedDescription().to_string())?;
+        }
+    }
+    let (tx, rx) = mpsc::channel();
+    let started = RcBlock::new(move |error: *mut NSError| {
+        let _ = tx.send(if error.is_null() {
+            Ok(())
+        } else {
+            Err(error_text(error))
+        });
+    });
+    unsafe { stream.startCaptureWithCompletionHandler(Some(&started)) };
+    rx.recv_timeout(TIMEOUT).map_err(|e| e.to_string())??;
+    Ok(Stream {
+        stream,
+        _output: output,
+    })
+}
+
+fn app_audio_filter(
+    content: &SCShareableContent,
+    window: &SCWindow,
+) -> Option<Retained<SCContentFilter>> {
+    let app = unsafe { window.owningApplication() }?;
+    let bundle = unsafe { app.bundleIdentifier() }.to_string();
+    let apps: Vec<Retained<SCRunningApplication>> = unsafe { content.applications() }
+        .iter()
+        .filter(|a| unsafe {
+            a.processID() == app.processID()
+                || (!bundle.is_empty()
+                    && a.bundleIdentifier()
+                        .to_string()
+                        .starts_with(&format!("{bundle}.")))
+        })
+        .collect();
+    let display = unsafe { content.displays() }.firstObject()?;
+    let apps = NSArray::from_retained_slice(&apps);
+    Some(unsafe {
+        SCContentFilter::initWithDisplay_includingApplications_exceptingWindows(
+            SCContentFilter::alloc(),
+            &display,
+            &apps,
+            &NSArray::new(),
+        )
+    })
 }
 
 pub fn start(id: &str, with_audio: bool, sink: Sink) -> Result<Box<dyn Session>, String> {
     let content = content()?;
     let (kind, number) = id.split_once(':').ok_or("unknown source")?;
     let number: u32 = number.parse().map_err(|_| "unknown source")?;
-    let (filter, frame) = match kind {
+    let (filter, frame, audio_filter) = match kind {
         "screen" => {
             let display = unsafe { content.displays() }
                 .iter()
                 .find(|d| unsafe { d.displayID() } == number)
                 .ok_or("screen not found")?;
-            (display_filter(&display), unsafe { display.frame() })
+            (display_filter(&display), unsafe { display.frame() }, None)
         }
         "window" => {
             let window = unsafe { content.windows() }
                 .iter()
                 .find(|w| unsafe { w.windowID() } == number)
                 .ok_or("window not found")?;
-            (window_filter(&window), unsafe { window.frame() })
+            let audio = with_audio
+                .then(|| app_audio_filter(&content, &window))
+                .flatten();
+            (window_filter(&window), unsafe { window.frame() }, audio)
         }
         _ => return Err("unknown source".into()),
     };
@@ -352,51 +446,33 @@ pub fn start(id: &str, with_audio: bool, sink: Sink) -> Result<Box<dyn Session>,
         config.setMinimumFrameInterval(CMTime::new(1, 30));
         config.setShowsCursor(true);
         config.setQueueDepth(5);
-        if with_audio {
-            config.setCapturesAudio(true);
-            config.setSampleRate(48_000);
-            config.setChannelCount(2);
-            // The call's own audio would echo back to everyone
-            config.setExcludesCurrentProcessAudio(true);
-        }
     }
-    let stream = unsafe {
-        SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), &filter, &config, None)
-    };
-    let output = Output::new(sink);
+    let screen_audio = with_audio && kind == "screen";
+    if screen_audio {
+        audio_config(&config);
+    }
     let queue = DispatchQueue::new("org.wizardchat.screen-share", None);
-    let handler = ProtocolObject::from_ref(&*output);
-    unsafe {
-        stream
-            .addStreamOutput_type_sampleHandlerQueue_error(
-                handler,
-                SCStreamOutputType::Screen,
-                Some(&queue),
-            )
-            .map_err(|e| e.localizedDescription().to_string())?;
-        if with_audio {
-            stream
-                .addStreamOutput_type_sampleHandlerQueue_error(
-                    handler,
-                    SCStreamOutputType::Audio,
-                    Some(&queue),
-                )
-                .map_err(|e| e.localizedDescription().to_string())?;
+    let mut streams = vec![open(
+        &filter,
+        &config,
+        sink.clone(),
+        true,
+        screen_audio,
+        &queue,
+    )?];
+    if let Some(audio_filter) = audio_filter {
+        let config = unsafe { SCStreamConfiguration::new() };
+        unsafe {
+            config.setWidth(2);
+            config.setHeight(2);
+            config.setMinimumFrameInterval(CMTime::new(1, 1));
+            config.setShowsCursor(false);
         }
+        audio_config(&config);
+        streams.push(open(&audio_filter, &config, sink, false, true, &queue)?);
     }
-    let (tx, rx) = mpsc::channel();
-    let started = RcBlock::new(move |error: *mut NSError| {
-        let _ = tx.send(if error.is_null() {
-            Ok(())
-        } else {
-            Err(error_text(error))
-        });
-    });
-    unsafe { stream.startCaptureWithCompletionHandler(Some(&started)) };
-    rx.recv_timeout(TIMEOUT).map_err(|e| e.to_string())??;
     Ok(Box::new(Capture {
-        stream,
-        _output: output,
+        streams,
         _queue: queue,
     }))
 }

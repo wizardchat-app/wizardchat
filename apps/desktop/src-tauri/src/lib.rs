@@ -129,6 +129,7 @@ pub fn run() {
             screen_share::desktop_sources,
             screen_share::start_screen_capture,
             screen_share::stop_screen_capture,
+            screen_share::open_share_picker,
         ])
         .build(tauri::generate_context!())
         .expect("error while running WizardChat");

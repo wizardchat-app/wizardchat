@@ -1,4 +1,4 @@
-import { style } from '@vanilla-extract/css';
+import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -83,4 +83,32 @@ export const audioToggle = style({
   color: vars.color.textPrimary,
   fontSize: '0.88rem',
   cursor: 'pointer',
+});
+
+export const window = style({
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100vh',
+  backgroundColor: vars.color.bgPrimary,
+  color: vars.color.textPrimary,
+});
+
+export const windowBody = style({
+  flex: 1,
+  minHeight: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+  padding: '14px 16px 0',
+});
+
+globalStyle(`${windowBody} ${grid}`, { flex: 1, maxHeight: 'none', alignContent: 'start' });
+
+export const windowFooter = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: '8px',
+  padding: '12px 16px',
+  borderTop: `1px solid ${vars.color.border}`,
 });
