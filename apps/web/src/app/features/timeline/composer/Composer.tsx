@@ -205,6 +205,7 @@ export function Composer({
           keybinds.toggleMute,
           keybinds.toggleDeafen,
           keybinds.toggleScreenShare ?? DEFAULT_KEYBINDS.toggleScreenShare ?? '',
+          keybinds.toggleCamera ?? DEFAULT_KEYBINDS.toggleCamera ?? '',
           pushToTalk ? keybinds.pushToTalk : '',
         ];
         if (bound.some((combo) => matchesComboDown(e, parseCombo(combo)))) return;

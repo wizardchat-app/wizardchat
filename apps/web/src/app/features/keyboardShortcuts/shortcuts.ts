@@ -138,6 +138,12 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         keys: '',
         editable: true,
       },
+      {
+        id: 'toggleCamera',
+        labelKey: 'settings.keybinds.toggleCamera',
+        keys: '',
+        editable: true,
+      },
     ],
   },
 ];

@@ -312,6 +312,7 @@ export function ClientLayout() {
   const callToggleMute = callActions?.toggleMute;
   const callToggleDeafen = callActions?.toggleDeafen;
   const callToggleScreenShare = callActions?.toggleScreenshare;
+  const callToggleCamera = callActions?.toggleVideo;
 
   const placeCall = useCallback(
     async (roomId: string) => {
@@ -456,6 +457,7 @@ export function ClientLayout() {
     toggleMute: callToggleMute ?? (() => {}),
     toggleDeafen: callToggleDeafen ?? (() => {}),
     toggleScreenShare: callToggleScreenShare ?? (() => {}),
+    toggleCamera: callToggleCamera ?? (() => {}),
   });
 
   useClientNotifications();

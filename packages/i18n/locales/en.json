@@ -1404,6 +1404,7 @@
       "toggleMute": "Toggle Mute",
       "toggleDeafen": "Toggle Deafen",
       "toggleScreenShare": "Toggle Screen Share",
+      "toggleCamera": "Toggle Camera",
       "clickToSet": "Click to set",
       "pressAKey": "Press a key...",
       "escToCancel": "to cancel",

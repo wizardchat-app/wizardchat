@@ -7,7 +7,7 @@ import {
 } from '@/app/features/keyboardShortcuts/keyCombo';
 import { useEffect, useCallback, useRef } from 'react';
 
-const ACTIONS = ['toggleMute', 'toggleDeafen', 'toggleScreenShare'] as const;
+const ACTIONS = ['toggleMute', 'toggleDeafen', 'toggleScreenShare', 'toggleCamera'] as const;
 type Action = (typeof ACTIONS)[number];
 
 const isAction = (id: string): id is Action => (ACTIONS as readonly string[]).includes(id);
@@ -20,6 +20,7 @@ export function useVoiceKeybinds(
     toggleMute: () => void;
     toggleDeafen: () => void;
     toggleScreenShare: () => void;
+    toggleCamera: () => void;
   }
 ) {
   const [keybinds] = useAtom(keybindsAtom);
@@ -50,10 +51,16 @@ export function useVoiceKeybinds(
 
   const { toggleMute, toggleDeafen } = keybinds;
   const toggleScreenShare = keybinds.toggleScreenShare ?? DEFAULT_KEYBINDS.toggleScreenShare ?? '';
+  const toggleCamera = keybinds.toggleCamera ?? DEFAULT_KEYBINDS.toggleCamera ?? '';
   useEffect(() => {
     const desktop = window.desktopAPI;
     if (!isInVoiceCall || !desktop?.setGlobalKey || !desktop.onGlobalKey) return;
-    const codes: Record<Action, string> = { toggleMute, toggleDeafen, toggleScreenShare };
+    const codes: Record<Action, string> = {
+      toggleMute,
+      toggleDeafen,
+      toggleScreenShare,
+      toggleCamera,
+    };
     const active = global.current;
     let cancelled = false;
     const stop = desktop.onGlobalKey((id, down) => {
@@ -79,5 +86,5 @@ export function useVoiceKeybinds(
         return next;
       });
     };
-  }, [isInVoiceCall, toggleMute, toggleDeafen, toggleScreenShare, setStatus]);
+  }, [isInVoiceCall, toggleMute, toggleDeafen, toggleScreenShare, toggleCamera, setStatus]);
 }
