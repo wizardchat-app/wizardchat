@@ -126,6 +126,12 @@ impl WizardClient {
         } else {
             builder
         };
+        let builder = match &store.process_name {
+            Some(name) => builder.cross_process_store_config(
+                matrix_sdk::cross_process_lock::CrossProcessLockConfig::multi_process(name.clone()),
+            ),
+            None => builder,
+        };
         #[cfg(target_arch = "wasm32")]
         let builder = builder.indexeddb_store(&store.location, store.passphrase.as_deref());
         #[cfg(not(target_arch = "wasm32"))]

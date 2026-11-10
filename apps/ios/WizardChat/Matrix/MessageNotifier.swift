@@ -12,7 +12,7 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     private weak var roomList: RoomListModel?
     private var subscription: Subscription?
 
-    static let messageCategory = "message"
+    static let messageCategory = NotificationContent.messageCategory
 
     override init() {
         super.init()
@@ -53,20 +53,14 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     private func notify(_ notification: WizardChatCore.Notification) async {
         guard let prefs, prefs.notificationBanners || prefs.notificationSounds,
               notification.roomId != activeRoomId else { return }
+        let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
+        guard !delivered.contains(where: { $0.request.content.userInfo["eventId"] as? String == notification.eventId })
+        else { return }
         let content = UNMutableNotificationContent()
-        let sender = notification.senderName ?? notification.sender
-        content.title = notification.roomName ?? sender
-        content.body = notification.isDirect || notification.roomName == nil
-            ? notification.body : "\(sender): \(notification.body)"
-        if content.body.isEmpty { content.body = String(localized: "common.newMessage") }
-        content.threadIdentifier = notification.roomId
-        content.categoryIdentifier = Self.messageCategory
-        var info = ["roomId": notification.roomId, "eventId": notification.eventId]
-        if let userId = roomList?.client.userId { info["userId"] = userId }
-        content.userInfo = info
+        let userId = roomList?.client.userId
+        NotificationContent.fill(content, with: notification, userId: userId)
         if prefs.notificationSounds && notification.sound { content.sound = .default }
-        if notification.highlight { content.interruptionLevel = .timeSensitive }
-        let request = UNNotificationRequest(identifier: "\(info["userId"] ?? "")|\(notification.eventId)",
+        let request = UNNotificationRequest(identifier: "\(userId ?? "")|\(notification.eventId)",
                                             content: await withAvatar(content, for: notification), trigger: nil)
         try? await UNUserNotificationCenter.current().add(request)
     }
@@ -90,19 +84,18 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     private func withAvatar(_ content: UNMutableNotificationContent,
                             for notification: WizardChatCore.Notification) async -> UNNotificationContent {
         guard let client = roomList?.client else { return content }
-        let roomAvatar = roomList?.room(id: notification.roomId)?.avatarUrl
-        var avatar = roomAvatar
-        if notification.isDirect, avatar == nil {
-            avatar = await MemberDirectory.shared.profile(notification.sender, in: notification.roomId, client: client).avatarUrl
-        }
-        guard let avatar, let data = try? await client.thumbnail(mxc: avatar, width: 192, height: 192, crop: true) else { return content }
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).png")
-        guard (try? data.write(to: file)) != nil,
-              let attachment = try? UNNotificationAttachment(identifier: "avatar", url: file,
-                                                             options: [UNNotificationAttachmentOptionsTypeHintKey: "public.image"])
-        else { return content }
-        content.attachments = [attachment]
-        return content
+        let roomUrl = roomList?.room(id: notification.roomId)?.avatarUrl
+        async let senderAvatar = avatar(
+            await MemberDirectory.shared.profile(notification.sender, in: notification.roomId, client: client).avatarUrl,
+            client: client)
+        async let roomAvatar = avatar(roomUrl, client: client)
+        return await NotificationContent.asMessage(content, from: notification, senderAvatar: senderAvatar,
+                                                  roomAvatar: roomAvatar)
+    }
+
+    private func avatar(_ mxc: String?, client: WizardClient) async -> Data? {
+        guard let mxc else { return nil }
+        return try? await client.thumbnail(mxc: mxc, width: 192, height: 192, crop: true)
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -165,7 +158,13 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
                                             willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let done = Unchecked(value: completionHandler)
+        let isPush = notification.request.trigger is UNPushNotificationTrigger
+        let userId = notification.request.content.userInfo["userId"] as? String
         Task { @MainActor in
+            if isPush, userId == nil || userId == roomList?.client.userId {
+                done.value([])
+                return
+            }
             var options: UNNotificationPresentationOptions = []
             if prefs?.notificationBanners == true { options.formUnion([.banner, .list]) }
             if prefs?.notificationSounds == true { options.insert(.sound) }

@@ -11,9 +11,12 @@ struct StoredSession: Codable {
     var displayName: String?
     var avatarUrl: String?
 
-    var store: StoreConfig {
+    var store: StoreConfig { store(process: SessionStore.appProcess) }
+
+    func store(process: String) -> StoreConfig {
         StoreConfig(location: SessionStore.storePath(for: storeFolder).path, passphrase: passphrase,
-                    excludeInsecureDevices: excludeInsecureDevices, manualEncryptionSetup: true)
+                    excludeInsecureDevices: excludeInsecureDevices, manualEncryptionSetup: true,
+                    processName: process)
     }
 
     static func newStore() -> (folder: String, config: StoreConfig) {
@@ -23,7 +26,7 @@ struct StoredSession: Codable {
         let path = SessionStore.storePath(for: folder)
         try? FileManager.default.createDirectory(at: path, withIntermediateDirectories: true)
         return (folder, StoreConfig(location: path.path, passphrase: Data(bytes).base64EncodedString(),
-                                    manualEncryptionSetup: true))
+                                    manualEncryptionSetup: true, processName: SessionStore.appProcess))
     }
 }
 
@@ -36,6 +39,9 @@ enum SessionStore {
     private static let service = "org.wizardchat.ios.session"
     private static let accountsKey = "accounts"
     private static let legacyKey = "core"
+    private static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.ios"
+    static let appProcess = "main"
+    static let extensionProcess = "nse"
 
     static func all() -> [StoredSession] { read().accounts }
 
@@ -99,6 +105,7 @@ enum SessionStore {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: accountsKey,
+            kSecAttrAccessGroup as String: group,
         ]
         if SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary) == errSecItemNotFound {
             var item = query
@@ -109,15 +116,38 @@ enum SessionStore {
     }
 
     private static func item(_ account: String) -> Data? {
-        let query: [String: Any] = [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
+            kSecAttrAccessGroup as String: group,
             kSecReturnData as String: true,
         ]
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
-        return result as? Data
+        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess { return result as? Data }
+        query.removeValue(forKey: kSecAttrAccessGroup as String)
+        query[kSecReturnAttributes as String] = true
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let found = result as? [String: Any], let data = found[kSecValueData as String] as? Data
+        else { return nil }
+        guard Bundle.main.bundleURL.pathExtension == "app" else { return data }
+        let moved: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrAccessGroup as String: group,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: data,
+        ]
+        if SecItemAdd(moved as CFDictionary, nil) == errSecSuccess, let old = found[kSecAttrAccessGroup as String] {
+            SecItemDelete([
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account,
+                kSecAttrAccessGroup as String: old,
+            ] as CFDictionary)
+        }
+        return data
     }
 
     private static func deleteItem(_ account: String) {
@@ -125,6 +155,7 @@ enum SessionStore {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
+            kSecAttrAccessGroup as String: group,
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -150,9 +181,25 @@ enum SessionStore {
     }
 
     static func storePath(for folder: String) -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("accounts/\(folder)", isDirectory: true)
+        _ = movedToGroup
+        return accountsFolder.appendingPathComponent(folder, isDirectory: true)
     }
+
+    private static var accountsFolder: URL {
+        let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("accounts", isDirectory: true)
+    }
+
+    private static let movedToGroup: Void = {
+        guard Bundle.main.bundleURL.pathExtension == "app" else { return }
+        let old = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("accounts", isDirectory: true)
+        let new = accountsFolder
+        guard new != old, FileManager.default.fileExists(atPath: old.path),
+              !FileManager.default.fileExists(atPath: new.path) else { return }
+        try? FileManager.default.moveItem(at: old, to: new)
+    }()
 
     static func removeStore(_ folder: String) {
         try? FileManager.default.removeItem(at: storePath(for: folder))

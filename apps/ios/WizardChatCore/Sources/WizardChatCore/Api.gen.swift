@@ -1211,14 +1211,16 @@ public struct PusherConfig: Codable, Hashable, Sendable {
     public var appName: String
     public var deviceName: String
     public var lang: String
+    public var alertKey: String?
 
-    public init(appId: String, pushkey: String, gatewayUrl: String, appName: String, deviceName: String, lang: String) {
+    public init(appId: String, pushkey: String, gatewayUrl: String, appName: String, deviceName: String, lang: String, alertKey: String? = nil) {
         self.appId = appId
         self.pushkey = pushkey
         self.gatewayUrl = gatewayUrl
         self.appName = appName
         self.deviceName = deviceName
         self.lang = lang
+        self.alertKey = alertKey
     }
 }
 
@@ -2073,12 +2075,14 @@ public struct StoreConfig: Codable, Hashable, Sendable {
     public var excludeInsecureDevices: Bool?
     /// Leave setting up cross-signing and key backup to the app instead of doing it on sign-in
     public var manualEncryptionSetup: Bool?
+    public var processName: String?
 
-    public init(location: String, passphrase: String? = nil, excludeInsecureDevices: Bool? = nil, manualEncryptionSetup: Bool? = nil) {
+    public init(location: String, passphrase: String? = nil, excludeInsecureDevices: Bool? = nil, manualEncryptionSetup: Bool? = nil, processName: String? = nil) {
         self.location = location
         self.passphrase = passphrase
         self.excludeInsecureDevices = excludeInsecureDevices
         self.manualEncryptionSetup = manualEncryptionSetup
+        self.processName = processName
     }
 }
 

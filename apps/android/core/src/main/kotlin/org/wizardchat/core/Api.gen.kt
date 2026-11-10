@@ -772,6 +772,7 @@ data class PusherConfig(
     val appName: String,
     val deviceName: String,
     val lang: String,
+    val alertKey: String? = null,
 )
 
 @Serializable(with = QrLoginStatus.Serializer::class)
@@ -1316,6 +1317,7 @@ data class StoreConfig(
     /** Don't share keys with, or read messages from, devices their owner hasn't verified */
     val excludeInsecureDevices: Boolean? = null,
     val manualEncryptionSetup: Boolean? = null,
+    val processName: String? = null,
 )
 
 /** The state of the background sync, as shown to the user. */

@@ -1,3 +1,4 @@
+use matrix_sdk::cross_process_lock::CrossProcessLockConfig;
 use matrix_sdk::ruma::{
     api::client::push::{PusherIds, PusherInit, PusherKind},
     events::AnySyncTimelineEvent,
@@ -26,6 +27,9 @@ pub struct PusherConfig {
     pub app_name: String,
     pub device_name: String,
     pub lang: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(optional))]
+    pub alert_key: Option<String>,
 }
 
 impl WizardClient {
@@ -33,8 +37,15 @@ impl WizardClient {
         let user_id = self.user_id().ok_or(Error::NotSignedIn)?;
         let mut data = HttpPusherData::new(config.gateway_url);
         data.format = Some(PushFormat::EventIdOnly);
-        data.data
-            .insert("default_payload".into(), json!({ "user_id": user_id }));
+        let mut payload = json!({ "user_id": user_id });
+        if let Some(key) = config.alert_key {
+            payload["aps"] = json!({
+                "mutable-content": 1,
+                "alert": { "loc-key": key },
+                "sound": "default",
+            });
+        }
+        data.data.insert("default_payload".into(), payload);
         let pusher = PusherInit {
             ids: PusherIds::new(config.pushkey, config.app_id),
             kind: PusherKind::Http(data),
@@ -63,8 +74,17 @@ impl WizardClient {
         let room_id = parse_room_id(room_id)?;
         let event_id = parse_event_id(event_id)?;
         let own_user = self.sdk().user_id().ok_or(Error::NotSignedIn)?.to_owned();
-        let setup = NotificationProcessSetup::SingleProcess {
-            sync_service: self.built_sync_service().await?,
+        let separate_process = !self.is_syncing()
+            && matches!(
+                self.sdk().cross_process_lock_config(),
+                CrossProcessLockConfig::MultiProcess { .. }
+            );
+        let setup = if separate_process {
+            NotificationProcessSetup::MultipleProcesses
+        } else {
+            NotificationProcessSetup::SingleProcess {
+                sync_service: self.built_sync_service().await?,
+            }
         };
         let client = NotificationClient::new(self.sdk().clone(), setup)
             .await

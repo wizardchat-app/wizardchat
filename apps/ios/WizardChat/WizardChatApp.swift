@@ -3,6 +3,7 @@ import UIKit
 
 @main
 struct WizardChatApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var session = MatrixSession()
     @StateObject private var prefs = AppPreferences()
     @StateObject private var notifier = MessageNotifier()

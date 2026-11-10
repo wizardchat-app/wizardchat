@@ -38,4 +38,7 @@ pub struct StoreConfig {
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(optional))]
     pub manual_encryption_setup: bool,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(optional))]
+    pub process_name: Option<String>,
 }

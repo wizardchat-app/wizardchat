@@ -7,6 +7,10 @@
 | iOS     | `npm run ios:build`     | `apps/ios/build/Build/Products/Release-iphoneos/WizardChat.app`          |
 | Android | `npm run android:build` | `apps/android/app/build/outputs/apk/gplay/release/app-gplay-release.apk` |
 
+For TestFlight and the App Store, `npm run ios:release` builds the release core and opens Xcode: choose **Any iOS
+Device**, then **Product -> Archive** and **Distribute App**. Raise the version in `package.json` first, since the build
+number comes from it and App Store Connect rejects one it already has.
+
 ## Releases
 
 Start a release from **Build -> Pipelines -> Run pipeline** on `main` with the variable `VERSION`: `v26.11.0` for
