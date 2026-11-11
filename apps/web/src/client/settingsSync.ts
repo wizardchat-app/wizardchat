@@ -20,6 +20,7 @@ const SYNCED_PREFERENCES = {
   typingIndicators: isBoolean,
   sendReadReceipts: isBoolean,
   mediaVisibility: oneOf('always', 'private', 'never'),
+  streamerMode: oneOf('always', 'screenshare', 'off'),
   prettifyLinks: isBoolean,
   markdown: isBoolean,
   showRoomAvatars: isBoolean,

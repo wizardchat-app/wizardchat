@@ -1322,7 +1322,14 @@
       "readReceipts": "Lesebestätigungen senden",
       "readReceiptsNote": "Zeige anderen, wenn du ihre Nachrichten gelesen hast.",
       "presence": "Online-Status anzeigen",
-      "presenceNote": "Zeigt an, ob Nutzer online, offline oder nicht verfügbar sind. Dein Status ist für andere sichtbar."
+      "presenceNote": "Zeigt an, ob Nutzer online, offline oder nicht verfügbar sind. Dein Status ist für andere sichtbar.",
+      "streamerMode": "Streamer-Modus",
+      "streamerModeNote": "Blendet deine E-Mail-Adressen, Sitzungsdetails und ignorierten Personen aus.",
+      "streamerModeAlways": "Immer an",
+      "streamerModeScreenshare": "Während ich meinen Bildschirm teile",
+      "streamerModeOff": "Aus",
+      "ignoredUsersHidden_one": "{{count}} ignorierte Person, im Streamer-Modus ausgeblendet",
+      "ignoredUsersHidden_other": "{{count}} ignorierte Personen, im Streamer-Modus ausgeblendet"
     },
     "language": {
       "title": "Sprache",
@@ -1812,5 +1819,8 @@
     "delete": "Theme löschen",
     "backToSettings": "Zurück zu den Einstellungen",
     "export": "Theme exportieren"
+  },
+  "streamerMode": {
+    "hidden": "Im Streamer-Modus ausgeblendet. Zum Anzeigen klicken"
   }
 }

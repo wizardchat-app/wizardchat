@@ -28,6 +28,7 @@ export type ThemeName =
   | 'Blossom'
   | 'Custom';
 export type MediaVisibility = 'always' | 'private' | 'never';
+export type StreamerMode = 'always' | 'screenshare' | 'off';
 export type ReducedMotion = 'system' | 'on' | 'off';
 export type ChatDensity = 'compact' | 'default' | 'spacious';
 export type { UiDensity, UiScale } from '@/theme/uiDensity';
@@ -63,6 +64,7 @@ export interface Preferences {
   activeCustomTheme: string | null;
   autoplayGifs: boolean;
   mediaVisibility: MediaVisibility;
+  streamerMode: StreamerMode;
   reducedMotion: ReducedMotion;
   chatFontSize: number;
   chatDensity: ChatDensity;
@@ -99,6 +101,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   activeCustomTheme: null,
   autoplayGifs: false,
   mediaVisibility: 'always',
+  streamerMode: 'screenshare',
   reducedMotion: 'system',
   chatFontSize: 15,
   chatDensity: 'default',
@@ -144,6 +147,7 @@ export const activeCustomThemeAtom = atom((get) => {
 });
 export const autoplayGifsAtom = preferenceFieldAtom('autoplayGifs');
 export const mediaVisibilityAtom = preferenceFieldAtom('mediaVisibility');
+export const streamerModeAtom = preferenceFieldAtom('streamerMode');
 export const reducedMotionAtom = preferenceFieldAtom('reducedMotion');
 export const chatFontSizeAtom = preferenceFieldAtom('chatFontSize');
 export const chatDensityAtom = preferenceFieldAtom('chatDensity');

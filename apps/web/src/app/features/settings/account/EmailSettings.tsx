@@ -1,3 +1,4 @@
+import { Secret } from '@/app/components/Secret';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { XIcon, SpinnerGapIcon } from '@phosphor-icons/react';
@@ -181,7 +182,7 @@ export function EmailSettings() {
               {emails.map((tp) => (
                 <div key={tp.address} className={css.settingRow}>
                   <div className={css.settingInfo}>
-                    <span className={css.settingLabel}>{tp.address}</span>
+                    <Secret value={tp.address} className={css.settingLabel} />
                   </div>
                   <button
                     type="button"

@@ -3,6 +3,7 @@ export * from './call';
 export * from './presence';
 export * from './rooms';
 export * from './settings';
+export * from './streamer';
 export * from './ui';
 export * from './userProfile';
 export * from './widgets';

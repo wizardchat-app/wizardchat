@@ -1322,7 +1322,14 @@
       "readReceipts": "Send read receipts",
       "readReceiptsNote": "Let other users know when you have read their messages.",
       "presence": "Show user presence",
-      "presenceNote": "Display when users are online, offline, or unavailable. Your presence will be visible to others."
+      "presenceNote": "Display when users are online, offline, or unavailable. Your presence will be visible to others.",
+      "streamerMode": "Streamer mode",
+      "streamerModeNote": "Hides your email addresses, session details and ignored users.",
+      "streamerModeAlways": "Always on",
+      "streamerModeScreenshare": "While sharing my screen",
+      "streamerModeOff": "Off",
+      "ignoredUsersHidden_one": "{{count}} ignored user, hidden in streamer mode",
+      "ignoredUsersHidden_other": "{{count}} ignored users, hidden in streamer mode"
     },
     "language": {
       "title": "Language",
@@ -1812,5 +1819,8 @@
     "delete": "Delete theme",
     "backToSettings": "Back to settings",
     "export": "Export theme"
+  },
+  "streamerMode": {
+    "hidden": "Hidden in streamer mode. Click to show"
   }
 }

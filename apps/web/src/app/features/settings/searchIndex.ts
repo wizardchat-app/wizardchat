@@ -31,6 +31,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['privacy', 'settings.privacy.typingIndicators', 'settings.privacy.typingIndicatorsNote'],
   ['privacy', 'settings.privacy.sendReadReceipts', 'settings.privacy.sendReadReceiptsNote'],
   ['privacy', 'settings.privacy.mediaVisibility'],
+  ['privacy', 'settings.privacy.streamerMode'],
   ['privacy', 'settings.privacy.blockInvites', 'settings.privacy.blockInvitesNote'],
   ['privacy', 'settings.privacy.ignoredUsers'],
 

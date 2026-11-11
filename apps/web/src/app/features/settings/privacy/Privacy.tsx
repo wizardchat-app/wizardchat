@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import {
   typingIndicatorsAtom,
   sendReadReceiptsAtom,
   mediaVisibilityAtom,
+  streamerModeAtom,
+  streamerModeActiveAtom,
   type MediaVisibility,
+  type StreamerMode,
 } from '@/app/store/atoms';
 import { ToggleRow } from '@/app/components/Toggle';
 import { Select } from '@/app/components/Select';
@@ -19,6 +22,7 @@ import { getErrorMessage } from '@/util/error';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useProfile } from '@/app/data';
 import { formatUserId } from '@/util/matrix';
+import { RevealButton } from '@/app/components/Secret';
 import * as css from '../Settings.css';
 
 const MEDIA_VISIBILITY_OPTIONS: Record<MediaVisibility, string> = {
@@ -27,11 +31,18 @@ const MEDIA_VISIBILITY_OPTIONS: Record<MediaVisibility, string> = {
   never: 'settings.privacy.mediaVisibilityNever',
 };
 
+const STREAMER_MODE_OPTIONS: Record<StreamerMode, string> = {
+  always: 'settings.privacy.streamerModeAlways',
+  screenshare: 'settings.privacy.streamerModeScreenshare',
+  off: 'settings.privacy.streamerModeOff',
+};
+
 export function Privacy() {
   const { t } = useTranslation();
   const [typingIndicators, setTypingIndicators] = useAtom(typingIndicatorsAtom);
   const [sendReadReceipts, setSendReadReceipts] = useAtom(sendReadReceiptsAtom);
   const [mediaVisibility, setMediaVisibility] = useAtom(mediaVisibilityAtom);
+  const [streamerMode, setStreamerMode] = useAtom(streamerModeAtom);
 
   return (
     <div>
@@ -80,6 +91,22 @@ export function Privacy() {
       <div className={css.section}>
         <h3 className={css.sectionTitle}>{t('settings.privacy.other')}</h3>
 
+        <div className={css.settingRow}>
+          <div className={css.settingInfo}>
+            <span className={css.settingLabel}>{t('settings.privacy.streamerMode')}</span>
+            <span className={css.settingNote}>{t('settings.privacy.streamerModeNote')}</span>
+          </div>
+          <Select
+            aria-label={t('settings.privacy.streamerMode')}
+            value={streamerMode}
+            options={Object.entries(STREAMER_MODE_OPTIONS).map(([option, labelKey]) => ({
+              value: option,
+              label: t(labelKey),
+            }))}
+            onChange={(v) => setStreamerMode(v as StreamerMode)}
+          />
+        </div>
+
         <BlockInvitesToggle />
       </div>
 
@@ -121,12 +148,21 @@ function IgnoredUsers() {
   const { t } = useTranslation();
   const ignored = useIgnoredUsers();
   const unignore = useUnignoreUser();
+  const streamer = useAtomValue(streamerModeActiveAtom);
+  const [revealed, setRevealed] = useState(false);
 
   return (
     <div className={css.section}>
       <h3 className={css.sectionTitle}>{t('settings.privacy.ignoredUsers')}</h3>
       {ignored.length === 0 ? (
         <div className={css.noResults}>{t('settings.privacy.noIgnoredUsers')}</div>
+      ) : streamer && !revealed ? (
+        <div className={css.settingRow}>
+          <span className={css.settingNote}>
+            {t('settings.privacy.ignoredUsersHidden', { count: ignored.length })}
+          </span>
+          <RevealButton shown={false} onToggle={() => setRevealed(true)} />
+        </div>
       ) : (
         ignored.map((userId) => (
           <IgnoredUserRow key={userId} userId={userId} onUnignore={unignore} />

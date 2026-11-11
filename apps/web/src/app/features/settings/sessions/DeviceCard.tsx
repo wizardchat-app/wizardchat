@@ -1,3 +1,6 @@
+import { useAtomValue } from 'jotai';
+import { streamerModeActiveAtom } from '@/app/store/atoms';
+import { HIDDEN_TEXT, RevealButton } from '@/app/components/Secret';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -49,6 +52,9 @@ export function DeviceCard({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(d.displayName);
+  const streamer = useAtomValue(streamerModeActiveAtom);
+  const [revealed, setRevealed] = useState(false);
+  const hide = streamer && !revealed;
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -167,7 +173,14 @@ export function DeviceCard({
             </div>
           ) : (
             <div className={css.deviceName}>
-              <span>{d.displayName}</span>
+              <span>{hide ? HIDDEN_TEXT : d.displayName}</span>
+              {streamer && (
+                <RevealButton
+                  shown={revealed}
+                  onToggle={() => setRevealed(!revealed)}
+                  label={t('streamerMode.hidden')}
+                />
+              )}
               <Tooltip
                 content={
                   detailsOpen
@@ -229,11 +242,15 @@ export function DeviceCard({
           </div>
           <div className={css.detailRow}>
             <span className={css.detailLabel}>{t('settings.sessions.deviceId')}</span>
-            <span className={`${css.detailValue} ${css.detailValueMono}`}>{d.deviceId}</span>
+            <span className={`${css.detailValue} ${css.detailValueMono}`}>
+              {hide ? HIDDEN_TEXT : d.deviceId}
+            </span>
           </div>
           <div className={css.detailRow}>
             <span className={css.detailLabel}>{t('settings.sessions.ipAddress')}</span>
-            <span className={css.detailValue}>{d.lastSeenIp ?? '-'}</span>
+            <span className={css.detailValue}>
+              {hide && d.lastSeenIp ? HIDDEN_TEXT : (d.lastSeenIp ?? '-')}
+            </span>
           </div>
         </div>
       )}
