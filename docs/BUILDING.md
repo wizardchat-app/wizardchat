@@ -25,7 +25,11 @@ stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publish
   (`apps/desktop/scripts/package-linux.mjs`). Like the web app, stable installs only get stable releases and next
   installs only next ones. The `PKGBUILD` gets `pkgrel=1`; when the package of a release has to change, run the tag's
   pipeline again with `PKGREL=2` (then 3, ...)
-- builds a signed Android APK (arm64) and lists it with the installers, for people who don't use Google Play
+- builds two signed Android APKs (arm64) and lists them with the installers, for people who don't use Google Play: the
+  `gplay` flavor (`WizardChat_<version>_arm64.apk`) and the `fdroid` flavor without Google code
+  (`WizardChat_<version>_arm64_foss.apk`). Both also go to a fixed link per channel
+  (`wizardchat-desktop/<channel>/WizardChat_arm64.apk` and `..._foss.apk`), which Obtainium can follow, since it can't
+  tell next releases from stable ones on the releases page
 - creates the GitLab release with the notes from the commits and the installers
 
 The "What's new" notes in the apps come from `whatsnew/<version>.md`, with translations in `whatsnew/<version>.<lang>.md`.

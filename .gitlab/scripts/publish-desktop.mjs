@@ -2,7 +2,8 @@
 // to the GitLab package registry (`wizardchat-desktop/<tag>/`) and writes the update feed the apps
 // check (`wizardchat-desktop/<channel>/latest.json`), stable releases to stable and next releases to
 // next. The installers are listed in desktop-assets.json for the release page.
-// The Linux tarball's PKGBUILD goes next to the feed (`<channel>/PKGBUILD`) for Arch users.
+// The Linux tarball's PKGBUILD goes next to the feed (`<channel>/PKGBUILD`) for Arch users, and the
+// Android APKs too (`<channel>/WizardChat_arm64.apk`), a fixed link per channel for Obtainium.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
@@ -21,6 +22,13 @@ const registry = `${api}/projects/${project}/packages/generic/wizardchat-desktop
 
 const macBundle = (arch) => `target/${arch}-apple-darwin/release/bundle`;
 const windowsBundle = 'target/x86_64-pc-windows-msvc/release/bundle';
+
+function findAll(dir, suffix, root = bundle) {
+  const path = join(root, dir);
+  const files = existsSync(path) ? readdirSync(path).filter((name) => name.endsWith(suffix)) : [];
+  if (!files.length) throw new Error(`no ${suffix} in ${path}`);
+  return files.sort().map((file) => join(path, file));
+}
 
 function find(dir, suffix, root = bundle) {
   const path = join(root, dir);
@@ -60,7 +68,7 @@ const installers = [
   find('dmg', '.dmg', macBundle('x86_64')),
   find('tarball', '.tar.gz'),
   find('arch', '.pkg.tar.zst'),
-  find('android', '.apk', 'target'),
+  ...findAll('android', '.apk', 'target'),
   find('ios', '.ipa', 'target'),
 ];
 
@@ -104,6 +112,10 @@ const feedFile = join(bundle, 'latest.json');
 writeFileSync(feedFile, feed);
 const channel = version.includes('-next') ? 'next' : 'stable';
 await upload(feedFile, channel, 'latest.json');
+
+for (const apk of findAll('android', '.apk', 'target')) {
+  await upload(apk, channel, basename(apk).replace(`_${version}_`, '_'));
+}
 
 const pkgbuildFile = join(bundle, 'tarball/PKGBUILD');
 await upload(pkgbuildFile);

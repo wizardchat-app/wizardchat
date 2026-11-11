@@ -73,9 +73,25 @@ Both install as `wizardchat-bin`, so building the other one switches channels. R
 
 </details>
 
-### iOS and Android
+### Android
 
-Not in the stores yet, but you can build them yourself (see Local Development).
+Not in the stores yet. Every release has an APK (arm64) on the
+[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases), in two versions: `WizardChat_<version>_arm64.apk`
+gets push notifications through Google's Firebase, `WizardChat_<version>_arm64_foss.apk` has no Google code and no push
+notifications yet. Both are signed with the same key, so you can switch between them without losing your data.
+
+With [Obtainium](https://obtainium.imranr.dev) you get updates automatically. Add the app with **Add App** and one of these
+URLs:
+
+- **Stable**, with Firebase: `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/WizardChat_arm64.apk`
+- **Stable**, without Google: `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/WizardChat_arm64_foss.apk`
+- **Every release, including next** (pre-releases): `https://gitlab.com/wizardchat/wizardchat`, and pick the APK you want
+  when Obtainium asks
+
+### iOS
+
+Not in the App Store yet. Every release has an unsigned `.ipa` on the
+[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases) for sideloading, e.g. with SideStore or AltStore.
 
 ## Local Development
 

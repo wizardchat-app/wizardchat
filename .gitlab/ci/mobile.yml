@@ -22,11 +22,13 @@ build-android:
     - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > apps/android/wizardchat-release.jks
     - printf 'storeFile=wizardchat-release.jks\nstorePassword=%s\nkeyAlias=wizardchat\nkeyPassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD" > apps/android/keystore.properties
     - apps/android/scripts/build-core.sh
-    - (cd apps/android && ./gradlew --no-daemon :app:assembleGplayRelease)
+    - (cd apps/android && ./gradlew --no-daemon :app:assembleGplayRelease :app:assembleFdroidRelease)
     - rm apps/android/wizardchat-release.jks apps/android/keystore.properties
     - mkdir -p target/android
-    - cp apps/android/app/build/outputs/apk/gplay/release/app-gplay-release.apk "target/android/WizardChat_$(node -p "require('./package.json').version")_arm64.apk"
-    - '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs target/android/*.apk'
+    - APP_VERSION=$(node -p "require('./package.json').version")
+    - cp apps/android/app/build/outputs/apk/gplay/release/app-gplay-release.apk "target/android/WizardChat_${APP_VERSION}_arm64.apk"
+    - cp apps/android/app/build/outputs/apk/fdroid/release/app-fdroid-release.apk "target/android/WizardChat_${APP_VERSION}_arm64_foss.apk"
+    - for apk in target/android/*.apk; do "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"; done
     - sccache --show-stats
   artifacts:
     paths:
