@@ -511,9 +511,17 @@ public enum EntryContent: Codable, Hashable, Sendable {
     }
     public struct ProfileChange: Codable, Hashable, Sendable {
         public var userId: String
+        public var nameChanged: Bool
+        public var oldName: String?
+        public var newName: String?
+        public var avatarChanged: Bool
 
-        public init(userId: String) {
+        public init(userId: String, nameChanged: Bool, oldName: String? = nil, newName: String? = nil, avatarChanged: Bool) {
             self.userId = userId
+            self.nameChanged = nameChanged
+            self.oldName = oldName
+            self.newName = newName
+            self.avatarChanged = avatarChanged
         }
     }
     public struct State: Codable, Hashable, Sendable {
@@ -555,6 +563,7 @@ public enum EntryContent: Codable, Hashable, Sendable {
     /// withheldBySender, historicalMessageAndDeviceIsUnverified
     case unableToDecrypt(UnableToDecrypt)
     case membership(Membership)
+    /// A display name and/or avatar change; `old_name`/`new_name` are set when the name changed
     case profileChange(ProfileChange)
     /// Any other state change, with its content as sent
     case state(State)

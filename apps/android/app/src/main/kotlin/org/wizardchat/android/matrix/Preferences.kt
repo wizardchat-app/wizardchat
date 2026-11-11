@@ -31,6 +31,10 @@ class AppPreferences(context: Context) {
     var uiDensity by pref(enumPref("uiDensity", Density.default)) { putString("uiDensity", it.name) }
     var groupImages by pref(defaults.getBoolean("groupImages", true), synced = true) { putBoolean("groupImages", it) }
     var colorUsernames by pref(defaults.getBoolean("colorUsernames", true), synced = true) { putBoolean("colorUsernames", it) }
+    var largeEmoji by pref(defaults.getBoolean("largeEmoji", true), synced = true) { putBoolean("largeEmoji", it) }
+    var emoticonsToEmoji by pref(defaults.getBoolean("emoticonsToEmoji", false), synced = true) { putBoolean("emoticonsToEmoji", it) }
+    var showJoinLeave by pref(defaults.getBoolean("showJoinLeave", true), synced = true) { putBoolean("showJoinLeave", it) }
+    var showProfileChanges by pref(defaults.getBoolean("showProfileChanges", false), synced = true) { putBoolean("showProfileChanges", it) }
     var prettifyLinks by pref(defaults.getBoolean("prettifyLinks", true)) { putBoolean("prettifyLinks", it) }
     var themedAppIcon by pref(defaults.getBoolean("themedAppIcon", false)) { putBoolean("themedAppIcon", it) }
     var showRoomAvatars by pref(defaults.getBoolean("showRoomAvatars", true)) { putBoolean("showRoomAvatars", it) }
@@ -85,6 +89,10 @@ class AppPreferences(context: Context) {
             "notificationSound" to JsonPrimitive(notificationSounds),
             "colorUsernames" to JsonPrimitive(colorUsernames),
             "groupImages" to JsonPrimitive(groupImages),
+            "largeEmoji" to JsonPrimitive(largeEmoji),
+            "emoticonsToEmoji" to JsonPrimitive(emoticonsToEmoji),
+            "showJoinLeave" to JsonPrimitive(showJoinLeave),
+            "showProfileChanges" to JsonPrimitive(showProfileChanges),
         )
 
     fun applySynced(json: Map<String, JsonElement>) {
@@ -99,6 +107,10 @@ class AppPreferences(context: Context) {
             (json["notificationSound"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != notificationSounds) notificationSounds = it }
             (json["colorUsernames"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != colorUsernames) colorUsernames = it }
             (json["groupImages"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != groupImages) groupImages = it }
+            (json["largeEmoji"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != largeEmoji) largeEmoji = it }
+            (json["emoticonsToEmoji"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != emoticonsToEmoji) emoticonsToEmoji = it }
+            (json["showJoinLeave"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showJoinLeave) showJoinLeave = it }
+            (json["showProfileChanges"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showProfileChanges) showProfileChanges = it }
         } finally {
             isApplyingRemote = false
         }

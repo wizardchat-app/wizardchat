@@ -29,7 +29,7 @@ struct ChatEntry: Identifiable {
         case poll(PollContent)
         case redacted
         case undecryptable(String)
-        case system(String)
+        case system(String, isProfileChange: Bool = false)
         case call(CallHistoryView)
         case dateDivider(Date)
     }
@@ -535,10 +535,19 @@ final class TimelineModel: ObservableObject {
         if items.contains(where: { if case .timelineStart = $0 { return true }; return false }) {
             reachedStart = true
         }
+        rebuild()
+    }
+
+    private func isHidden(_ entry: ChatEntry) -> Bool {
+        guard case .system(_, let isProfileChange) = entry.kind else { return false }
+        return isProfileChange ? !showProfileChanges : !showJoinLeave
+    }
+
+    private func rebuild() {
         // Receipts on events that aren't shown move to the message above them
         var entries: [ChatEntry] = []
         for (item, entry) in zip(items, converted) {
-            if let entry {
+            if let entry, !isHidden(entry) {
                 entries.append(entry)
             } else if case .event(let event) = item, !event.readBy.isEmpty,
                       let last = entries.lastIndex(where: \.isContent) {
@@ -572,6 +581,14 @@ final class TimelineModel: ObservableObject {
 
     var groupImages = UserDefaults.standard.object(forKey: "groupImages") as? Bool ?? true {
         didSet { if groupImages != oldValue { regroup() } }
+    }
+
+    var showJoinLeave = UserDefaults.standard.object(forKey: "showJoinLeave") as? Bool ?? true {
+        didSet { if showJoinLeave != oldValue { rebuild() } }
+    }
+
+    var showProfileChanges = UserDefaults.standard.object(forKey: "showProfileChanges") as? Bool ?? false {
+        didSet { if showProfileChanges != oldValue { rebuild() } }
     }
 
     private func regroup() {
@@ -655,6 +672,9 @@ final class TimelineModel: ObservableObject {
         case .membership(let membership):
             guard let text = describe(membership, sender: event.senderName ?? event.sender) else { return nil }
             kind = .system(text)
+        case .profileChange(let change):
+            guard let text = describe(change, name: event.senderName ?? change.userId) else { return nil }
+            kind = .system(text, isProfileChange: true)
         case .call(let call):
             kind = .call(call.call)
         default:
@@ -808,6 +828,16 @@ final class TimelineModel: ObservableObject {
         case "historicalMessageAndDeviceIsUnverified": return String(localized: "timeline.decryptUnverifiedSession")
         default: return String(localized: "timeline.couldNotDecrypt")
         }
+    }
+
+    private static func describe(_ change: EntryContent.ProfileChange, name: String) -> String? {
+        if change.nameChanged, let newName = change.newName, let oldName = change.oldName {
+            return L10n.plain("timeline.userChangedName", oldName, newName)
+        }
+        if change.nameChanged, let newName = change.newName { return L10n.plain("timeline.userSetName", change.userId, newName) }
+        if change.nameChanged { return L10n.plain("timeline.userRemovedName", change.oldName ?? change.userId) }
+        if change.avatarChanged { return L10n.plain("timeline.userChangedAvatar", name) }
+        return nil
     }
 
     private static func describe(_ membership: EntryContent.Membership, sender: String) -> String? {

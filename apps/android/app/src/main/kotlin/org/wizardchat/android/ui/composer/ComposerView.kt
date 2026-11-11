@@ -98,6 +98,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.ChatEntry
 import org.wizardchat.android.matrix.Emoji
@@ -362,7 +363,7 @@ fun ComposerView(
     }
 
     suspend fun submit() {
-        val message = trimmed
+        val message = trimmed.let { if (WizardApplication.instance.prefs.emoticonsToEmoji) Emoticons.replace(it) else it }
         val reply = replyTo?.eventId
         haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
         // The keyboard stays up so you can keep typing

@@ -976,7 +976,11 @@
     "openThread": "Open thread",
     "threadComposerPlaceholder": "Reply in thread",
     "pinnedEmpty": "No pinned messages.",
-    "addReaction": "Add reaction"
+    "addReaction": "Add reaction",
+    "userChangedName": "<name>{{name}}</name> changed their name to {{newName}}.",
+    "userSetName": "<name>{{name}}</name> set their name to {{newName}}.",
+    "userRemovedName": "<name>{{name}}</name> removed their display name.",
+    "userChangedAvatar": "<name>{{name}}</name> changed their avatar."
   },
   "call": {
     "event": {
@@ -1289,7 +1293,15 @@
       "editCustomTheme": "Edit {{name}}",
       "customThemeName": "My theme {{number}}",
       "importTheme": "Import theme",
-      "importThemeFailed": "That file isn't a WizardChat theme."
+      "importThemeFailed": "That file isn't a WizardChat theme.",
+      "largeEmoji": "Large emoji",
+      "largeEmojiNote": "Show messages that are only emoji bigger.",
+      "emoticonsToEmoji": "Turn emoticons into emoji",
+      "emoticonsToEmojiNote": "Replaces text like :) or <3 with emoji when you send.",
+      "showJoinLeave": "Show joins and leaves",
+      "showProfileChanges": "Show name and avatar changes",
+      "chat": "Chat",
+      "interface": "Interface"
     },
     "accessibility": {
       "title": "Accessibility",

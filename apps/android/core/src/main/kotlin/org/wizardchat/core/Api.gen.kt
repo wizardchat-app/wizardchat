@@ -340,6 +340,10 @@ sealed interface EntryContent {
     @Serializable
     data class ProfileChange(
         val userId: String,
+        val nameChanged: Boolean,
+        val oldName: String? = null,
+        val newName: String? = null,
+        val avatarChanged: Boolean,
     ) : EntryContent
     /** Any other state change, with its content as sent */
     @Serializable

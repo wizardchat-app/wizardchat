@@ -298,7 +298,14 @@ export type EntryContent =
       change: string | null;
       reason: string | null;
     }
-  | { type: 'profileChange'; userId: string }
+  | {
+      type: 'profileChange';
+      userId: string;
+      nameChanged: boolean;
+      oldName: string | null;
+      newName: string | null;
+      avatarChanged: boolean;
+    }
   | {
       type: 'state';
       eventType: string;

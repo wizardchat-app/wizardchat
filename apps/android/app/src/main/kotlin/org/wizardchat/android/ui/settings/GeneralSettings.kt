@@ -111,6 +111,15 @@ internal fun AppearanceSettings(onBack: () -> Unit) {
                 }
             }
             SettingsDivider()
+            ToggleRow(
+                tr("settings.appearance.themedAppIcon"),
+                themeHasIcon && prefs.themedAppIcon,
+                { prefs.themedAppIcon = it },
+                disabled = !themeHasIcon,
+            )
+        }
+
+        SettingsSection(tr("settings.appearance.chat")) {
             PickerRow(
                 tr("settings.appearance.messageLayout"),
                 prefs.messageLayout,
@@ -164,18 +173,28 @@ internal fun AppearanceSettings(onBack: () -> Unit) {
             )
             SettingsDivider()
             ToggleRow(
+                tr("settings.appearance.largeEmoji"),
+                prefs.largeEmoji,
+                { prefs.largeEmoji = it },
+                note = tr("settings.appearance.largeEmojiNote"),
+            )
+            SettingsDivider()
+            ToggleRow(tr("settings.appearance.showJoinLeave"), prefs.showJoinLeave, { prefs.showJoinLeave = it })
+            SettingsDivider()
+            ToggleRow(tr("settings.appearance.showProfileChanges"), prefs.showProfileChanges, { prefs.showProfileChanges = it })
+            SettingsDivider()
+            ToggleRow(
+                tr("settings.appearance.emoticonsToEmoji"),
+                prefs.emoticonsToEmoji,
+                { prefs.emoticonsToEmoji = it },
+                note = tr("settings.appearance.emoticonsToEmojiNote"),
+            )
+            SettingsDivider()
+            ToggleRow(
                 tr("settings.appearance.prettifyLinks"),
                 prefs.prettifyLinks,
                 { prefs.prettifyLinks = it },
                 note = tr("settings.appearance.prettifyLinksNote"),
-            )
-            SettingsDivider()
-            // Android can't swap the launcher icon per theme, so this themes the in-app logo
-            ToggleRow(
-                tr("settings.appearance.themedAppIcon"),
-                themeHasIcon && prefs.themedAppIcon,
-                { prefs.themedAppIcon = it },
-                disabled = !themeHasIcon,
             )
         }
 

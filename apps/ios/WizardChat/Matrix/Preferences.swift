@@ -25,6 +25,10 @@ final class AppPreferences: ObservableObject {
     @Published var prettifyLinks: Bool { didSet { save("prettifyLinks", prettifyLinks) } }
     @Published var colorUsernames: Bool { didSet { save("colorUsernames", colorUsernames); syncIfNeeded() } }
     @Published var groupImages: Bool { didSet { save("groupImages", groupImages); syncIfNeeded() } }
+    @Published var largeEmoji: Bool { didSet { save("largeEmoji", largeEmoji); syncIfNeeded() } }
+    @Published var emoticonsToEmoji: Bool { didSet { save("emoticonsToEmoji", emoticonsToEmoji); syncIfNeeded() } }
+    @Published var showJoinLeave: Bool { didSet { save("showJoinLeave", showJoinLeave); syncIfNeeded() } }
+    @Published var showProfileChanges: Bool { didSet { save("showProfileChanges", showProfileChanges); syncIfNeeded() } }
     @Published var themedAppIcon: Bool { didSet { save("themedAppIcon", themedAppIcon) } }
     @Published var showRoomAvatars: Bool { didSet { save("showRoomAvatars", showRoomAvatars) } }
     @Published var reducedMotion: ReducedMotion { didSet { save("reducedMotion", reducedMotion.rawValue) } }
@@ -52,6 +56,10 @@ final class AppPreferences: ObservableObject {
         prettifyLinks = d.object(forKey: "prettifyLinks") as? Bool ?? true
         colorUsernames = d.object(forKey: "colorUsernames") as? Bool ?? true
         groupImages = d.object(forKey: "groupImages") as? Bool ?? true
+        largeEmoji = d.object(forKey: "largeEmoji") as? Bool ?? true
+        emoticonsToEmoji = d.object(forKey: "emoticonsToEmoji") as? Bool ?? false
+        showJoinLeave = d.object(forKey: "showJoinLeave") as? Bool ?? true
+        showProfileChanges = d.object(forKey: "showProfileChanges") as? Bool ?? false
         themedAppIcon = d.bool(forKey: "themedAppIcon")
         showRoomAvatars = d.object(forKey: "showRoomAvatars") as? Bool ?? true
         reducedMotion = ReducedMotion(rawValue: d.string(forKey: "reducedMotion") ?? "") ?? .system
@@ -97,6 +105,10 @@ final class AppPreferences: ObservableObject {
             "notificationSound": .bool(notificationSounds),
             "colorUsernames": .bool(colorUsernames),
             "groupImages": .bool(groupImages),
+            "largeEmoji": .bool(largeEmoji),
+            "emoticonsToEmoji": .bool(emoticonsToEmoji),
+            "showJoinLeave": .bool(showJoinLeave),
+            "showProfileChanges": .bool(showProfileChanges),
         ]
     }
 
@@ -114,6 +126,10 @@ final class AppPreferences: ObservableObject {
         if case .bool(let value) = json["notificationSound"], value != notificationSounds { notificationSounds = value }
         if case .bool(let value) = json["colorUsernames"], value != colorUsernames { colorUsernames = value }
         if case .bool(let value) = json["groupImages"], value != groupImages { groupImages = value }
+        if case .bool(let value) = json["largeEmoji"], value != largeEmoji { largeEmoji = value }
+        if case .bool(let value) = json["emoticonsToEmoji"], value != emoticonsToEmoji { emoticonsToEmoji = value }
+        if case .bool(let value) = json["showJoinLeave"], value != showJoinLeave { showJoinLeave = value }
+        if case .bool(let value) = json["showProfileChanges"], value != showProfileChanges { showProfileChanges = value }
     }
 
     private func syncIfNeeded() {

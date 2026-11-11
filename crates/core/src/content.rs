@@ -88,6 +88,10 @@ pub enum EntryContent {
     #[serde(rename_all = "camelCase")]
     ProfileChange {
         user_id: String,
+        name_changed: bool,
+        old_name: Option<String>,
+        new_name: Option<String>,
+        avatar_changed: bool,
     },
     /// Any other state change, with its content as sent
     #[serde(rename_all = "camelCase")]
@@ -527,9 +531,16 @@ pub(crate) fn content_of(
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned),
         },
-        TimelineItemContent::ProfileChange(change) => EntryContent::ProfileChange {
-            user_id: change.user_id().to_string(),
-        },
+        TimelineItemContent::ProfileChange(change) => {
+            let name = change.displayname_change();
+            EntryContent::ProfileChange {
+                user_id: change.user_id().to_string(),
+                name_changed: name.is_some(),
+                old_name: name.and_then(|c| c.old.clone()),
+                new_name: name.and_then(|c| c.new.clone()),
+                avatar_changed: change.avatar_url_change().is_some(),
+            }
+        }
         content
             if crate::call_history::is_call_item(
                 content,

@@ -79,6 +79,9 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['appearance', 'settings.appearance.uiScale', 'settings.appearance.uiScaleNote'],
   ['appearance', 'settings.appearance.colorUsernames'],
   ['appearance', 'settings.appearance.groupImages'],
+  ['appearance', 'settings.appearance.largeEmoji', 'settings.appearance.largeEmojiNote'],
+  ['appearance', 'settings.appearance.showJoinLeave'],
+  ['appearance', 'settings.appearance.showProfileChanges'],
   ['appearance', 'settings.appearance.customThemes'],
   ['appearance', 'settings.appearance.prettifyLinks', 'settings.appearance.prettifyLinksNote'],
   ['appearance', 'settings.appearance.themedAppIcon'],
@@ -89,6 +92,11 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
     'settings.appearance.showPresenceDotsNote',
   ],
   ['appearance', 'settings.appearance.markdown', 'settings.appearance.markdownNote'],
+  [
+    'appearance',
+    'settings.appearance.emoticonsToEmoji',
+    'settings.appearance.emoticonsToEmojiNote',
+  ],
 
   [
     'accessibility',

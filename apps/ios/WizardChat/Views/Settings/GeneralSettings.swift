@@ -58,6 +58,14 @@ struct AppearanceSettings: View {
                 }
                 .padding(.vertical, WZ.Space.space4)
                 SettingsDivider()
+                ToggleRow(label: "settings.appearance.themedAppIcon",
+                          isOn: Binding(get: { themeHasIcon && prefs.themedAppIcon },
+                                        set: { prefs.themedAppIcon = $0 }),
+                          disabled: !themeHasIcon)
+            }
+            if let iconError { StatusText(text: iconError) }
+
+            SettingsSection(title: "settings.appearance.chat") {
                 PickerRow(label: "settings.appearance.messageLayout", selection: $prefs.messageLayout,
                           options: [(.modern, "settings.appearance.modern"), (.classic, "settings.appearance.classic"),
                                     (.compact, "settings.appearance.compact")])
@@ -93,16 +101,20 @@ struct AppearanceSettings: View {
                 ToggleRow(label: "settings.appearance.groupImages", note: "settings.appearance.groupImagesNote",
                           isOn: $prefs.groupImages)
                 SettingsDivider()
+                ToggleRow(label: "settings.appearance.largeEmoji", note: "settings.appearance.largeEmojiNote",
+                          isOn: $prefs.largeEmoji)
+                SettingsDivider()
+                ToggleRow(label: "settings.appearance.showJoinLeave", isOn: $prefs.showJoinLeave)
+                SettingsDivider()
+                ToggleRow(label: "settings.appearance.showProfileChanges", isOn: $prefs.showProfileChanges)
+                SettingsDivider()
+                ToggleRow(label: "settings.appearance.emoticonsToEmoji", note: "settings.appearance.emoticonsToEmojiNote",
+                          isOn: $prefs.emoticonsToEmoji)
+                SettingsDivider()
                 ToggleRow(label: "settings.appearance.prettifyLinks",
                           note: "settings.appearance.prettifyLinksNote",
                           isOn: $prefs.prettifyLinks)
-                SettingsDivider()
-                ToggleRow(label: "settings.appearance.themedAppIcon",
-                          isOn: Binding(get: { themeHasIcon && prefs.themedAppIcon },
-                                        set: { prefs.themedAppIcon = $0 }),
-                          disabled: !themeHasIcon)
             }
-            if let iconError { StatusText(text: iconError) }
 
             SettingsSection {
                 PickerRow(label: "settings.appearance.uiDensity",

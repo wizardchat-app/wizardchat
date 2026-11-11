@@ -976,7 +976,11 @@
     "openThread": "Thread öffnen",
     "threadComposerPlaceholder": "Im Thread antworten",
     "pinnedEmpty": "Keine angehefteten Nachrichten.",
-    "addReaction": "Reaktion hinzufügen"
+    "addReaction": "Reaktion hinzufügen",
+    "userChangedName": "<name>{{name}}</name> hat den Namen zu {{newName}} geändert.",
+    "userSetName": "<name>{{name}}</name> hat den Namen auf {{newName}} gesetzt.",
+    "userRemovedName": "<name>{{name}}</name> hat den Anzeigenamen entfernt.",
+    "userChangedAvatar": "<name>{{name}}</name> hat den Avatar geändert."
   },
   "call": {
     "event": {
@@ -1289,7 +1293,15 @@
       "editCustomTheme": "{{name}} bearbeiten",
       "customThemeName": "Mein Theme {{number}}",
       "importTheme": "Theme importieren",
-      "importThemeFailed": "Diese Datei ist kein WizardChat-Theme."
+      "importThemeFailed": "Diese Datei ist kein WizardChat-Theme.",
+      "largeEmoji": "Große Emojis",
+      "largeEmojiNote": "Nachrichten, die nur aus Emojis bestehen, größer anzeigen.",
+      "emoticonsToEmoji": "Emoticons in Emojis umwandeln",
+      "emoticonsToEmojiNote": "Ersetzt Text wie :) oder <3 beim Senden durch Emojis.",
+      "showJoinLeave": "Beitritte und Austritte anzeigen",
+      "showProfileChanges": "Namens- und Avataränderungen anzeigen",
+      "chat": "Chat",
+      "interface": "Oberfläche"
     },
     "accessibility": {
       "title": "Barrierefreiheit",

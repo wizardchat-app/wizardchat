@@ -289,6 +289,8 @@ struct RoomView: View {
         }
         .task { await timeline.start() }
         .onChange(of: prefs.groupImages, initial: true) { _, group in timeline.groupImages = group }
+        .onChange(of: prefs.showJoinLeave, initial: true) { _, show in timeline.showJoinLeave = show }
+        .onChange(of: prefs.showProfileChanges, initial: true) { _, show in timeline.showProfileChanges = show }
         .fullScreenCover(item: $menuTarget, onDismiss: {
             afterMenu?()
             afterMenu = nil
@@ -733,7 +735,7 @@ private struct TimelineRow: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, WZ.Space.space6)
                 .padding(.bottom, WZ.Space.space3)
-        case .system(let text):
+        case .system(let text, _):
             Text(text)
                 .font(.wizard(WZ.FontSize.sm))
                 .foregroundStyle(theme.textMuted)
@@ -896,7 +898,7 @@ struct MessageRow: View {
     }
 
     private var isEmojiOnly: Bool {
-        if case .message(let body, false, _) = entry.kind { return MessageText.isEmojiOnly(body) }
+        if prefs.largeEmoji, case .message(let body, false, _) = entry.kind { return MessageText.isEmojiOnly(body) }
         return false
     }
 

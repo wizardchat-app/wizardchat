@@ -70,8 +70,9 @@ function ProfileNameLink({
 
 export function SystemMessageDisplay({ event, senderName, client, roomId }: SystemMessageProps) {
   const content = event.content.type === 'membership' ? event.content : null;
+  const profile = event.content.type === 'profileChange' ? event.content : null;
   const senderId = event.sender;
-  const subjectId = content?.userId ?? senderId;
+  const subjectId = content?.userId ?? profile?.userId ?? senderId;
   const openProfile = useProfileOpener(subjectId, roomId);
   const members = useLoadedMembers(roomId);
   const subject = members.get(subjectId);
@@ -84,7 +85,44 @@ export function SystemMessageDisplay({ event, senderName, client, roomId }: Syst
 
   let label: React.ReactNode;
 
-  if (change === 'Joined' || change === 'InvitationAccepted') {
+  if (profile) {
+    const nameLink = <ProfileNameLink userId={subjectId} roomId={roomId} />;
+    if (profile.nameChanged && profile.newName && profile.oldName) {
+      label = (
+        <Trans
+          i18nKey="timeline.userChangedName"
+          values={{ name: profile.oldName, newName: profile.newName }}
+          components={{ name: nameLink }}
+        />
+      );
+    } else if (profile.nameChanged && profile.newName) {
+      label = (
+        <Trans
+          i18nKey="timeline.userSetName"
+          values={{ name: subjectId, newName: profile.newName }}
+          components={{ name: nameLink }}
+        />
+      );
+    } else if (profile.nameChanged) {
+      label = (
+        <Trans
+          i18nKey="timeline.userRemovedName"
+          values={{ name: profile.oldName ?? subjectId }}
+          components={{ name: nameLink }}
+        />
+      );
+    } else if (profile.avatarChanged) {
+      label = (
+        <Trans
+          i18nKey="timeline.userChangedAvatar"
+          values={{ name: subjectName }}
+          components={{ name: nameLink }}
+        />
+      );
+    } else {
+      return null;
+    }
+  } else if (change === 'Joined' || change === 'InvitationAccepted') {
     label = (
       <Trans
         i18nKey="timeline.userJoined"

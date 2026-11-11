@@ -1,6 +1,10 @@
 import { useAtomValue } from 'jotai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { groupImagesAtom } from '@/app/store/atoms/settings';
+import {
+  groupImagesAtom,
+  showJoinLeaveAtom,
+  showProfileChangesAtom,
+} from '@/app/store/atoms/settings';
 import { useTranslation } from 'react-i18next';
 import type { RoomTimeline, TimelineEntry, TimelineKind, WizardClient } from '@wizardchat/core';
 import {
@@ -33,18 +37,28 @@ const EMPTY_REDACTED = new Set<string>();
 const EMPTY_EDITS = new Map<string, string>();
 const MAIN_KIND: TimelineKind = { type: 'main' };
 
-export function isTimelineRenderedEntry(entry: TimelineEntry): entry is EventEntry {
+export interface SystemEventOptions {
+  showJoinLeave?: boolean;
+  showProfileChanges?: boolean;
+}
+
+export function isTimelineRenderedEntry(
+  entry: TimelineEntry,
+  { showJoinLeave = true, showProfileChanges = false }: SystemEventOptions = {}
+): entry is EventEntry {
   if (entry.kind !== 'event') return false;
   const { content } = entry;
   switch (content.type) {
     case 'membership':
       return (
+        showJoinLeave &&
         content.change !== null &&
         (JOIN_CHANGES.has(content.change) || LEAVE_CHANGES.has(content.change))
       );
+    case 'profileChange':
+      return showProfileChanges;
     case 'state':
     case 'callPart':
-    case 'profileChange':
     case 'other':
       return false;
     default:
@@ -104,6 +118,8 @@ export interface BuildContext {
   lookupMember?: MemberLookup;
   decryptingIds?: ReadonlySet<string>;
   groupImages?: boolean;
+  showJoinLeave?: boolean;
+  showProfileChanges?: boolean;
 }
 
 export type BuildItemsSeed = { prevEvent?: EventEntry | null };
@@ -132,7 +148,10 @@ export function buildItems(
     lookupMember,
     decryptingIds,
     groupImages = true,
+    showJoinLeave = true,
+    showProfileChanges = false,
   } = ctx;
+  const shown = { showJoinLeave, showProfileChanges };
   const items: TimelineItem[] = [];
   const events = entries.filter(isEventEntry);
 
@@ -145,8 +164,9 @@ export function buildItems(
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
-    if (!isTimelineRenderedEntry(event)) continue;
-    const isSystemMessage = event.content.type === 'membership';
+    if (!isTimelineRenderedEntry(event, shown)) continue;
+    const isSystemMessage =
+      event.content.type === 'membership' || event.content.type === 'profileChange';
     const isCallEvent = event.content.type === 'call';
 
     const sender = event.sender;
@@ -182,7 +202,7 @@ export function buildItems(
       let prevTs = ts;
       for (let j = i + 1; j < events.length; j++) {
         const next = events[j];
-        if (!isTimelineRenderedEntry(next)) continue;
+        if (!isTimelineRenderedEntry(next, shown)) continue;
         if (!isGalleryCandidate(next, optimisticRedactedIds)) break;
         if (next.sender !== senderId) break;
         const nextTs = next.timestamp;
@@ -326,6 +346,8 @@ export function useBuildContext(client: WizardClient, roomId: string | null): Bu
   const { data: members } = useMembers(roomId);
   const ignored = useIgnoredUsers();
   const groupImages = useAtomValue(groupImagesAtom);
+  const showJoinLeave = useAtomValue(showJoinLeaveAtom);
+  const showProfileChanges = useAtomValue(showProfileChangesAtom);
 
   const ignoredUsers = useMemo(() => new Set(ignored), [ignored]);
   const roomPerms = useMemo(
@@ -350,8 +372,19 @@ export function useBuildContext(client: WizardClient, roomId: string | null): Bu
       ignoredUsers,
       lookupMember,
       groupImages,
+      showJoinLeave,
+      showProfileChanges,
     }),
-    [myId, roomPerms, pinnedIds, ignoredUsers, lookupMember, groupImages]
+    [
+      myId,
+      roomPerms,
+      pinnedIds,
+      ignoredUsers,
+      lookupMember,
+      groupImages,
+      showJoinLeave,
+      showProfileChanges,
+    ]
   );
   return context;
 }

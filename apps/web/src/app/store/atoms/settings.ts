@@ -60,6 +60,10 @@ export interface Preferences {
   showPresenceDots: boolean;
   colorUsernames: boolean;
   groupImages: boolean;
+  largeEmoji: boolean;
+  emoticonsToEmoji: boolean;
+  showJoinLeave: boolean;
+  showProfileChanges: boolean;
   customThemes: CustomTheme[];
   activeCustomTheme: string | null;
   autoplayGifs: boolean;
@@ -97,6 +101,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showPresenceDots: true,
   colorUsernames: true,
   groupImages: true,
+  largeEmoji: true,
+  emoticonsToEmoji: false,
+  showJoinLeave: true,
+  showProfileChanges: false,
   customThemes: [],
   activeCustomTheme: null,
   autoplayGifs: false,
@@ -137,6 +145,10 @@ export const showRoomAvatarsAtom = preferenceFieldAtom('showRoomAvatars');
 export const showPresenceDotsAtom = preferenceFieldAtom('showPresenceDots');
 export const colorUsernamesAtom = preferenceFieldAtom('colorUsernames');
 export const groupImagesAtom = preferenceFieldAtom('groupImages');
+export const largeEmojiAtom = preferenceFieldAtom('largeEmoji');
+export const emoticonsToEmojiAtom = preferenceFieldAtom('emoticonsToEmoji');
+export const showJoinLeaveAtom = preferenceFieldAtom('showJoinLeave');
+export const showProfileChangesAtom = preferenceFieldAtom('showProfileChanges');
 export const customThemesAtom = preferenceFieldAtom('customThemes');
 export const activeCustomThemeIdAtom = preferenceFieldAtom('activeCustomTheme');
 export const activeCustomThemeAtom = atom((get) => {

@@ -99,7 +99,20 @@ export function textRenderContent(body: string, html: string | null): Record<str
   return html ? { body, format: 'org.matrix.custom.html', formatted_body: html } : { body };
 }
 
-const EMOJI_PRESENTATION = /^\p{Emoji_Presentation}$/u;
+const EMOJI_PRESENTATION = /^[\p{Emoji_Presentation}\p{Emoji_Modifier}]$/u;
+const EMOJI = /^\p{Emoji}$/u;
+const JOINERS = new Set([0x200d, 0xfe0f, 0x20e3]);
+
+function isEmojiText(text: string): boolean {
+  const chars = [...text];
+  return chars.every((ch, i) => {
+    const point = ch.codePointAt(0) ?? 0;
+    if (/\s/.test(ch) || JOINERS.has(point) || (point >= 0xe0020 && point <= 0xe007f)) return true;
+    if (EMOJI_PRESENTATION.test(ch)) return true;
+    const next = chars[i + 1]?.codePointAt(0);
+    return EMOJI.test(ch) && (next === 0xfe0f || next === 0x20e3);
+  });
+}
 
 export function isRenderedEmojiOnly(html: string): boolean {
   const div = document.createElement('div');
@@ -110,9 +123,7 @@ export function isRenderedEmojiOnly(html: string): boolean {
   while ((node = walker.nextNode() as Text | null)) {
     const text = node.nodeValue ?? '';
     if (text.trim().length > 0) hasContent = true;
-    for (const ch of text) {
-      if (!/\s/.test(ch) && !EMOJI_PRESENTATION.test(ch)) return false;
-    }
+    if (!isEmojiText(text)) return false;
   }
   if (!hasContent) hasContent = div.querySelector('img') !== null;
   return hasContent;

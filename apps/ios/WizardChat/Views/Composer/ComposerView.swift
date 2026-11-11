@@ -697,7 +697,7 @@ struct ComposerView: View {
     }
 
     private func submit() async {
-        let text = trimmed
+        let text = prefs.emoticonsToEmoji ? Emoticons.replace(trimmed) : trimmed
         let reply = replyTo?.eventId
         sent += 1
         // The keyboard stays up so you can keep typing.

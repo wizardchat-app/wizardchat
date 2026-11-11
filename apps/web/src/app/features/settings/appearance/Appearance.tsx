@@ -10,6 +10,10 @@ import {
   showPresenceDotsAtom,
   colorUsernamesAtom,
   groupImagesAtom,
+  largeEmojiAtom,
+  emoticonsToEmojiAtom,
+  showJoinLeaveAtom,
+  showProfileChangesAtom,
   themedAppIconAtom,
   chatFontSizeAtom,
   chatDensityAtom,
@@ -205,6 +209,10 @@ export function Appearance() {
   const [showPresenceDots, setShowPresenceDots] = useAtom(showPresenceDotsAtom);
   const [colorUsernames, setColorUsernames] = useAtom(colorUsernamesAtom);
   const [groupImages, setGroupImages] = useAtom(groupImagesAtom);
+  const [largeEmoji, setLargeEmoji] = useAtom(largeEmojiAtom);
+  const [emoticonsToEmoji, setEmoticonsToEmoji] = useAtom(emoticonsToEmojiAtom);
+  const [showJoinLeave, setShowJoinLeave] = useAtom(showJoinLeaveAtom);
+  const [showProfileChanges, setShowProfileChanges] = useAtom(showProfileChangesAtom);
   const [themedAppIcon, setThemedAppIcon] = useAtom(themedAppIconAtom);
   const [chatFontSize, setChatFontSize] = useAtom(chatFontSizeAtom);
   const [chatDensity, setChatDensity] = useAtom(chatDensityAtom);
@@ -251,7 +259,18 @@ export function Appearance() {
         </div>
 
         <CustomThemes />
+        <ToggleRow
+          label={t('settings.appearance.themedAppIcon')}
+          checked={themeHasIcon && themedAppIcon}
+          disabled={!themeHasIcon}
+          onChange={setThemedAppIcon}
+        />
+      </div>
 
+      <div className={layoutCss.divider} />
+
+      <div className={layoutCss.section}>
+        <h3 className={layoutCss.sectionTitle}>{t('settings.appearance.chat')}</h3>
         <div className={layoutCss.settingRow}>
           <div className={layoutCss.settingInfo}>
             <span className={layoutCss.settingLabel}>{t('settings.appearance.messageLayout')}</span>
@@ -310,22 +329,45 @@ export function Appearance() {
           onChange={setGroupImages}
         />
         <ToggleRow
+          label={t('settings.appearance.largeEmoji')}
+          description={t('settings.appearance.largeEmojiNote')}
+          checked={largeEmoji}
+          onChange={setLargeEmoji}
+        />
+        <ToggleRow
           label={t('settings.appearance.prettifyLinks')}
           description={t('settings.appearance.prettifyLinksNote')}
           checked={prettifyLinks}
           onChange={setPrettifyLinks}
         />
         <ToggleRow
-          label={t('settings.appearance.themedAppIcon')}
-          checked={themeHasIcon && themedAppIcon}
-          disabled={!themeHasIcon}
-          onChange={setThemedAppIcon}
+          label={t('settings.appearance.showJoinLeave')}
+          checked={showJoinLeave}
+          onChange={setShowJoinLeave}
+        />
+        <ToggleRow
+          label={t('settings.appearance.showProfileChanges')}
+          checked={showProfileChanges}
+          onChange={setShowProfileChanges}
+        />
+        <ToggleRow
+          label={t('settings.appearance.markdown')}
+          description={t('settings.appearance.markdownNote')}
+          checked={markdown}
+          onChange={setMarkdown}
+        />
+        <ToggleRow
+          label={t('settings.appearance.emoticonsToEmoji')}
+          description={t('settings.appearance.emoticonsToEmojiNote')}
+          checked={emoticonsToEmoji}
+          onChange={setEmoticonsToEmoji}
         />
       </div>
 
       <div className={layoutCss.divider} />
 
       <div className={layoutCss.section}>
+        <h3 className={layoutCss.sectionTitle}>{t('settings.appearance.interface')}</h3>
         <div className={layoutCss.settingRow}>
           <div className={layoutCss.settingInfo}>
             <span className={layoutCss.settingLabel}>{t('settings.appearance.uiDensity')}</span>
@@ -370,12 +412,6 @@ export function Appearance() {
           description={t('settings.appearance.showPresenceDotsNote')}
           checked={showPresenceDots}
           onChange={setShowPresenceDots}
-        />
-        <ToggleRow
-          label={t('settings.appearance.markdown')}
-          description={t('settings.appearance.markdownNote')}
-          checked={markdown}
-          onChange={setMarkdown}
         />
       </div>
     </div>

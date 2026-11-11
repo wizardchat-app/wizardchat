@@ -34,7 +34,7 @@ import { getMediaBlobUrl, getMediaAnimates, plainMediaUrl } from './media';
 import { MediaSpoiler } from './MediaSpoiler';
 import type { MediaCover } from './MediaSpoiler';
 import { AnimatedImage } from './AnimatedImage';
-import { prettifyLinksAtom, sessionVerificationAtom } from '@/app/store/atoms';
+import { largeEmojiAtom, prettifyLinksAtom, sessionVerificationAtom } from '@/app/store/atoms';
 import { AudioFilePlayer } from '@/app/components/AudioFilePlayer/AudioFilePlayer';
 import { VoiceMessagePlayer } from '@/app/components/VoiceMessagePlayer/VoiceMessagePlayer';
 import { PollViewer } from './PollViewer';
@@ -515,6 +515,7 @@ export function MessageContent({
 }: MessageContentProps) {
   const { t } = useTranslation();
   const prettifyLinks = useAtomValue(prettifyLinksAtom);
+  const largeEmoji = useAtomValue(largeEmojiAtom);
   const sessionVerified = useAtomValue(sessionVerificationAtom).status !== 'unverified';
   const room = useRoom(roomId);
 
@@ -949,7 +950,7 @@ export function MessageContent({
   const html = renderRichTextHtml(textContent, imagePacks, myId, prettifyLinks);
   const firstUrl = extractFirstUrl(textBody, textHtml ?? undefined);
   const isEncrypted = !!roomId && room?.isEncrypted === true;
-  const emojiOnlyMsg = isRenderedEmojiOnly(html);
+  const emojiOnlyMsg = largeEmoji && isRenderedEmojiOnly(html);
 
   return (
     <div style={{ display: 'block' }}>

@@ -192,6 +192,8 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     val scope = rememberCoroutineScope()
     val timeline = remember(room.id, threadRoot) { TimelineModel(client, room.id, threadRoot) }
     LaunchedEffect(timeline, prefs.groupImages) { timeline.groupImages = prefs.groupImages }
+    LaunchedEffect(timeline, prefs.showJoinLeave) { timeline.showJoinLeave = prefs.showJoinLeave }
+    LaunchedEffect(timeline, prefs.showProfileChanges) { timeline.showProfileChanges = prefs.showProfileChanges }
     val navigator = LocalNavigator.current
     var showThreads by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -1120,7 +1122,7 @@ private fun TextContent(
     val scale = prefs.chatScale
     var spoilersRevealed by remember { mutableStateOf(false) }
     val kindBody = (entry.kind as? ChatEntry.Kind.Message)?.takeIf { !it.isEmote }?.body
-    val size = WZ.FontSize.lg * scale * (if (kindBody != null && MessageText.isEmojiOnly(kindBody)) 2.5f else 1f)
+    val size = WZ.FontSize.lg * scale * (if (prefs.largeEmoji && kindBody != null && MessageText.isEmojiOnly(kindBody)) 2.5f else 1f)
     val style = wizardFont(size).copy(lineHeight = (size.value + 3 * scale + 4).sp)
     val rich = entry.rich
     val message = entry.kind as? ChatEntry.Kind.Message

@@ -13,6 +13,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   typingIndicatorsAtom,
   markdownAtom,
+  emoticonsToEmojiAtom,
   serverUploadLimitAtom,
   composerAttachmentsAtom,
   composerDraftKey,
@@ -46,6 +47,7 @@ import type { CommandContext } from './commands';
 import { toMarkdown } from './editor/toMarkdown';
 import { buildTextContent } from './editor/buildTextContent';
 import { applyInlineMarkdown } from './editor/applyMarkdown';
+import { withEmoticons } from './editor/emoticons';
 import {
   replyMentions,
   sendTextMessage,
@@ -140,6 +142,7 @@ export function useComposer({
   const navigate = useNavigate();
   const typingIndicators = useAtomValue(typingIndicatorsAtom);
   const markdownEnabled = useAtomValue(markdownAtom);
+  const emoticonsToEmoji = useAtomValue(emoticonsToEmojiAtom);
   const maxUploadBytes = useAtomValue(serverUploadLimitAtom);
   const [mentionInsert, setMentionInsert] = useAtom(mentionInsertAtom);
   const setEditMessage = useSetAtom(editMessageAtom);
@@ -353,13 +356,11 @@ export function useComposer({
           // Not a known command: fall through and send as literal text.
         }
 
-        const built = buildTextContent(
-          markdownEnabled ? applyInlineMarkdown(editorValue) : editorValue,
-          {
-            forceFormatted: !!replyTo,
-            myId,
-          }
-        );
+        const formatted = markdownEnabled ? applyInlineMarkdown(editorValue) : editorValue;
+        const built = buildTextContent(emoticonsToEmoji ? withEmoticons(formatted) : formatted, {
+          forceFormatted: !!replyTo,
+          myId,
+        });
         const message = textMessageFrom('text', built);
         if (attachments.length > 0) {
           sendAttachments(replyTo, message);
@@ -383,6 +384,7 @@ export function useComposer({
     isEmpty,
     editorValue,
     markdownEnabled,
+    emoticonsToEmoji,
     autocomplete,
     clearEditor,
     sendTyping,

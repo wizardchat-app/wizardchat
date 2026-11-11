@@ -106,7 +106,7 @@ data class ChatEntry(
         data class Poll(val poll: PollContent) : Kind
         data object Redacted : Kind
         data class Undecryptable(val text: String) : Kind
-        data class System(val text: String) : Kind
+        data class System(val text: String, val isProfileChange: Boolean = false) : Kind
         data class Call(val call: CallHistoryView) : Kind
         data class DateDivider(val date: Instant) : Kind
     }
@@ -591,10 +591,20 @@ class TimelineModel(
             null
         }
         if (items.any { it is TimelineEntry.TimelineStart }) reachedStart = true
+        rebuild()
+    }
+
+    private fun hidden(entry: ChatEntry): Boolean {
+        val system = entry.kind as? ChatEntry.Kind.System ?: return false
+        return if (system.isProfileChange) !showProfileChanges else !showJoinLeave
+    }
+
+    private fun rebuild() {
+        val own = ownUserId
         // Receipts on events that aren't shown move to the message above them
         var entries = mutableListOf<ChatEntry>()
         for ((item, entry) in items.zip(converted)) {
-            if (entry != null) {
+            if (entry != null && !hidden(entry)) {
                 entries += entry
             } else if (item is TimelineEntry.Event && item.readBy.isNotEmpty()) {
                 val last = entries.indexOfLast { it.isContent }
@@ -632,6 +642,20 @@ class TimelineModel(
             if (field == value) return
             field = value
             regroup()
+        }
+
+    var showJoinLeave: Boolean = WizardApplication.instance.prefs.showJoinLeave
+        set(value) {
+            if (field == value) return
+            field = value
+            rebuild()
+        }
+
+    var showProfileChanges: Boolean = WizardApplication.instance.prefs.showProfileChanges
+        set(value) {
+            if (field == value) return
+            field = value
+            rebuild()
         }
 
     private fun regroup() {
@@ -743,6 +767,10 @@ class TimelineModel(
                 is EntryContent.Membership -> {
                     val text = describe(content, event.senderName ?: event.sender) ?: return null
                     ChatEntry.Kind.System(text)
+                }
+                is EntryContent.ProfileChange -> {
+                    val text = describe(content, event.senderName ?: content.userId) ?: return null
+                    ChatEntry.Kind.System(text, isProfileChange = true)
                 }
                 is EntryContent.Call -> ChatEntry.Kind.Call(content.call)
                 EntryContent.CallPart -> return null
@@ -882,6 +910,18 @@ class TimelineModel(
                 "Left" -> plain("timeline.userLeft", name)
                 "KickedAndBanned" -> plain("timeline.userBanned", name)
                 "Kicked" -> plain("timeline.userKicked", name, sender)
+                else -> null
+            }
+        }
+
+        private fun describe(change: EntryContent.ProfileChange, name: String): String? {
+            val oldName = change.oldName
+            val newName = change.newName
+            return when {
+                change.nameChanged && newName != null && oldName != null -> plain("timeline.userChangedName", oldName, newName)
+                change.nameChanged && newName != null -> plain("timeline.userSetName", change.userId, newName)
+                change.nameChanged -> plain("timeline.userRemovedName", oldName ?: change.userId)
+                change.avatarChanged -> plain("timeline.userChangedAvatar", name)
                 else -> null
             }
         }

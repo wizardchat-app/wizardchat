@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { markdownAtom } from '@/app/store/atoms/settings';
+import { emoticonsToEmojiAtom, markdownAtom } from '@/app/store/atoms/settings';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
-import { Editor, Range, Transforms } from 'slate';
+import { Editor, Range, Transforms, type Descendant } from 'slate';
 import {
   editStateFor,
   findAdjacentEditableMessage,
@@ -35,6 +35,12 @@ import { toMarkdown, withPlainRoomLinks } from '@/app/features/timeline/composer
 import { parseMatrixToUrl } from '@/util/matrixTo';
 import { buildTextContent } from '@/app/features/timeline/composer/editor/buildTextContent';
 import { applyInlineMarkdown } from '@/app/features/timeline/composer/editor/applyMarkdown';
+import { withEmoticons } from '@/app/features/timeline/composer/editor/emoticons';
+
+function prepare(value: Descendant[], markdown: boolean, emoticons: boolean): Descendant[] {
+  const formatted = markdown ? applyInlineMarkdown(value) : value;
+  return emoticons ? withEmoticons(formatted) : formatted;
+}
 import { insertEmoji } from '@/app/features/timeline/composer/editor/insertEmoji';
 import { useRichEditor } from '@/app/features/timeline/composer/useRichEditor';
 import { resolveRelationTarget } from './relationTarget';
@@ -229,6 +235,7 @@ export function EditMessageComposer({ client, editState, onClose }: EditMessageC
   );
 
   const markdownEnabled = useAtomValue(markdownAtom);
+  const emoticonsToEmoji = useAtomValue(emoticonsToEmojiAtom);
   const saveEdit = useCallback(async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -244,7 +251,7 @@ export function EditMessageComposer({ client, editState, onClose }: EditMessageC
       if (isCaption) {
         onClose();
         const built = newBody
-          ? buildTextContent(markdownEnabled ? applyInlineMarkdown(value) : value, {
+          ? buildTextContent(prepare(value, markdownEnabled, emoticonsToEmoji), {
               myId: client.userId() ?? undefined,
             })
           : null;
@@ -263,7 +270,7 @@ export function EditMessageComposer({ client, editState, onClose }: EditMessageC
       setOptimisticEditBodies((prev) => new Map([...prev, [editState.eventId, newBody]]));
       onClose();
 
-      const built = buildTextContent(markdownEnabled ? applyInlineMarkdown(value) : value, {
+      const built = buildTextContent(prepare(value, markdownEnabled, emoticonsToEmoji), {
         myId: client.userId() ?? undefined,
       });
 
@@ -327,6 +334,7 @@ export function EditMessageComposer({ client, editState, onClose }: EditMessageC
     toast,
     t,
     markdownEnabled,
+    emoticonsToEmoji,
   ]);
 
   useEffect(() => {
