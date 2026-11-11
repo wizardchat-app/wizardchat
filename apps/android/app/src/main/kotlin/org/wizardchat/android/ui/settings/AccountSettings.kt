@@ -39,17 +39,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.MatrixSession
+import org.wizardchat.android.matrix.Pronouns
 import org.wizardchat.android.matrix.accountManagementUrl
 import org.wizardchat.android.matrix.addEmail
+import org.wizardchat.android.matrix.canSetPronouns
 import org.wizardchat.android.matrix.changePassword
 import org.wizardchat.android.matrix.deactivateAccount
 import org.wizardchat.android.matrix.emailAddresses
 import org.wizardchat.android.matrix.isOAuthAccount
+import org.wizardchat.android.matrix.pronouns
 import org.wizardchat.android.matrix.removeAvatar
 import org.wizardchat.android.matrix.removeEmail
 import org.wizardchat.android.matrix.requestEmailToken
 import org.wizardchat.android.matrix.setAvatar
 import org.wizardchat.android.matrix.setDisplayName
+import org.wizardchat.android.matrix.setPronouns
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.Chip
 import org.wizardchat.android.ui.BarTextButton
@@ -87,6 +91,10 @@ internal fun AccountSettings(onBack: () -> Unit) {
 
     var displayName by remember { mutableStateOf(session.displayName ?: "") }
     var savingName by remember { mutableStateOf(false) }
+    var canSetPronouns by remember { mutableStateOf(false) }
+    var savedPronouns by remember { mutableStateOf("") }
+    var pronouns by remember { mutableStateOf("") }
+    var savingPronouns by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var showDeactivate by remember { mutableStateOf(false) }
     var editingStatus by remember { mutableStateOf(false) }
@@ -98,6 +106,13 @@ internal fun AccountSettings(onBack: () -> Unit) {
         } catch (error: Exception) {
             status = error.text to true
         }
+    }
+
+    LaunchedEffect(session.userId) {
+        val id = session.userId ?: return@LaunchedEffect
+        canSetPronouns = session.canSetPronouns()
+        savedPronouns = session.pronouns(id) ?: ""
+        pronouns = savedPronouns
     }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -167,6 +182,39 @@ internal fun AccountSettings(onBack: () -> Unit) {
                         Modifier.width(WZ.SizeAvatar.xl),
                         enabled = !savingName && trimmed.isNotEmpty() && displayName != session.displayName,
                     )
+                }
+            }
+            if (canSetPronouns) {
+                SettingsDivider()
+                SettingsItem {
+                    Text(tr("profile.pronouns"), style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = theme.textMuted)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
+                        WizardTextField(
+                            pronouns,
+                            { pronouns = it.take(Pronouns.MAX_LENGTH) },
+                            tr("profile.pronounsPlaceholder"),
+                            Modifier.weight(1f),
+                        )
+                        PrimaryButton(
+                            if (savingPronouns) "..." else tr("common.save"),
+                            {
+                                scope.launch {
+                                    savingPronouns = true
+                                    status = null
+                                    try {
+                                        session.setPronouns(pronouns)
+                                        savedPronouns = pronouns.trim()
+                                        pronouns = savedPronouns
+                                    } catch (error: Exception) {
+                                        status = error.text to true
+                                    }
+                                    savingPronouns = false
+                                }
+                            },
+                            Modifier.width(WZ.SizeAvatar.xl),
+                            enabled = !savingPronouns && pronouns.trim() != savedPronouns,
+                        )
+                    }
                 }
             }
             SettingsDivider()

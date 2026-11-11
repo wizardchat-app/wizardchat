@@ -168,6 +168,31 @@ extension MatrixSession {
         try? await client?.userProfile(userId: userId)
     }
 
+    func pronouns(of userId: String) async -> String? {
+        guard let client else { return nil }
+        for key in [Pronouns.unstableKey, Pronouns.key] {
+            if let value = Pronouns.parse(try? await client.profileField(userId: userId, field: key)) { return value }
+        }
+        return nil
+    }
+
+    func canSetPronouns() async -> Bool {
+        (try? await client?.canSetProfileField(field: Pronouns.unstableKey)) ?? false
+    }
+
+    func setPronouns(_ text: String) async throws {
+        let summary = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Pronouns.maxLength))
+        if summary.isEmpty {
+            try await requireClient.deleteProfileField(field: Pronouns.unstableKey)
+        } else {
+            let language = Locale.current.language.languageCode?.identifier ?? "en"
+            try await requireClient.setProfileField(
+                field: Pronouns.unstableKey,
+                value: .array([.object(["language": .string(language), "summary": .string(summary)])])
+            )
+        }
+    }
+
     func ignore(_ userId: String) async throws {
         try await requireClient.ignoreUser(userId: userId)
     }
@@ -203,5 +228,22 @@ extension MatrixSession {
 
     func setAccountDataJSON(_ eventType: String, _ content: [String: Any]) async throws {
         try await requireClient.setAccountData(eventType: eventType, content: JSONValue(any: content))
+    }
+}
+
+/// MSC4247 pronouns: the stable key, and the unstable one clients use until it is merged
+enum Pronouns {
+    static let key = "m.pronouns"
+    static let unstableKey = "io.fsky.nyx.pronouns"
+    static let maxLength = 40
+
+    static func parse(_ value: JSONValue?) -> String? {
+        guard case .array(let entries) = value else { return nil }
+        let summaries = entries.compactMap { entry -> String? in
+            guard case .object(let fields) = entry, case .string(let summary) = fields["summary"] else { return nil }
+            let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : String(trimmed.prefix(maxLength))
+        }
+        return summaries.isEmpty ? nil : summaries.joined(separator: ", ")
     }
 }

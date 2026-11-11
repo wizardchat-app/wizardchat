@@ -1747,7 +1747,10 @@
     "copyId": "Nutzer-ID kopieren",
     "mutualRooms_one": "{{count}} gemeinsamer Raum",
     "mutualRooms_other": "{{count}} gemeinsame Räume",
-    "editProfile": "Profil bearbeiten"
+    "editProfile": "Profil bearbeiten",
+    "pronouns": "Pronomen",
+    "addPronouns": "Pronomen hinzufügen",
+    "pronounsPlaceholder": "sie/ihr"
   },
   "update": {
     "action": "WizardChat aktualisieren"

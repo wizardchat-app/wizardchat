@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.ignore
 import org.wizardchat.android.matrix.profile
+import org.wizardchat.android.matrix.pronouns
 import org.wizardchat.android.matrix.startDirectMessage
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.BarTextButton
@@ -142,6 +143,7 @@ fun UserProfileSheet(userId: String, roomId: String?, onDismiss: () -> Unit, onC
     var name by remember { mutableStateOf<String?>(null) }
     var avatarUrl by remember { mutableStateOf<String?>(null) }
     var statusText by remember { mutableStateOf<String?>(null) }
+    var pronouns by remember { mutableStateOf<String?>(null) }
     var rights by remember { mutableStateOf(RoleRights(0, false)) }
     var level by remember { mutableStateOf(0L) }
     var isMember by remember { mutableStateOf(false) }
@@ -157,6 +159,7 @@ fun UserProfileSheet(userId: String, roomId: String?, onDismiss: () -> Unit, onC
     val isMe = userId == session.userId
 
     LaunchedEffect(userId) {
+        pronouns = session.pronouns(userId)
         if (!isMe) mutualRooms = runCatching { session.client?.mutualRooms(userId) }.getOrNull().orEmpty()
     }
 
@@ -241,6 +244,9 @@ fun UserProfileSheet(userId: String, roomId: String?, onDismiss: () -> Unit, onC
                     )
                     SelectionContainer {
                         Text(userId, style = wizardFont(WZ.FontSize.md), color = theme.textMuted)
+                    }
+                    pronouns?.let {
+                        Text(it, style = wizardFont(WZ.FontSize.md), color = theme.textSecondary, textAlign = TextAlign.Center)
                     }
                     statusText?.let {
                         Text(it, style = wizardFont(WZ.FontSize.md), color = theme.textSecondary, textAlign = TextAlign.Center)

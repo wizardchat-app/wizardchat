@@ -191,7 +191,47 @@ export const nameInput = style({
 export const userIdRow = style({
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: '4px',
+  minHeight: '28px',
+});
+
+export const pronounsText = style({
+  fontSize: '0.9rem',
+  color: vars.color.textPrimary,
+});
+
+export const pronounsBtn = style({
+  margin: '0 -6px',
+  padding: '2px 6px',
+  border: 'none',
+  borderRadius: vars.radius.sm,
+  background: 'none',
+  color: vars.color.textPrimary,
+  fontFamily: 'inherit',
+  fontSize: '0.9rem',
+  cursor: 'text',
+  transition: `background-color ${fast}`,
+  ':hover': { backgroundColor: vars.color.bgHover },
+  ...focusRing,
+});
+
+export const pronounsBtnEmpty = style([
+  pronounsBtn,
+  { color: vars.color.textMuted, fontStyle: 'italic' },
+]);
+
+export const pronounsInput = style({
+  width: '180px',
+  margin: '0 -6px',
+  padding: '2px 6px',
+  border: `1px solid ${vars.color.accent}`,
+  borderRadius: vars.radius.sm,
+  backgroundColor: vars.color.bgSecondary,
+  color: vars.color.textPrimary,
+  fontFamily: 'inherit',
+  fontSize: '0.9rem',
+  outline: 'none',
 });
 
 export const userId = style({

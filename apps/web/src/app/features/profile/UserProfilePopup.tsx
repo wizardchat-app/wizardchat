@@ -71,6 +71,7 @@ import { contextMenuAtom } from '@/app/features/contextMenu/contextMenuAtom';
 import type { ContextMenuItem } from '@/app/features/contextMenu/contextMenuAtom';
 import * as css from './UserProfilePopup.css';
 import { MutualRooms } from './MutualRooms';
+import { useUserPronouns } from './pronouns';
 
 import { makeUserPermalink } from '@/util/matrix';
 import { powerLevelOf, queryKeys, useAllRooms, useMembersIn, useRoomSettings } from '@/app/data';
@@ -117,6 +118,7 @@ export function UserProfilePopup() {
   const confirmDialog = useConfirm();
 
   const statusText = useUserStatusText(client, profileState?.userId, true);
+  const pronouns = useUserPronouns(client, profileState?.userId);
   const openStatusDialog = useSetAtom(customStatusDialogOpenAtom);
   const openSettings = useSetAtom(settingsOpenAtom);
   const setSettingsPage = useSetAtom(settingsPageAtom);
@@ -588,6 +590,7 @@ export function UserProfilePopup() {
               )}
             </span>
 
+            {pronouns && <span className={css.pronouns}>{pronouns}</span>}
             <div className={css.userIdRow}>
               <span className={css.userId}>{profile.userId.split(':')[0]}</span>
               <CopyButton text={profile.userId} size="xs" />

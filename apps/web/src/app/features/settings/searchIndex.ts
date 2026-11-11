@@ -24,6 +24,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['profile', 'settings.profile.editAvatar'],
   ['profile', 'settings.profile.editBanner'],
   ['profile', 'status.customStatus'],
+  ['profile', 'profile.pronouns'],
   ['account', 'settings.account.changePasswordTitle'],
   ['account', 'settings.account.emailTitle'],
   ['account', 'settings.account.deactivateAccount'],

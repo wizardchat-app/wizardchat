@@ -115,6 +115,7 @@ export const verifiedBadge = style({
 export const userIdRow = style({
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: '4px',
 });
 
@@ -124,6 +125,13 @@ export const userId = style({
   fontFamily: 'monospace',
   wordBreak: 'break-all',
   lineHeight: 1.3,
+});
+
+export const pronouns = style({
+  fontSize: '0.8rem',
+  color: vars.color.textPrimary,
+  lineHeight: 1.3,
+  overflowWrap: 'anywhere',
 });
 
 export const infoRow = style({

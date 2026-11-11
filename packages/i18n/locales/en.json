@@ -1747,7 +1747,10 @@
     "copyId": "Copy user ID",
     "mutualRooms_one": "{{count}} mutual room",
     "mutualRooms_other": "{{count}} mutual rooms",
-    "editProfile": "Edit profile"
+    "editProfile": "Edit profile",
+    "pronouns": "Pronouns",
+    "addPronouns": "Add pronouns",
+    "pronounsPlaceholder": "they/them"
   },
   "update": {
     "action": "Update WizardChat"

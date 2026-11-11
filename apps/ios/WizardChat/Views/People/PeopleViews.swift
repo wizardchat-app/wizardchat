@@ -145,6 +145,7 @@ struct UserProfileSheet: View {
     @State private var name: String?
     @State private var avatarUrl: String?
     @State private var statusText: String?
+    @State private var pronouns: String?
     @State private var mutualRooms: [MutualRoom] = []
     @State private var rights = RoleRights(ownLevel: 0, canEditLevels: false)
     @State private var level: Int64 = 0
@@ -182,6 +183,12 @@ struct UserProfileSheet: View {
                             .font(.wizard(WZ.FontSize.md))
                             .foregroundStyle(theme.textMuted)
                             .textSelection(.enabled)
+                        if let pronouns {
+                            Text(pronouns)
+                                .font(.wizard(WZ.FontSize.md))
+                                .foregroundStyle(theme.textSecondary)
+                                .multilineTextAlignment(.center)
+                        }
                         if let statusText {
                             Text(statusText)
                                 .font(.wizard(WZ.FontSize.md))
@@ -296,6 +303,7 @@ struct UserProfileSheet: View {
                 canBan = permissions.ban && level < rights.ownLevel
             }
         }
+        pronouns = await session.pronouns(of: userId)
         if !isMe, let rooms = try? await session.client?.mutualRooms(userId: userId) {
             mutualRooms = rooms
         }

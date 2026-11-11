@@ -15,6 +15,12 @@ import { useToast } from '@/app/hooks/useToast';
 import { anchorFromElement, useContextMenu } from '@/app/hooks/useContextMenu';
 import { customStatusDialogOpenAtom, useUserStatusText } from '@/app/features/status/customStatus';
 import { PresenceDot, usePresenceMenu } from '@/app/features/status/usePresenceMenu';
+import {
+  MAX_PRONOUNS_LENGTH,
+  useCanSetPronouns,
+  useSetPronouns,
+  useUserPronouns,
+} from '@/app/features/profile/pronouns';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { getErrorMessage } from '@/util/error';
 import * as popupCss from '@/app/features/profile/UserProfilePopup.css';
@@ -44,6 +50,10 @@ export function ProfileSettings() {
   const presenceMenu = usePresenceMenu();
 
   const [editingName, setEditingName] = useState<string | null>(null);
+  const [editingPronouns, setEditingPronouns] = useState<string | null>(null);
+  const pronouns = useUserPronouns(client, userId);
+  const canSetPronouns = useCanSetPronouns(client);
+  const setPronouns = useSetPronouns(client);
   const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null);
   const avatarInput = useRef<HTMLInputElement>(null);
   const bannerInput = useRef<HTMLInputElement>(null);
@@ -135,6 +145,13 @@ export function ProfileSettings() {
     const next = editingName.trim();
     setEditingName(null);
     if (next && next !== profile.displayName) void run(() => saveProfile({ displayName: next }));
+  };
+
+  const commitPronouns = () => {
+    if (editingPronouns === null) return;
+    const next = editingPronouns.trim();
+    setEditingPronouns(null);
+    if (next !== (pronouns ?? '')) void run(() => setPronouns(next));
   };
 
   const presence =
@@ -261,6 +278,35 @@ export function ProfileSettings() {
                 <PencilSimpleIcon size={16} className={css.namePen} />
               </button>
             </Tooltip>
+          )}
+          {editingPronouns !== null ? (
+            <input
+              className={css.pronounsInput}
+              value={editingPronouns}
+              maxLength={MAX_PRONOUNS_LENGTH}
+              aria-label={t('profile.pronouns')}
+              placeholder={t('profile.pronounsPlaceholder')}
+              autoFocus
+              onChange={(e) => setEditingPronouns(e.target.value)}
+              onBlur={commitPronouns}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitPronouns();
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setEditingPronouns(null);
+                }
+              }}
+            />
+          ) : canSetPronouns ? (
+            <button
+              type="button"
+              className={pronouns ? css.pronounsBtn : css.pronounsBtnEmpty}
+              onClick={() => setEditingPronouns(pronouns ?? '')}
+            >
+              {pronouns ?? t('profile.addPronouns')}
+            </button>
+          ) : (
+            pronouns && <span className={css.pronounsText}>{pronouns}</span>
           )}
           <div className={css.userIdRow}>
             <span className={css.userId}>{userId}</span>

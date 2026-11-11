@@ -9,6 +9,10 @@ struct AccountSettings: View {
 
     @State private var displayName = ""
     @State private var savingName = false
+    @State private var canSetPronouns = false
+    @State private var savedPronouns = ""
+    @State private var pronouns = ""
+    @State private var savingPronouns = false
     @State private var photo: PhotosPickerItem?
     @State private var status: (String, Bool)?
     @State private var showDeactivate = false
@@ -54,6 +58,36 @@ struct AccountSettings: View {
                         .frame(width: WZ.SizeAvatar.xl)
                         .disabled(savingName || displayName.trimmingCharacters(in: .whitespaces).isEmpty
                                   || displayName == session.displayName)
+                    }
+                }
+                if canSetPronouns {
+                    SettingsDivider()
+                    VStack(alignment: .leading, spacing: WZ.Space.space4) {
+                        Text(String(localized: "profile.pronouns"))
+                            .font(.wizard(WZ.FontSize.sm, .semibold))
+                            .foregroundStyle(theme.textMuted)
+                        HStack(spacing: WZ.Space.space4) {
+                            TextField("", text: $pronouns,
+                                      prompt: Text(String(localized: "profile.pronounsPlaceholder")).foregroundColor(theme.textMuted))
+                                .wizardField()
+                                .onChange(of: pronouns) { _, value in
+                                    if value.count > Pronouns.maxLength { pronouns = String(value.prefix(Pronouns.maxLength)) }
+                                }
+                            Button(savingPronouns ? "..." : String(localized: "common.save")) {
+                                Task {
+                                    savingPronouns = true
+                                    await run {
+                                        try await session.setPronouns(pronouns)
+                                        savedPronouns = pronouns.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        pronouns = savedPronouns
+                                    }
+                                    savingPronouns = false
+                                }
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .frame(width: WZ.SizeAvatar.xl)
+                            .disabled(savingPronouns || pronouns.trimmingCharacters(in: .whitespacesAndNewlines) == savedPronouns)
+                        }
                     }
                 }
                 SettingsDivider()
@@ -106,6 +140,12 @@ struct AccountSettings: View {
             }
         }
         .onAppear { displayName = session.displayName ?? "" }
+        .task {
+            guard let userId = session.userId else { return }
+            canSetPronouns = await session.canSetPronouns()
+            savedPronouns = await session.pronouns(of: userId) ?? ""
+            pronouns = savedPronouns
+        }
         .onChange(of: photo) { _, item in
             guard let item else { return }
             Task {
