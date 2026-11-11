@@ -60,6 +60,8 @@ export interface Preferences {
   showPresenceDots: boolean;
   colorUsernames: boolean;
   groupImages: boolean;
+  stripPhotoMetadata: boolean;
+  compressImages: boolean;
   largeEmoji: boolean;
   emoticonsToEmoji: boolean;
   showJoinLeave: boolean;
@@ -101,6 +103,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showPresenceDots: true,
   colorUsernames: true,
   groupImages: true,
+  stripPhotoMetadata: true,
+  compressImages: false,
   largeEmoji: true,
   emoticonsToEmoji: false,
   showJoinLeave: true,
@@ -145,6 +149,8 @@ export const showRoomAvatarsAtom = preferenceFieldAtom('showRoomAvatars');
 export const showPresenceDotsAtom = preferenceFieldAtom('showPresenceDots');
 export const colorUsernamesAtom = preferenceFieldAtom('colorUsernames');
 export const groupImagesAtom = preferenceFieldAtom('groupImages');
+export const stripPhotoMetadataAtom = preferenceFieldAtom('stripPhotoMetadata');
+export const compressImagesAtom = preferenceFieldAtom('compressImages');
 export const largeEmojiAtom = preferenceFieldAtom('largeEmoji');
 export const emoticonsToEmojiAtom = preferenceFieldAtom('emoticonsToEmoji');
 export const showJoinLeaveAtom = preferenceFieldAtom('showJoinLeave');

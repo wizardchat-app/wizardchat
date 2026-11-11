@@ -27,6 +27,8 @@ const SYNCED_PREFERENCES = {
   showPresenceDots: isBoolean,
   colorUsernames: isBoolean,
   groupImages: isBoolean,
+  stripPhotoMetadata: isBoolean,
+  compressImages: isBoolean,
   largeEmoji: isBoolean,
   emoticonsToEmoji: isBoolean,
   showJoinLeave: isBoolean,

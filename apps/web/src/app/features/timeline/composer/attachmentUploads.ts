@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { JsonValue, RoomTimeline, UploadedThumbnail } from '@wizardchat/core';
 import { getMediaDetails, type MediaDetails } from '../encryptedMedia';
+import { prepareMediaFile, type MediaOptions } from './mediaProcessing';
 
 export type AttachmentUploadStatus = 'uploading' | 'done' | 'error';
 
@@ -9,10 +10,11 @@ export interface AttachmentUploadState {
   progress: number;
 }
 
-/** A file uploaded while composing, ready to send with `sendUploaded` */
 export interface PreparedAttachment extends Omit<MediaDetails, 'thumbnail'> {
   source: JsonValue;
   size: number;
+  filename: string;
+  mimetype: string;
   thumbnail: UploadedThumbnail | null;
 }
 
@@ -75,11 +77,14 @@ function throwIfAborted(signal: AbortSignal): void {
 }
 
 async function prepareAttachment(
-  file: File,
+  original: File,
   getTimeline: () => Promise<RoomTimeline>,
+  options: MediaOptions,
   onProgress: (fraction: number) => void,
   signal: AbortSignal
 ): Promise<PreparedAttachment> {
+  const file = await prepareMediaFile(original, options);
+  throwIfAborted(signal);
   const [bytes, dims, details, timeline] = await Promise.all([
     readFile(file, signal),
     imageDimensions(file),
@@ -109,6 +114,8 @@ async function prepareAttachment(
     ...(dims ?? {}),
     source,
     size: bytes.byteLength,
+    filename: file.name,
+    mimetype,
     thumbnail,
   };
 }
@@ -116,7 +123,8 @@ async function prepareAttachment(
 export function startAttachmentUpload(
   id: string,
   file: File,
-  getTimeline: () => Promise<RoomTimeline>
+  getTimeline: () => Promise<RoomTimeline>,
+  options: MediaOptions
 ): Promise<PreparedAttachment> {
   const existing = entries.get(id);
   if (existing && existing.status !== 'error') return existing.promise;
@@ -131,6 +139,7 @@ export function startAttachmentUpload(
   entry.promise = prepareAttachment(
     file,
     getTimeline,
+    options,
     (progress) => {
       const current = entries.get(id);
       if (!current || current.controller !== controller) return;

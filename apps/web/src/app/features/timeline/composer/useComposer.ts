@@ -3,6 +3,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   type KeyboardEvent,
   type ClipboardEvent,
 } from 'react';
@@ -14,6 +15,8 @@ import {
   typingIndicatorsAtom,
   markdownAtom,
   emoticonsToEmojiAtom,
+  stripPhotoMetadataAtom,
+  compressImagesAtom,
   serverUploadLimitAtom,
   composerAttachmentsAtom,
   composerDraftKey,
@@ -144,6 +147,12 @@ export function useComposer({
   const markdownEnabled = useAtomValue(markdownAtom);
   const emoticonsToEmoji = useAtomValue(emoticonsToEmojiAtom);
   const maxUploadBytes = useAtomValue(serverUploadLimitAtom);
+  const stripPhotoMetadata = useAtomValue(stripPhotoMetadataAtom);
+  const compressImages = useAtomValue(compressImagesAtom);
+  const mediaOptions = useMemo(
+    () => ({ stripPhotoMetadata, compressImages }),
+    [stripPhotoMetadata, compressImages]
+  );
   const [mentionInsert, setMentionInsert] = useAtom(mentionInsertAtom);
   const setEditMessage = useSetAtom(editMessageAtom);
   const confirmDialog = useConfirm();
@@ -457,11 +466,12 @@ export function useComposer({
       });
       setAttachments((prev) => [...prev, ...items]);
       for (const item of items) {
-        if (!item.oversized) void startAttachmentUpload(item.id, item.file, getTimeline);
+        if (!item.oversized)
+          void startAttachmentUpload(item.id, item.file, getTimeline, mediaOptions);
       }
       requestAnimationFrame(() => ReactEditor.focus(editor));
     },
-    [maxUploadBytes, setAttachments, editor, getTimeline]
+    [maxUploadBytes, setAttachments, editor, getTimeline, mediaOptions]
   );
 
   const focusRequest = useAtomValue(composerFocusRequestAtom);
@@ -549,7 +559,7 @@ export function useComposer({
     ): Promise<void> => {
       const isImage = file.type.startsWith('image/') && file.type !== 'image/svg+xml';
       const isVideo = file.type.startsWith('video/');
-      const resultPromise = startAttachmentUpload(attachmentId, file, getTimeline);
+      const resultPromise = startAttachmentUpload(attachmentId, file, getTimeline, mediaOptions);
       const syncProgress = () =>
         setUploadProgress(getAttachmentUpload(attachmentId)?.progress ?? 0);
       syncProgress();
@@ -578,8 +588,8 @@ export function useComposer({
       await timeline.sendUploaded({
         source: prepared.source,
         size: prepared.size,
-        filename: file.name,
-        mimetype: file.type || 'application/octet-stream',
+        filename: prepared.filename,
+        mimetype: prepared.mimetype,
         caption: caption.length > 0 ? caption : null,
         captionHtml: captionExtra?.html ?? null,
         mentions,
@@ -593,7 +603,7 @@ export function useComposer({
       });
       setUploadProgress(1);
     },
-    [getTimeline, myId]
+    [getTimeline, myId, mediaOptions]
   );
 
   const sendLeadingText = useCallback(
@@ -637,7 +647,9 @@ export function useComposer({
             leading.attachmentIds.includes(q.attachmentId)
           );
           await Promise.allSettled(
-            batch.map((q) => startAttachmentUpload(q.attachmentId, q.file, getTimeline))
+            batch.map((q) =>
+              startAttachmentUpload(q.attachmentId, q.file, getTimeline, mediaOptions)
+            )
           );
           await sendLeadingText(leading);
         }
@@ -671,7 +683,7 @@ export function useComposer({
       setUploadFileInfo(null);
       uploadAbortRef.current = null;
     }
-  }, [uploadOne, sendLeadingText, onSent, toast, t, getTimeline]);
+  }, [uploadOne, sendLeadingText, onSent, toast, t, getTimeline, mediaOptions]);
 
   const cancelUpload = useCallback(() => {
     // Cancelling drops the files, but text sent along with them still goes out

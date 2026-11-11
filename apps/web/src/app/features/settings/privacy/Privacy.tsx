@@ -5,6 +5,8 @@ import {
   typingIndicatorsAtom,
   sendReadReceiptsAtom,
   mediaVisibilityAtom,
+  stripPhotoMetadataAtom,
+  compressImagesAtom,
   streamerModeAtom,
   streamerModeActiveAtom,
   type MediaVisibility,
@@ -43,6 +45,8 @@ export function Privacy() {
   const [sendReadReceipts, setSendReadReceipts] = useAtom(sendReadReceiptsAtom);
   const [mediaVisibility, setMediaVisibility] = useAtom(mediaVisibilityAtom);
   const [streamerMode, setStreamerMode] = useAtom(streamerModeAtom);
+  const [stripPhotoMetadata, setStripPhotoMetadata] = useAtom(stripPhotoMetadataAtom);
+  const [compressImages, setCompressImages] = useAtom(compressImagesAtom);
 
   return (
     <div>
@@ -84,6 +88,18 @@ export function Privacy() {
             onChange={(v) => setMediaVisibility(v as MediaVisibility)}
           />
         </div>
+        <ToggleRow
+          label={t('settings.privacy.stripPhotoMetadata')}
+          description={t('settings.privacy.stripPhotoMetadataNote')}
+          checked={stripPhotoMetadata}
+          onChange={setStripPhotoMetadata}
+        />
+        <ToggleRow
+          label={t('settings.privacy.compressImages')}
+          description={t('settings.privacy.compressImagesNote')}
+          checked={compressImages}
+          onChange={setCompressImages}
+        />
       </div>
 
       <div className={css.divider} />
