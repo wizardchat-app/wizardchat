@@ -191,7 +191,7 @@ struct UserProfileSheet: View {
                         }
                         if let statusText {
                             Text(statusText)
-                                .font(.wizard(WZ.FontSize.md))
+                                .font(StatusEmoji.isEmojiOnly(statusText) ? .system(size: 32) : .wizard(WZ.FontSize.md))
                                 .foregroundStyle(theme.textSecondary)
                                 .multilineTextAlignment(.center)
                         }

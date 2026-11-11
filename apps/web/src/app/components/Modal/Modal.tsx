@@ -12,6 +12,7 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   zIndex?: number;
+  trapPaused?: boolean;
 }
 
 export function Modal({
@@ -23,6 +24,7 @@ export function Modal({
   children,
   footer,
   zIndex,
+  trapPaused,
 }: ModalProps) {
   return (
     <Dialog
@@ -32,6 +34,7 @@ export function Modal({
       titleIcon={titleIcon}
       size={size}
       zIndex={zIndex}
+      trapPaused={trapPaused}
       footer={footer}
     >
       {children}

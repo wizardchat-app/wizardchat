@@ -43,7 +43,11 @@ import {
 } from '@/app/store/atoms';
 import type { PresenceState } from '@/app/store/atoms';
 import { getMatrixClient, getMatrixClientOrNull } from '@/client/initMatrix';
-import { customStatusDialogOpenAtom, useUserStatusText } from '@/app/features/status/customStatus';
+import {
+  customStatusDialogOpenAtom,
+  isEmojiOnlyStatus,
+  useUserStatusText,
+} from '@/app/features/status/customStatus';
 import {
   PresenceDot,
   usePresenceLabels,
@@ -529,7 +533,13 @@ export function UserProfilePopup() {
               <div className={css.statusSlot}>
                 <button
                   type="button"
-                  className={statusText ? css.statusButton : css.statusButtonEmpty}
+                  className={
+                    !statusText
+                      ? css.statusButtonEmpty
+                      : isEmojiOnlyStatus(statusText)
+                        ? `${css.statusButton} ${css.statusBig}`
+                        : css.statusButton
+                  }
                   onClick={editStatus}
                 >
                   {statusText ? (
@@ -545,7 +555,11 @@ export function UserProfilePopup() {
             ) : statusText ? (
               <div className={css.statusSlot}>
                 <Tooltip content={statusText}>
-                  <span className={css.status}>
+                  <span
+                    className={
+                      isEmojiOnlyStatus(statusText) ? `${css.status} ${css.statusBig}` : css.status
+                    }
+                  >
                     <span className={css.statusText}>{statusText}</span>
                   </span>
                 </Tooltip>

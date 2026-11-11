@@ -384,6 +384,8 @@ struct CustomStatusSheet: View {
     @State private var clearAfter = ClearAfter.today
     @State private var saving = false
     @State private var error: String?
+    @State private var pickingEmoji = false
+    @State private var emoji = ""
 
     enum ClearAfter: CaseIterable, Hashable {
         case today, fourHours, oneHour, thirtyMinutes, never
@@ -413,9 +415,46 @@ struct CustomStatusSheet: View {
         NavigationStack {
             List {
                 Section {
-                    TextField("", text: $text, prompt: Text(String(localized: "status.placeholder")).foregroundColor(theme.textMuted))
-                        .font(.wizard(WZ.FontSize.lg))
-                        .onChange(of: text) { _, value in if value.count > 128 { text = String(value.prefix(128)) } }
+                    HStack(spacing: WZ.Space.space4) {
+                        Button {
+                            pickingEmoji = true
+                        } label: {
+                            Group {
+                                if emoji.isEmpty {
+                                    Image("ph-smiley-regular")
+                                        .font(.system(size: WZ.SizeIcon.md))
+                                        .foregroundStyle(theme.textMuted)
+                                } else {
+                                    Text(emoji).font(.system(size: 24))
+                                }
+                            }
+                            .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: emoji.isEmpty ? "status.addEmoji" : "status.changeEmoji"))
+                        .overlay(alignment: .topTrailing) {
+                            if !emoji.isEmpty {
+                                Button {
+                                    emoji = ""
+                                } label: {
+                                    Image("ph-x-bold")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(theme.textMuted)
+                                        .frame(width: 16, height: 16)
+                                        .background(Circle().fill(theme.bgTertiary))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(String(localized: "status.removeEmoji"))
+                                .offset(x: 6, y: -6)
+                            }
+                        }
+                        TextField("", text: $text, prompt: Text(String(localized: "status.placeholder")).foregroundColor(theme.textMuted))
+                            .font(.wizard(WZ.FontSize.lg))
+                            .onChange(of: text) { _, value in
+                                let limit = 128 - (emoji.isEmpty ? 0 : emoji.count + 1)
+                                if value.count > limit { text = String(value.prefix(limit)) }
+                            }
+                    }
                 } header: {
                     Text(String(localized: "status.whatsUp")).foregroundStyle(theme.textMuted)
                 }
@@ -448,8 +487,20 @@ struct CustomStatusSheet: View {
             .tint(theme.control)
         }
         .presentationDetents([.medium])
+        .sheet(isPresented: $pickingEmoji) {
+            EmojiGrid(packs: [], unicodeOnly: true) { picked, image in
+                if image == nil { emoji = picked }
+                pickingEmoji = false
+            }
+            .padding(.top, WZ.Space.space4)
+            .background(theme.bgSecondary.ignoresSafeArea())
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .onAppear {
-            text = session.customStatus?.text ?? ""
+            let parts = StatusEmoji.split(session.customStatus?.text ?? "")
+            emoji = parts.emoji
+            text = parts.rest
             clearAfter = session.customStatus == nil || session.customStatus?.expiresAt != nil ? .today : .never
         }
     }
@@ -459,7 +510,7 @@ struct CustomStatusSheet: View {
         Task {
             defer { saving = false }
             do {
-                try await session.setCustomStatus(text, expiresAt: clearAfter.expiry)
+                try await session.setCustomStatus(StatusEmoji.join(emoji, text), expiresAt: clearAfter.expiry)
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

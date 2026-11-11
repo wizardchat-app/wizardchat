@@ -44,6 +44,26 @@ export function useClearAfterOptions(): { value: ClearAfter; label: string }[] {
   ];
 }
 
+const EMOJI_START = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[#*0-9]\uFE0F?\u20E3)/u;
+
+export function splitStatusEmoji(text: string): { emoji: string; rest: string } {
+  const trimmed = text.trim();
+  const segments = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(trimmed);
+  const first: string = segments.containing(0)?.segment ?? '';
+  if (!first || !EMOJI_START.test(first)) return { emoji: '', rest: trimmed };
+  return { emoji: first, rest: trimmed.slice(first.length).trim() };
+}
+
+export function joinStatusEmoji(emoji: string, rest: string): string {
+  return [emoji, rest.trim()].filter(Boolean).join(' ');
+}
+
+export function isEmojiOnlyStatus(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const { emoji, rest } = splitStatusEmoji(text);
+  return !!emoji && !rest;
+}
+
 export function isExpired(status: CustomStatus, now = Date.now()): boolean {
   return typeof status.expiresAt === 'number' && status.expiresAt <= now;
 }

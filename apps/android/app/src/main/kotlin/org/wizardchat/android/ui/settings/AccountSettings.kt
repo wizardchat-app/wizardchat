@@ -7,18 +7,23 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,10 +34,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,6 +49,7 @@ import kotlinx.coroutines.withContext
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.MatrixSession
 import org.wizardchat.android.matrix.Pronouns
+import org.wizardchat.android.matrix.StatusEmoji
 import org.wizardchat.android.matrix.accountManagementUrl
 import org.wizardchat.android.matrix.addEmail
 import org.wizardchat.android.matrix.canSetPronouns
@@ -55,14 +65,15 @@ import org.wizardchat.android.matrix.setAvatar
 import org.wizardchat.android.matrix.setDisplayName
 import org.wizardchat.android.matrix.setPronouns
 import org.wizardchat.android.ui.Avatar
-import org.wizardchat.android.ui.Chip
 import org.wizardchat.android.ui.BarTextButton
+import org.wizardchat.android.ui.Chip
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PrimaryButton
 import org.wizardchat.android.ui.SheetTopBar
 import org.wizardchat.android.ui.WizardSheet
 import org.wizardchat.android.ui.WizardTextField
+import org.wizardchat.android.ui.composer.EmojiGrid
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
@@ -488,12 +499,16 @@ private enum class ClearAfter { Today, FourHours, OneHour, ThirtyMinutes, Never 
 private fun CustomStatusSheet(onDismiss: () -> Unit) {
     val session = LocalSession.current
     val scope = rememberCoroutineScope()
-    var text by remember { mutableStateOf(session.customStatus?.text ?: "") }
+    val initial = remember { StatusEmoji.split(session.customStatus?.text ?: "") }
+    var emoji by remember { mutableStateOf(initial.first) }
+    var text by remember { mutableStateOf(initial.second) }
     var clearAfter by remember {
         mutableStateOf(if (session.customStatus != null && session.customStatus?.expiresAt == null) ClearAfter.Never else ClearAfter.Today)
     }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var pickingEmoji by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
     fun label(choice: ClearAfter) = when (choice) {
         ClearAfter.Today -> L10n.format("status.clearToday")
         ClearAfter.FourHours -> L10n.plural("status.clearHours", 4, 4)
@@ -527,7 +542,54 @@ private fun CustomStatusSheet(onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(WZ.Space.space5),
         ) {
             Text(tr("status.whatsUp"), style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = theme.textMuted)
-            WizardTextField(text, { text = it.take(128) }, tr("status.placeholder"))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
+                Box {
+                    Box(
+                        Modifier
+                            .size(WZ.Space.space11)
+                            .clip(CircleShape)
+                            .background(if (pickingEmoji) theme.bgActive else theme.bgTertiary)
+                            .clickable(onClickLabel = tr(if (emoji.isEmpty()) "status.addEmoji" else "status.changeEmoji")) {
+                                focus.clearFocus()
+                                pickingEmoji = !pickingEmoji
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (emoji.isEmpty()) {
+                            PhIcon("smiley", size = WZ.SizeIcon.md, tint = if (pickingEmoji) theme.textPrimary else theme.textMuted)
+                        } else {
+                            Text(emoji, fontSize = 22.sp)
+                        }
+                    }
+                    if (emoji.isNotEmpty()) {
+                        Box(
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(theme.bgTertiary)
+                                .clickable(onClickLabel = tr("status.removeEmoji")) { emoji = "" },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            PhIcon("x", size = 10.dp, tint = theme.textMuted)
+                        }
+                    }
+                }
+                WizardTextField(
+                    text,
+                    { text = it.take(128 - if (emoji.isEmpty()) 0 else emoji.length + 1) },
+                    tr("status.placeholder"),
+                    Modifier.weight(1f),
+                )
+            }
+            if (pickingEmoji) {
+                Box(Modifier.fillMaxWidth().height(320.dp)) {
+                    EmojiGrid(emptyList(), unicodeOnly = true) { picked, image ->
+                        if (image == null) emoji = picked
+                        pickingEmoji = false
+                    }
+                }
+            }
             Text(tr("status.clearAfter"), style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = theme.textMuted)
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
@@ -540,7 +602,7 @@ private fun CustomStatusSheet(onDismiss: () -> Unit) {
                 saving = true
                 scope.launch {
                     try {
-                        session.setCustomStatus(text, expiry(clearAfter))
+                        session.setCustomStatus(StatusEmoji.join(emoji, text), expiry(clearAfter))
                         onDismiss()
                     } catch (e: Exception) {
                         error = e.text

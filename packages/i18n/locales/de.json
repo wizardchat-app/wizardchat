@@ -1797,7 +1797,10 @@
     "clearMinutes_one": "{{count}} Minute",
     "clearMinutes_other": "{{count}} Minuten",
     "clearNever": "Nicht entfernen",
-    "addStatus": "Status hinzufügen"
+    "addStatus": "Status hinzufügen",
+    "addEmoji": "Emoji hinzufügen",
+    "changeEmoji": "Emoji ändern",
+    "removeEmoji": "Emoji entfernen"
   },
   "link": {
     "startDmTitle": "Unterhaltung starten?",

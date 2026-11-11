@@ -299,6 +299,8 @@ export interface EmojiPickerState {
   onPick: (emoji: string, mxcUrl?: string) => void;
   client: WizardClient;
   roomId: string;
+  unicodeOnly?: boolean;
+  placement?: 'bottom-start' | 'left-start' | 'right-start';
 }
 export const emojiPickerAtom = atom<EmojiPickerState | null>(null);
 

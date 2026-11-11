@@ -247,3 +247,27 @@ enum Pronouns {
         return summaries.isEmpty ? nil : summaries.joined(separator: ", ")
     }
 }
+
+enum StatusEmoji {
+    static func split(_ text: String) -> (emoji: String, rest: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first, isEmoji(first) else { return ("", trimmed) }
+        return (String(first), String(trimmed.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    static func join(_ emoji: String, _ rest: String) -> String {
+        [emoji, rest.trimmingCharacters(in: .whitespacesAndNewlines)].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    static func isEmojiOnly(_ text: String?) -> Bool {
+        guard let text else { return false }
+        let parts = split(text)
+        return !parts.emoji.isEmpty && parts.rest.isEmpty
+    }
+
+    private static func isEmoji(_ character: Character) -> Bool {
+        guard let scalar = character.unicodeScalars.first else { return false }
+        return scalar.properties.isEmojiPresentation
+            || (scalar.properties.isEmoji && character.unicodeScalars.count > 1)
+    }
+}

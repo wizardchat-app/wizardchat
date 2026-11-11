@@ -68,6 +68,7 @@ const RECENT_ID = 'recent';
 interface EmojiPickerProps {
   embedded?: boolean;
   naked?: boolean;
+  unicodeOnly?: boolean;
   client?: MatrixClient;
   roomId?: string;
   onPick?: (emoji: string, mxcUrl?: string) => void;
@@ -77,6 +78,7 @@ interface EmojiPickerProps {
 export function EmojiPicker({
   embedded,
   naked,
+  unicodeOnly: propUnicodeOnly = false,
   client: propClient,
   roomId: propRoomId,
   onPick: propOnPick,
@@ -116,7 +118,7 @@ export function EmojiPicker({
   const ctx = useMemo(
     () =>
       embedded
-        ? propClient && propRoomId && propOnPick && propOnClose
+        ? propClient && propRoomId !== undefined && propOnPick && propOnClose
           ? { client: propClient, roomId: propRoomId, onPick: propOnPick, onClose: propOnClose }
           : null
         : picker,
@@ -124,6 +126,7 @@ export function EmojiPicker({
   );
 
   const { recent, saveRecent: saveRecentEmoji } = useRecentEmoji(ctx?.client ?? null);
+  const unicodeOnly = embedded ? propUnicodeOnly : !!picker?.unicodeOnly;
 
   const coarse = useCoarsePointer();
 
@@ -143,12 +146,12 @@ export function EmojiPicker({
 
   const recentEmojis = useMemo(() => {
     if (searchQuery) return [];
-    return recent;
-  }, [recent, searchQuery]);
+    return unicodeOnly ? recent.filter((entry) => !entry.url) : recent;
+  }, [recent, searchQuery, unicodeOnly]);
 
   const { packs: imagePacks, loading: packsLoading } = useImagePacks(
-    ctx?.client ?? null,
-    ctx?.roomId ?? null
+    unicodeOnly ? null : (ctx?.client ?? null),
+    unicodeOnly ? null : (ctx?.roomId ?? null)
   );
   const showPacksSkeleton = useDelayedFlag(packsLoading, 300);
 
@@ -207,7 +210,9 @@ export function EmojiPicker({
   useEffect(() => {
     if (!ctx || naked) return;
     const handleMouseDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (picker?.anchor?.contains(target)) return;
+      if (wrapRef.current && !wrapRef.current.contains(target)) {
         close();
       }
     };
@@ -222,7 +227,7 @@ export function EmojiPicker({
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('keydown', handleKey);
     };
-  }, [ctx, close, naked]);
+  }, [ctx, close, naked, picker]);
 
   useEffect(() => {
     if (!bodyRef.current || searchQuery) return;
@@ -331,7 +336,8 @@ export function EmojiPicker({
           : { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
       },
     };
-    const placement = anchor?.closest('[role="menu"]') ? 'right-start' : 'bottom-start';
+    const placement =
+      picker.placement ?? (anchor?.closest('[role="menu"]') ? 'right-start' : 'bottom-start');
     return autoUpdate(reference, wrap, () => {
       const w = wrapRef.current;
       if (!w) return;

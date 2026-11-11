@@ -1797,7 +1797,10 @@
     "clearMinutes_one": "{{count}} minute",
     "clearMinutes_other": "{{count}} minutes",
     "clearNever": "Don't clear",
-    "addStatus": "Add status"
+    "addStatus": "Add status",
+    "addEmoji": "Add emoji",
+    "changeEmoji": "Change emoji",
+    "removeEmoji": "Remove emoji"
   },
   "link": {
     "startDmTitle": "Start a conversation?",

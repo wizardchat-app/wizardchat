@@ -23,8 +23,10 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalSession
+import org.wizardchat.android.matrix.StatusEmoji
 import org.wizardchat.android.matrix.ignore
 import org.wizardchat.android.matrix.profile
 import org.wizardchat.android.matrix.pronouns
@@ -249,7 +251,13 @@ fun UserProfileSheet(userId: String, roomId: String?, onDismiss: () -> Unit, onC
                         Text(it, style = wizardFont(WZ.FontSize.md), color = theme.textSecondary, textAlign = TextAlign.Center)
                     }
                     statusText?.let {
-                        Text(it, style = wizardFont(WZ.FontSize.md), color = theme.textSecondary, textAlign = TextAlign.Center)
+                        val big = StatusEmoji.isEmojiOnly(it)
+                        Text(
+                            it,
+                            style = if (big) wizardFont(WZ.FontSize.md).copy(fontSize = 32.sp) else wizardFont(WZ.FontSize.md),
+                            color = theme.textSecondary,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                     if (isMember) RoleBadge(level)
                 }

@@ -13,7 +13,11 @@ import { useConfirm } from '@/app/hooks/useConfirm';
 import { useSyncReady } from '@/app/hooks/useSync';
 import { useToast } from '@/app/hooks/useToast';
 import { anchorFromElement, useContextMenu } from '@/app/hooks/useContextMenu';
-import { customStatusDialogOpenAtom, useUserStatusText } from '@/app/features/status/customStatus';
+import {
+  customStatusDialogOpenAtom,
+  isEmojiOnlyStatus,
+  useUserStatusText,
+} from '@/app/features/status/customStatus';
 import { PresenceDot, usePresenceMenu } from '@/app/features/status/usePresenceMenu';
 import {
   MAX_PRONOUNS_LENGTH,
@@ -234,7 +238,13 @@ export function ProfileSettings() {
           <div className={css.statusSlot}>
             <button
               type="button"
-              className={statusText ? popupCss.statusButton : popupCss.statusButtonEmpty}
+              className={
+                !statusText
+                  ? popupCss.statusButtonEmpty
+                  : isEmojiOnlyStatus(statusText)
+                    ? `${popupCss.statusButton} ${popupCss.statusBig}`
+                    : popupCss.statusButton
+              }
               onClick={() => openStatusDialog(true)}
             >
               {statusText ? (

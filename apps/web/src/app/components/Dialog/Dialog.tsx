@@ -27,6 +27,7 @@ interface DialogProps {
   surface?: 'secondary' | 'primary';
   fullscreenOnMobile?: boolean;
   swipeBack?: boolean;
+  trapPaused?: boolean;
   maxWidth?: string;
   height?: string;
   ariaLabel?: string;
@@ -49,6 +50,7 @@ export function Dialog({
   surface = 'secondary',
   fullscreenOnMobile,
   swipeBack = false,
+  trapPaused = false,
   maxWidth,
   height,
   className,
@@ -66,11 +68,13 @@ export function Dialog({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const rendered = open;
+  const trapPausedRef = useRef(trapPaused);
+  trapPausedRef.current = trapPaused;
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current?.();
+      if (e.key === 'Escape' && !trapPausedRef.current) onCloseRef.current?.();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -160,6 +164,7 @@ export function Dialog({
     >
       <FocusTrap
         active={rendered}
+        paused={trapPaused}
         focusTrapOptions={{
           initialFocus: () => {
             const root = panelRef.current;

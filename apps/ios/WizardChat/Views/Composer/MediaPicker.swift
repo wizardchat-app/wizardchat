@@ -58,8 +58,9 @@ struct MediaPicker: View {
     }
 }
 
-private struct EmojiGrid: View {
+struct EmojiGrid: View {
     let packs: [ImagePack]
+    var unicodeOnly = false
     let onPick: (String, PackImage?) -> Void
 
     @Environment(\.theme) private var theme
@@ -67,6 +68,7 @@ private struct EmojiGrid: View {
     @State private var search = ""
 
     private var customEmoji: [PackImage] { packs.flatMap { $0.images.filter(\.isEmoticon) } }
+    private var recentEntries: [RecentEmoji.Entry] { recentEmoji.entries.filter { !unicodeOnly || $0.url == nil } }
     private let columns = [GridItem(.adaptive(minimum: 44), spacing: WZ.Space.space2)]
 
     var body: some View {
@@ -76,9 +78,9 @@ private struct EmojiGrid: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: WZ.Space.space2, pinnedViews: .sectionHeaders) {
                         if search.isEmpty {
-                            if !recentEmoji.entries.isEmpty {
+                            if !recentEntries.isEmpty {
                                 section("composer.recentEmoji", id: "recent") {
-                                    ForEach(recentEmoji.entries, id: \.emoji) { entry in
+                                    ForEach(recentEntries, id: \.emoji) { entry in
                                         if let url = entry.url {
                                             customCell(PackImage(shortcode: entry.label ?? entry.emoji.trimmingCharacters(in: [":"]), url: url,
                                                              emoticon: true, sticker: false))

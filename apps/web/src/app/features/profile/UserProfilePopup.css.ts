@@ -279,6 +279,12 @@ export const statusButtonEmpty = style([
   },
 ]);
 
+export const statusBig = style({
+  fontSize: '1.6rem',
+  lineHeight: 1.1,
+  padding: '4px 12px',
+});
+
 export const statusText = style({
   minWidth: 0,
   display: '-webkit-box',
