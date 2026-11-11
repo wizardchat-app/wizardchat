@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ThemeEditorPanel } from '@/app/features/themeEditor/ThemeEditorPanel';
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
@@ -13,6 +14,7 @@ import {
   membersPanelOpenAtom,
   spaceMembersPanelOpenAtom,
   threadsPanelViewAtom,
+  themeEditorAtom,
   threadPanelExpandedAtom,
   roomChatPanelOpenAtom,
   roomChatRoomIdAtom,
@@ -323,6 +325,7 @@ export function ClientLayout() {
   const membersPanelVisible = spaceOverviewSpaceId ? spaceMembersPanelOpen : membersPanelOpen;
   const setMembersVisible = spaceOverviewSpaceId ? setSpaceMembersPanelOpen : setMembersPanelOpen;
   const [threadsPanelView, setThreadsPanelView] = useAtom(threadsPanelViewAtom);
+  const themeEditorOpen = useAtomValue(themeEditorAtom) !== null;
   const threadPanelExpanded = useAtomValue(threadPanelExpandedAtom);
 
   const [threadsClosing, setThreadsClosing] = useState(false);
@@ -579,6 +582,8 @@ export function ClientLayout() {
                 />
               </>
             )}
+
+            {themeEditorOpen && <ThemeEditorPanel />}
 
             {roomChatOpen && roomChatRoomId && client && (
               <>

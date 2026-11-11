@@ -1,4 +1,5 @@
 import { globalStyle, style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { med } from '@/theme/animations.css';
 import { spacesList } from './SpacesList.css';
@@ -20,7 +21,7 @@ export const appShell = style({
   minHeight: 0,
   overflow: 'hidden',
   position: 'relative',
-  backgroundColor: vars.color.bgPrimary,
+  ...backdrop('primary'),
   fontFamily: vars.font.body,
   color: vars.color.textPrimary,
   padding:
@@ -46,7 +47,7 @@ export const sidebar = style({
       zIndex: 5000,
       paddingLeft: 'env(safe-area-inset-left)',
       paddingRight: 'env(safe-area-inset-right)',
-      backgroundColor: vars.color.bgPrimary,
+      ...backdrop('primary'),
       transform: 'translateX(-100%)',
       transition: `transform ${med} ease`,
     },
@@ -75,7 +76,7 @@ export const mainContent = style({
   flexDirection: 'column',
   overflow: 'hidden',
   position: 'relative',
-  backgroundColor: vars.color.bgSecondary,
+  ...backdrop('secondary'),
 });
 
 export const mainContentHidden = style({
@@ -140,7 +141,7 @@ export const mobileInbox = style({
   zIndex: 5000,
   paddingLeft: 'env(safe-area-inset-left)',
   paddingRight: 'env(safe-area-inset-right)',
-  backgroundColor: vars.color.bgPrimary,
+  ...backdrop('primary'),
 });
 
 const UNDER_TAB_BAR = `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`;

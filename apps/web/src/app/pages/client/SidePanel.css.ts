@@ -1,11 +1,12 @@
 import { style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { med, slideInRight } from '@/theme/animations.css';
 
 const base = {
   width: '450px',
   position: 'relative',
-  backgroundColor: vars.color.bgSecondary,
+  ...backdrop('secondary'),
   borderLeft: `1px solid ${vars.color.border}`,
   display: 'flex',
   flexDirection: 'column',

@@ -1,11 +1,12 @@
 import { style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { uiSize } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
 
 export const spacesList = style({
   width: '64px',
-  backgroundColor: vars.color.bgPrimary,
+  ...backdrop('primary'),
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -43,7 +44,7 @@ export const spacesStickyBottom = style({
   alignItems: 'center',
   gap: uiSize('spaceGap'),
   width: '100%',
-  backgroundColor: vars.color.bgPrimary,
+  ...backdrop('primary'),
 });
 
 export const spaceBarBtn = style({

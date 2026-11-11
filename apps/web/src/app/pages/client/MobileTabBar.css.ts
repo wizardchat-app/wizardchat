@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -17,7 +18,7 @@ export const tabBar = style({
       height: `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`,
       padding: '0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)',
       boxSizing: 'border-box',
-      backgroundColor: vars.color.bgSecondary,
+      ...backdrop('secondary'),
       borderTop: `1px solid ${vars.color.border}`,
     },
   },

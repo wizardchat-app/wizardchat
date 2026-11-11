@@ -1,9 +1,10 @@
 import { style, globalStyle } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { fast, med } from '@/theme/animations.css';
 
 export const composerWrap = style({
-  backgroundColor: vars.color.bgSecondary,
+  ...backdrop('secondary'),
   padding: '0 8px 9px',
   display: 'flex',
   flexDirection: 'column',

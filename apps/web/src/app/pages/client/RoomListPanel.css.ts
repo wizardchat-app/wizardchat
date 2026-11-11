@@ -1,11 +1,12 @@
 import { style, keyframes } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { TOUCH_UI } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
 
 export const roomListPanel = style({
   width: '240px',
-  backgroundColor: vars.color.bgPrimary,
+  ...backdrop('primary'),
   display: 'flex',
   flexDirection: 'column',
   height: '100%',

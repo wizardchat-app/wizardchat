@@ -5,7 +5,7 @@ import * as css from './LogoLoader.css';
 export function LogoLoader() {
   const themedAppIcon = useAtomValue(themedAppIconAtom);
   const theme = useAtomValue(themeAtom);
-  const logoTheme = themedAppIcon ? theme : 'Carbon';
+  const logoTheme = themedAppIcon && theme !== 'Custom' ? theme : 'Carbon';
   return (
     <svg
       className={css.svg}

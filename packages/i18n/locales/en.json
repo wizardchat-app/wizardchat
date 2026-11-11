@@ -1282,7 +1282,14 @@
       "showPresenceDots": "Show status dots",
       "showPresenceDotsNote": "Online, away and offline dots on avatars, including your own.",
       "themeSystem": "Match system",
-      "textSizePx": "{{size}} px"
+      "textSizePx": "{{size}} px",
+      "customThemes": "Your themes",
+      "customThemesNote": "Up to {{count}} of your own themes.",
+      "newCustomTheme": "New theme",
+      "editCustomTheme": "Edit {{name}}",
+      "customThemeName": "My theme {{number}}",
+      "importTheme": "Import theme",
+      "importThemeFailed": "That file isn't a WizardChat theme."
     },
     "accessibility": {
       "title": "Accessibility",
@@ -1785,5 +1792,25 @@
     "exploreCommunities": "Explore communities",
     "whatNext": "What would you like to do?",
     "viewApps": "View apps"
+  },
+  "themeEditor": {
+    "title": "Customise your theme",
+    "name": "Name",
+    "appearance": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "colors": "Colours",
+    "colorNumber": "Colour {{number}}",
+    "hex": "Hex colour",
+    "removeColor": "Remove colour",
+    "addColor": "Add colour",
+    "controls": "Controls",
+    "direction": "Gradient direction",
+    "intensity": "Colour intensity",
+    "surprise": "Surprise me",
+    "reset": "Reset",
+    "delete": "Delete theme",
+    "backToSettings": "Back to settings",
+    "export": "Export theme"
   }
 }

@@ -1,4 +1,5 @@
 import { style, keyframes, globalStyle } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { chatSize, chatSpace } from './chatDisplay';
 import { TOUCH_FIRST_QUERY } from '@/theme/uiDensity';
@@ -7,7 +8,7 @@ import { TYPING_INDICATOR_BAND_HEIGHT } from './composer/TypingIndicator.css';
 
 export const timelineContainer = style({
   flex: 1,
-  backgroundColor: vars.color.bgSecondary,
+  ...backdrop('secondary'),
   overflowY: 'auto',
   overflowX: 'hidden',
   overflowAnchor: 'none',

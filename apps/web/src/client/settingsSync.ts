@@ -1,5 +1,6 @@
 import type { MessageLayout, Preferences, ThemeName } from '@/app/store/atoms';
 import { THEMES } from '@/theme/themes.css';
+import { isCustomThemeList } from '@/theme/customTheme';
 import {
   STORAGE_KEY_LANGUAGE,
   STORAGE_KEY_MESSAGE_LAYOUT,
@@ -25,6 +26,8 @@ const SYNCED_PREFERENCES = {
   showPresenceDots: isBoolean,
   colorUsernames: isBoolean,
   groupImages: isBoolean,
+  customThemes: isCustomThemeList,
+  activeCustomTheme: (value: unknown) => value === null || typeof value === 'string',
   themedAppIcon: isBoolean,
   chatFontSize: (value: unknown) =>
     typeof value === 'number' && Number.isInteger(value) && value >= 8 && value <= 48,
@@ -112,5 +115,5 @@ export function settingsEqual(a: Partial<SyncedSettings>, b: Partial<SyncedSetti
     'language',
     ...SYNCED_PREFERENCE_KEYS,
   ];
-  return keys.every((key) => (a[key] ?? null) === (b[key] ?? null));
+  return keys.every((key) => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
 }

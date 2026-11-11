@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
+import { useApplyTheme } from '@/theme/useApplyTheme';
 import { Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
-import { themeAtom, themedAppIconAtom } from '@/app/store/atoms';
-import { THEMES, DEFAULT_THEME, baseLogoClass } from '@/theme/themes.css';
-import { THEME_TOKENS } from '@/theme/themeTokens';
+import { themedAppIconAtom } from '@/app/store/atoms';
+import { baseLogoClass } from '@/theme/themes.css';
 import { WelcomePage } from '@/app/pages/auth/WelcomePage';
 import { ClientLayout } from '@/app/pages/client/ClientLayout';
 import { RequireAuth } from '@/app/features/auth/RequireAuth';
@@ -20,19 +20,12 @@ function MatrixToLink() {
 }
 
 export function App() {
-  const theme = useAtomValue(themeAtom);
   const themedAppIcon = useAtomValue(themedAppIconAtom);
   useReducedMotionSync();
   useChatDisplaySync();
   useUiDensitySync();
 
-  useEffect(() => {
-    const themeClass = THEMES[theme] ?? THEMES[DEFAULT_THEME];
-    Object.values(THEMES).forEach((cls) => document.documentElement.classList.remove(cls));
-    document.documentElement.classList.add(themeClass);
-    const { color } = THEME_TOKENS[theme] ?? THEME_TOKENS[DEFAULT_THEME];
-    window.desktopAPI?.setTitleBarTheme?.(color.bgPrimary, color.textPrimary);
-  }, [theme]);
+  useApplyTheme((bg, text) => window.desktopAPI?.setTitleBarTheme?.(bg, text));
 
   useEffect(() => {
     document.documentElement.classList.toggle(baseLogoClass, !themedAppIcon);

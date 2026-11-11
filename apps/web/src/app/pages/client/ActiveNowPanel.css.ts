@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 
 export const panel = style({
@@ -7,7 +8,7 @@ export const panel = style({
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  backgroundColor: vars.color.bgSecondary,
+  ...backdrop('secondary'),
   borderLeft: `1px solid ${vars.color.border}`,
   '@media': { '(max-width: 768px)': { display: 'none' } },
 });

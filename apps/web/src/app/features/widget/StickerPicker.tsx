@@ -9,7 +9,7 @@ import {
   WidgetApiFromWidgetAction,
 } from 'matrix-widget-api';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
-import { stickerPickerAtom, themeAtom, ThemeName } from '@/app/store/atoms';
+import { activeCustomThemeAtom, stickerPickerAtom, themeAtom } from '@/app/store/atoms';
 import { useToast } from '@/app/hooks/useToast';
 import { getErrorMessage } from '@/util/error';
 import {
@@ -30,9 +30,9 @@ interface Props {
   onReplySent?: () => void;
 }
 
-function getThemedUrl(base: string, appTheme: ThemeName): string {
+function getThemedUrl(base: string, light: boolean): string {
   const sep = base.includes('?') ? '&' : '?';
-  const theme = LIGHT_THEMES.has(appTheme) ? 'light' : 'dark';
+  const theme = light ? 'light' : 'dark';
   if (base.includes('theme=')) return base;
   return `${base}${sep}theme=${theme}`;
 }
@@ -62,6 +62,8 @@ export function StickerPicker({
   const toast = useToast();
   const getTimeline = useComposerTimeline(client, roomId, threadId);
   const currentTheme = useAtomValue(themeAtom);
+  const customTheme = useAtomValue(activeCustomThemeAtom);
+  const lightTheme = customTheme ? customTheme.mode === 'light' : LIGHT_THEMES.has(currentTheme);
 
   const close = useCallback(() => setPicker(false), [setPicker]);
 
@@ -69,7 +71,7 @@ export function StickerPicker({
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    const themedUrl = getThemedUrl(widgetUrl, currentTheme);
+    const themedUrl = getThemedUrl(widgetUrl, lightTheme);
     const widget = new Widget({
       id: 'stickerpicker',
       creatorUserId: client.userId() ?? '@wizard:localhost',
@@ -87,7 +89,7 @@ export function StickerPicker({
     }
 
     setLoading(false);
-  }, [widgetUrl, client, currentTheme]);
+  }, [widgetUrl, client, lightTheme]);
 
   useEffect(() => {
     if (!picker) return;
@@ -171,7 +173,7 @@ export function StickerPicker({
 
   if (!picker) return null;
 
-  const themedUrl = getThemedUrl(widgetUrl, currentTheme);
+  const themedUrl = getThemedUrl(widgetUrl, lightTheme);
 
   return (
     <div ref={wrapRef} className={css.popover}>

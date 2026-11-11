@@ -76,6 +76,7 @@ export const promptModalAtom = atom<PromptState>({
 
 // Active modals
 export const settingsOpenAtom = atom(false);
+export const themeEditorAtom = atom<string | null>(null);
 
 export interface CreateRoomState {
   open: boolean;

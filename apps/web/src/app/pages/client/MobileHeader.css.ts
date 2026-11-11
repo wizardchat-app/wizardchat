@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -31,7 +32,7 @@ export const mobileHeader = style({
         'env(safe-area-inset-top) calc(12px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left))',
       height: 'calc(48px + env(safe-area-inset-top))',
       boxSizing: 'border-box',
-      backgroundColor: vars.color.bgSecondary,
+      ...backdrop('secondary'),
       borderBottom: `1px solid ${vars.color.border}`,
       position: 'sticky',
       top: 0,

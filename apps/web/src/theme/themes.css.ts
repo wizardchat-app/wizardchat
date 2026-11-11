@@ -34,6 +34,7 @@ export const THEMES: Record<string, string> = {
   Eclipse: themeClass('eclipse'),
   Garnet: themeClass('garnet'),
   Blossom: themeClass('blossom'),
+  Custom: style({}),
 };
 
 export const DEFAULT_THEME = 'Carbon';

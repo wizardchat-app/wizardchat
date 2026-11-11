@@ -1,4 +1,5 @@
 import { useAtom } from 'jotai';
+import { CustomThemes } from './CustomThemes';
 import { useTranslation } from 'react-i18next';
 import {
   themeAtom,
@@ -21,10 +22,9 @@ import {
   type UiScale,
 } from '@/app/store/atoms';
 import { CHAT_FONT_SIZES, DEFAULT_CHAT_FONT_SIZE } from '@/app/hooks/useChatDisplaySync';
-import { THEMES, DEFAULT_THEME } from '@/theme/themes.css';
 import { THEME_TOKENS } from '@/theme/themeTokens';
 import { hasThemedLogo } from '@/theme/themeLogos';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useProfile } from '@/app/data';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { Avatar } from '@/app/components/Avatar';
@@ -212,13 +212,6 @@ export function Appearance() {
   const [uiScale, setUiScale] = useAtom(uiScaleAtom);
   const themeHasIcon = hasThemedLogo(theme);
 
-  // Apply theme class immediately on change
-  useEffect(() => {
-    const themeClass = THEMES[theme] ?? THEMES[DEFAULT_THEME];
-    Object.values(THEMES).forEach((cls) => document.documentElement.classList.remove(cls));
-    document.documentElement.classList.add(themeClass);
-  }, [theme]);
-
   return (
     <div>
       <h2 className={layoutCss.panelTitle}>{t('settings.appearance.title')}</h2>
@@ -256,6 +249,8 @@ export function Appearance() {
             })}
           </div>
         </div>
+
+        <CustomThemes />
 
         <div className={layoutCss.settingRow}>
           <div className={layoutCss.settingInfo}>

@@ -78,6 +78,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['appearance', 'settings.appearance.uiScale', 'settings.appearance.uiScaleNote'],
   ['appearance', 'settings.appearance.colorUsernames'],
   ['appearance', 'settings.appearance.groupImages'],
+  ['appearance', 'settings.appearance.customThemes'],
   ['appearance', 'settings.appearance.prettifyLinks', 'settings.appearance.prettifyLinksNote'],
   ['appearance', 'settings.appearance.themedAppIcon'],
   ['appearance', 'settings.appearance.showRoomAvatars'],

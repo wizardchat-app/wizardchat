@@ -1,8 +1,11 @@
 import { THEME_TOKENS } from '@/theme/themeTokens';
+import { activeCustomThemeTokens } from '@/theme/customTheme';
 import { DEFAULT_THEME, THEMES } from '@/theme/themes.css';
 import type { ThemeName } from '@/app/store/atoms/settings';
 
 export function getThemeTokens() {
+  const custom = activeCustomThemeTokens();
+  if (custom) return custom;
   const themeName =
     Object.keys(THEMES).find((name) => document.documentElement.classList.contains(THEMES[name])) ??
     DEFAULT_THEME;

@@ -14,6 +14,7 @@ const BASE_ASSETS: ThemeLogoAssets = {
 
 export const THEME_LOGO_ASSETS: Record<ThemeName, ThemeLogoAssets> = {
   Carbon: BASE_ASSETS,
+  Custom: BASE_ASSETS,
   Parrot: {
     logo: '/assets/images/logo_parrot.svg',
     notification: '/assets/images/logo-notification_parrot.svg',

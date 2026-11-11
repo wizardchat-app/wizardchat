@@ -1282,7 +1282,14 @@
       "showPresenceDots": "Status-Punkte anzeigen",
       "showPresenceDotsNote": "Online-, Abwesend- und Offline-Punkte an Avataren, auch an deinem.",
       "themeSystem": "Wie das System",
-      "textSizePx": "{{size}} px"
+      "textSizePx": "{{size}} px",
+      "customThemes": "Eigene Themes",
+      "customThemesNote": "Bis zu {{count}} eigene Themes.",
+      "newCustomTheme": "Neues Theme",
+      "editCustomTheme": "{{name}} bearbeiten",
+      "customThemeName": "Mein Theme {{number}}",
+      "importTheme": "Theme importieren",
+      "importThemeFailed": "Diese Datei ist kein WizardChat-Theme."
     },
     "accessibility": {
       "title": "Barrierefreiheit",
@@ -1785,5 +1792,25 @@
     "exploreCommunities": "Communitys entdecken",
     "whatNext": "Was möchtest du tun?",
     "viewApps": "Apps ansehen"
+  },
+  "themeEditor": {
+    "title": "Theme anpassen",
+    "name": "Name",
+    "appearance": "Darstellung",
+    "dark": "Dunkel",
+    "light": "Hell",
+    "colors": "Farben",
+    "colorNumber": "Farbe {{number}}",
+    "hex": "Hex-Farbe",
+    "removeColor": "Farbe entfernen",
+    "addColor": "Farbe hinzufügen",
+    "controls": "Einstellungen",
+    "direction": "Verlaufsrichtung",
+    "intensity": "Farbintensität",
+    "surprise": "Überrasch mich",
+    "reset": "Zurücksetzen",
+    "delete": "Theme löschen",
+    "backToSettings": "Zurück zu den Einstellungen",
+    "export": "Theme exportieren"
   }
 }

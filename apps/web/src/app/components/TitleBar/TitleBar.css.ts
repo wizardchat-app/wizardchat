@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -20,7 +21,7 @@ export const titleBar = style({
   justifyContent: 'flex-end',
   paddingLeft: '8px',
   paddingRight: 'calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px)',
-  backgroundColor: vars.color.bgPrimary,
+  ...backdrop('primary'),
   userSelect: 'none',
   zIndex: 2,
   '::before': {
@@ -30,7 +31,7 @@ export const titleBar = style({
     top: '100%',
     width: '1px',
     height: `${CORNER_RADIUS}px`,
-    backgroundColor: vars.color.bgPrimary,
+    ...backdrop('primary'),
     pointerEvents: 'none',
   },
   '::after': {

@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import type { CustomTheme } from '@/theme/customTheme';
 import type { UiDensity, UiScale } from '@/theme/uiDensity';
 import { atomWithStorage } from 'jotai/utils';
 import { DEFAULT_THEME } from '@/theme/themes.css';
@@ -24,7 +25,8 @@ export type ThemeName =
   | 'Hallow'
   | 'Garnet'
   | 'Ethereal'
-  | 'Blossom';
+  | 'Blossom'
+  | 'Custom';
 export type MediaVisibility = 'always' | 'private' | 'never';
 export type ReducedMotion = 'system' | 'on' | 'off';
 export type ChatDensity = 'compact' | 'default' | 'spacious';
@@ -57,6 +59,8 @@ export interface Preferences {
   showPresenceDots: boolean;
   colorUsernames: boolean;
   groupImages: boolean;
+  customThemes: CustomTheme[];
+  activeCustomTheme: string | null;
   autoplayGifs: boolean;
   mediaVisibility: MediaVisibility;
   reducedMotion: ReducedMotion;
@@ -91,6 +95,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showPresenceDots: true,
   colorUsernames: true,
   groupImages: true,
+  customThemes: [],
+  activeCustomTheme: null,
   autoplayGifs: false,
   mediaVisibility: 'always',
   reducedMotion: 'system',
@@ -128,6 +134,14 @@ export const showRoomAvatarsAtom = preferenceFieldAtom('showRoomAvatars');
 export const showPresenceDotsAtom = preferenceFieldAtom('showPresenceDots');
 export const colorUsernamesAtom = preferenceFieldAtom('colorUsernames');
 export const groupImagesAtom = preferenceFieldAtom('groupImages');
+export const customThemesAtom = preferenceFieldAtom('customThemes');
+export const activeCustomThemeIdAtom = preferenceFieldAtom('activeCustomTheme');
+export const activeCustomThemeAtom = atom((get) => {
+  if (get(themeAtom) !== 'Custom') return null;
+  const themes = get(customThemesAtom);
+  const id = get(activeCustomThemeIdAtom);
+  return themes.find((t) => t.id === id) ?? themes[0] ?? null;
+});
 export const autoplayGifsAtom = preferenceFieldAtom('autoplayGifs');
 export const mediaVisibilityAtom = preferenceFieldAtom('mediaVisibility');
 export const reducedMotionAtom = preferenceFieldAtom('reducedMotion');

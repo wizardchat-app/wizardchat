@@ -1,4 +1,5 @@
 import { style, keyframes } from '@vanilla-extract/css';
+import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -11,7 +12,7 @@ export const header = style({
   padding: '0 16px',
   height: `${ROOM_HEADER_HEIGHT}px`,
   flexShrink: 0,
-  backgroundColor: vars.color.bgSecondary,
+  ...backdrop('secondary'),
   borderBottom: `1px solid ${vars.color.border}`,
   zIndex: 10,
 });

@@ -43,3 +43,49 @@ export const swatch = style({
 });
 
 export const swatchActive = style([swatch, { outlineColor: vars.color.accent }]);
+
+export const slot = style({
+  position: 'relative',
+  display: 'flex',
+});
+
+export const slotEdit = style({
+  position: 'absolute',
+  right: '-6px',
+  bottom: '-6px',
+  width: '20px',
+  height: '20px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  borderRadius: '50%',
+  border: `2px solid ${vars.color.bgSecondary}`,
+  backgroundColor: vars.color.bgTertiary,
+  color: vars.color.textPrimary,
+  cursor: 'pointer',
+  opacity: 0,
+  transition: `opacity ${fast}, transform ${fast}`,
+  selectors: {
+    [`${slot}:hover &, ${slot}:focus-within &`]: { opacity: 1 },
+    '&:hover': { transform: 'scale(1.12)', backgroundColor: vars.color.accent, color: '#ffffff' },
+  },
+});
+
+export const addSwatch = style([
+  swatch,
+  {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    color: vars.color.textMuted,
+    boxShadow: 'none',
+    border: `2px dashed ${vars.color.border}`,
+    ':hover': {
+      color: vars.color.textPrimary,
+      borderColor: vars.color.textMuted,
+      transform: 'none',
+    },
+  },
+]);
