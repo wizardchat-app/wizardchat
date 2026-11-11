@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.wizardchat.android.LocalMedia
+import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.matrix.Emoji
 import org.wizardchat.android.matrix.ImagePack
@@ -366,11 +367,12 @@ private fun StickerGrid(packs: List<ImagePack>, loading: Boolean, onPick: (PackI
 @Composable
 fun PackThumb(url: String, modifier: Modifier = Modifier, animated: Boolean = false) {
     val media = LocalMedia.current
+    val animates = animated || LocalPrefs.current.autoplayGifs
     var image by remember(url) { mutableStateOf<Bitmap?>(null) }
     var playing by remember(url) { mutableStateOf<Drawable?>(null) }
-    LaunchedEffect(url, media) {
+    LaunchedEffect(url, media, animates) {
         image = media?.thumbnail(url, 160)
-        if (animated) playing = media?.animated(JsonObject(mapOf("url" to JsonPrimitive(url))))
+        playing = if (animates) media?.animated(JsonObject(mapOf("url" to JsonPrimitive(url)))) else null
     }
     Box(modifier.clip(RoundedCornerShape(WZ.Radius.md))) {
         val bitmap = image

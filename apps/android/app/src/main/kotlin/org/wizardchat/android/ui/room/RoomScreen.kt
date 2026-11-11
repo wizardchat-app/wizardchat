@@ -691,12 +691,12 @@ private fun JumpToNewestButton(newCount: Int, onClick: () -> Unit) {
                 .size(WZ.Space.space10)
                 .shadow(4.dp, CircleShape)
                 .clip(CircleShape)
-                .background(theme.bgTertiary)
+                .background(theme.accent)
                 .clickable(onClick = onClick)
                 .semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
         ) {
-            PhIcon("caret-down", size = WZ.SizeIcon.sm, tint = theme.textPrimary)
+            PhIcon("caret-down", size = WZ.SizeIcon.sm, tint = theme.textOnAccent)
         }
         if (newCount > 0) {
             Text(
@@ -705,10 +705,10 @@ private fun JumpToNewestButton(newCount: Int, onClick: () -> Unit) {
                     .align(Alignment.TopCenter)
                     .offset(y = -WZ.Space.space4)
                     .defaultMinSize(minWidth = WZ.Space.space7, minHeight = WZ.Space.space7)
-                    .background(theme.accent, CircleShape)
+                    .background(theme.textOnAccent, CircleShape)
                     .padding(horizontal = WZ.Space.space2, vertical = WZ.Space.space1),
                 style = wizardFont(WZ.FontSize.xs, FontWeight.Bold),
-                color = theme.textOnAccent,
+                color = theme.accent,
                 textAlign = TextAlign.Center,
             )
         }
