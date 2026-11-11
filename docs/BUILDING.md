@@ -30,6 +30,9 @@ stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publish
   (`WizardChat_<version>_arm64_foss.apk`). Both also go to a fixed link per channel
   (`wizardchat-desktop/<channel>/WizardChat_arm64.apk` and `..._foss.apk`), which Obtainium can follow, since it can't
   tell next releases from stable ones on the releases page
+- builds an unsigned iOS `.ipa` for sideloading and lists it with the installers. The SideStore / AltStore source
+  (`wizardchat-desktop/<channel>/sidestore.json`, from `.gitlab/scripts/sidestore-source.mjs`) lists it with every
+  earlier release's: stable releases go to both channels' sources, next releases only to next
 - creates the GitLab release with the notes from the commits and the installers
 
 The "What's new" notes in the apps come from `whatsnew/<version>.md`, with translations in `whatsnew/<version>.<lang>.md`.

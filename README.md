@@ -91,7 +91,14 @@ URLs:
 ### iOS
 
 Not in the App Store yet. Every release has an unsigned `.ipa` on the
-[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases) for sideloading, e.g. with SideStore or AltStore.
+[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases) for sideloading. With
+[SideStore](https://sidestore.io) or [AltStore](https://altstore.io) you can add WizardChat as a source, which also
+brings the updates: in **Sources**, tap **+** and add one of these URLs:
+
+- **Stable**: `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/sidestore.json`
+- **Next** (pre-releases too): `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/next/sidestore.json`
+
+Sideloaded with a free Apple account, push notifications, the share sheet and the widgets may not work.
 
 ## Local Development
 

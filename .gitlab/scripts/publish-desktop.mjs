@@ -3,9 +3,11 @@
 // check (`wizardchat-desktop/<channel>/latest.json`), stable releases to stable and next releases to
 // next. The installers are listed in desktop-assets.json for the release page.
 // The Linux tarball's PKGBUILD goes next to the feed (`<channel>/PKGBUILD`) for Arch users, and the
-// Android APKs too (`<channel>/WizardChat_arm64.apk`), a fixed link per channel for Obtainium.
+// Android APKs too (`<channel>/WizardChat_arm64.apk`), a fixed link per channel for Obtainium, and the
+// SideStore source for the iOS build (`<channel>/sidestore.json`); a stable release goes to both sources.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { sidestoreSources } from './sidestore-source.mjs';
 
 const {
   CI_API_V4_URL: api,
@@ -115,6 +117,21 @@ await upload(feedFile, channel, 'latest.json');
 
 for (const apk of findAll('android', '.apk', 'target')) {
   await upload(apk, channel, basename(apk).replace(`_${version}_`, '_'));
+}
+
+const ipaFile = find('ios', '.ipa', 'target');
+const sources = await sidestoreSources({
+  api,
+  project,
+  tag,
+  ipaFile,
+  ipaUrl: `${registry}/${tag}/${encodeURIComponent(basename(ipaFile))}`,
+});
+for (const [name, source] of Object.entries(sources)) {
+  if (name === 'stable' && channel !== 'stable') continue;
+  const file = join(bundle, `sidestore-${name}.json`);
+  writeFileSync(file, JSON.stringify(source, null, 2));
+  await upload(file, name, 'sidestore.json');
 }
 
 const pkgbuildFile = join(bundle, 'tarball/PKGBUILD');
