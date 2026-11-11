@@ -1,5 +1,6 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { ownCustomStatusAtom, statusMsgMapAtom, userIdAtom } from '@/app/store/atoms';
 import type { CustomStatus } from '@/app/store/atoms';
@@ -9,6 +10,39 @@ export const PROFILE_STATUS_KEY = 'org.wizardchat.status';
 export const MAX_STATUS_LENGTH = 128;
 
 export const customStatusDialogOpenAtom = atom(false);
+
+export type ClearAfter = 'never' | '30m' | '1h' | '4h' | 'today';
+
+const CLEAR_AFTER_MS: Record<Exclude<ClearAfter, 'never' | 'today'>, number> = {
+  '30m': 30 * 60 * 1000,
+  '1h': 60 * 60 * 1000,
+  '4h': 4 * 60 * 60 * 1000,
+};
+
+export function expiryFor(clearAfter: ClearAfter): number | null {
+  if (clearAfter === 'never') return null;
+  if (clearAfter === 'today') {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return end.getTime();
+  }
+  return Date.now() + CLEAR_AFTER_MS[clearAfter];
+}
+
+export function clearAfterOf(status: CustomStatus | null): ClearAfter {
+  return status ? (status.expiresAt ? 'today' : 'never') : 'today';
+}
+
+export function useClearAfterOptions(): { value: ClearAfter; label: string }[] {
+  const { t } = useTranslation();
+  return [
+    { value: 'today', label: t('status.clearToday') },
+    { value: '4h', label: t('status.clearHours', { count: 4 }) },
+    { value: '1h', label: t('status.clearHours', { count: 1 }) },
+    { value: '30m', label: t('status.clearMinutes', { count: 30 }) },
+    { value: 'never', label: t('status.clearNever') },
+  ];
+}
 
 export function isExpired(status: CustomStatus, now = Date.now()): boolean {
   return typeof status.expiresAt === 'number' && status.expiresAt <= now;

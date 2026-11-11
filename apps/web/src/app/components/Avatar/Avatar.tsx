@@ -49,6 +49,7 @@ const PRESENCE_COLOR_CLASS: Record<PresenceState, string> = {
 interface Props {
   name: string;
   mxcUrl?: string | null;
+  src?: string | null;
   client?: MatrixClient | null;
   size?: AvatarSize;
   className?: string;
@@ -62,6 +63,7 @@ interface Props {
 export const Avatar = memo(function Avatar({
   name,
   mxcUrl,
+  src,
   client,
   size = 'md',
   className,
@@ -75,6 +77,7 @@ export const Avatar = memo(function Avatar({
   const pixels = THUMBNAIL_PIXELS[size];
   const { data: sharpSrc, refetch } = useAvatarBlobUrl(mxcUrl, client, pixels);
   const imgSrc =
+    src ??
     sharpSrc ??
     (pixels > 64 && mxcUrl?.startsWith('mxc://')
       ? (getCachedBlobUrl(mediaBlobCacheKey(mxcUrl, 64, 64, 'crop')) ?? undefined)

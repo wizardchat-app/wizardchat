@@ -1219,6 +1219,14 @@
       "switch": "Konten wechseln",
       "add": "Konto hinzufügen"
     },
+    "profile": {
+      "title": "Profil",
+      "editAvatar": "Avatar bearbeiten",
+      "changeAvatar": "Avatar ändern",
+      "editBanner": "Banner bearbeiten",
+      "changeBanner": "Banner ändern",
+      "editName": "Anzeigenamen ändern"
+    },
     "account": {
       "title": "Konto",
       "username": "Nutzername",
@@ -1738,7 +1746,8 @@
     "kick": "Aus dem Raum entfernen",
     "copyId": "Nutzer-ID kopieren",
     "mutualRooms_one": "{{count}} gemeinsamer Raum",
-    "mutualRooms_other": "{{count}} gemeinsame Räume"
+    "mutualRooms_other": "{{count}} gemeinsame Räume",
+    "editProfile": "Profil bearbeiten"
   },
   "update": {
     "action": "WizardChat aktualisieren"
@@ -1784,7 +1793,8 @@
     "clearHours_other": "{{count}} Stunden",
     "clearMinutes_one": "{{count}} Minute",
     "clearMinutes_other": "{{count}} Minuten",
-    "clearNever": "Nicht entfernen"
+    "clearNever": "Nicht entfernen",
+    "addStatus": "Status hinzufügen"
   },
   "link": {
     "startDmTitle": "Unterhaltung starten?",

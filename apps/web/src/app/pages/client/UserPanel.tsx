@@ -1,8 +1,6 @@
 import { useCallback, useRef } from 'react';
 import {
-  ChatCircleDotsIcon,
   GearIcon,
-  WarningCircleIcon,
   HeadphonesIcon,
   MicrophoneIcon,
   MicrophoneSlashIcon,
@@ -11,33 +9,17 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/app/components/Avatar';
 import { IconButton } from '@/app/components/Button';
-import {
-  settingsOpenAtom,
-  userIdAtom,
-  presenceSupportAtom,
-  ownPresenceAtom,
-  presenceOverrideAtom,
-  userProfileAtom,
-} from '@/app/store/atoms';
-import type { PresenceState, PresenceOverride } from '@/app/store/atoms';
-import { useContextMenu } from '@/app/hooks/useContextMenu';
-import { useConfirm } from '@/app/hooks/useConfirm';
+import { settingsOpenAtom, userIdAtom, ownPresenceAtom, userProfileAtom } from '@/app/store/atoms';
+import type { PresenceState } from '@/app/store/atoms';
 import { useSyncReady } from '@/app/hooks/useSync';
-import type { ContextMenuItem } from '@/app/features/contextMenu/contextMenuAtom';
 import { useGlobalVoiceState } from '@/app/features/voice/useGlobalVoice';
 import { DeviceControl } from '@/app/features/calls/DeviceMenu';
 import { PushToTalkDot } from '@/app/features/calls/PushToTalkDot';
 import { useCallSnapshot } from '@/app/features/calls/stage/useCallSnapshot';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useProfile } from '@/app/data';
-import { customStatusDialogOpenAtom, useUserStatusText } from '@/app/features/status/customStatus';
+import { useUserStatusText } from '@/app/features/status/customStatus';
 import * as css from './UserPanel.css';
-
-const PRESENCE_DOT_COLOR: Record<Exclude<PresenceOverride, 'auto'>, string> = {
-  online: '#4ade80',
-  unavailable: '#facc15',
-  offline: '#6b7280',
-};
 
 export function UserPanel() {
   const { t } = useTranslation();
@@ -45,10 +27,8 @@ export function UserPanel() {
   const userId = useAtomValue(userIdAtom);
   const [, setSettingsOpen] = useAtom(settingsOpenAtom);
   const ownPresence = useAtomValue(ownPresenceAtom);
-  const [presenceOverride, setPresenceOverride] = useAtom(presenceOverrideAtom);
   const setProfile = useSetAtom(userProfileAtom);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { openContextMenu } = useContextMenu();
   const { micMuted, deafened, toggleMic, toggleDeafen } = useGlobalVoiceState();
   const callSnapshot = useCallSnapshot();
   const speaking =
@@ -59,9 +39,6 @@ export function UserPanel() {
   const displayName = user?.displayName ?? '';
   const avatarMxc = user?.avatarUrl ?? null;
   const statusText = useUserStatusText(client, userId);
-  const openStatusDialog = useSetAtom(customStatusDialogOpenAtom);
-  const presenceUnsupported = useAtomValue(presenceSupportAtom) === 'unsupported';
-  const confirmDialog = useConfirm();
 
   const openOwnProfile = useCallback(() => {
     if (!userId) return;
@@ -84,98 +61,11 @@ export function UserPanel() {
   const syncReady = useSyncReady();
   const presence: PresenceState | undefined = syncReady ? ownPresence : undefined;
 
-  const handlePresenceDotClick = useCallback(
-    (e: React.MouseEvent) => {
-      const dotIcon = (state: Exclude<PresenceOverride, 'auto'>) => (
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            backgroundColor: PRESENCE_DOT_COLOR[state],
-          }}
-        />
-      );
-      const serverName = userId?.split(':').slice(1).join(':') ?? '';
-      const items: ContextMenuItem[] = [
-        ...(!presenceUnsupported
-          ? []
-          : [
-              {
-                label: t('presence.unsupported'),
-                icon: <WarningCircleIcon size={16} />,
-                danger: true,
-                chevron: true,
-                onClick: () =>
-                  void confirmDialog({
-                    title: t('presence.unsupportedTitle'),
-                    message: t('presence.unsupportedMessage', { server: serverName }),
-                    alert: true,
-                  }),
-              },
-              { label: '', divider: true, onClick: () => {} },
-            ]),
-        {
-          label: t('presence.auto'),
-          icon: (
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                border: '2px solid currentColor',
-              }}
-            />
-          ),
-          checked: presenceOverride === 'auto',
-          onClick: () => setPresenceOverride('auto'),
-        },
-        {
-          label: t('presence.online'),
-          icon: dotIcon('online'),
-          checked: presenceOverride === 'online',
-          onClick: () => setPresenceOverride('online'),
-        },
-        {
-          label: t('presence.away'),
-          icon: dotIcon('unavailable'),
-          checked: presenceOverride === 'unavailable',
-          onClick: () => setPresenceOverride('unavailable'),
-        },
-        {
-          label: t('presence.offline'),
-          icon: dotIcon('offline'),
-          checked: presenceOverride === 'offline',
-          onClick: () => setPresenceOverride('offline'),
-        },
-        { label: '', divider: true, onClick: () => {} },
-        {
-          label: statusText ? t('status.editCustomStatus') : t('status.setCustomStatus'),
-          icon: <ChatCircleDotsIcon size={16} />,
-          onClick: () => openStatusDialog(true),
-        },
-      ];
-      openContextMenu(e, items);
-    },
-    [
-      t,
-      presenceOverride,
-      setPresenceOverride,
-      openContextMenu,
-      statusText,
-      openStatusDialog,
-      presenceUnsupported,
-      confirmDialog,
-      userId,
-    ]
-  );
-
   return (
     <div ref={panelRef} className={css.userPanel}>
       <div
         className={css.userPanelIdentity}
         onClick={userId ? openOwnProfile : undefined}
-        onContextMenu={userId ? handlePresenceDotClick : undefined}
         role={userId ? 'button' : undefined}
         tabIndex={userId ? 0 : undefined}
         onKeyDown={(e) => {
@@ -193,8 +83,6 @@ export function UserPanel() {
             size="sm"
             placeholder="logo"
             presence={presence}
-            presenceDotLabel={t('presence.changeStatus')}
-            onPresenceDotClick={handlePresenceDotClick}
           />
         </span>
         <span className={css.userPanelText}>

@@ -248,6 +248,7 @@ export const verifySkippedDeviceAtom = atomWithAccountStorage<string | null>(
 
 // Target page to open in Settings (set externally before settingsOpenAtom)
 export type SettingsPage =
+  | 'profile'
   | 'account'
   | 'appearance'
   | 'accessibility'

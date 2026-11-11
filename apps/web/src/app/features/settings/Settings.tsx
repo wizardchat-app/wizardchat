@@ -6,6 +6,7 @@ import { Dialog } from '@/app/components/Dialog/Dialog';
 import {
   ArrowSquareOutIcon,
   UserIcon,
+  UserCircleIcon,
   PaletteIcon,
   PersonSimpleCircleIcon,
   ShieldIcon,
@@ -28,16 +29,9 @@ import {
   settingsPageAtom,
 } from '@/app/store/atoms';
 import type { SettingsPage } from '@/app/store/atoms';
-import {
-  Avatar,
-  MatrixId,
-  DisplayName,
-  ChangePassword,
-  EmailSettings,
-  DeactivateAccount,
-} from './account';
+import { ChangePassword, EmailSettings, DeactivateAccount } from './account';
+import { ProfileNavHeader, ProfileSettings } from './profile';
 import { useAccountManagement } from '@/app/hooks/useAccountManagement';
-import { StatusSettings } from './account/Status';
 import { AccountSwitcher } from './AccountSwitcher';
 import { Appearance } from './appearance';
 import { Accessibility } from './accessibility';
@@ -71,31 +65,11 @@ function AccountPage() {
   const { t } = useTranslation();
   const { canChangePassword, canChangeThreePids, accountManagementUrl, loading } =
     useAccountManagement();
-  const statusSection = (
-    <>
-      <div className={css.divider} />
-      <div className={css.section}>
-        <h3 className={css.sectionTitle}>{t('status.title')}</h3>
-        <StatusSettings />
-      </div>
-    </>
-  );
 
   if (accountManagementUrl) {
     return (
       <div>
         <h2 className={css.panelTitle}>{t('settings.account.title')}</h2>
-        <div className={css.section}>
-          <div className={css.avatarRow}>
-            <div className={css.profileFields}>
-              <DisplayName />
-              <MatrixId />
-            </div>
-            <Avatar />
-          </div>
-        </div>
-        {statusSection}
-        <div className={css.divider} />
         <div className={css.section}>
           <p className={css.settingNote}>{t('settings.account.externalManagement')}</p>
           <a
@@ -115,16 +89,6 @@ function AccountPage() {
   return (
     <div>
       <h2 className={css.panelTitle}>{t('settings.account.title')}</h2>
-      <div className={css.section}>
-        <div className={css.avatarRow}>
-          <div className={css.profileFields}>
-            <DisplayName />
-            <MatrixId />
-          </div>
-          <Avatar />
-        </div>
-      </div>
-      {statusSection}
       {loading ? (
         <div className={css.actions}>
           <SpinnerGapIcon size={20} className="icon-spin" />
@@ -133,23 +97,22 @@ function AccountPage() {
         <>
           {canChangePassword && (
             <>
-              <div className={css.divider} />
               <div className={css.section}>
                 <h3 className={css.sectionTitle}>{t('settings.account.changePasswordTitle')}</h3>
                 <ChangePassword />
               </div>
+              <div className={css.divider} />
             </>
           )}
           {canChangeThreePids && (
             <>
-              <div className={css.divider} />
               <div className={css.section}>
                 <h3 className={css.sectionTitle}>{t('settings.account.emailTitle')}</h3>
                 <EmailSettings />
               </div>
+              <div className={css.divider} />
             </>
           )}
-          <div className={css.divider} />
           <div className={css.section}>
             <h3 className={css.sectionTitle}>{t('settings.account.deactivateAccount')}</h3>
             <DeactivateAccount />
@@ -162,6 +125,8 @@ function AccountPage() {
 
 function PageContent({ page }: { page: SettingsPage }) {
   switch (page) {
+    case 'profile':
+      return <ProfileSettings />;
     case 'account':
       return <AccountPage />;
     case 'appearance':
@@ -195,6 +160,7 @@ export function useSettingsNav(): NarrowSettingsItem<SettingsPage>[] {
   const { t } = useTranslation();
   const keyboardHints = useKeyboardHints();
   return [
+    { key: 'profile', label: t('settings.profile.title'), Icon: UserCircleIcon },
     { key: 'account', label: t('settings.account.title'), Icon: UserIcon },
     { key: 'privacy', label: t('settings.privacy.title'), Icon: ShieldIcon },
     {
@@ -250,6 +216,7 @@ export function Settings() {
   targetPageRef.current = targetPage;
 
   const NAV = useSettingsNav();
+  const navItems = NAV.filter((item) => item.key !== 'profile');
   const [query, setQuery] = useState('');
   const results = useSettingsSearch(NAV, SETTINGS_INDEX, query);
   const [highlight, setHighlight] = useAtom(settingsHighlightAtom);
@@ -333,10 +300,15 @@ export function Settings() {
         ) : (
           <NarrowSettingsList
             title={t('settings.title')}
-            items={NAV}
+            items={navItems}
             onSelect={openPage}
             onClose={close}
-            search={search(css.navListSearch)}
+            search={
+              <>
+                <ProfileNavHeader narrow onSelect={() => openPage('profile')} />
+                {search(css.navListSearch)}
+              </>
+            }
             results={
               results && <SettingsSearchResults results={results} onSelect={openResult} narrow />
             }
@@ -350,12 +322,18 @@ export function Settings() {
       ) : (
         <>
           <nav className={css.nav}>
-            <span className={css.navLabel}>{t('settings.title')}</span>
+            <ProfileNavHeader
+              active={activePage === 'profile' && !results}
+              onSelect={() => {
+                setQuery('');
+                setActivePage('profile');
+              }}
+            />
             {search(css.navSearch)}
             {results ? (
               <SettingsSearchResults results={results} onSelect={openResult} />
             ) : (
-              NAV.map((item) => {
+              navItems.map((item) => {
                 const isActive = activePage === item.key;
                 return (
                   <div key={item.key}>

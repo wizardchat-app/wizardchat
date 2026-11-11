@@ -56,28 +56,6 @@ export const coverNeutral = style({
   backgroundColor: vars.color.bgTertiary,
 });
 
-export const coverEdit = style({
-  position: 'absolute',
-  top: '8px',
-  right: '8px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '28px',
-  height: '28px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(0,0,0,0.4)',
-  color: 'rgba(255,255,255,0.9)',
-  opacity: 0,
-  transition: 'opacity 0.15s ease',
-  pointerEvents: 'none',
-  selectors: {
-    [`${coverWrap}:hover &`]: {
-      opacity: 1,
-    },
-  },
-});
-
 export const topRow = style({
   display: 'flex',
   flexDirection: 'column',
@@ -238,27 +216,6 @@ export const hiddenInput = style({
   border: 0,
 });
 
-export const avatarWrapEditable = style({
-  position: 'relative',
-});
-
-export const avatarEdit = style({
-  position: 'absolute',
-  inset: '4px',
-  borderRadius: '50%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: 'rgba(0,0,0,0.4)',
-  color: 'rgba(255,255,255,0.9)',
-  opacity: 0,
-  transition: 'opacity 0.15s ease',
-  pointerEvents: 'none',
-  selectors: {
-    [`${avatarWrapEditable}:hover &`]: { opacity: 1 },
-  },
-});
-
 export const statusSlot = style({
   flex: 1,
   minWidth: 0,
@@ -295,6 +252,25 @@ export const status = style({
   },
 });
 
+export const statusButton = style([
+  status,
+  {
+    fontFamily: 'inherit',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+]);
+
+export const statusButtonEmpty = style([
+  statusButton,
+  {
+    alignItems: 'center',
+    gap: '6px',
+    color: vars.color.textMuted,
+    fontStyle: 'italic',
+  },
+]);
+
 export const statusText = style({
   minWidth: 0,
   display: '-webkit-box',
@@ -304,10 +280,7 @@ export const statusText = style({
   overflowWrap: 'anywhere',
 });
 
-export const accountSwitcherSlot = style({
-  paddingTop: '12px',
-  borderTop: `1px solid ${vars.color.border}`,
-});
+export const accountSwitcherSlot = style({});
 
 export const mutual = style({
   display: 'flex',
@@ -381,4 +354,63 @@ export const mutualName = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+});
+
+export const ownMenu = style({
+  display: 'flex',
+  flexDirection: 'column',
+  borderRadius: vars.radius.md,
+  border: `1px solid ${vars.color.border}`,
+  backgroundColor: vars.color.bgSecondary,
+  overflow: 'hidden',
+});
+
+export const ownMenuItem = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  width: '100%',
+  padding: '8px 10px',
+  border: 'none',
+  background: 'none',
+  color: vars.color.textPrimary,
+  fontFamily: 'inherit',
+  fontSize: '0.9rem',
+  fontWeight: 600,
+  textAlign: 'left',
+  cursor: 'pointer',
+  transition: `background-color ${fast}`,
+  ':hover': { backgroundColor: vars.color.bgHover },
+  selectors: {
+    '& + &': { borderTop: `1px solid ${vars.color.border}` },
+  },
+});
+
+export const ownMenuIcon = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '18px',
+  flexShrink: 0,
+  color: vars.color.textMuted,
+});
+
+export const ownMenuLabel = style({
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const ownMenuHint = style({
+  flexShrink: 0,
+  fontSize: '0.78rem',
+  fontWeight: 500,
+  color: vars.color.textMuted,
+});
+
+export const ownMenuCaret = style({
+  flexShrink: 0,
+  color: vars.color.textMuted,
 });

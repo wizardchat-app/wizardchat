@@ -20,10 +20,10 @@ const SOUNDS = [
 ];
 
 export const SETTINGS_INDEX: SettingsIndexEntry[] = [
-  ['account', 'settings.account.displayName'],
-  ['account', 'settings.account.username'],
-  ['account', 'presence.title'],
-  ['account', 'status.customStatus'],
+  ['profile', 'settings.account.displayName'],
+  ['profile', 'settings.profile.editAvatar'],
+  ['profile', 'settings.profile.editBanner'],
+  ['profile', 'status.customStatus'],
   ['account', 'settings.account.changePasswordTitle'],
   ['account', 'settings.account.emailTitle'],
   ['account', 'settings.account.deactivateAccount'],

@@ -1219,6 +1219,14 @@
       "switch": "Switch accounts",
       "add": "Add account"
     },
+    "profile": {
+      "title": "Profile",
+      "editAvatar": "Edit avatar",
+      "changeAvatar": "Change avatar",
+      "editBanner": "Edit banner",
+      "changeBanner": "Change banner",
+      "editName": "Change display name"
+    },
     "account": {
       "title": "Account",
       "username": "Username",
@@ -1738,7 +1746,8 @@
     "kick": "Remove from room",
     "copyId": "Copy user ID",
     "mutualRooms_one": "{{count}} mutual room",
-    "mutualRooms_other": "{{count}} mutual rooms"
+    "mutualRooms_other": "{{count}} mutual rooms",
+    "editProfile": "Edit profile"
   },
   "update": {
     "action": "Update WizardChat"
@@ -1784,7 +1793,8 @@
     "clearHours_other": "{{count}} hours",
     "clearMinutes_one": "{{count}} minute",
     "clearMinutes_other": "{{count}} minutes",
-    "clearNever": "Don't clear"
+    "clearNever": "Don't clear",
+    "addStatus": "Add status"
   },
   "link": {
     "startDmTitle": "Start a conversation?",

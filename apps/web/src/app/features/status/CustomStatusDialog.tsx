@@ -9,30 +9,16 @@ import { Field } from '@/app/components/Field';
 import { ownCustomStatusAtom } from '@/app/store/atoms';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import {
+  clearAfterOf,
   customStatusDialogOpenAtom,
+  expiryFor,
   isExpired,
   MAX_STATUS_LENGTH,
+  useClearAfterOptions,
   useSetCustomStatus,
 } from './customStatus';
+import type { ClearAfter } from './customStatus';
 import * as css from './CustomStatusDialog.css';
-
-type ClearAfter = 'never' | '30m' | '1h' | '4h' | 'today';
-
-const CLEAR_AFTER_MS: Record<Exclude<ClearAfter, 'never' | 'today'>, number> = {
-  '30m': 30 * 60 * 1000,
-  '1h': 60 * 60 * 1000,
-  '4h': 4 * 60 * 60 * 1000,
-};
-
-function expiryFor(clearAfter: ClearAfter): number | null {
-  if (clearAfter === 'never') return null;
-  if (clearAfter === 'today') {
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    return end.getTime();
-  }
-  return Date.now() + CLEAR_AFTER_MS[clearAfter];
-}
 
 export function CustomStatusDialog() {
   const { t } = useTranslation();
@@ -47,7 +33,7 @@ export function CustomStatusDialog() {
   useEffect(() => {
     if (!open) return;
     setText(active?.text ?? '');
-    setClearAfter(active ? (active.expiresAt ? 'today' : 'never') : 'today');
+    setClearAfter(clearAfterOf(active));
   }, [open]);
 
   const close = () => setOpen(false);
@@ -57,13 +43,7 @@ export function CustomStatusDialog() {
     close();
   };
 
-  const options: { value: ClearAfter; label: string }[] = [
-    { value: 'today', label: t('status.clearToday') },
-    { value: '4h', label: t('status.clearHours', { count: 4 }) },
-    { value: '1h', label: t('status.clearHours', { count: 1 }) },
-    { value: '30m', label: t('status.clearMinutes', { count: 30 }) },
-    { value: 'never', label: t('status.clearNever') },
-  ];
+  const options = useClearAfterOptions();
 
   return (
     <Modal

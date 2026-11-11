@@ -11,6 +11,7 @@ import {
 } from '@/app/components/Settings/SettingsSearch';
 import { AccountSwitcher } from './AccountSwitcher';
 import { useSettingsNav } from './Settings';
+import { ProfileNavHeader } from './profile';
 import { SETTINGS_INDEX } from './searchIndex';
 import * as css from './Settings.css';
 
@@ -31,17 +32,20 @@ export function MobileSettingsHome() {
 
   return (
     <NarrowSettingsList
-      items={items}
+      items={items.filter((item) => item.key !== 'profile')}
       onSelect={(page) => open(page)}
       search={
-        <SettingsSearchInput
-          className={css.navListSearch}
-          value={query}
-          onChange={setQuery}
-          onSubmit={() =>
-            results?.[0] && open(results[0].page, results[0].pageLabel ? results[0].label : null)
-          }
-        />
+        <>
+          <ProfileNavHeader narrow onSelect={() => open('profile')} />
+          <SettingsSearchInput
+            className={css.navListSearch}
+            value={query}
+            onChange={setQuery}
+            onSubmit={() =>
+              results?.[0] && open(results[0].page, results[0].pageLabel ? results[0].label : null)
+            }
+          />
+        </>
       }
       results={
         results && (
