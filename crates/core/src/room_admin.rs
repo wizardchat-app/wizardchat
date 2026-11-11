@@ -128,6 +128,34 @@ pub struct ServerCapabilities {
     pub upload_size: Option<u64>,
 }
 
+/// One version of an edited message: the original or an edit
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct MessageVersion {
+    pub event_id: String,
+    /// Milliseconds since the Unix epoch
+    pub timestamp: u64,
+    pub body: String,
+    pub html: Option<String>,
+}
+
+fn message_version(event: &Value, content: &Value) -> Option<MessageVersion> {
+    Some(MessageVersion {
+        event_id: str_of(event, "/event_id")?,
+        timestamp: event.get("origin_server_ts")?.as_u64()?,
+        body: content.get("body")?.as_str()?.to_owned(),
+        html: (content.get("format").and_then(Value::as_str) == Some("org.matrix.custom.html"))
+            .then(|| {
+                content
+                    .get("formatted_body")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .flatten(),
+    })
+}
+
 /// An event as it is stored, for "view source"
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -753,6 +781,66 @@ impl WizardClient {
             original,
             decrypted,
         })
+    }
+
+    pub async fn edit_history(&self, room_id: &str, event_id: &str) -> Result<Vec<MessageVersion>> {
+        use matrix_sdk::{
+            room::{IncludeRelations, RelationsOptions},
+            ruma::{api::Direction, events::relation::RelationType, uint},
+        };
+        let room = self.room(room_id)?;
+        let event_id =
+            OwnedEventId::try_from(event_id).map_err(|e| Error::InvalidId(e.to_string()))?;
+        let original: Value = room
+            .event(&event_id, None)
+            .await?
+            .raw()
+            .deserialize_as_unchecked()
+            .map_err(|e| Error::Sdk(e.to_string()))?;
+        let sender = str_of(&original, "/sender");
+        let mut versions: Vec<MessageVersion> = original
+            .get("content")
+            .and_then(|content| message_version(&original, content))
+            .into_iter()
+            .collect();
+
+        let mut from = None;
+        for _ in 0..10 {
+            let relations = room
+                .relations(
+                    event_id.clone(),
+                    RelationsOptions {
+                        from,
+                        dir: Direction::Forward,
+                        limit: Some(uint!(50)),
+                        include_relations: IncludeRelations::RelationsOfType(
+                            RelationType::Replacement,
+                        ),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+            for event in &relations.chunk {
+                let Ok(edit) = event.raw().deserialize_as_unchecked::<Value>() else {
+                    continue;
+                };
+                if str_of(&edit, "/sender") != sender {
+                    continue;
+                }
+                if let Some(version) = edit
+                    .pointer("/content/m.new_content")
+                    .and_then(|content| message_version(&edit, content))
+                {
+                    versions.push(version);
+                }
+            }
+            from = relations.next_batch_token;
+            if from.is_none() {
+                break;
+            }
+        }
+        versions.sort_by_key(|version| version.timestamp);
+        Ok(versions)
     }
 
     /// Sends a copy of a message to another room (without its replies, threads or edits).

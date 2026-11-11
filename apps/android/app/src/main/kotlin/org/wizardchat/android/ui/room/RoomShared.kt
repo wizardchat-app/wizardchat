@@ -1,5 +1,9 @@
 package org.wizardchat.android.ui.room
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import java.time.Instant
+import org.wizardchat.core.MessageVersion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -140,6 +144,56 @@ fun SourceSheet(json: String, onDismiss: () -> Unit) {
                     )
                 }
                 CopyToastView(Modifier.align(Alignment.TopCenter).padding(top = WZ.Space.space2))
+            }
+        }
+    }
+}
+
+@Composable
+fun EditHistorySheet(versions: List<MessageVersion>, onDismiss: () -> Unit) {
+    val newestFirst = versions.reversed()
+    WizardSheet(onDismiss) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).background(theme.bgSecondary)) {
+            Box(Modifier.fillMaxWidth().height(WZ.Space.space11).padding(horizontal = WZ.Space.space3)) {
+                Text(
+                    tr("timeline.editHistory"),
+                    Modifier.align(Alignment.Center),
+                    style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold),
+                    color = theme.textPrimary,
+                    textAlign = TextAlign.Center,
+                )
+                Box(Modifier.align(Alignment.CenterEnd)) { BarTextButton(tr("common.done"), onDismiss, bold = true) }
+            }
+            LazyColumn(
+                Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(WZ.Space.space6),
+                verticalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+            ) {
+                items(newestFirst.size) { index ->
+                    val version = newestFirst[index]
+                    val label = when (index) {
+                        0 -> tr("timeline.editHistoryCurrent")
+                        newestFirst.lastIndex -> tr("timeline.editHistoryOriginal")
+                        else -> null
+                    }
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(WZ.Radius.md))
+                            .background(theme.bgTertiary)
+                            .padding(WZ.Space.space5),
+                        verticalArrangement = Arrangement.spacedBy(WZ.Space.space2),
+                    ) {
+                        Text(
+                            listOfNotNull(label, Formats.abbreviatedDateTime(Instant.ofEpochMilli(version.timestamp))).joinToString(" · "),
+                            style = wizardFont(WZ.FontSize.sm, FontWeight.Medium),
+                            color = theme.textMuted,
+                        )
+                        SelectionContainer {
+                            Text(version.body, style = wizardFont(WZ.FontSize.md), color = theme.textPrimary)
+                        }
+                    }
+                }
             }
         }
     }

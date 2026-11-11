@@ -8,6 +8,7 @@ import {
   PencilSimpleIcon,
   TrashIcon,
   CodeIcon,
+  ClockCounterClockwiseIcon,
   XSquareIcon,
   FlagIcon,
   EyeSlashIcon,
@@ -33,6 +34,7 @@ export interface ContextMenuCallbacks {
   onPin: () => void;
   onHideMedia: () => void;
   onViewSource: (event: MatrixEvent) => void;
+  onEditHistory?: () => void;
   onForward?: (event: MatrixEvent) => void;
 }
 
@@ -166,6 +168,15 @@ export function openMessageContextMenu(
             label: t('timeline.forward'),
             icon: createElement(ArrowBendUpRightIcon, { size: 14 }),
             onClick: () => callbacks.onForward!(event),
+          },
+        ]
+      : []),
+    ...(callbacks.onEditHistory
+      ? [
+          {
+            label: t('timeline.editHistory'),
+            icon: createElement(ClockCounterClockwiseIcon, { size: 14 }),
+            onClick: callbacks.onEditHistory,
           },
         ]
       : []),

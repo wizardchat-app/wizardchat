@@ -64,8 +64,8 @@ pub use push::PusherConfig;
 pub use qr_login::{QrLoginControl, QrLoginStatus};
 pub use rich_text::{RichBlock, RichSpan};
 pub use room_admin::{
-    EventSource, MemberEntry, ResolvedAlias, RoomSettings, RoomTag, ServerCapabilities,
-    StateChange, Tombstone,
+    EventSource, MemberEntry, MessageVersion, ResolvedAlias, RoomSettings, RoomTag,
+    ServerCapabilities, StateChange, Tombstone,
 };
 pub use room_details::{Member, RoomDetails, RoomPermissions};
 pub use rooms::UnreadMention;

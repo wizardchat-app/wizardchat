@@ -563,7 +563,6 @@ public enum EntryContent: Codable, Hashable, Sendable {
     /// withheldBySender, historicalMessageAndDeviceIsUnverified
     case unableToDecrypt(UnableToDecrypt)
     case membership(Membership)
-    /// A display name and/or avatar change; `old_name`/`new_name` are set when the name changed
     case profileChange(ProfileChange)
     /// Any other state change, with its content as sent
     case state(State)
@@ -1045,6 +1044,22 @@ public enum MessageKind: String, Codable, Hashable, Sendable, CaseIterable {
     case text = "text"
     case emote = "emote"
     case notice = "notice"
+}
+
+/// One version of an edited message: the original or an edit
+public struct MessageVersion: Codable, Hashable, Sendable {
+    public var eventId: String
+    /// Milliseconds since the Unix epoch
+    public var timestamp: Int
+    public var body: String
+    public var html: String?
+
+    public init(eventId: String, timestamp: Int, body: String, html: String? = nil) {
+        self.eventId = eventId
+        self.timestamp = timestamp
+        self.body = body
+        self.html = html
+    }
 }
 
 public struct MutualRoom: Codable, Hashable, Sendable {
@@ -3242,6 +3257,10 @@ public final class WizardClient: Remote, @unchecked Sendable {
 
     public func eventSource(roomId: String, eventId: String) async throws -> EventSource {
         try await call("WizardClient.eventSource", [.value(roomId), .value(eventId)])
+    }
+
+    public func editHistory(roomId: String, eventId: String) async throws -> [MessageVersion] {
+        try await call("WizardClient.editHistory", [.value(roomId), .value(eventId)])
     }
 
     public func forwardEvent(fromRoomId: String, eventId: String, toRoomId: String) async throws {

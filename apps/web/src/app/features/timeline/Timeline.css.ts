@@ -666,7 +666,13 @@ const editedMarkerBase = {
   color: vars.color.textMuted,
   fontStyle: 'italic',
   whiteSpace: 'nowrap',
-};
+  padding: 0,
+  border: 'none',
+  background: 'none',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  ':hover': { textDecoration: 'underline' },
+} as const;
 
 // Inline next to the sender name, revealed on row hover
 export const editedMarkerHeader = style([

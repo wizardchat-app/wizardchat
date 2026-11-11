@@ -983,7 +983,11 @@
     "userChangedAvatar": "<name>{{name}}</name> hat den Avatar geändert.",
     "preview": "Vorschau",
     "previewFailed": "Diese Datei konnte nicht geöffnet werden.",
-    "previewTruncated": "Die ersten {{size}} werden angezeigt."
+    "previewTruncated": "Die ersten {{size}} werden angezeigt.",
+    "editHistory": "Bearbeitungsverlauf",
+    "editHistoryFailed": "Der Bearbeitungsverlauf konnte nicht geladen werden.",
+    "editHistoryCurrent": "Aktuell",
+    "editHistoryOriginal": "Original"
   },
   "call": {
     "event": {

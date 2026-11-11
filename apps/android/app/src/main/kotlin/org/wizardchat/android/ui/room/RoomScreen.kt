@@ -1,5 +1,6 @@
 package org.wizardchat.android.ui.room
 
+import org.wizardchat.core.MessageVersion
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -175,6 +176,7 @@ class MessageActions(
     val togglePin: (ChatEntry) -> Unit = {},
     val report: (ChatEntry) -> Unit = {},
     val viewSource: (ChatEntry) -> Unit = {},
+    val editHistory: (ChatEntry) -> Unit = {},
     val openThread: ((ChatEntry) -> Unit)? = null,
     /** Set only in unencrypted rooms */
     val linkPreviews: LinkPreviewLoader? = null,
@@ -207,6 +209,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     var canRedactOthers by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf<ChatEntry?>(null) }
     var sourceText by remember { mutableStateOf<String?>(null) }
+    var editHistory by remember { mutableStateOf<List<MessageVersion>?>(null) }
     var linkPreviews by remember { mutableStateOf<LinkPreviewLoader?>(null) }
     var profileUserId by remember { mutableStateOf<String?>(null) }
     var highlightedId by remember { mutableStateOf<String?>(null) }
@@ -391,6 +394,16 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
         togglePin = { entry -> scope.launch { timeline.togglePin(entry) } },
         report = { reporting = it },
         viewSource = { entry -> scope.launch { sourceText = timeline.source(entry) } },
+        editHistory = { entry ->
+            val eventId = entry.eventId
+            if (eventId != null) {
+                scope.launch {
+                    runCatching { client.editHistory(room.id, eventId) }
+                        .onSuccess { editHistory = it }
+                        .onFailure { CopyToast.show(L10n.format("timeline.editHistoryFailed")) }
+                }
+            }
+        },
         openThread = if (threadRoot != null) null else ({ entry -> entry.eventId?.let { navigator.push(Route.Thread(room.id, it)) } }),
         linkPreviews = linkPreviews,
         retry = { timeline.retrySending() },
@@ -518,6 +531,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
         }
     }
     sourceText?.let { SourceSheet(it) { sourceText = null } }
+    editHistory?.let { EditHistorySheet(it) { editHistory = null } }
     reporting?.let { entry -> ReportDialog(onDismiss = { reporting = null }) { reason ->
         scope.launch { if (timeline.reportMessage(entry, reason)) CopyToast.show(L10n.format("timeline.reported")) }
     } }
@@ -1078,6 +1092,7 @@ private fun MessageContent(entry: ChatEntry, actions: MessageActions?, isPrivate
                 linkOnAccent = isClassic && entry.isOwn && theme.isDark,
                 onMention = actions?.openProfile,
                 onRoomLink = actions?.openRoomLink,
+                onEditHistory = actions?.let { { it.editHistory(entry) } },
             )
         }
         return
@@ -1116,6 +1131,7 @@ private fun TextContent(
     linkOnAccent: Boolean,
     onMention: ((String) -> Unit)?,
     onRoomLink: ((String) -> Unit)? = null,
+    onEditHistory: (() -> Unit)? = null,
 ) {
     val session = LocalSession.current
     val prefs = LocalPrefs.current
@@ -1164,7 +1180,12 @@ private fun TextContent(
                 ),
             )
             if (entry.isEdited) {
-                Text(tr("timeline.edited"), style = wizardFont(WZ.FontSize.xs * scale), color = theme.textMuted)
+                Text(
+                    tr("timeline.edited"),
+                    if (onEditHistory != null) Modifier.clickable(onClick = onEditHistory) else Modifier,
+                    style = wizardFont(WZ.FontSize.xs * scale),
+                    color = theme.textMuted,
+                )
             }
         }
         return
@@ -1196,7 +1217,12 @@ private fun TextContent(
                 withStyle(SpanStyle(fontStyle = if (kind.isEmote) FontStyle.Italic else FontStyle.Normal)) { append(text) }
                 if (entry.isEdited) {
                     append(" ")
-                    withStyle(SpanStyle(fontSize = WZ.FontSize.xs * scale, color = theme.textMuted)) { append(edited) }
+                    val editedStyle = SpanStyle(fontSize = WZ.FontSize.xs * scale, color = theme.textMuted)
+                    if (onEditHistory != null) {
+                        withLink(LinkAnnotation.Clickable("edited", TextLinkStyles(editedStyle)) { onEditHistory() }) { append(edited) }
+                    } else {
+                        withStyle(editedStyle) { append(edited) }
+                    }
                 }
             }
             Text(
@@ -1462,6 +1488,7 @@ private fun MessageMenu(entry: ChatEntry, actions: MessageActions?, onDismiss: (
                     actions.togglePin(entry)
                 }
             }
+            if (entry.isEdited) item(tr("timeline.editHistory"), "clock-counter-clockwise") { actions.editHistory(entry) }
             item(tr("timeline.viewSource"), "code") { actions.viewSource(entry) }
             HorizontalDivider(color = theme.border)
             if (!entry.isOwn) item(tr("timeline.reportShort"), "flag", destructive = true) { actions.report(entry) }

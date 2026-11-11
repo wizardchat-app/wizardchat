@@ -65,6 +65,7 @@ struct RoomView: View {
     @State private var reporting: ChatEntry?
     @State private var reportReason = ""
     @State private var sourceText: IdentifiedString?
+    @State private var editHistory: EditHistory?
     @State private var selectingText: IdentifiedString?
     @State private var linkPreviews: LinkPreviewLoader?
     @EnvironmentObject private var session: MatrixSession
@@ -257,6 +258,7 @@ struct RoomView: View {
             }
         }
         .sheet(item: $sourceText) { source in SourceView(json: source.id) }
+        .sheet(item: $editHistory) { history in EditHistoryView(versions: history.versions) }
         .sheet(item: $selectingText) { text in SelectTextView(text: text.id) }
         .alert(String(localized: "timeline.reportMessage"), isPresented: Binding(get: { reporting != nil }, set: { if !$0 { reporting = nil } })) {
             TextField(String(localized: "common.reasonOptional"), text: $reportReason)
@@ -343,6 +345,16 @@ struct RoomView: View {
             togglePin: { entry in Task { await timeline.togglePin(entry) } },
             report: { reporting = $0 },
             viewSource: { entry in Task { sourceText = await timeline.source(of: entry).map(IdentifiedString.init) } },
+            editHistory: { entry in
+                guard let eventId = entry.eventId else { return }
+                Task {
+                    do {
+                        editHistory = EditHistory(versions: try await timeline.client.editHistory(roomId: room.id, eventId: eventId))
+                    } catch {
+                        CopyToast.shared.show(String(localized: "timeline.editHistoryFailed"))
+                    }
+                }
+            },
             selectText: { selectingText = IdentifiedString(id: $0.summary) },
             openThread: threadRoot != nil ? nil : { entry in
                 guard menuTarget == nil else { return }
@@ -777,6 +789,13 @@ struct MessageRow: View {
     private var spacing: CGFloat { prefs.chatSpacing }
     private var isClassic: Bool { prefs.messageLayout == .classic }
     private var isCompact: Bool { prefs.messageLayout == .compact }
+    private static let editedURL = URL(string: "wizardchat-internal://edit-history")!
+    private var editedLink: AttributedString {
+        var text = AttributedString(String(localized: "timeline.edited"))
+        text.link = Self.editedURL
+        text.foregroundColor = theme.textMuted
+        return text
+    }
     private var senderColor: Color { theme.nameColor(entry.sender, colored: prefs.colorUsernames) }
 
     private var isMessageText: Bool {
@@ -959,6 +978,7 @@ struct MessageRow: View {
                     Text(String(localized: "timeline.edited"))
                         .font(.wizard(WZ.FontSize.xs * scale))
                         .foregroundStyle(theme.textMuted)
+                        .onTapGesture { actions?.editHistory(entry) }
                 }
             }
             .foregroundStyle(isNotice ? theme.textMuted : theme.textPrimary)
@@ -982,10 +1002,14 @@ struct MessageRow: View {
                 spoilers: spoilersRevealed ? [] : entry.spoilers, cover: theme.textMuted))
                 .foregroundColor(isNotice ? theme.textMuted : theme.textPrimary)
                 .italic(isEmote)
-             + Text(entry.isEdited ? String(localized: "timeline.edited") : "")
+             + Text(entry.isEdited ? editedLink : "")
                 .font(.wizard(WZ.FontSize.xs * scale))
                 .foregroundColor(theme.textMuted))
                 .environment(\.openURL, OpenURLAction { url in
+                    if url == Self.editedURL {
+                        actions?.editHistory(entry)
+                        return .handled
+                    }
                     if RoomLinks.target(url.absoluteString) != nil, let actions {
                         actions.openRoomLink(url.absoluteString)
                         return .handled
@@ -1133,6 +1157,7 @@ struct MessageActions {
     var togglePin: (ChatEntry) -> Void = { _ in }
     var report: (ChatEntry) -> Void = { _ in }
     var viewSource: (ChatEntry) -> Void = { _ in }
+    var editHistory: (ChatEntry) -> Void = { _ in }
     var selectText: (ChatEntry) -> Void = { _ in }
     var openThread: ((ChatEntry) -> Void)?
     /// Set only in unencrypted rooms (see `LinkPreviewLoader`).

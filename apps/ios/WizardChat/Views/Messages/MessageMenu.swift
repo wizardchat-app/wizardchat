@@ -161,6 +161,11 @@ struct MessageMenuOverlay: View {
                 main.append(.init(title: pinned ? String(localized: "timeline.unpin") : String(localized: "timeline.pin"),
                                   icon: pinned ? "ph-push-pin-slash-regular" : "ph-push-pin-regular") { actions.togglePin(entry) })
             }
+            if entry.isEdited {
+                main.append(.init(title: String(localized: "timeline.editHistory"), icon: "ph-clock-counter-clockwise-regular") {
+                    actions.editHistory(entry)
+                })
+            }
             main.append(.init(title: String(localized: "timeline.viewSource"), icon: "ph-code-regular") { actions.viewSource(entry) })
             if !entry.isOwn {
                 danger.append(.init(title: String(localized: "timeline.reportShort"), icon: "ph-flag-regular", destructive: true) { actions.report(entry) })

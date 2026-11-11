@@ -4,8 +4,8 @@ use serde_json::Value;
 
 use super::{Bytes, Listener, Subscription};
 use crate::{
-    EventSource, ListDiff, MemberEntry, RoomSettings, ServerCapabilities, SpaceHierarchy,
-    SpaceSummary, ThirdPartyId, UnreadMention, WizardClient,
+    EventSource, ListDiff, MemberEntry, MessageVersion, RoomSettings, ServerCapabilities,
+    SpaceHierarchy, SpaceSummary, ThirdPartyId, UnreadMention, WizardClient,
 };
 
 rpc_methods! {
@@ -189,6 +189,10 @@ rpc_methods! {
 
         call fn eventSource(room_id: String, event_id: String) -> EventSource {
             this.event_source(&room_id, &event_id).await
+        }
+
+        call fn editHistory(room_id: String, event_id: String) -> Vec<MessageVersion> {
+            this.edit_history(&room_id, &event_id).await
         }
 
         call fn forwardEvent(from_room_id: String, event_id: String, to_room_id: String) -> () {

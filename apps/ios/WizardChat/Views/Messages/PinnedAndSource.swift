@@ -87,6 +87,57 @@ struct SourceView: View {
     }
 }
 
+struct EditHistory: Identifiable {
+    let id = UUID()
+    let versions: [MessageVersion]
+}
+
+struct EditHistoryView: View {
+    let versions: [MessageVersion]
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        let newestFirst = Array(versions.reversed())
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: WZ.Space.space4) {
+                    ForEach(Array(newestFirst.enumerated()), id: \.element.eventId) { index, version in
+                        VStack(alignment: .leading, spacing: WZ.Space.space2) {
+                            Text(meta(index: index, of: newestFirst.count, timestamp: version.timestamp))
+                                .font(.wizard(WZ.FontSize.sm, .medium))
+                                .foregroundStyle(theme.textMuted)
+                            Text(version.body)
+                                .font(.wizard(WZ.FontSize.md))
+                                .foregroundStyle(theme.textPrimary)
+                                .textSelection(.enabled)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(WZ.Space.space5)
+                        .background(theme.bgTertiary, in: RoundedRectangle(cornerRadius: WZ.Radius.md, style: .continuous))
+                    }
+                }
+                .padding(WZ.Space.space6)
+            }
+            .background(theme.bgSecondary)
+            .navigationTitle(String(localized: "timeline.editHistory"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button(String(localized: "common.done")) { dismiss() } }
+            }
+            .tint(theme.control)
+        }
+    }
+
+    private func meta(index: Int, of count: Int, timestamp: Int) -> String {
+        let date = Date(timeIntervalSince1970: Double(timestamp) / 1000)
+            .formatted(date: .abbreviated, time: .shortened)
+        if index == 0 { return "\(String(localized: "timeline.editHistoryCurrent")) · \(date)" }
+        if index == count - 1 { return "\(String(localized: "timeline.editHistoryOriginal")) · \(date)" }
+        return date
+    }
+}
+
 struct SelectTextView: View {
     let text: String
     @Environment(\.dismiss) private var dismiss

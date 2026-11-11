@@ -664,6 +664,16 @@ enum class MessageKind {
     @SerialName("notice") notice,
 }
 
+/** One version of an edited message: the original or an edit */
+@Serializable
+data class MessageVersion(
+    val eventId: String,
+    /** Milliseconds since the Unix epoch */
+    val timestamp: Long,
+    val body: String,
+    val html: String? = null,
+)
+
 @Serializable
 data class MutualRoom(
     val roomId: String,
@@ -2227,6 +2237,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
 
     suspend fun eventSource(roomId: String, eventId: String): EventSource =
         Runtime.call("WizardClient.eventSource", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
+
+    suspend fun editHistory(roomId: String, eventId: String): List<MessageVersion> =
+        Runtime.call("WizardClient.editHistory", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
 
     suspend fun forwardEvent(fromRoomId: String, eventId: String, toRoomId: String) {
         Runtime.callUnit("WizardClient.forwardEvent", handle, listOf(Arg.value<String>(fromRoomId), Arg.value<String>(eventId), Arg.value<String>(toRoomId)))

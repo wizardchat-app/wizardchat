@@ -8,6 +8,7 @@ import { Avatar } from '@/app/components/Avatar';
 import { MediaLightbox } from '@/app/components/MediaLightbox/MediaLightbox';
 import { MessageActionToolbar } from './MessageActionToolbar';
 import { ViewSourceModal } from './ViewSourceModal';
+import { EditHistoryModal } from './EditHistoryModal';
 import { formatTime } from '@/util/format';
 import { formatUserId } from '@/util/matrix';
 import { AuthMediaImg } from '@/app/components/AuthMediaImg';
@@ -217,6 +218,8 @@ export const Message = memo(function Message({
     initialTime?: number;
   } | null>(null);
   const [viewSourceEvent, setViewSourceEvent] = useState<MatrixEvent | null>(null);
+  const [editHistoryOpen, setEditHistoryOpen] = useState(false);
+  const openEditHistory = useCallback(() => setEditHistoryOpen(true), []);
   const [devModeEnabled] = useAtom(developerModeAtom);
   const threadLastSeen = useAtomValue(threadLastSeenAtom);
   const { openContextMenu } = useContextMenu();
@@ -611,6 +614,7 @@ export const Message = memo(function Message({
         onPin: handlePin,
         onHideMedia: handleHideMedia,
         onViewSource: handleViewSource,
+        onEditHistory: isEdited ? openEditHistory : undefined,
         onForward: isPollEvent ? undefined : handleForward,
       },
     });
@@ -985,7 +989,11 @@ export const Message = memo(function Message({
                 {senderName}
               </button>
               <span className={css.msgTime}>{formatTime(ts, i18n.language)}</span>
-              {isEdited && <span className={css.editedMarkerHeader}>{t('timeline.edited')}</span>}
+              {isEdited && (
+                <button type="button" className={css.editedMarkerHeader} onClick={openEditHistory}>
+                  {t('timeline.edited')}
+                </button>
+              )}
             </div>
           ) : null}
 
@@ -1066,10 +1074,16 @@ export const Message = memo(function Message({
                   <div className={css.compactText}>
                     {messageContent}
                     {isEdited && (
-                      <span className={css.editedMarkerGroupedClassic}>
+                      <>
                         {' '}
-                        {t('timeline.edited')}
-                      </span>
+                        <button
+                          type="button"
+                          className={css.editedMarkerGroupedClassic}
+                          onClick={openEditHistory}
+                        >
+                          {t('timeline.edited')}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -1083,7 +1097,16 @@ export const Message = memo(function Message({
                 <div className={css.compactBlock}>
                   {messageContent}
                   {isEdited && (
-                    <span className={css.editedMarkerGroupedClassic}> {t('timeline.edited')}</span>
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className={css.editedMarkerGroupedClassic}
+                        onClick={openEditHistory}
+                      >
+                        {t('timeline.edited')}
+                      </button>
+                    </>
                   )}
                 </div>
               ) : null}
@@ -1099,13 +1122,15 @@ export const Message = memo(function Message({
             <div className={contentClass}>
               {messageContent}
               {isGrouped && isEdited && (
-                <span
+                <button
+                  type="button"
                   className={
                     variant === 'classic' ? css.editedMarkerGroupedClassic : css.editedMarkerGrouped
                   }
+                  onClick={openEditHistory}
                 >
                   {t('timeline.edited')}
-                </span>
+                </button>
               )}
             </div>
           ) : null}
@@ -1178,6 +1203,12 @@ export const Message = memo(function Message({
         roomId={roomId}
         client={client}
         onClose={handleViewSourceClose}
+      />
+      <EditHistoryModal
+        roomId={roomId}
+        eventId={editHistoryOpen ? (event.eventId ?? null) : null}
+        client={client}
+        onClose={() => setEditHistoryOpen(false)}
       />
       {editPollModal}
     </div>

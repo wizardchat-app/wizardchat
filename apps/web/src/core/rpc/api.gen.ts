@@ -508,6 +508,19 @@ export type MentionsView = { userIds: Array<string>; room: boolean };
  */
 export type MessageKind = 'text' | 'emote' | 'notice';
 
+/**
+ * One version of an edited message: the original or an edit
+ */
+export type MessageVersion = {
+  eventId: string;
+  /**
+   * Milliseconds since the Unix epoch
+   */
+  timestamp: number;
+  body: string;
+  html: string | null;
+};
+
 export type MutualRoom = {
   roomId: string;
   name: string | null;
@@ -2079,6 +2092,12 @@ export class WizardClient extends Remote {
       roomId,
       eventId,
     ]) as Promise<EventSource>;
+  }
+
+  editHistory(roomId: string, eventId: string): Promise<Array<MessageVersion>> {
+    return runtime.call('WizardClient.editHistory', this, [roomId, eventId]) as Promise<
+      Array<MessageVersion>
+    >;
   }
 
   forwardEvent(fromRoomId: string, eventId: string, toRoomId: string): Promise<void> {
