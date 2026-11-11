@@ -36,6 +36,8 @@ mod session;
 mod settings;
 mod spaces;
 mod timeline;
+#[cfg(not(target_arch = "wasm32"))]
+mod token_file;
 mod trust;
 mod widgets;
 

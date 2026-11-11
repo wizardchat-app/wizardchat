@@ -182,31 +182,50 @@ impl WizardClient {
             .map_err(|e| Error::InvalidId(e.to_string()))?;
         let device_id: OwnedDeviceId = session.device_id.as_str().into();
         let meta = SessionMeta { user_id, device_id };
-        let tokens = SessionTokens {
+        #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+        let mut tokens = SessionTokens {
             access_token: session.access_token,
             refresh_token: session.refresh_token,
         };
+        #[cfg(not(target_arch = "wasm32"))]
+        let token_file = crate::token_file::TokenFile::new(&store).map(Arc::new);
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(newer) = token_file.as_ref().and_then(|file| file.read()) {
+            tokens = newer;
+        }
         let shared_tokens = Arc::new(Mutex::new(Some(tokens.clone())));
+        let newest = shared_tokens.clone();
+        #[cfg(not(target_arch = "wasm32"))]
+        let reader = token_file.clone();
+        let reload = Box::new(move |_: Client| {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(tokens) = reader.as_ref().and_then(|file| file.read()) {
+                return Ok(tokens);
+            }
+            newest
+                .lock()
+                .unwrap()
+                .clone()
+                .ok_or_else(|| "no session to reload".into())
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        let writer = token_file.clone();
+        let save = Box::new(move |_client: Client| {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let (Some(file), Some(tokens)) = (writer.as_ref(), _client.session_tokens()) {
+                file.write(&tokens)?;
+            }
+            Ok(())
+        });
+        client.set_session_callbacks(reload, save)?;
         match session.oauth_client_id {
             Some(client_id) => {
-                // Tabs sharing this store take turns refreshing the rotating tokens; one that
-                // lost the race picks up the winner's (handed over with `adopt_session`)
+                // Processes and tabs sharing this store take turns refreshing the rotating tokens
                 client
                     .oauth()
                     .enable_cross_process_refresh_lock(TransactionId::new().to_string())
                     .await
                     .map_err(|e| Error::Sdk(e.to_string()))?;
-                let newest = shared_tokens.clone();
-                client.set_session_callbacks(
-                    Box::new(move |_| {
-                        newest
-                            .lock()
-                            .unwrap()
-                            .clone()
-                            .ok_or_else(|| "no session to reload".into())
-                    }),
-                    Box::new(|_| Ok(())),
-                )?;
                 client
                     .restore_session(OAuthSession {
                         client_id: ClientId::new(client_id),
