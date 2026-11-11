@@ -13,6 +13,7 @@
 mod account;
 mod auth;
 mod call_history;
+mod call_log;
 mod calls;
 mod client;
 mod content;
@@ -44,7 +45,8 @@ pub use auth::{AppInfo, IdentityProvider, PendingLogin, ServerInfo, SessionEvent
 pub use call_history::{CallHistoryView, CallOutcome, CallParticipantView};
 pub use calls::CallTimings;
 pub use calls::{
-    CallEvent, CallMember, CallSession, IncomingCall, IncomingCallEvent, RingEnd, SfuConfig,
+    CallErrorKind, CallEvent, CallMember, CallSession, CallStatus, IncomingCall, IncomingCallEvent,
+    MediaState, RingEnd, SfuConfig,
 };
 pub use client::{sniff_mime_type, LoadState};
 pub use client::{SyncState, WizardClient};

@@ -30,7 +30,7 @@ import {
 } from '@/app/store/atoms/call';
 import { themeAtom } from '@/app/store/atoms/settings';
 import { buildCallBackground } from '@/app/features/calls/callBackground';
-import { useCallSnapshot } from './useCallSnapshot';
+import { shownParticipants, useCallSnapshot } from './useCallSnapshot';
 import { StreamCallMenu, UserCallMenu, type UserMenuAnchor } from './UserCallMenu';
 import { useDismiss } from './useDismiss';
 import { useMemberLookup, type MemberInfo } from '../useMemberLookup';
@@ -551,12 +551,12 @@ export function CallStage() {
   const tiles = useMemo<StageTile[]>(() => {
     const list: StageTile[] = [];
     if (watchActive) list.push({ kind: 'watch', key: WATCH_TILE_KEY });
-    for (const p of snapshot?.participants ?? []) {
+    for (const p of shownParticipants(snapshot)) {
       if (showNonVideo || p.camera) {
         list.push({ kind: 'participant', key: p.identity, participant: p, screen: false });
       }
     }
-    for (const p of snapshot?.participants ?? []) {
+    for (const p of shownParticipants(snapshot)) {
       if (p.screenShared) {
         list.push({
           kind: 'participant',
@@ -622,7 +622,7 @@ export function CallStage() {
     });
 
   const myId = client.userId();
-  const alone = !snapshot.participants.some((p) => p.userId !== myId);
+  const alone = !shownParticipants(snapshot).some((p) => p.userId !== myId);
   const watchStartedBy = watch
     ? (lookup(watch.startedBy).member?.displayName ?? watch.startedBy)
     : '';
@@ -671,7 +671,7 @@ export function CallStage() {
             {renderTile({ kind: 'watch', key: WATCH_TILE_KEY }, { compact: true })}
           </div>
         )}
-        {snapshot.participants.map((p) => {
+        {shownParticipants(snapshot).map((p) => {
           const tile: ParticipantTile = {
             kind: 'participant',
             key: p.identity,

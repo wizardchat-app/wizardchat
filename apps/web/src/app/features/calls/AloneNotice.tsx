@@ -40,6 +40,7 @@ export function AloneNotice({
   const isDm = !!room?.isDirect;
   const joined = snapshot?.phase === 'joined';
   const others = snapshot?.participants.filter((p) => !p.isLocal && p.connected).length ?? 0;
+  const reconnecting = snapshot?.status === 'reconnecting';
   const ring = snapshot?.ring ?? null;
   const unanswered = ring === 'unanswered' || ring === 'declined';
 
@@ -53,6 +54,7 @@ export function AloneNotice({
       setPhase({ kind: 'idle' });
       return;
     }
+    if (reconnecting) return;
     if (others > 0) {
       hadOthersRef.current = true;
       setPhase({ kind: 'idle' });
@@ -69,7 +71,7 @@ export function AloneNotice({
       }
       return prev;
     });
-  }, [isDm, joined, others, ring, unanswered]);
+  }, [isDm, joined, others, ring, unanswered, reconnecting]);
 
   useEffect(() => {
     if (phase.kind !== 'grace' && phase.kind !== 'countdown') return;

@@ -13,7 +13,10 @@ use std::{sync::Arc, time::Duration};
 
 use serde_json::json;
 use tokio::{sync::mpsc, task::JoinHandle};
-use wizardchat_core::{CallEvent, CallTimings, CreateRoomOptions, IncomingCallEvent, RingEnd};
+use wizardchat_core::{
+    CallErrorKind, CallEvent, CallStatus, CallTimings, CreateRoomOptions, IncomingCallEvent,
+    MediaState, RingEnd,
+};
 
 use common::BoxError;
 
@@ -25,7 +28,7 @@ async fn next_matching(
     loop {
         match tokio::time::timeout(Duration::from_secs(40), rx.recv()).await {
             Ok(Some(event)) if pred(&event) => return Ok(event),
-            Ok(Some(CallEvent::Error { message, fatal })) => {
+            Ok(Some(CallEvent::Error { message, fatal, .. })) => {
                 println!("  (error: {message})");
                 if fatal {
                     return Err(format!("fatal call error waiting for {what}: {message}").into());
@@ -41,6 +44,7 @@ fn run(
     session: Arc<wizardchat_core::CallSession>,
 ) -> (mpsc::UnboundedReceiver<CallEvent>, JoinHandle<()>) {
     let (tx, rx) = mpsc::unbounded_channel();
+    session.report_media(MediaState::Connected, None);
     let task = tokio::spawn(async move { session.run(|event| drop(tx.send(event))).await });
     (rx, task)
 }
@@ -95,6 +99,15 @@ async fn main() -> Result<(), BoxError> {
         matches!(e, CallEvent::Members { members } if members.len() == 1 && members[0].is_own_device)
     })
     .await?;
+    next_matching(&mut events_a, "A to be connected", |e| {
+        matches!(
+            e,
+            CallEvent::Status {
+                status: CallStatus::Connected
+            }
+        )
+    })
+    .await?;
     println!("A joined the voice room's call");
 
     let session_b = Arc::new(b.join_call_via(&room, sfu, false, false).await?);
@@ -146,20 +159,25 @@ async fn main() -> Result<(), BoxError> {
     );
     println!("A's 20 s membership was renewed and both survive past the delayed leave timeout");
 
-    // The server loses A's delayed leave: the next restart fails, and a new one replaces it
-    let lost = session_a.delay_id().ok_or("A has no delayed leave")?;
-    session_a.cancel_delayed_leave().await?;
-    eventually("a new delayed leave", 20, async || {
-        session_a.delay_id().is_some_and(|id| id != lost)
-    })
-    .await?;
-    tokio::time::sleep(Duration::from_secs(25)).await;
-    assert_eq!(
-        b.call_members(&room).await?.len(),
-        2,
-        "the heartbeat stopped after a failed restart"
-    );
-    println!("a lost delayed leave is replaced and the heartbeat goes on");
+    let delayed_events = session_a.delay_id().is_some();
+    if delayed_events {
+        // The server loses A's delayed leave: the next restart fails, and a new one replaces it
+        let lost = session_a.delay_id().ok_or("A has no delayed leave")?;
+        session_a.cancel_delayed_leave().await?;
+        eventually("a new delayed leave", 20, async || {
+            session_a.delay_id().is_some_and(|id| id != lost)
+        })
+        .await?;
+        tokio::time::sleep(Duration::from_secs(25)).await;
+        assert_eq!(
+            b.call_members(&room).await?.len(),
+            2,
+            "the heartbeat stopped after a failed restart"
+        );
+        println!("a lost delayed leave is replaced and the heartbeat goes on");
+    } else {
+        println!("the server refuses delayed events: skipping the delayed leave checks");
+    }
 
     // Someone removes A's membership: A joins again
     let (user_a, device_a) = identity_a.rsplit_once(':').ok_or("bad identity")?;
@@ -200,13 +218,79 @@ async fn main() -> Result<(), BoxError> {
     .await?;
     println!("B left; A rotated its key ({rotated:?})");
 
-    // A's client vanishes without leaving: the server's delayed leave removes it
-    run_a.abort();
-    eventually("the delayed leave to remove A", 40, async || {
-        a.call_members(&room).await.is_ok_and(|m| m.is_empty())
+    let first = Arc::new(b.join_call_via(&room, sfu, false, false).await?);
+    let (_events_first, _run_first) = run(first.clone());
+    eventually("B to be back", 20, async || {
+        a.call_members(&room).await.is_ok_and(|m| m.len() == 2)
     })
     .await?;
-    println!("a vanished device drops out through the server's delayed leave");
+    first.leave().await?;
+    let again = Arc::new(b.join_call_via(&room, sfu, false, false).await?);
+    let (mut events_again, _run_again) = run(again.clone());
+    next_matching(&mut events_again, "B's quick rejoin to connect", |e| {
+        matches!(
+            e,
+            CallEvent::Status {
+                status: CallStatus::Connected
+            }
+        )
+    })
+    .await?;
+    tokio::time::sleep(Duration::from_secs(8)).await;
+    let tag = format!("[call {} ", again.log_id());
+    let log = b.call_log();
+    assert!(
+        !log.lines()
+            .any(|l| l.contains(&tag) && l.contains("membership.vanished")),
+        "a stale membership counted as the new session's own:\n{log}"
+    );
+    assert_eq!(a.call_members(&room).await?.len(), 2);
+    println!("leaving and joining again at once needs no rejoin");
+
+    again.report_media(MediaState::Disconnected, Some("DUPLICATE_IDENTITY".into()));
+    next_matching(&mut events_again, "the replaced error", |e| {
+        matches!(
+            e,
+            CallEvent::Error {
+                kind: CallErrorKind::Replaced,
+                fatal: true,
+                ..
+            }
+        )
+    })
+    .await?;
+    again.leave().await?;
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert_eq!(
+        a.call_members(&room).await?.len(),
+        2,
+        "a replaced session must not remove the membership the other window uses"
+    );
+    let (user_b, device_b) = identity_b.rsplit_once(':').ok_or("bad identity")?;
+    b.set_state_event(
+        &room,
+        "org.matrix.msc3401.call.member",
+        &format!("_{user_b}_{device_b}_m.call"),
+        json!({}),
+    )
+    .await?;
+    eventually("B to be gone", 20, async || {
+        a.call_members(&room).await.is_ok_and(|m| m.len() == 1)
+    })
+    .await?;
+    println!("a session replaced by another window keeps the membership");
+
+    if delayed_events {
+        // A's client vanishes without leaving: the server's delayed leave removes it
+        run_a.abort();
+        eventually("the delayed leave to remove A", 40, async || {
+            a.call_members(&room).await.is_ok_and(|m| m.is_empty())
+        })
+        .await?;
+        println!("a vanished device drops out through the server's delayed leave");
+    } else {
+        session_a.leave().await?;
+    }
 
     // Ringing another account in a direct chat
     let (c, _, _) = common::register("calls", "c").await?;

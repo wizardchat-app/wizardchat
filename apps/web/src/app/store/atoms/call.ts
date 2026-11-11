@@ -134,6 +134,7 @@ export interface CallActions {
   setSpotlight: (spotlight: boolean) => void;
   openReactions: () => void;
   setPresentation: (presentation: CallPresentation) => void;
+  copyCallLog: () => void;
 }
 
 export const callActionsAtom = atom<CallActions | null>(null);

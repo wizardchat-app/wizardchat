@@ -125,6 +125,7 @@ struct VoiceRoomView: View {
 struct CallControls: View {
     var onOpenChat: (() -> Void)?
     @EnvironmentObject private var calls: CallManager
+    @EnvironmentObject private var session: MatrixSession
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
 
@@ -170,6 +171,11 @@ struct CallControls: View {
                 if let onOpenChat {
                     Divider()
                     Button(action: onOpenChat) { Label(menu: String(localized: "room.openChat"), icon: "ph-chat-text-regular") }
+                }
+                if let client = session.client {
+                    Button { calls.copyCallLog(client) } label: {
+                        Label(menu: String(localized: "call.copyLog"), icon: "ph-clipboard-text-regular")
+                    }
                 }
             } label: {
                 Image(calls.handRaised ? "ph-hand-regular" : "ph-dots-three-bold")
@@ -231,6 +237,15 @@ struct CallBar: View {
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
 
+    private var statusText: String {
+        switch calls.status {
+        case .reconnecting: String(localized: "call.statusReconnecting")
+        case .joiningSlow: String(localized: "call.joiningSlow")
+        case .connected: String(localized: "call.statusConnected")
+        case .joiningMedia, .joiningMembership: String(localized: "call.statusConnecting")
+        }
+    }
+
     var body: some View {
         if let room = calls.room, calls.isInCall {
             HStack(spacing: style == .inline ? WZ.Space.space3 : WZ.Space.space4) {
@@ -245,9 +260,10 @@ struct CallBar: View {
                         VStack(alignment: .leading, spacing: WZ.Space.space0) {
                             Text(room.displayName).font(.wizard(WZ.FontSize.md, .semibold)).foregroundStyle(theme.textPrimary)
                             if style != .inline {
-                                Text(calls.state == .joined ? String(localized: "call.statusConnected") : String(localized: "call.statusConnecting"))
+                                Text(statusText)
                                     .font(.wizard(WZ.FontSize.sm))
-                                    .foregroundStyle(calls.state == .joined ? theme.success : theme.textMuted)
+                                    .foregroundStyle(calls.reconnecting ? theme.warningColor
+                                        : calls.status == .connected ? theme.success : theme.textMuted)
                             }
                         }
                         .lineLimit(1)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom, useStore } from 'jotai';
 import { useTranslation } from 'react-i18next';
-import { CallMedia, type CallSnapshot } from '@/call/media';
+import { CallMedia, type CallSnapshot, type LeaveReason } from '@/call/media';
 import {
   callRtcOverrideDomainAtom,
   callDevicesAtom,
@@ -80,7 +80,10 @@ export function CallController() {
   const setOverrideDomain = useSetAtom(callRtcOverrideDomainAtom);
   const currentRoomId = useAtomValue(currentRoomIdAtom);
   const sessionRef = useRef(session);
-  sessionRef.current = session;
+  const startingRef = useRef(false);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const resetUi = useCallback(() => {
     setUi((prev) => ({ ...prev, ...IDLE_UI }));
@@ -95,7 +98,6 @@ export function CallController() {
       const client = getMatrixClientOrNull();
       if (!client) return;
       const runStart = async () => {
-        playVoiceSound('call-join');
         store.set(pendingCallRoomIdAtom, roomId);
         const presentation = opts.presentation ?? 'room';
         const previous = sessionRef.current;
@@ -105,9 +107,10 @@ export function CallController() {
           previous && previousRoomId !== roomId ? previousRoomId : null
         );
         if (previous) {
+          sessionRef.current = null;
           setSession(null);
           setUi((prev) => ({ ...prev, roomId: null, phase: 'idle', incoming: null, presentation }));
-          await previous.leave();
+          await previous.leave('switch');
         } else {
           setUi((prev) => ({ ...prev, incoming: null, presentation }));
         }
@@ -116,6 +119,11 @@ export function CallController() {
         const deafened = store.get(deafenedAtom);
         const voiceOnly = !!opts.voiceOnly;
         const next = new CallMedia(client, roomId);
+        next.onNotice = (kind, message) =>
+          toast.error(
+            t(kind === 'microphone' ? 'call.micFailed' : 'call.cameraFailed', { error: message })
+          );
+        sessionRef.current = next;
         for (const [userId, audio] of Object.entries(store.get(callUserAudioAtom))) {
           next.setUserVolume(userId, audio.volume);
           next.setUserMuted(userId, audio.muted);
@@ -138,6 +146,7 @@ export function CallController() {
           presentation,
         }));
         store.set(pendingCallRoomIdAtom, null);
+        startingRef.current = false;
 
         try {
           await next.join({
@@ -155,27 +164,43 @@ export function CallController() {
         }
       };
 
-      const domain = client.userId()?.split(':').slice(1).join(':') || null;
-      const overrideDomain = store.get(callRtcOverrideDomainAtom);
-      store.set(pendingCallRoomIdAtom, roomId);
-      const supported =
-        overrideDomain === domain || (await client.rtcSupported().catch(() => false));
-      if (!supported) {
-        store.set(pendingCallRoomIdAtom, null);
-        toast.error(t('call.homeserverUnsupported'), {
-          duration: 10000,
-          actionLabel: t('call.tryAnyway'),
-          onClick: () => {
-            if (domain) setOverrideDomain(domain);
-            void runStart();
-          },
-        });
-        return;
+      if (startingRef.current || sessionRef.current?.roomId === roomId) return;
+      startingRef.current = true;
+      try {
+        const domain = client.userId()?.split(':').slice(1).join(':') || null;
+        const overrideDomain = store.get(callRtcOverrideDomainAtom);
+        store.set(pendingCallRoomIdAtom, roomId);
+        const supported =
+          overrideDomain === domain || (await client.rtcSupported().catch(() => false));
+        if (!supported) {
+          store.set(pendingCallRoomIdAtom, null);
+          toast.error(t('call.homeserverUnsupported'), {
+            duration: 10000,
+            actionLabel: t('call.tryAnyway'),
+            onClick: () => {
+              if (domain) setOverrideDomain(domain);
+              void runStart();
+            },
+          });
+          return;
+        }
+        await runStart();
+      } finally {
+        startingRef.current = false;
       }
-      await runStart();
     },
     [store, setSession, setUi, setOverrideDomain, toast, t]
   );
+
+  const copyCallLog = useCallback(() => {
+    const client = getMatrixClientOrNull();
+    if (!client) return;
+    void client
+      .callLog()
+      .then((log) => navigator.clipboard.writeText(log))
+      .then(() => toast.success(t('call.logCopied')))
+      .catch((error: unknown) => toast.error(String(error)));
+  }, [toast, t]);
 
   const pushToTalkMode = useAtomValue(pushToTalkModeAtom);
   useEffect(() => {
@@ -196,26 +221,48 @@ export function CallController() {
       }
       if (snap.phase === 'error' || snap.phase === 'left') {
         if (snap.phase === 'error' && snap.error) {
-          toast.error(
+          const wasJoined = previous?.phase === 'joined';
+          const reason = (() => {
+            switch (snap.errorKind) {
+              case 'auth':
+                return t('call.errorAuth');
+              case 'membership':
+                return t('call.errorMembership');
+              case 'connection':
+                return t('call.errorConnection');
+              default:
+                return snap.error;
+            }
+          })();
+          const message =
             snap.errorKind === 'noSfu'
               ? t('call.noSfu')
-              : t('call.startFailed', {
-                  error:
-                    snap.errorKind === 'auth'
-                      ? t('call.errorAuth')
-                      : snap.errorKind === 'membership'
-                        ? t('call.errorMembership')
-                        : snap.errorKind === 'connection'
-                          ? t('call.errorConnection')
-                          : snap.error,
-                })
-          );
+              : snap.errorKind === 'timeout'
+                ? t('call.joinTimeout')
+                : snap.errorKind === 'disconnected'
+                  ? t('call.disconnected')
+                  : snap.errorKind === 'replaced'
+                    ? t('call.replaced')
+                    : snap.errorKind === 'removed'
+                      ? t('call.removed')
+                      : wasJoined
+                        ? t('call.failed', { error: reason })
+                        : t('call.startFailed', { error: reason });
+          toast.error(message, {
+            duration: 10000,
+            actionLabel: t('call.copyLog'),
+            onClick: copyCallLog,
+          });
         }
         if (sessionRef.current === session) {
+          sessionRef.current = null;
           setSession(null);
           resetUi();
         }
         return;
+      }
+      if (previous && previous.phase !== 'joined' && snap.phase === 'joined') {
+        playVoiceSound('call-join');
       }
       if (previous?.phase === 'joined' && snap.phase === 'joined') {
         playParticipantSounds(previous, snap);
@@ -250,16 +297,21 @@ export function CallController() {
       unsubscribe();
       stopRingback?.();
     };
-  }, [session, setSession, setUi, resetUi, toast, t]);
+  }, [session, setSession, setUi, resetUi, toast, t, copyCallLog]);
 
-  const hangup = useCallback(() => {
-    const current = sessionRef.current;
-    if (current) playVoiceSound('call-leave');
-    store.set(leavingCallRoomIdAtom, current ? store.get(callUiAtom).roomId : null);
-    setSession(null);
-    resetUi();
-    void current?.leave();
-  }, [setSession, resetUi, store]);
+  const endCall = useCallback(
+    (reason: LeaveReason) => {
+      const current = sessionRef.current;
+      if (current) playVoiceSound('call-leave');
+      store.set(leavingCallRoomIdAtom, current ? store.get(callUiAtom).roomId : null);
+      sessionRef.current = null;
+      setSession(null);
+      resetUi();
+      void current?.leave(reason);
+    },
+    [setSession, resetUi, store]
+  );
+  const hangup = useCallback(() => endCall('hangup'), [endCall]);
 
   const leavingRoomId = useAtomValue(leavingCallRoomIdAtom);
   useEffect(() => {
@@ -361,9 +413,11 @@ export function CallController() {
       setSpotlight,
       openReactions,
       setPresentation,
+      copyCallLog,
     });
     return () => setActions(null);
   }, [
+    copyCallLog,
     start,
     hangup,
     toggleMute,
@@ -382,18 +436,19 @@ export function CallController() {
       onSessionEnd(async () => {
         const current = sessionRef.current;
         if (!current) return;
+        sessionRef.current = null;
         setSession(null);
         resetUi();
-        await current.leave();
+        await current.leave('signedOut');
       }),
     [setSession, resetUi]
   );
 
   useEffect(() => {
-    const onUnload = () => void sessionRef.current?.leave();
+    const onUnload = () => void sessionRef.current?.leave('unload');
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
   }, []);
 
-  return <AloneNotice session={session} onLeave={hangup} />;
+  return <AloneNotice session={session} onLeave={() => endCall('alone')} />;
 }

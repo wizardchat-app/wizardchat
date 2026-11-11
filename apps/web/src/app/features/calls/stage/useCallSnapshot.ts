@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { useAtomValue } from 'jotai';
-import type { CallSnapshot } from '@/call/media';
+import type { CallParticipant, CallSnapshot } from '@/call/media';
 import { callSessionAtom } from '@/app/store/atoms/call';
 
 const noopSubscribe = () => () => {};
@@ -12,6 +12,10 @@ export function useCallSnapshot(): CallSnapshot | null {
     session ? session.subscribe : noopSubscribe,
     session ? session.getSnapshot : getNull
   );
+}
+
+export function shownParticipants(snapshot: CallSnapshot | null): CallParticipant[] {
+  return snapshot?.participants.filter((p) => !p.stale) ?? [];
 }
 
 export interface CallLiveState {

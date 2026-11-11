@@ -66,6 +66,8 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: desktop ? 5190 : 5180,
+      // Firefox gathers no ICE candidates on pages served from ::1, so calls never connect
+      host: desktop ? undefined : '127.0.0.1',
       strictPort: desktop,
       fs: { allow: ['../..'] },
     },

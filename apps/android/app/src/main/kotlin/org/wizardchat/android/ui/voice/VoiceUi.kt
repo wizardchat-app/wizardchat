@@ -81,6 +81,7 @@ import org.wizardchat.android.ui.room.RoomHeader
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.core.CallStatus
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.tokens.WZ
 
@@ -183,6 +184,7 @@ private fun Lobby(room: RoomSummary, onOpenChat: () -> Unit, modifier: Modifier 
 @Composable
 fun CallControls(onOpenChat: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     val calls = CallManager.shared
+    val session = LocalSession.current
     val haptics = LocalHapticFeedback.current
     var showMenu by remember { mutableStateOf(false) }
     var showWatchSheet by remember { mutableStateOf(false) }
@@ -285,6 +287,12 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, modifier: Modifier = Modifier
                         onOpenChat()
                     }
                 }
+                session.client?.let { client ->
+                    MenuRow(tr("call.copyLog"), "clipboard-text") {
+                        showMenu = false
+                        calls.copyCallLog(client)
+                    }
+                }
             }
         }
         RoundIconButton("phone-x", tr("common.leave"), background = theme.danger, tint = theme.textOnAccent, onClick = { calls.leave() })
@@ -362,12 +370,13 @@ fun CallBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
                     tr(
                         when {
                             calls.reconnecting -> "call.statusReconnecting"
-                            joined -> "call.statusConnected"
+                            calls.status == CallStatus.joiningSlow -> "call.joiningSlow"
+                            calls.status == CallStatus.connected -> "call.statusConnected"
                             else -> "call.statusConnecting"
                         },
                     ),
                     style = wizardFont(WZ.FontSize.sm),
-                    color = if (calls.reconnecting) theme.warningColor else if (joined) theme.success else theme.textMuted,
+                    color = if (calls.reconnecting) theme.warningColor else if (calls.status == CallStatus.connected) theme.success else theme.textMuted,
                     maxLines = 1,
                 )
             }
