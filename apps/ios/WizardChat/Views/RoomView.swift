@@ -587,17 +587,18 @@ private struct JumpToNewestButton: View {
         Button(action: action) {
             Image("ph-caret-down-regular")
                 .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                .foregroundStyle(theme.textPrimary)
+                .foregroundStyle(theme.textOnAccent)
                 .frame(width: WZ.Space.space10, height: WZ.Space.space10)
-                .floatingGlass(in: Circle())
+                .background(theme.accent, in: Circle())
+                .shadow(color: .black.opacity(0.25), radius: WZ.Space.space2, y: WZ.Space.space1)
                 .overlay(alignment: .top) {
                     if newCount > 0 {
                         Text(newCount > 99 ? "99+" : "\(newCount)")
                             .font(.wizard(WZ.FontSize.xs, .bold).monospacedDigit())
-                            .foregroundStyle(theme.textOnAccent)
+                            .foregroundStyle(theme.accent)
                             .padding(.horizontal, WZ.Space.space2)
                             .frame(minWidth: WZ.Space.space7, minHeight: WZ.Space.space7)
-                            .background(theme.accent, in: Capsule())
+                            .background(theme.textOnAccent, in: Capsule())
                             .offset(y: -WZ.Space.space4)
                     }
                 }

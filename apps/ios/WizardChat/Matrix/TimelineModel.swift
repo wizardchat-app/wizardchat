@@ -205,6 +205,7 @@ final class TimelineModel: ObservableObject {
     private var items: [TimelineEntry] = []
     private var converted: [ChatEntry?] = []
     private var subscriptions: [Subscription] = []
+    private var requestedReplies: Set<String> = []
     private var isTyping = false
     private var ownUserId: String { client.userId ?? "" }
 
@@ -526,6 +527,7 @@ final class TimelineModel: ObservableObject {
             diff.apply(to: &items)
             converted.apply(diff.map { [ownUserId] in Self.makeEntry($0, ownUserId: ownUserId) })
         }
+        loadMissingReplies()
         // The read marker is a virtual item; the first message after it is the first unread
         if let marker = items.firstIndex(where: { if case .readMarker = $0 { return true }; return false }) {
             firstUnreadId = converted[(marker + 1)...].first { $0?.isContent == true }??.id
@@ -593,6 +595,15 @@ final class TimelineModel: ObservableObject {
 
     private func regroup() {
         entries = groupImages && kind == .main && onlyTypes == nil ? Self.collapseGalleries(ungrouped) : ungrouped
+    }
+
+    private func loadMissingReplies() {
+        guard let timeline else { return }
+        for case .event(let event) in items {
+            guard case .unavailable? = event.inReplyTo, let id = event.eventId,
+                  requestedReplies.insert(id).inserted else { continue }
+            Task { try? await timeline.loadReplyDetails(eventId: id) }
+        }
     }
 
     private static func makeEntry(_ item: TimelineEntry, ownUserId: String) -> ChatEntry? {

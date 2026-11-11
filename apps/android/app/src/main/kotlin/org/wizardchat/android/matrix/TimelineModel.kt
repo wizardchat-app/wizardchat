@@ -239,6 +239,7 @@ class TimelineModel(
     private val items = mutableListOf<TimelineEntry>()
     private val converted = mutableListOf<ChatEntry?>()
     private val subscriptions = mutableListOf<Subscription>()
+    private val requestedReplies = mutableSetOf<String>()
     private var isTyping = false
     private var starting = false
     private val ownUserId: String get() = client.userId ?: ""
@@ -577,12 +578,22 @@ class TimelineModel(
     suspend fun members(): List<Member> =
         (runCatching { client.members(roomId) }.getOrNull() ?: emptyList()).filter { !it.isInvite }
 
+    private fun loadMissingReplies() {
+        val timeline = timeline ?: return
+        for (item in items) {
+            if (item !is TimelineEntry.Event || item.inReplyTo !is ReplyPreview.Unavailable) continue
+            val id = item.eventId ?: continue
+            if (requestedReplies.add(id)) scope.launch { runCatching { timeline.loadReplyDetails(id) } }
+        }
+    }
+
     private fun apply(diffs: List<ListDiff<TimelineEntry>>) {
         val own = ownUserId
         for (diff in diffs) {
             diff.applyTo(items)
             diff.mapTo(converted) { makeEntry(it, own) }
         }
+        loadMissingReplies()
         // The read marker is a virtual item; the first message after it is the first unread
         val marker = items.indexOfFirst { it is TimelineEntry.ReadMarker }
         firstUnreadId = if (marker >= 0) {

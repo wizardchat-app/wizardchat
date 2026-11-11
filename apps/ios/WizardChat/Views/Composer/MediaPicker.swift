@@ -234,7 +234,10 @@ struct PackThumb: View {
     var animated = false
     @Environment(\.mediaLoader) private var mediaLoader
     @Environment(\.theme) private var theme
+    @EnvironmentObject private var prefs: AppPreferences
     @State private var image: UIImage?
+
+    private var animates: Bool { animated || prefs.autoplayGifs }
 
     var body: some View {
         Group {
@@ -249,9 +252,9 @@ struct PackThumb: View {
         }
         .contentShape(Rectangle())
         .clipShape(RoundedRectangle(cornerRadius: WZ.Radius.md, style: .continuous))
-        .task(id: url) {
+        .task(id: "\(url)|\(animates)") {
             image = await mediaLoader?.thumbnail(url, size: 160)
-            guard animated, let full = await mediaLoader?.image(for: .object(["url": .string(url)]), thumbnailSize: nil, animated: true),
+            guard animates, let full = await mediaLoader?.image(for: .object(["url": .string(url)]), thumbnailSize: nil, animated: true),
                   full.images != nil else { return }
             image = full
         }
