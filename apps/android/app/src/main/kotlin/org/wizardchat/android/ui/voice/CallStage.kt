@@ -61,11 +61,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.livekit.android.renderer.TextureViewRenderer
 import io.livekit.android.room.track.VideoTrack
 import livekit.org.webrtc.RendererCommon
+import org.wizardchat.android.ui.home.LocalCalls
 import org.wizardchat.android.matrix.CallManager
 import org.wizardchat.android.matrix.CallParticipantInfo
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.MenuItem
 import org.wizardchat.android.ui.PhIcon
+import androidx.compose.foundation.clickable
 import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.android.ui.Spinner
 import org.wizardchat.android.ui.WizardMenu
@@ -188,7 +190,7 @@ private fun ParticipantTile(roomId: String, participant: CallParticipantInfo, on
     ) {
         val camera = participant.cameraTrack
         if (camera != null) {
-            CallVideoView(camera, participant.connection, fill = true, mirror = participant.isLocal, Modifier.fillMaxSize())
+            CallVideoView(camera, participant.connection, fill = true, mirror = participant.isLocal && !LocalCalls.current.cameraBack, Modifier.fillMaxSize())
         } else {
             Avatar(name, avatarUrl, WZ.SizeAvatar.lg, modifier = Modifier.alpha(if (participant.connected) 1f else 0.5f))
         }
@@ -198,6 +200,23 @@ private fun ParticipantTile(roomId: String, participant: CallParticipantInfo, on
             label = "reaction",
         ) { reaction ->
             if (reaction != null) Text(reaction, fontSize = WZ.SizeIcon.xxl.value.sp)
+        }
+        if (participant.isLocal && camera != null) {
+            val calls = LocalCalls.current
+            val switchLabel = tr("call.switchCamera")
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(WZ.Space.space4)
+                    .size(WZ.Space.space9)
+                    .clip(CircleShape)
+                    .background(theme.bgTertiary.copy(alpha = 0.85f))
+                    .clickable { calls.flipCamera() }
+                    .semantics { contentDescription = switchLabel },
+                contentAlignment = Alignment.Center,
+            ) {
+                PhIcon("camera-rotate", size = WZ.SizeIcon.md, tint = theme.textPrimary)
+            }
         }
         if (participant.handRaised) {
             Box(

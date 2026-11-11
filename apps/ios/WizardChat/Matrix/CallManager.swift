@@ -88,6 +88,19 @@ final class CallManager: NSObject, ObservableObject {
         return CameraCaptureOptions(position: back ? .back : .front, dimensions: .h720_169, fps: 30)
     }
 
+    func flipCamera() {
+        guard let track = publisher?.localParticipant.firstCameraVideoTrack as? LocalVideoTrack,
+              let capturer = track.capturer as? CameraCapturer else { return }
+        Task {
+            do {
+                try await capturer.switchCameraPosition()
+                UserDefaults.standard.set(capturer.position == .back ? "back" : "front", forKey: "voice.cameraPosition")
+            } catch {
+                NSLog("WZCALL switching the camera: %@", String(describing: error))
+            }
+        }
+    }
+
     private var session: CallSession?
     private var run: Subscription?
     private var incomingWatch: Subscription?

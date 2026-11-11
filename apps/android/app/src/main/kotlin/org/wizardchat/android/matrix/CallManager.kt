@@ -27,6 +27,7 @@ import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.participant.RemoteParticipant
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.CameraPosition
+import io.livekit.android.room.track.LocalVideoTrack
 import io.livekit.android.room.track.DataPublishReliability
 import io.livekit.android.room.track.LocalAudioTrackOptions
 import io.livekit.android.room.track.LocalVideoTrackOptions
@@ -188,9 +189,11 @@ class CallManager {
     private val micPublished: Boolean
         get() = if (pushToTalk) !micTesting && !deafened else micEnabled
     private val outputVolume: Double get() = defaults.getFloat("voice.outputVolume", 1f).toDouble()
+    var cameraBack by mutableStateOf(defaults.getString("voice.cameraPosition", "front") == "back")
+        private set
     private val cameraOptions: LocalVideoTrackOptions
         get() = LocalVideoTrackOptions(
-            position = if (defaults.getString("voice.cameraPosition", "front") == "back") CameraPosition.BACK else CameraPosition.FRONT,
+            position = if (cameraBack) CameraPosition.BACK else CameraPosition.FRONT,
             captureParams = VideoPreset169.H720.capture,
         )
     private var deafenedState by mutableStateOf(defaults.getBoolean("voice.deafened", false))
@@ -705,7 +708,20 @@ class CallManager {
         refresh()
     }
 
+    fun flipCamera() {
+        val back = !cameraBack
+        val track = publisher?.localParticipant?.getTrackPublication(Track.Source.CAMERA)?.track as? LocalVideoTrack ?: return
+        try {
+            track.switchCamera(position = if (back) CameraPosition.BACK else CameraPosition.FRONT)
+            cameraBack = back
+            defaults.edit().putString("voice.cameraPosition", if (back) "back" else "front").apply()
+        } catch (error: Exception) {
+            Log.w(TAG, "switching the camera: $error")
+        }
+    }
+
     fun toggleCamera() {
+        cameraBack = defaults.getString("voice.cameraPosition", "front") == "back"
         val enabled = !cameraOn
         scope.launch {
             if (enabled) {

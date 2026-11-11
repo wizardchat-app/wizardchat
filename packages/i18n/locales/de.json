@@ -1073,6 +1073,7 @@
     "inVoice": "{{count}} im Sprachkanal",
     "turnCameraOff": "Kamera ausschalten",
     "turnCameraOn": "Kamera einschalten",
+    "switchCamera": "Kamera wechseln",
     "stopSharingScreen": "Bildschirmfreigabe beenden",
     "moreActionsHint": "Mehr: Reaktionen, Hand heben, Bildschirm teilen, gemeinsam schauen",
     "incomingFrom": "Eingehender Anruf von {{name}}",

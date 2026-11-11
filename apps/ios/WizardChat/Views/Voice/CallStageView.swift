@@ -69,6 +69,7 @@ struct CallStageView: View {
 private struct ParticipantTile: View {
     let roomId: String
     @EnvironmentObject private var session: MatrixSession
+    @EnvironmentObject private var calls: CallManager
     let participant: CallParticipantInfo
     @Environment(\.theme) private var theme
     @State private var name: String?
@@ -135,6 +136,20 @@ private struct ParticipantTile: View {
         .animation(.easeOut(duration: WZ.MotionDuration.fast), value: participant.speaking)
         .accessibilityElement(children: .combine)
         .accessibilityHint(participant.isLocal ? "" : String(localized: "call.volumeHint"))
+        .overlay(alignment: .bottomTrailing) {
+            if participant.isLocal && participant.cameraTrack != nil {
+                Button { calls.flipCamera() } label: {
+                    Image("ph-camera-rotate-regular")
+                        .font(.system(size: WZ.SizeIcon.md))
+                        .foregroundStyle(theme.textPrimary)
+                        .frame(width: WZ.Space.space9, height: WZ.Space.space9)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(WZ.Space.space4)
+                .accessibilityLabel(String(localized: "call.switchCamera"))
+            }
+        }
         .task(id: participant.userId) {
             let profile = await session.memberProfile(participant.userId, in: roomId)
             name = profile.name

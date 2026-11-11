@@ -1073,6 +1073,7 @@
     "inVoice": "{{count}} in voice",
     "turnCameraOff": "Turn camera off",
     "turnCameraOn": "Turn camera on",
+    "switchCamera": "Switch camera",
     "stopSharingScreen": "Stop sharing screen",
     "moreActionsHint": "More: reactions, raise hand, share screen, watch together",
     "incomingFrom": "Incoming call from {{name}}",
