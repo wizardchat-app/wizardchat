@@ -74,6 +74,14 @@ public struct AttachmentThumbnail: Codable, Hashable, Sendable {
     }
 }
 
+public enum CallErrorKind: String, Codable, Hashable, Sendable, CaseIterable {
+    case membership = "membership"
+    case timeout = "timeout"
+    case disconnected = "disconnected"
+    case replaced = "replaced"
+    case removed = "removed"
+}
+
 public enum CallEvent: Codable, Hashable, Sendable {
     public struct Members: Codable, Hashable, Sendable {
         public var members: [CallMember]
@@ -122,10 +130,26 @@ public enum CallEvent: Codable, Hashable, Sendable {
     public struct Error: Codable, Hashable, Sendable {
         public var message: String
         public var fatal: Bool
+        public var kind: CallErrorKind
 
-        public init(message: String, fatal: Bool) {
+        public init(message: String, fatal: Bool, kind: CallErrorKind) {
             self.message = message
             self.fatal = fatal
+            self.kind = kind
+        }
+    }
+    public struct Status: Codable, Hashable, Sendable {
+        public var status: CallStatus
+
+        public init(status: CallStatus) {
+            self.status = status
+        }
+    }
+    public struct Log: Codable, Hashable, Sendable {
+        public var line: String
+
+        public init(line: String) {
+            self.line = line
         }
     }
     /// Everyone in the call, oldest first
@@ -139,8 +163,10 @@ public enum CallEvent: Codable, Hashable, Sendable {
     /// An emoji someone sent into the call (show it briefly)
     case reaction(Reaction)
     case handRaised(HandRaised)
-    /// `fatal`: the membership can't be kept up; the call has been left
+    /// `fatal`: the call is over (and has been left, unless `kind` is `replaced`)
     case error(Error)
+    case status(Status)
+    case log(Log)
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: AnyKey.self)
@@ -152,6 +178,8 @@ public enum CallEvent: Codable, Hashable, Sendable {
         case "reaction": self = .reaction(try Reaction(from: decoder))
         case "handRaised": self = .handRaised(try HandRaised(from: decoder))
         case "error": self = .error(try Error(from: decoder))
+        case "status": self = .status(try Status(from: decoder))
+        case "log": self = .log(try Log(from: decoder))
         case let other: throw DecodingError.dataCorruptedError(forKey: AnyKey("type"), in: container, debugDescription: "Unknown CallEvent \(other)")
         }
     }
@@ -178,6 +206,12 @@ public enum CallEvent: Codable, Hashable, Sendable {
             try value.encode(to: encoder)
         case .error(let value):
             try container.encode("error", forKey: AnyKey("type"))
+            try value.encode(to: encoder)
+        case .status(let value):
+            try container.encode("status", forKey: AnyKey("type"))
+            try value.encode(to: encoder)
+        case .log(let value):
+            try container.encode("log", forKey: AnyKey("type"))
             try value.encode(to: encoder)
         }
     }
@@ -261,6 +295,14 @@ public struct CallParticipantView: Codable, Hashable, Sendable {
         self.displayName = displayName
         self.avatarUrl = avatarUrl
     }
+}
+
+public enum CallStatus: String, Codable, Hashable, Sendable, CaseIterable {
+    case joiningMedia = "joiningMedia"
+    case joiningMembership = "joiningMembership"
+    case joiningSlow = "joiningSlow"
+    case connected = "connected"
+    case reconnecting = "reconnecting"
 }
 
 /// Options for a new room or space
@@ -980,6 +1022,13 @@ public struct MediaInfo: Codable, Hashable, Sendable {
 
 /// Where media lives: a plain `mxc://` URL, or an encrypted file
 public typealias MediaSource = JSONValue
+
+public enum MediaState: String, Codable, Hashable, Sendable, CaseIterable {
+    case connecting = "connecting"
+    case connected = "connected"
+    case reconnecting = "reconnecting"
+    case disconnected = "disconnected"
+}
 
 public struct Member: Codable, Hashable, Sendable {
     public var userId: String
@@ -3405,6 +3454,11 @@ public final class WizardClient: Remote, @unchecked Sendable {
         try await call("WizardClient.rtcSupported", [])
     }
 
+    /// The recent call log (every call, the media side included), for bug reports
+    public func callLog() async throws -> String {
+        try await call("WizardClient.callLog", [])
+    }
+
     public func callMembers(roomId: String) async throws -> [CallMember] {
         try await call("WizardClient.callMembers", [.value(roomId)])
     }
@@ -3884,6 +3938,10 @@ public final class CallSession: Remote, @unchecked Sendable {
         prop("identity")
     }
 
+    public var logId: String {
+        prop("logId")
+    }
+
     /// Whether joining rang the others: show "calling..." until someone answers
     public var rang: Bool {
         prop("rang")
@@ -3903,6 +3961,14 @@ public final class CallSession: Remote, @unchecked Sendable {
     @discardableResult
     public func run(listener: @escaping @Sendable (CallEvent) -> Void) -> Subscription {
         watch("CallSession.run", [.listener(CallEvent.self, listener)])
+    }
+
+    public func reportMedia(state: MediaState, reason: String? = nil) async throws -> Bool {
+        try await call("CallSession.reportMedia", [.value(state), .value(reason)])
+    }
+
+    public func log(event: String, detail: String) async throws {
+        _ = try await call("CallSession.log", [.value(event), .value(detail)]) as Empty
     }
 
     public func leave() async throws {

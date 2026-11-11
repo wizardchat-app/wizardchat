@@ -18,6 +18,7 @@ fn store(name: &str) -> StoreConfig {
         passphrase: Some("account-test".into()),
         exclude_insecure_devices: false,
         manual_encryption_setup: false,
+        process_name: None,
     }
 }
 

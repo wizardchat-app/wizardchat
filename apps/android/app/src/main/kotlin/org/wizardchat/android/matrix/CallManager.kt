@@ -47,6 +47,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -64,9 +65,13 @@ import org.wizardchat.android.matrix.rtc.CallSounds
 import org.wizardchat.android.matrix.rtc.WatchParticipant
 import org.wizardchat.android.matrix.rtc.WatchTogether
 import org.wizardchat.android.ui.L10n
+import org.wizardchat.android.ui.copyToClipboard
+import org.wizardchat.core.CallErrorKind
 import org.wizardchat.core.CallEvent
 import org.wizardchat.core.CallMember
 import org.wizardchat.core.CallSession
+import org.wizardchat.core.CallStatus
+import org.wizardchat.core.MediaState
 import org.wizardchat.core.IncomingCall
 import org.wizardchat.core.IncomingCallEvent
 import org.wizardchat.core.RingEnd
@@ -151,8 +156,9 @@ class CallManager {
         private set
     var handRaised by mutableStateOf(false)
         private set
-    var reconnecting by mutableStateOf(false)
+    var status by mutableStateOf(CallStatus.joiningMedia)
         private set
+    val reconnecting: Boolean get() = status == CallStatus.reconnecting
     var watch by mutableStateOf<WatchTogether?>(null)
         private set
     var ring by mutableStateOf<RingState?>(null)
@@ -225,7 +231,10 @@ class CallManager {
     private val connectionJobs = mutableMapOf<LiveKitRoom, Job>()
     private val pendingServices = mutableSetOf<String>()
     private var refreshTimer: Job? = null
-    private var reconnectJob: Job? = null
+    private var publisherJob: Job? = null
+    private var joinInFlight = false
+    private var pendingLeave: Job? = null
+    private val unconnectedSince = mutableMapOf<String, Long>()
     private var subscribeRetry: Job? = null
     /** Bumped on every join and leave, so a join that was left halfway stops */
     private var attempt = 0
@@ -246,9 +255,19 @@ class CallManager {
     fun isInCall(roomId: String): Boolean = isInCall && room?.id == roomId
 
     suspend fun join(room: RoomSummary, session: MatrixSession, intent: String? = null, ring: Boolean = false) {
-        if (isInCall(room.id)) return
+        if (isInCall(room.id) || joinInFlight) return
+        joinInFlight = true
+        try {
+            joinNow(room, session, intent, ring)
+        } finally {
+            joinInFlight = false
+        }
+    }
+
+    private suspend fun joinNow(room: RoomSummary, session: MatrixSession, intent: String?, ring: Boolean) {
         if (incoming?.roomId == room.id) dismissIncoming()
-        if (isInCall) leaveAndWait()
+        if (isInCall) leaveAndWait("switch")
+        pendingLeave?.let { leaving -> withTimeoutOrNull(LEAVE_WAIT_MILLIS) { leaving.join() } }
         val wanted = buildList {
             add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
@@ -262,6 +281,7 @@ class CallManager {
         val current = ++attempt
         this.room = room
         this.client = client
+        status = CallStatus.joiningMedia
         state = State.Joining
         var call: CallSession? = null
         try {
@@ -272,6 +292,7 @@ class CallManager {
                 return
             }
             this.session = joined
+            log("client", "android ${Build.MANUFACTURER} ${Build.MODEL} sdk=${Build.VERSION.SDK_INT}")
             if (joined.encrypted()) {
                 // The key provider calls into WebRTC, which only LiveKit.init or the first connection loads
                 LiveKit.init(context)
@@ -283,7 +304,8 @@ class CallManager {
                 )
             }
             run = joined.run { handle(it) }
-            val publisher = withTimeout(CONNECT_TIMEOUT_MILLIS) { connect(joined.serviceUrl, publisher = true) }
+            val publisher = connectPublisher() ?: return
+            if (attempt != current) return
             state = State.Joined
             applyAudioDevice()
             watch = WatchTogether(
@@ -294,8 +316,6 @@ class CallManager {
                 },
             )
             if (pushToTalk) micMuted = false
-            runCatching { publisher.localParticipant.setMicrophoneEnabled(micPublished) }
-            silenceMic(publisher, pushToTalk && !micEnabled)
             CallSounds.play("call_join")
             notification.start(room.displayName, room.isDirect, activityState)
             if (intent == "video") toggleCamera()
@@ -303,8 +323,6 @@ class CallManager {
             if (joined.rang && knownOthers.isEmpty()) startRinging()
             syncRemoteConnections()
             startRefreshing()
-        } catch (error: TimeoutCancellationException) {
-            failJoin(current, call, L10n.format("call.joinTimeout"))
         } catch (error: CancellationException) {
             // Left while joining: leaving already cleaned up
             if (attempt == current && this.session === call) failJoin(current, call, null)
@@ -317,10 +335,70 @@ class CallManager {
     private suspend fun failJoin(current: Int, call: CallSession?, message: String?) {
         if (attempt != current) return
         val roomId = room?.id
+        if (message != null) log("failed", message)
         tearDown()
         runCatching { call?.leave() }
         room = null
         state = if (message == null) State.Idle else State.Failed(message, roomId)
+    }
+
+    private fun log(event: String, detail: String = "") {
+        val session = session
+        if (session == null) {
+            Log.i(TAG, "$event $detail")
+            return
+        }
+        scope.launch { runCatching { session.log(event, detail) } }
+    }
+
+    fun copyCallLog(client: WizardClient) {
+        scope.launch {
+            runCatching { client.callLog() }.onSuccess { copyToClipboard(it, L10n.format("call.logCopied")) }
+        }
+    }
+
+    private suspend fun connectPublisher(): LiveKitRoom? {
+        val session = session ?: return null
+        publisherJob?.let { running ->
+            running.join()
+            return publisher
+        }
+        var result: LiveKitRoom? = null
+        val job = scope.launch {
+            var backoff = 1000L
+            var tries = 0
+            while (isActive && this@CallManager.session === session) {
+                tries += 1
+                val started = System.currentTimeMillis()
+                try {
+                    val publisher = withTimeout(CONNECT_TIMEOUT_MILLIS) { connect(session.serviceUrl, publisher = true) }
+                    log("media.connect", "ok attempt=$tries ${System.currentTimeMillis() - started}ms")
+                    runCatching { session.reportMedia(MediaState.connected) }
+                    val mic = runCatching { publisher.localParticipant.setMicrophoneEnabled(micPublished) }
+                    mic.exceptionOrNull()?.let { log("mic", "failed: $it") }
+                    silenceMic(publisher, pushToTalk && !micEnabled)
+                    if (cameraOn) runCatching { publisher.localParticipant.setCameraEnabled(true) }
+                    screenSharing = false
+                    result = publisher
+                    return@launch
+                } catch (error: CancellationException) {
+                    if (error !is TimeoutCancellationException) throw error
+                    log("media.connect", "timed out attempt=$tries, retry in ${backoff}ms")
+                } catch (error: Exception) {
+                    log("media.connect", "failed attempt=$tries, retry in ${backoff}ms: $error")
+                }
+                runCatching { session.reportMedia(MediaState.reconnecting) }
+                delay(backoff)
+                backoff = (backoff * 2).coerceAtMost(10_000L)
+            }
+        }
+        publisherJob = job
+        try {
+            job.join()
+        } finally {
+            if (publisherJob === job) publisherJob = null
+        }
+        return result
     }
 
     /** [join] in the background, so it goes on when the screen that started it goes away */
@@ -328,13 +406,14 @@ class CallManager {
         scope.launch { join(room, session, intent, ring) }
     }
 
-    fun leave() {
-        scope.launch { leaveAndWait() }
+    fun leave(reason: String = "hangup") {
+        scope.launch { leaveAndWait(reason) }
     }
 
-    private suspend fun leaveAndWait() {
+    private suspend fun leaveAndWait(reason: String) {
         if (state == State.Joined) CallSounds.play("call_leave")
         val call = session
+        log("leave", reason)
         tearDown()
         state = State.Idle
         room = null
@@ -345,8 +424,9 @@ class CallManager {
     private fun fail(message: String, leave: Boolean) {
         val call = session ?: return
         val roomId = room?.id
+        log("failed", message)
         tearDown()
-        if (leave) scope.launch { runCatching { call.leave() } }
+        if (leave) pendingLeave = scope.launch { runCatching { call.leave() } }
         room = null
         state = State.Failed(message, roomId)
     }
@@ -359,7 +439,7 @@ class CallManager {
     /** Signed out or switched accounts: nothing of this client's calls goes on */
     fun signedOut() {
         stopWatchingIncoming()
-        leave()
+        leave("signedOut")
     }
 
     private fun tearDown() {
@@ -373,8 +453,9 @@ class CallManager {
         watch = null
         refreshTimer?.cancel()
         refreshTimer = null
-        reconnectJob?.cancel()
-        reconnectJob = null
+        publisherJob?.cancel()
+        publisherJob = null
+        unconnectedSince.clear()
         subscribeRetry?.cancel()
         subscribeRetry = null
         run?.cancel()
@@ -395,7 +476,7 @@ class CallManager {
         handRaised = false
         cameraOn = false
         screenSharing = false
-        reconnecting = false
+        status = CallStatus.joiningMedia
         appliedVolumes.clear()
     }
 
@@ -427,8 +508,18 @@ class CallManager {
                 if (event.raised) raisedHands.add(event.identity) else raisedHands.remove(event.identity)
                 refresh()
             }
-            is CallEvent.Error -> if (event.fatal) fail(event.message, leave = false) else Log.w(TAG, event.message)
+            is CallEvent.Error -> if (event.fatal) fail(errorMessage(event), leave = false) else Log.w(TAG, event.message)
+            is CallEvent.Status -> status = event.status
+            is CallEvent.Log -> Log.i(TAG, event.line)
         }
+    }
+
+    private fun errorMessage(error: CallEvent.Error): String = when (error.kind) {
+        CallErrorKind.timeout -> L10n.format("call.joinTimeout")
+        CallErrorKind.disconnected -> L10n.format("call.disconnected")
+        CallErrorKind.replaced -> L10n.format("call.replaced")
+        CallErrorKind.removed -> L10n.format("call.removed")
+        CallErrorKind.membership -> L10n.format("call.failed", error.message)
     }
 
     private fun membersChanged(members: List<CallMember>) {
@@ -505,7 +596,7 @@ class CallManager {
 
     private fun syncRemoteConnections() {
         val session = session ?: return
-        if (state != State.Joined || reconnectJob != null) return
+        if (state != State.Joined || publisherJob != null) return
         val own = session.serviceUrl
         val wanted = members.mapNotNull { it.serviceUrl }.filter { it != own }.toSet()
         for (service in wanted) {
@@ -543,40 +634,13 @@ class CallManager {
         }
     }
 
-    /** The publishing connection dropped: connect again with backoff, then give up */
+    /** The publishing connection dropped: connect again (the core decides when to give up) */
     private fun reconnect() {
-        val session = session ?: return
-        if (reconnectJob != null) return
-        reconnecting = true
-        reconnectJob = scope.launch {
-            val giveUpAt = System.currentTimeMillis() + RECONNECT_GIVE_UP_MILLIS
-            var backoff = 1000L
-            while (isActive && this@CallManager.session === session) {
-                try {
-                    val publisher = withTimeout(CONNECT_TIMEOUT_MILLIS) { connect(session.serviceUrl, publisher = true) }
-                    runCatching { publisher.localParticipant.setMicrophoneEnabled(micPublished) }
-                    silenceMic(publisher, pushToTalk && !micEnabled)
-                    if (cameraOn) runCatching { publisher.localParticipant.setCameraEnabled(true) }
-                    screenSharing = false
-                    reconnecting = false
-                    reconnectJob = null
-                    syncRemoteConnections()
-                    refresh()
-                    return@launch
-                } catch (error: TimeoutCancellationException) {
-                    Log.w(TAG, "reconnecting timed out, retrying")
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    Log.w(TAG, "reconnecting failed, retrying: $error")
-                }
-                if (System.currentTimeMillis() + backoff > giveUpAt) {
-                    reconnectJob = null
-                    fail(L10n.format("call.disconnected"), leave = true)
-                    return@launch
-                }
-                delay(backoff)
-                backoff = (backoff * 2).coerceAtMost(10_000L)
+        if (publisherJob != null || state != State.Joined) return
+        scope.launch {
+            if (connectPublisher() != null) {
+                syncRemoteConnections()
+                refresh()
             }
         }
     }
@@ -790,11 +854,20 @@ class CallManager {
         if (screenSharing) streamWatchers.retainAll(remotes.keys) else streamWatchers.clear()
         val list = mutableListOf<CallParticipantInfo>()
         val seen = mutableSetOf<String>()
+        val mediaUp = publisher?.state == LiveKitRoom.State.CONNECTED
+        val before = participants.associateBy { it.identity }
+        val now = System.currentTimeMillis()
         for (member in members) {
             if (!seen.add(member.identity)) continue
             val isLocal = member.isOwnDevice
             val remote = if (isLocal) null else remotes[member.identity]
             val participant: Participant? = if (isLocal) local else remote?.first
+            if (isLocal || participant != null || !mediaUp) {
+                if (participant != null) unconnectedSince.remove(member.identity)
+            } else {
+                val since = unconnectedSince.getOrPut(member.identity) { now }
+                if (now - since >= STALE_MEMBER_MILLIS) continue
+            }
             var info = CallParticipantInfo(
                 member.identity,
                 member.userId,
@@ -816,6 +889,8 @@ class CallManager {
                 )
             }
             if (isLocal) info = info.copy(micMuted = !micPublished, connected = state == State.Joined)
+            if (info.micMuted || (isLocal && !micEnabled)) info = info.copy(speaking = false)
+            if (!isLocal && participant == null && !mediaUp) info = info.copy(connected = before[member.identity]?.connected == true)
             info = info.copy(
                 handRaised = member.identity in raisedHands,
                 reaction = reactions[member.identity],
@@ -838,6 +913,7 @@ class CallManager {
                 }
             }
         }
+        unconnectedSince.keys.retainAll(seen)
         if (list != participants) participants = list
         announceWatchedScreens(list)
         notification.update(activityState)
@@ -845,26 +921,37 @@ class CallManager {
 
     private fun roomEvent(livekit: LiveKitRoom, event: RoomEvent) {
         when (event) {
-            is RoomEvent.Reconnecting -> if (livekit === publisher) reconnecting = true
-            is RoomEvent.Reconnected -> if (livekit === publisher) reconnecting = false
+            is RoomEvent.Reconnecting -> if (livekit === publisher) reportMedia(MediaState.reconnecting)
+            is RoomEvent.Reconnected -> if (livekit === publisher) reportMedia(MediaState.connected)
             is RoomEvent.DataReceived -> {
                 val from = event.participant?.identity?.value ?: ""
                 if (event.topic == WatchTogether.TOPIC) watch?.receive(event.data, from)
                 if (event.topic == STREAM_WATCH_TOPIC) receiveStreamWatch(event.data, from)
             }
             is RoomEvent.Disconnected -> {
-                if (livekit !in connections.values || state != State.Joined) return
+                if (livekit !in connections.values) return
                 val wasPublisher = livekit === publisher
                 drop(livekit)
+                val reason = event.reason.name
                 if (wasPublisher) {
-                    reconnect()
+                    val session = session ?: return
+                    scope.launch {
+                        val again = runCatching { session.reportMedia(MediaState.disconnected, reason) }.getOrDefault(true)
+                        if (again && this@CallManager.session === session) reconnect()
+                    }
                 } else {
+                    log("media.subscriber", "disconnected reason=$reason")
                     syncRemoteConnections()
                 }
                 refresh()
             }
             else -> {}
         }
+    }
+
+    private fun reportMedia(media: MediaState) {
+        val session = session ?: return
+        scope.launch { runCatching { session.reportMedia(media) } }
     }
 
     /** What the ongoing-call notification shows */
@@ -990,7 +1077,8 @@ class CallManager {
         private const val STREAM_WATCH_TOPIC = "org.wizardchat.stream-watch"
         private const val REACTION_VISIBLE_MILLIS = 3000L
         private const val CONNECT_TIMEOUT_MILLIS = 30_000L
-        private const val RECONNECT_GIVE_UP_MILLIS = 120_000L
+        private const val LEAVE_WAIT_MILLIS = 5000L
+        private const val STALE_MEMBER_MILLIS = 20_000L
         private const val SUBSCRIBE_RETRY_MILLIS = 5000L
 
         val shared = CallManager()

@@ -51,7 +51,7 @@ For the other apps:
 
 | App     | Command           |                                                                         |
 | ------- | ----------------- | ----------------------------------------------------------------------- |
-| Web     | `npm run dev`     | <http://localhost:5180>, hot reload                                     |
+| Web     | `npm run dev`     | <http://127.0.0.1:5180>, hot reload                                     |
 | Desktop | `npm run desktop` | rebuilds the Rust side when the core changes                            |
 | iOS     | `npm run ios`     | builds the core and opens the Xcode project; run it from there          |
 | Android | `npm run android` | builds the core and installs the app on the running emulator or a phone |

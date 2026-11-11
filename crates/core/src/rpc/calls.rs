@@ -1,7 +1,7 @@
 //! `CallSession`: this device's membership in a room's call
 
 use super::{Listener, Subscription};
-use crate::{CallEvent, CallSession, SfuConfig};
+use crate::{CallEvent, CallSession, MediaState, SfuConfig};
 
 rpc_methods! {
     CallSession(this: CallSession) {
@@ -16,6 +16,10 @@ rpc_methods! {
 
         prop fn identity() -> String {
             Ok(this.identity().to_owned())
+        }
+
+        prop fn logId() -> String {
+            Ok(this.log_id().to_owned())
         }
 
         /// Whether joining rang the others: show "calling..." until someone answers
@@ -36,6 +40,15 @@ rpc_methods! {
         /// Keeps the membership and media keys going, reporting to `listener` until left.
         watch fn run(listener: Listener<CallEvent>) -> Subscription {
             Ok(listener.clone().watch(async move { this.run(|event| listener.emit(&event)).await }))
+        }
+
+        call fn reportMedia(state: MediaState, reason: Option<String>) -> bool {
+            Ok(this.report_media(state, reason))
+        }
+
+        call fn log(event: String, detail: String) -> () {
+            this.log(&event, detail);
+            Ok(())
         }
 
         call fn leave() -> () {

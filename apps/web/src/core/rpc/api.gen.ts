@@ -54,6 +54,8 @@ export type AttachmentThumbnail = {
   height: number;
 };
 
+export type CallErrorKind = 'membership' | 'timeout' | 'disconnected' | 'replaced' | 'removed';
+
 export type CallEvent =
   | { type: 'members'; members: Array<CallMember> }
   | {
@@ -69,7 +71,9 @@ export type CallEvent =
   | { type: 'unanswered' }
   | { type: 'reaction'; identity: string; emoji: string }
   | { type: 'handRaised'; identity: string; raised: boolean }
-  | { type: 'error'; message: string; fatal: boolean };
+  | { type: 'error'; message: string; fatal: boolean; kind: CallErrorKind }
+  | { type: 'status'; status: CallStatus }
+  | { type: 'log'; line: string };
 
 export type CallHistoryView = {
   outcome: CallOutcome;
@@ -133,6 +137,9 @@ export type CallParticipantView = {
   displayName: string | null;
   avatarUrl: string | null;
 };
+
+export type CallStatus =
+  'joiningMedia' | 'joiningMembership' | 'joiningSlow' | 'connected' | 'reconnecting';
 
 /**
  * Options for a new room or space
@@ -472,6 +479,8 @@ export type MediaInfo = {
  * Where media lives: a plain `mxc://` URL, or an encrypted file
  */
 export type MediaSource = { url: string } | { file: unknown };
+
+export type MediaState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
 export type Member = {
   userId: string;
@@ -2274,6 +2283,11 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.rtcSupported', this, []) as Promise<boolean>;
   }
 
+  /** The recent call log (every call, the media side included), for bug reports */
+  callLog(): Promise<string> {
+    return runtime.call('WizardClient.callLog', this, []) as Promise<string>;
+  }
+
   callMembers(roomId: string): Promise<Array<CallMember>> {
     return runtime.call('WizardClient.callMembers', this, [roomId]) as Promise<Array<CallMember>>;
   }
@@ -2974,6 +2988,10 @@ export class CallSession extends Remote {
     return this.props['identity'] as string;
   }
 
+  logId(): string {
+    return this.props['logId'] as string;
+  }
+
   /** Whether joining rang the others: show "calling..." until someone answers */
   rang(): boolean {
     return this.props['rang'] as boolean;
@@ -2995,6 +3013,14 @@ export class CallSession extends Remote {
   /** Keeps the membership and media keys going, reporting to `listener` until left. */
   run(listener: (value: CallEvent) => void): Subscription {
     return runtime.watch('CallSession.run', this, [listener], Subscription);
+  }
+
+  reportMedia(state: MediaState, reason?: string | null): Promise<boolean> {
+    return runtime.call('CallSession.reportMedia', this, [state, reason]) as Promise<boolean>;
+  }
+
+  log(event: string, detail: string): Promise<void> {
+    return runtime.call('CallSession.log', this, [event, detail]) as Promise<void>;
   }
 
   leave(): Promise<void> {

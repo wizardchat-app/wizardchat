@@ -127,6 +127,11 @@ rpc_methods! {
             Ok(this.rtc_supported().await)
         }
 
+        /// The recent call log (every call, the media side included), for bug reports
+        call fn callLog() -> String {
+            Ok(this.call_log())
+        }
+
         call fn callMembers(room_id: String) -> Vec<CallMember> {
             this.call_members(&room_id).await
         }

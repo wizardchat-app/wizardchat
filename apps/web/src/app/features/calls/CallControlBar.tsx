@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { Toggle } from '@/app/components/Toggle';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import {
   ArrowsInIcon,
   ArrowsOutIcon,
   ChatTextIcon,
+  ClipboardTextIcon,
   DotsThreeVerticalIcon,
   MicrophoneIcon,
   MicrophoneSlashIcon,
@@ -47,19 +48,6 @@ import {
 } from './watchTogether/watchTogether';
 import * as css from './CallControlBar.css';
 
-const JOINING_SLOW_MS = 8_000;
-
-function useJoiningSlow(awaiting: boolean): boolean {
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    setSlow(false);
-    if (!awaiting) return;
-    const timer = setTimeout(() => setSlow(true), JOINING_SLOW_MS);
-    return () => clearTimeout(timer);
-  }, [awaiting]);
-  return slow;
-}
-
 export function CallControlBar() {
   const { t } = useTranslation();
   const ui = useAtomValue(callUiAtom);
@@ -70,9 +58,7 @@ export function CallControlBar() {
   const [showNonVideo, setShowNonVideo] = useAtom(showNonVideoParticipantsAtom);
   const callSnapshot = useCallSnapshot();
   const hasVideo = !!callSnapshot?.participants.some((p) => p.camera || p.screenShared);
-  const reconnecting = callSnapshot?.reconnecting ?? false;
-  const awaitingMembership = !reconnecting && !!callSnapshot?.awaitingMembership;
-  const joiningSlow = useJoiningSlow(awaitingMembership);
+  const status = callSnapshot?.status ?? 'joiningMedia';
   const roomChatOpen = useAtomValue(roomChatPanelOpenAtom);
   const roomChatRoomId = useAtomValue(roomChatRoomIdAtom);
   const openRoomChat = useSetAtom(openRoomChatAtom);
@@ -103,12 +89,12 @@ export function CallControlBar() {
 
   return (
     <div className={css.bar} role="group" aria-label={t('call.controls')}>
-      {(reconnecting || awaitingMembership) && (
+      {callSnapshot && status !== 'connected' && (
         <div className={css.reconnecting} role="status" aria-live="polite">
           <span className={css.reconnectingSpinner} aria-hidden="true" />
-          {reconnecting
-            ? t('banner.offline')
-            : joiningSlow
+          {status === 'reconnecting'
+            ? t('call.reconnecting')
+            : status === 'joiningSlow'
               ? t('call.joiningSlow')
               : t('call.joining')}
         </div>
@@ -345,6 +331,20 @@ export function CallControlBar() {
           >
             <SmileyIcon size={16} />
             <span className={css.menuItemLabel}>{t('call.reactions')}</span>
+            <span className={css.menuItemSpacer} />
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            className={css.menuItem}
+            onClick={() => {
+              actions.copyCallLog();
+              closeMenu();
+            }}
+          >
+            <ClipboardTextIcon size={16} />
+            <span className={css.menuItemLabel}>{t('call.copyLog')}</span>
             <span className={css.menuItemSpacer} />
           </button>
         </div>

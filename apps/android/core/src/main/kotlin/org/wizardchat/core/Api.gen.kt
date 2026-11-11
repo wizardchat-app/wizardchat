@@ -57,6 +57,15 @@ data class AttachmentThumbnail(
     val height: Long,
 )
 
+@Serializable
+enum class CallErrorKind {
+    @SerialName("membership") membership,
+    @SerialName("timeout") timeout,
+    @SerialName("disconnected") disconnected,
+    @SerialName("replaced") replaced,
+    @SerialName("removed") removed,
+}
+
 @Serializable(with = CallEvent.Serializer::class)
 sealed interface CallEvent {
     /** Everyone in the call, oldest first */
@@ -90,11 +99,20 @@ sealed interface CallEvent {
         val identity: String,
         val raised: Boolean,
     ) : CallEvent
-    /** `fatal`: the membership can't be kept up; the call has been left */
+    /** `fatal`: the call is over (and has been left, unless `kind` is `replaced`) */
     @Serializable
     data class Error(
         val message: String,
         val fatal: Boolean,
+        val kind: CallErrorKind,
+    ) : CallEvent
+    @Serializable
+    data class Status(
+        val status: CallStatus,
+    ) : CallEvent
+    @Serializable
+    data class Log(
+        val line: String,
     ) : CallEvent
 
     object Serializer : JsonUnionSerializer<CallEvent>("CallEvent") {
@@ -106,6 +124,8 @@ sealed interface CallEvent {
             "reaction" -> CoreJson.decodeFromJsonElement(Reaction.serializer(), json)
             "handRaised" -> CoreJson.decodeFromJsonElement(HandRaised.serializer(), json)
             "error" -> CoreJson.decodeFromJsonElement(Error.serializer(), json)
+            "status" -> CoreJson.decodeFromJsonElement(Status.serializer(), json)
+            "log" -> CoreJson.decodeFromJsonElement(Log.serializer(), json)
             else -> throw SerializationException("Unknown CallEvent $tag")
         }
 
@@ -117,6 +137,8 @@ sealed interface CallEvent {
             is Reaction -> tagged(CoreJson.encodeToJsonElement(Reaction.serializer(), value), "type", "reaction")
             is HandRaised -> tagged(CoreJson.encodeToJsonElement(HandRaised.serializer(), value), "type", "handRaised")
             is Error -> tagged(CoreJson.encodeToJsonElement(Error.serializer(), value), "type", "error")
+            is Status -> tagged(CoreJson.encodeToJsonElement(Status.serializer(), value), "type", "status")
+            is Log -> tagged(CoreJson.encodeToJsonElement(Log.serializer(), value), "type", "log")
         }
     }
 }
@@ -173,6 +195,15 @@ data class CallParticipantView(
     val displayName: String? = null,
     val avatarUrl: String? = null,
 )
+
+@Serializable
+enum class CallStatus {
+    @SerialName("joiningMedia") joiningMedia,
+    @SerialName("joiningMembership") joiningMembership,
+    @SerialName("joiningSlow") joiningSlow,
+    @SerialName("connected") connected,
+    @SerialName("reconnecting") reconnecting,
+}
 
 /** Options for a new room or space */
 @Serializable
@@ -617,6 +648,14 @@ data class MediaInfo(
 
 /** Where media lives: a plain `mxc://` URL, or an encrypted file */
 typealias MediaSource = JsonElement
+
+@Serializable
+enum class MediaState {
+    @SerialName("connecting") connecting,
+    @SerialName("connected") connected,
+    @SerialName("reconnecting") reconnecting,
+    @SerialName("disconnected") disconnected,
+}
 
 @Serializable
 data class Member(
@@ -2364,6 +2403,10 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     suspend fun rtcSupported(): Boolean =
         Runtime.call("WizardClient.rtcSupported", handle, listOf())
 
+    /** The recent call log (every call, the media side included), for bug reports */
+    suspend fun callLog(): String =
+        Runtime.call("WizardClient.callLog", handle, listOf())
+
     suspend fun callMembers(roomId: String): List<CallMember> =
         Runtime.call("WizardClient.callMembers", handle, listOf(Arg.value<String>(roomId)))
 
@@ -2757,6 +2800,9 @@ class CallSession(handle: Long, props: JsonObject) : Remote(handle, props) {
     val identity: String
         get() = prop("identity")
 
+    val logId: String
+        get() = prop("logId")
+
     /** Whether joining rang the others: show "calling..." until someone answers */
     val rang: Boolean
         get() = prop("rang")
@@ -2772,6 +2818,13 @@ class CallSession(handle: Long, props: JsonObject) : Remote(handle, props) {
     /** Keeps the membership and media keys going, reporting to `listener` until left. */
     fun run(listener: (CallEvent) -> Unit): Subscription =
         Runtime.watch("CallSession.run", handle, listOf(Arg.listener<CallEvent>(listener)), ::Subscription)
+
+    suspend fun reportMedia(state: MediaState, reason: String? = null): Boolean =
+        Runtime.call("CallSession.reportMedia", handle, listOf(Arg.value<MediaState>(state), Arg.value<String?>(reason)))
+
+    suspend fun log(event: String, detail: String) {
+        Runtime.callUnit("CallSession.log", handle, listOf(Arg.value<String>(event), Arg.value<String>(detail)))
+    }
 
     suspend fun leave() {
         Runtime.callUnit("CallSession.leave", handle, listOf())

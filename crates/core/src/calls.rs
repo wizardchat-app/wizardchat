@@ -45,7 +45,7 @@ use matrix_sdk::{
     HttpError, Room,
 };
 use matrix_sdk_crypto::CollectStrategy;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{rooms::parse_room_id, Error, Result, WizardClient};
@@ -65,9 +65,19 @@ const DELAYED_LEAVE_RESTART_MS: u64 = 4_000;
 /// A restart that takes longer counts as a network error
 const DELAYED_LEAVE_RESTART_TIMEOUT_MS: u64 = 2_000;
 const MEMBERSHIP_EXPIRES_MS: u64 = 4 * 60 * 60 * 1000;
+const NO_DELAY_MEMBERSHIP_EXPIRES_MS: u64 = 15 * 60 * 1000;
 /// Memberships are renewed at least this often, a little before they run out
 const MEMBERSHIP_RENEW_MAX_MS: u64 = 60 * 60 * 1000;
-const MEMBERSHIP_RENEW_HEADROOM_MS: u64 = 5_000;
+const MEMBERSHIP_RENEW_HEADROOM_MAX_MS: u64 = 60_000;
+const JOIN_MEMBERSHIP_TIMEOUT_MS: u64 = 30_000;
+const SFU_TOKEN_TIMEOUT_MS: u64 = 15_000;
+const MEDIA_CONNECT_TIMEOUT_MS: u64 = 30_000;
+const JOINING_SLOW_MS: u64 = 8_000;
+const RECONNECTING_SHOW_MS: u64 = 1_500;
+const RECONNECTING_MIN_VISIBLE_MS: u64 = 1_000;
+const MEMBERSHIP_GAP_SHOW_MS: u64 = 10_000;
+const RECONNECT_GIVE_UP_MS: u64 = 120_000;
+const TICK_MS: u64 = 500;
 const NETWORK_RETRY_MS: u64 = 3_000;
 const MAX_NETWORK_RETRIES: u32 = 40;
 const MAX_RATE_LIMIT_RETRIES: u32 = 10;
@@ -144,11 +154,50 @@ pub enum CallEvent {
         identity: String,
         raised: bool,
     },
-    /// `fatal`: the membership can't be kept up; the call has been left
+    /// `fatal`: the call is over (and has been left, unless `kind` is `replaced`)
     Error {
         message: String,
         fatal: bool,
+        kind: CallErrorKind,
     },
+    Status {
+        status: CallStatus,
+    },
+    Log {
+        line: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum CallStatus {
+    JoiningMedia,
+    JoiningMembership,
+    JoiningSlow,
+    Connected,
+    Reconnecting,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum CallErrorKind {
+    Membership,
+    Timeout,
+    Disconnected,
+    Replaced,
+    Removed,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum MediaState {
+    Connecting,
+    Connected,
+    Reconnecting,
+    Disconnected,
 }
 
 /// Someone calling: a ring (direct chats) or call notification (other rooms) whose sender is
@@ -301,6 +350,7 @@ fn livekit_from(list: Option<&Value>) -> Option<String> {
 static WELL_KNOWN: Mutex<Vec<(String, Value)>> = Mutex::new(Vec::new());
 /// Accounts whose server is known to support calls
 static RTC_SUPPORTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static NO_DELAYED_EVENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 fn parse_member(event: &Value, own: (&str, &str), now: u64) -> Option<CallMember> {
     let content = event.get("content")?;
@@ -394,6 +444,33 @@ async fn within<T>(ms: u64, future: impl Future<Output = T>) -> Option<T> {
     }
 }
 
+fn media_decision(
+    media: MediaState,
+    reason: &str,
+) -> (bool, Option<(CallErrorKind, String, bool)>) {
+    match (media, reason) {
+        (MediaState::Disconnected, "CLIENT_INITIATED") => (false, None),
+        (MediaState::Disconnected, "DUPLICATE_IDENTITY") => (
+            false,
+            Some((
+                CallErrorKind::Replaced,
+                "this device joined the call somewhere else".to_owned(),
+                false,
+            )),
+        ),
+        (MediaState::Disconnected, "PARTICIPANT_REMOVED" | "ROOM_DELETED" | "ROOM_CLOSED") => (
+            false,
+            Some((
+                CallErrorKind::Removed,
+                format!("the call server ended the call ({reason})"),
+                true,
+            )),
+        ),
+        (MediaState::Disconnected, _) => (true, None),
+        _ => (false, None),
+    }
+}
+
 /// How a failed membership request is handled, like matrix-js-sdk's MembershipManager
 enum Failure {
     NotFound,
@@ -444,6 +521,16 @@ fn once() -> RequestConfig {
 struct Retries {
     network: u32,
     rate: u32,
+}
+
+fn failure_text(failure: Failure) -> String {
+    match failure {
+        Failure::NotFound => "not found".into(),
+        Failure::Unsupported => "unsupported".into(),
+        Failure::RateLimited(ms) => format!("rate limited for {ms}ms"),
+        Failure::Network => "network".into(),
+        Failure::Other(message) => message,
+    }
 }
 
 impl Retries {
@@ -794,11 +881,14 @@ impl WizardClient {
         let running = call_running(
             &call_members_of(&room, (user_id.clone(), device_id.clone()), false).await?,
         );
+        let member_id = random_uuid()?;
         let session = CallSession {
             client: self.sdk().clone(),
             state_key: format!("_{user_id}_{device_id}_m.call"),
             identity: format!("{user_id}:{device_id}"),
-            member_id: random_uuid()?,
+            log_id: member_id[..8].to_owned(),
+            created_at: now_ms(),
+            member_id,
             user_id,
             device_id,
             service_url,
@@ -807,7 +897,30 @@ impl WizardClient {
             state: Arc::new(Mutex::new(SessionState::default())),
             room,
         };
-        session.join().await?;
+        session.log(
+            "join.start",
+            format!(
+                "room={} device={} service={} intent={} ring={ring} others_in_call={running}",
+                session.room.room_id(),
+                session.device_id,
+                session.service_url,
+                session.intent
+            ),
+        );
+        match within(JOIN_MEMBERSHIP_TIMEOUT_MS, session.join()).await {
+            Some(Ok(())) => {}
+            Some(Err(error)) => {
+                session.log("join.failed", error.to_string());
+                return Err(error);
+            }
+            None => {
+                session.log("join.failed", "the homeserver didn't answer in time");
+                let _ = within(5_000, session.leave()).await;
+                return Err(Error::Call(
+                    "can't join the call: the homeserver didn't answer in time".into(),
+                ));
+            }
+        }
         if ring && !running && !is_voice_room(&session.room) {
             let membership = session.state.lock().unwrap().membership_event_id.clone();
             if let Some(membership) = membership {
@@ -815,6 +928,10 @@ impl WizardClient {
             }
         }
         Ok(session)
+    }
+
+    pub fn call_log(&self) -> String {
+        crate::call_log::text()
     }
 
     /// Every timeline and state event as JSON, with the guards that keep the handlers alive
@@ -1051,7 +1168,7 @@ pub(crate) async fn call_members_of(
 
 /// Steps to get the membership back after it vanished (the server's delayed leave fired, or
 /// someone removed it)
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Rejoin {
     CancelOldLeave,
     ScheduleLeave,
@@ -1083,6 +1200,18 @@ struct SessionState {
     restart_retries: Retries,
     renew_retries: Retries,
     rejoin_retries: Retries,
+    expiry_ms: u64,
+    own_event_ids: VecDeque<String>,
+    own_missing_since: Option<u64>,
+    media: Option<MediaState>,
+    media_since: u64,
+    run_started_at: u64,
+    joined: bool,
+    shown: Option<(CallStatus, u64)>,
+    fatal: Option<(CallErrorKind, String, bool)>,
+    replaced: bool,
+    wake: Option<futures_channel::mpsc::UnboundedSender<Input>>,
+    unsent_log: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -1096,6 +1225,7 @@ struct OutboundKey {
 
 enum Input {
     Tick,
+    Wake,
     MembersChanged,
     Key(CallEvent),
     Declined(String),
@@ -1111,6 +1241,8 @@ pub struct CallSession {
     identity: String,
     /// Identifies this session to the newer token endpoint
     member_id: String,
+    log_id: String,
+    created_at: u64,
     user_id: String,
     device_id: String,
     service_url: String,
@@ -1131,6 +1263,66 @@ impl CallSession {
 
     pub fn identity(&self) -> &str {
         &self.identity
+    }
+
+    pub fn log_id(&self) -> &str {
+        &self.log_id
+    }
+
+    pub fn log(&self, event: &str, detail: impl AsRef<str>) {
+        let line = crate::call_log::record(
+            &self.log_id,
+            self.created_at,
+            now_ms(),
+            event,
+            detail.as_ref(),
+        );
+        let mut state = self.state.lock().unwrap();
+        if state.unsent_log.len() < 200 {
+            state.unsent_log.push(line);
+        }
+        if let Some(wake) = &state.wake {
+            let _ = wake.unbounded_send(Input::Wake);
+        }
+    }
+
+    pub fn report_media(&self, media: MediaState, reason: Option<String>) -> bool {
+        let reason = reason.unwrap_or_default();
+        let (reconnect, fatal) = media_decision(media, &reason);
+        let changed = {
+            let mut state = self.state.lock().unwrap();
+            let changed = state.media != Some(media);
+            let was_up = state.media == Some(MediaState::Connected);
+            if was_up != (media == MediaState::Connected) {
+                state.media_since = now_ms();
+            }
+            state.media = Some(media);
+            if let Some(fatal) = fatal {
+                if fatal.0 == CallErrorKind::Replaced {
+                    state.replaced = true;
+                }
+                state.fatal.get_or_insert(fatal);
+            }
+            if let Some(wake) = &state.wake {
+                let _ = wake.unbounded_send(Input::Wake);
+            }
+            changed
+        };
+        if changed || !reason.is_empty() {
+            let mut detail = format!("{media:?}").to_lowercase();
+            if !reason.is_empty() {
+                detail.push_str(&format!(" reason={reason}"));
+            }
+            if media == MediaState::Disconnected {
+                detail.push_str(if reconnect {
+                    " -> reconnect"
+                } else {
+                    " -> stop"
+                });
+            }
+            self.log("media", detail);
+        }
+        reconnect
     }
 
     /// Whether joining rang the others (a DM or small room nobody was in): show "calling..."
@@ -1171,6 +1363,7 @@ impl CallSession {
         } else {
             None
         };
+        let delayed = delay.is_some();
         let request = TokenRequest {
             service_url: &service_url,
             room_id: self.room.room_id().as_str(),
@@ -1179,7 +1372,28 @@ impl CallSession {
             member_id: &self.member_id,
             delay,
         };
-        request_sfu_config(&self.client, request, publisher).await
+        let started = now_ms();
+        let result = within(
+            SFU_TOKEN_TIMEOUT_MS,
+            request_sfu_config(&self.client, request, publisher),
+        )
+        .await
+        .unwrap_or_else(|| Err(Error::Call("the call server didn't answer in time".into())));
+        let ms = now_ms() - started;
+        match &result {
+            Ok(config) => self.log(
+                "token",
+                format!(
+                    "ok publisher={publisher} delayed_leave={delayed} service={service_url} sfu={} alias={} {ms}ms",
+                    config.url, config.alias
+                ),
+            ),
+            Err(error) => self.log(
+                "token",
+                format!("failed publisher={publisher} service={service_url} {ms}ms: {error}"),
+            ),
+        }
+        result
     }
 
     fn membership_content(&self, expires: u64, created_ts: Option<u64>) -> Value {
@@ -1260,51 +1474,86 @@ impl CallSession {
 
     /// Schedules the leave (so a vanished client drops out), then announces the membership.
     async fn join(&self) -> Result<()> {
-        let mut retries = Retries::default();
-        loop {
-            match self.send_delayed_leave().await {
-                Ok(_) => break,
-                Err(error) => match classify_delayed(&error) {
-                    failure @ (Failure::RateLimited(_) | Failure::Network) => {
-                        match retries.next(failure, "scheduling the leave") {
-                            Ok(wait) => sleep(Duration::from_millis(wait)).await,
-                            Err(_) => break,
+        let started = now_ms();
+        let known_unsupported = NO_DELAYED_EVENTS.lock().unwrap().contains(&self.user_id);
+        let delayed = if known_unsupported {
+            self.state.lock().unwrap().no_delayed_events = true;
+            "unsupported (known)".to_owned()
+        } else {
+            let mut retries = Retries::default();
+            loop {
+                match self.send_delayed_leave().await {
+                    Ok(_) => break "yes".to_owned(),
+                    Err(error) => match classify_delayed(&error) {
+                        failure @ (Failure::RateLimited(_) | Failure::Network) => {
+                            match retries.next(failure, "scheduling the leave") {
+                                Ok(wait) => sleep(Duration::from_millis(wait)).await,
+                                Err(why) => break format!("failed ({why})"),
+                            }
                         }
-                    }
-                    Failure::Unsupported => {
-                        self.state.lock().unwrap().no_delayed_events = true;
-                        break;
-                    }
-                    // Without delayed events the membership just expires
-                    _ => break,
-                },
-            }
-        }
-        self.send_join()
-            .await
-            .map_err(|e| Error::Call(format!("can't join the call: {e}")))
-    }
-
-    /// Sends a fresh membership; retries what can be retried, returns why it failed otherwise.
-    async fn send_join(&self) -> std::result::Result<(), String> {
-        let expires = self.timings.membership_expiry.as_millis() as u64;
-        let mut retries = Retries::default();
-        let event_id = loop {
-            match self
-                .send_member_state(self.membership_content(expires, None))
-                .await
-            {
-                Ok(event_id) => break event_id,
-                Err(error) => {
-                    let wait = retries.next(classify(&error), "sending the membership")?;
-                    sleep(Duration::from_millis(wait)).await;
+                        Failure::Unsupported => {
+                            self.state.lock().unwrap().no_delayed_events = true;
+                            NO_DELAYED_EVENTS.lock().unwrap().push(self.user_id.clone());
+                            break format!(
+                                "unsupported by the homeserver, the membership expires instead \
+                                 (expected on matrix.org: {error})"
+                            );
+                        }
+                        // Without delayed events the membership just expires
+                        failure => break format!("failed ({})", failure_text(failure)),
+                    },
                 }
             }
         };
+        let mut retries = Retries::default();
+        loop {
+            match self.send_join_once().await {
+                Ok(()) => break,
+                Err(error) => {
+                    let wait = retries
+                        .next(classify(&error), "sending the membership")
+                        .map_err(|e| Error::Call(format!("can't join the call: {e}")))?;
+                    self.log("join.membership", format!("retry in {wait}ms: {error}"));
+                    sleep(Duration::from_millis(wait)).await;
+                }
+            }
+        }
+        let (event_id, expiry) = {
+            let state = self.state.lock().unwrap();
+            (state.membership_event_id.clone(), state.expiry_ms)
+        };
+        self.log(
+            "join.membership",
+            format!(
+                "ok event={} expires={}s delayed_leave={delayed} {}ms",
+                event_id.unwrap_or_default(),
+                expiry / 1000,
+                now_ms() - started
+            ),
+        );
+        Ok(())
+    }
+
+    fn membership_expiry_ms(&self) -> u64 {
+        let full = self.timings.membership_expiry.as_millis() as u64;
+        if self.state.lock().unwrap().no_delayed_events {
+            full.min(NO_DELAY_MEMBERSHIP_EXPIRES_MS)
+        } else {
+            full
+        }
+    }
+
+    async fn send_join_once(&self) -> std::result::Result<(), HttpError> {
+        let expires = self.membership_expiry_ms();
+        let event_id = self
+            .send_member_state(self.membership_content(expires, None))
+            .await?;
         let now = now_ms();
         let mut state = self.state.lock().unwrap();
+        state.remember_own_event(&event_id);
         state.membership_event_id = Some(event_id);
         state.started_at = now;
+        state.expiry_ms = expires;
         state.expiry_iteration = 1;
         state.created_ts = None;
         state.own_seen = false;
@@ -1329,6 +1578,8 @@ impl CallSession {
         state.notification_event_id = Some(response.response.event_id.to_string());
         state.rung_at = ring.then(now_ms);
         state.rang = ring;
+        drop(state);
+        self.log("notify", if ring { "rang" } else { "notified" });
         Ok(())
     }
 
@@ -1336,6 +1587,7 @@ impl CallSession {
     pub async fn run(&self, mut on_event: impl FnMut(CallEvent)) {
         let encrypted = self.encrypted().await;
         let (key_sender, key_receiver) = futures_channel::mpsc::unbounded();
+        let key_sender_for_wake = key_sender.clone();
         let room_id = self.room.room_id().to_owned();
         let key_handle = self.client.add_event_handler({
             let key_sender = key_sender.clone();
@@ -1424,9 +1676,18 @@ impl CallSession {
             self.client.event_handler_drop_guard(decline_handle),
         );
 
+        {
+            let now = now_ms();
+            let mut state = self.state.lock().unwrap();
+            state.wake = Some(key_sender_for_wake);
+            state.run_started_at = now;
+            state.media_since = now;
+        }
+        self.log("run", format!("encrypted={encrypted}"));
+
         let mut info = self.room.subscribe_info();
         let ticks = stream::unfold((), |_| async {
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_millis(TICK_MS)).await;
             Some((Input::Tick, ()))
         });
         let inputs = stream::select(
@@ -1435,136 +1696,227 @@ impl CallSession {
         );
         futures_util::pin_mut!(inputs);
 
-        let mut last_members: Option<Vec<CallMember>> = None;
-        let mut pending_own_key: Option<(u64, CallEvent)> = None;
-        let mut others_seen = false;
-        let mut declined: std::collections::HashSet<String> = std::collections::HashSet::new();
-        // Raised hand reaction event id -> who raised it
-        let mut hands: HashMap<String, String> = HashMap::new();
-        let mut input = Some(Input::MembersChanged);
-        while let Some(next) = input.take() {
-            if self.state.lock().unwrap().left {
-                break;
-            }
-            match next {
-                Input::Tick => {
-                    if let Err(message) = self.maintain().await {
-                        if !self.state.lock().unwrap().left {
-                            let _ = self.leave().await;
-                            on_event(CallEvent::Error {
-                                message,
-                                fatal: true,
-                            });
-                        }
-                        break;
-                    }
-                    if pending_own_key
-                        .as_ref()
-                        .is_some_and(|(due, _)| *due <= now_ms())
-                    {
-                        on_event(pending_own_key.take().unwrap().1);
-                    }
-                    let rung_at = self.state.lock().unwrap().rung_at;
-                    if let Some(rung_at) = rung_at {
-                        if others_seen {
-                            self.state.lock().unwrap().rung_at = None;
-                        } else if now_ms() > rung_at + RING_LIFETIME_MS {
-                            self.state.lock().unwrap().rung_at = None;
-                            on_event(CallEvent::Unanswered);
-                        }
-                    }
+        let upkeep = async {
+            loop {
+                sleep(Duration::from_millis(TICK_MS)).await;
+                if self.state.lock().unwrap().left {
+                    break;
                 }
-                Input::MembersChanged => {
-                    let members = match call_members_of(
-                        &self.room,
-                        (self.user_id.clone(), self.device_id.clone()),
-                        true,
-                    )
-                    .await
-                    {
-                        Ok(members) => members,
-                        Err(e) => {
-                            on_event(CallEvent::Error {
-                                message: e.to_string(),
-                                fatal: false,
-                            });
-                            Vec::new()
+                if let Err(message) = self.maintain().await {
+                    let mut state = self.state.lock().unwrap();
+                    state
+                        .fatal
+                        .get_or_insert((CallErrorKind::Membership, message, true));
+                    if let Some(wake) = &state.wake {
+                        let _ = wake.unbounded_send(Input::Wake);
+                    }
+                    break;
+                }
+            }
+            std::future::pending::<()>().await;
+        };
+
+        let events = async {
+            let mut last_members: Option<Vec<CallMember>> = None;
+            let mut pending_own_key: Option<(u64, CallEvent)> = None;
+            let mut others_seen = false;
+            let mut declined: std::collections::HashSet<String> = std::collections::HashSet::new();
+            // Raised hand reaction event id -> who raised it
+            let mut hands: HashMap<String, String> = HashMap::new();
+            let mut input = Some(Input::MembersChanged);
+            while let Some(next) = input.take() {
+                if self.state.lock().unwrap().left {
+                    break;
+                }
+                match next {
+                    Input::Tick => {
+                        if pending_own_key
+                            .as_ref()
+                            .is_some_and(|(due, _)| *due <= now_ms())
+                        {
+                            on_event(pending_own_key.take().unwrap().1);
                         }
-                    };
-                    self.observe_own_membership(&members);
-                    if last_members.as_ref() != Some(&members) {
-                        others_seen |= members.iter().any(|m| m.user_id != self.user_id);
-                        on_event(CallEvent::Members {
-                            members: members.clone(),
-                        });
-                        if encrypted {
-                            match self.share_key(&members).await {
-                                Ok(Some((event, delay))) => {
-                                    if delay {
-                                        pending_own_key =
-                                            Some((now_ms() + KEY_USE_DELAY_MS, event));
-                                    } else {
-                                        on_event(event);
-                                    }
-                                }
-                                Ok(None) => {}
-                                Err(e) => on_event(CallEvent::Error {
-                                    message: e.to_string(),
-                                    fatal: false,
-                                }),
+                        let rung_at = self.state.lock().unwrap().rung_at;
+                        if let Some(rung_at) = rung_at {
+                            if others_seen {
+                                self.state.lock().unwrap().rung_at = None;
+                            } else if now_ms() > rung_at + RING_LIFETIME_MS {
+                                self.state.lock().unwrap().rung_at = None;
+                                on_event(CallEvent::Unanswered);
                             }
                         }
-                        last_members = Some(members);
+                    }
+                    Input::Wake => {}
+                    Input::MembersChanged => {
+                        match call_members_of(
+                            &self.room,
+                            (self.user_id.clone(), self.device_id.clone()),
+                            true,
+                        )
+                        .await
+                        {
+                            Ok(members) => {
+                                self.observe_own_membership(&members);
+                                if last_members.as_ref() != Some(&members) {
+                                    self.log_members(last_members.as_deref(), &members);
+                                    others_seen |=
+                                        members.iter().any(|m| m.user_id != self.user_id);
+                                    on_event(CallEvent::Members {
+                                        members: members.clone(),
+                                    });
+                                    if encrypted {
+                                        match self.share_key(&members).await {
+                                            Ok(Some((event, delay))) => {
+                                                if delay {
+                                                    pending_own_key =
+                                                        Some((now_ms() + KEY_USE_DELAY_MS, event));
+                                                } else {
+                                                    on_event(event);
+                                                }
+                                            }
+                                            Ok(None) => {}
+                                            Err(e) => self.log("key.failed", e.to_string()),
+                                        }
+                                    }
+                                    last_members = Some(members);
+                                }
+                            }
+                            Err(e) => self.log("members.failed", e.to_string()),
+                        }
+                    }
+                    Input::Key(event) => on_event(event),
+                    Input::Declined(user_id) => {
+                        declined.insert(user_id.clone());
+                        // In a group the ring goes on until everyone rung has declined
+                        let others = self.room.joined_members_count().saturating_sub(1).max(1);
+                        if declined.len() as u64 >= others {
+                            self.state.lock().unwrap().rung_at = None;
+                            on_event(CallEvent::Declined { user_id });
+                        }
+                    }
+                    Input::Timeline(event) => {
+                        let members = last_members.as_deref().unwrap_or_default();
+                        if let Some(event) = call_timeline_event(&event, members, &mut hands) {
+                            on_event(event);
+                        }
                     }
                 }
-                Input::Key(event) => on_event(event),
-                Input::Declined(user_id) => {
-                    declined.insert(user_id.clone());
-                    // In a group the ring goes on until everyone rung has declined
-                    let others = self.room.joined_members_count().saturating_sub(1).max(1);
-                    if declined.len() as u64 >= others {
-                        self.state.lock().unwrap().rung_at = None;
-                        on_event(CallEvent::Declined { user_id });
+                let status = self.evaluate_status(now_ms());
+                let fatal = self.state.lock().unwrap().fatal.take();
+                if let Some((kind, message, leave)) = fatal {
+                    self.log(
+                        "fatal",
+                        format!("{}: {message}", format!("{kind:?}").to_lowercase()),
+                    );
+                    if leave {
+                        let _ = self.leave().await;
+                    } else {
+                        self.state.lock().unwrap().left = true;
                     }
+                    self.flush_log(&mut on_event);
+                    on_event(CallEvent::Error {
+                        message,
+                        fatal: true,
+                        kind,
+                    });
+                    break;
                 }
-                Input::Timeline(event) => {
-                    let members = last_members.as_deref().unwrap_or_default();
-                    if let Some(event) = call_timeline_event(&event, members, &mut hands) {
-                        on_event(event);
-                    }
+                if let Some(status) = status {
+                    self.log("status", format!("{status:?}"));
+                    on_event(CallEvent::Status { status });
                 }
+                self.flush_log(&mut on_event);
+                input = inputs.next().await;
             }
-            input = inputs.next().await;
+        };
+        futures_util::pin_mut!(upkeep, events);
+        select(upkeep, events).await;
+        self.state.lock().unwrap().wake = None;
+    }
+
+    fn flush_log(&self, on_event: &mut impl FnMut(CallEvent)) {
+        let lines = std::mem::take(&mut self.state.lock().unwrap().unsent_log);
+        for line in lines {
+            on_event(CallEvent::Log { line });
         }
+    }
+
+    fn log_members(&self, before: Option<&[CallMember]>, members: &[CallMember]) {
+        let before = before.unwrap_or_default();
+        let mut changes = Vec::new();
+        for m in members {
+            if !before.iter().any(|b| b.identity == m.identity) {
+                changes.push(format!("+{}", m.identity));
+            }
+        }
+        for b in before {
+            if !members.iter().any(|m| m.identity == b.identity) {
+                changes.push(format!("-{}", b.identity));
+            }
+        }
+        if changes.is_empty() {
+            return;
+        }
+        let own = members.iter().any(|m| m.is_own_device);
+        self.log(
+            "members",
+            format!("n={} own={own} {}", members.len(), changes.join(" ")),
+        );
+    }
+
+    fn evaluate_status(&self, now: u64) -> Option<CallStatus> {
+        self.state.lock().unwrap().next_status(now)
     }
 
     /// Notices the own membership vanishing (the server sent the delayed leave, or someone
     /// removed it) and joins again.
     fn observe_own_membership(&self, members: &[CallMember]) {
-        let mut state = self.state.lock().unwrap();
-        if state.left {
-            return;
-        }
-        match members.iter().find(|m| m.is_own_device) {
-            Some(own) => {
-                state.own_seen = true;
-                state.created_ts = Some(own.joined_at);
-                state.membership_event_id = own.membership_event_id.clone();
+        let vanished = {
+            let mut state = self.state.lock().unwrap();
+            if state.left {
+                return;
             }
-            None if state.own_seen && state.rejoin.is_none() => {
-                tracing::warn!("own call membership vanished, joining again");
-                state.own_seen = false;
-                state.restart_due = None;
-                state.renew_due = None;
-                state.rejoin_retries = Retries::default();
-                let first = if state.delay_id.is_some() {
-                    Rejoin::CancelOldLeave
-                } else {
-                    Rejoin::ScheduleLeave
-                };
-                state.rejoin = Some((first, now_ms()));
+            let own = members.iter().find(|m| m.is_own_device);
+            match own {
+                Some(own)
+                    if own
+                        .membership_event_id
+                        .as_ref()
+                        .is_some_and(|id| state.own_event_ids.contains(id)) =>
+                {
+                    state.own_seen = true;
+                    state.own_missing_since = None;
+                    state.created_ts = Some(own.joined_at);
+                    state.membership_event_id = own.membership_event_id.clone();
+                    None
+                }
+                _ if state.own_seen && state.rejoin.is_none() => {
+                    state.own_seen = false;
+                    state.own_missing_since = Some(now_ms());
+                    state.restart_due = None;
+                    state.renew_due = None;
+                    state.rejoin_retries = Retries::default();
+                    let first = if state.delay_id.is_some() {
+                        Rejoin::CancelOldLeave
+                    } else {
+                        Rejoin::ScheduleLeave
+                    };
+                    state.rejoin = Some((first, now_ms()));
+                    Some(format!(
+                        "expected={} found={}",
+                        state.membership_event_id.as_deref().unwrap_or("-"),
+                        match own {
+                            Some(own) => own.membership_event_id.as_deref().unwrap_or("?"),
+                            None => "none",
+                        }
+                    ))
+                }
+                _ => None,
             }
-            None => {}
+        };
+        if let Some(detail) = vanished {
+            tracing::warn!("own call membership vanished, joining again ({detail})");
+            self.log("membership.vanished", format!("{detail} -> rejoin"));
         }
     }
 
@@ -1635,14 +1987,25 @@ impl CallSession {
                     }
                 }
             }
-            Rejoin::Join => {
-                self.send_join().await?;
-                None
-            }
+            Rejoin::Join => match self.send_join_once().await {
+                Ok(()) => None,
+                Err(error) => {
+                    return self.retry_rejoin(step, classify(&error), "sending the membership")
+                }
+            },
         };
-        let mut state = self.state.lock().unwrap();
-        state.rejoin_retries = Retries::default();
-        state.rejoin = next.map(|step| (step, now_ms()));
+        {
+            let mut state = self.state.lock().unwrap();
+            state.rejoin_retries = Retries::default();
+            state.rejoin = next.map(|step| (step, now_ms()));
+        }
+        self.log(
+            "membership.rejoin",
+            match next {
+                Some(next) => format!("{step:?} ok, next {next:?}"),
+                None => "membership sent".into(),
+            },
+        );
         Ok(())
     }
 
@@ -1652,10 +2015,27 @@ impl CallSession {
         failure: Failure,
         what: &str,
     ) -> std::result::Result<(), String> {
-        let mut state = self.state.lock().unwrap();
-        let wait = state.rejoin_retries.next(failure, what)?;
-        state.rejoin = Some((step, now_ms() + wait));
-        Ok(())
+        let wait = {
+            let mut state = self.state.lock().unwrap();
+            let wait = state.rejoin_retries.next(failure, what);
+            if let Ok(wait) = wait {
+                state.rejoin = Some((step, now_ms() + wait));
+            }
+            wait
+        };
+        match wait {
+            Ok(wait) => {
+                self.log(
+                    "membership.rejoin",
+                    format!("{what} failed, retry in {wait}ms"),
+                );
+                Ok(())
+            }
+            Err(why) => {
+                self.log("membership.rejoin", format!("giving up: {why}"));
+                Err(why)
+            }
+        }
     }
 
     /// Pushes the delayed leave back. A failed request never stops this: network errors are
@@ -1735,10 +2115,19 @@ impl CallSession {
     }
 
     fn retry_restart(&self, failure: Failure, what: &str) -> std::result::Result<(), String> {
-        let mut state = self.state.lock().unwrap();
-        let wait = state.restart_retries.next(failure, what)?;
-        state.restart_due = Some(now_ms() + wait);
-        Ok(())
+        let wait = {
+            let mut state = self.state.lock().unwrap();
+            let wait = state.restart_retries.next(failure, what);
+            if let Ok(wait) = wait {
+                state.restart_due = Some(now_ms() + wait);
+            }
+            wait
+        };
+        match &wait {
+            Ok(wait) => self.log("delayed_leave", format!("{what} failed, retry in {wait}ms")),
+            Err(why) => self.log("delayed_leave", format!("giving up: {why}")),
+        }
+        wait.map(|_| ())
     }
 
     /// Sends the membership again with a later `expires`, a little before it runs out.
@@ -1748,23 +2137,42 @@ impl CallSession {
             (state.expiry_iteration, state.created_ts, state.started_at)
         };
         let next = iteration + 1;
-        let expires = self.timings.membership_expiry.as_millis() as u64 * next;
+        let expiry = self.state.lock().unwrap().expiry_ms;
+        let expires = expiry * next;
         let content = self.membership_content(expires, Some(created_ts.unwrap_or(started_at)));
         let result = self.send_member_state(content).await;
-        let mut state = self.state.lock().unwrap();
-        match result {
-            Ok(_) => {
-                state.expiry_iteration = next;
-                state.renew_retries = Retries::default();
-                state.renew_due = Some(state.renew_at(&self.timings));
+        let outcome = {
+            let mut state = self.state.lock().unwrap();
+            match result {
+                Ok(event_id) => {
+                    state.remember_own_event(&event_id);
+                    state.expiry_iteration = next;
+                    state.renew_retries = Retries::default();
+                    state.renew_due = Some(state.renew_at(&self.timings));
+                    Ok(format!("ok event={event_id} iteration={next}"))
+                }
+                Err(error) => {
+                    match state
+                        .renew_retries
+                        .next(classify(&error), "renewing the membership")
+                    {
+                        Ok(wait) => {
+                            state.renew_due = Some(now_ms() + wait);
+                            Ok(format!("failed, retry in {wait}ms: {error}"))
+                        }
+                        Err(why) => Err(why),
+                    }
+                }
+            }
+        };
+        match outcome {
+            Ok(detail) => {
+                self.log("membership.renew", detail);
                 Ok(())
             }
-            Err(error) => {
-                let wait = state
-                    .renew_retries
-                    .next(classify(&error), "renewing the membership")?;
-                state.renew_due = Some(now_ms() + wait);
-                Ok(())
+            Err(why) => {
+                self.log("membership.renew", format!("giving up: {why}"));
+                Err(why)
             }
         }
     }
@@ -1858,7 +2266,14 @@ impl CallSession {
         let mut shared = key.clone();
         shared.shared_with.extend(recipients);
         let delay = changed && !shared.shared_with.is_empty();
+        let recipients = shared.shared_with.len();
         self.state.lock().unwrap().outbound = Some(shared);
+        if changed {
+            self.log(
+                "key",
+                format!("new index={} recipients={recipients}", key.index),
+            );
+        }
         Ok(changed.then(|| {
             (
                 CallEvent::Key {
@@ -1937,38 +2352,120 @@ impl CallSession {
 
     /// Leaves the call (the delayed leave goes out right away).
     pub async fn leave(&self) -> Result<()> {
-        let delay_id = {
+        let (delay_id, replaced, already) = {
             let mut state = self.state.lock().unwrap();
+            let already = state.left;
             state.left = true;
             state.rejoin = None;
-            state.delay_id.take()
+            (state.delay_id.take(), state.replaced, already)
         };
+        if replaced {
+            if !already {
+                self.log("leave", "skipped: the call goes on in another window");
+            }
+            return Ok(());
+        }
         if let Some(delay_id) = delay_id {
             if self
                 .update_delayed(delay_id, UpdateAction::Send)
                 .await
                 .is_ok()
             {
+                self.log("leave", "ok (sent the delayed leave)");
                 return Ok(());
             }
         }
-        self.room
+        let result = self
+            .room
             .send_state_event_raw(CALL_MEMBER_EVENT, &self.state_key, json!({}))
-            .await?;
+            .await;
+        match &result {
+            Ok(_) => self.log("leave", "ok (empty membership)"),
+            Err(error) => self.log("leave", format!("failed: {error}")),
+        }
+        result?;
         Ok(())
     }
 }
 
 impl SessionState {
+    fn next_status(&mut self, now: u64) -> Option<CallStatus> {
+        let state = self;
+        if state.left || state.fatal.is_some() {
+            return None;
+        }
+        let media_up = state.media == Some(MediaState::Connected);
+        let next = if !state.joined {
+            let waited = now.saturating_sub(state.run_started_at);
+            if media_up && state.own_seen {
+                state.joined = true;
+                CallStatus::Connected
+            } else if !media_up && waited > MEDIA_CONNECT_TIMEOUT_MS {
+                state.fatal = Some((
+                    CallErrorKind::Timeout,
+                    "the call server didn't connect in time".into(),
+                    true,
+                ));
+                return None;
+            } else if waited > JOINING_SLOW_MS {
+                CallStatus::JoiningSlow
+            } else if media_up {
+                CallStatus::JoiningMembership
+            } else {
+                CallStatus::JoiningMedia
+            }
+        } else {
+            let down_for = (!media_up).then(|| now.saturating_sub(state.media_since));
+            if down_for.is_some_and(|d| d > RECONNECT_GIVE_UP_MS) {
+                state.fatal = Some((
+                    CallErrorKind::Disconnected,
+                    "lost the connection to the call server".into(),
+                    true,
+                ));
+                return None;
+            }
+            let media_problem = down_for.is_some_and(|d| d >= RECONNECTING_SHOW_MS);
+            let membership_problem = state
+                .own_missing_since
+                .is_some_and(|since| now.saturating_sub(since) >= MEMBERSHIP_GAP_SHOW_MS);
+            match state.shown {
+                _ if media_problem || membership_problem => CallStatus::Reconnecting,
+                Some((CallStatus::Reconnecting, since))
+                    if now.saturating_sub(since) < RECONNECTING_MIN_VISIBLE_MS =>
+                {
+                    CallStatus::Reconnecting
+                }
+                _ => CallStatus::Connected,
+            }
+        };
+        if state.shown.map(|(status, _)| status) == Some(next) {
+            return None;
+        }
+        state.shown = Some((next, now));
+        Some(next)
+    }
+
     fn delayed_leave_ms(&self, timings: &CallTimings) -> u64 {
         timings.delayed_leave.as_millis() as u64
     }
 
     /// When to renew next: before the current `expires` runs out, and at least hourly
     fn renew_at(&self, timings: &CallTimings) -> u64 {
-        let period = (timings.membership_expiry.as_millis() as u64).min(MEMBERSHIP_RENEW_MAX_MS);
-        (self.started_at + period * self.expiry_iteration)
-            .saturating_sub(MEMBERSHIP_RENEW_HEADROOM_MS)
+        let expiry = if self.expiry_ms > 0 {
+            self.expiry_ms
+        } else {
+            timings.membership_expiry.as_millis() as u64
+        };
+        let period = expiry.min(MEMBERSHIP_RENEW_MAX_MS);
+        let headroom = (period / 4).min(MEMBERSHIP_RENEW_HEADROOM_MAX_MS);
+        (self.started_at + period * self.expiry_iteration).saturating_sub(headroom)
+    }
+
+    fn remember_own_event(&mut self, event_id: &str) {
+        if self.own_event_ids.len() == 16 {
+            self.own_event_ids.pop_front();
+        }
+        self.own_event_ids.push_back(event_id.to_owned());
     }
 }
 
@@ -2059,6 +2556,107 @@ mod tests {
         assert_eq!(livekit_from(Some(&json!({}))), None);
     }
 
+    fn joined_state() -> SessionState {
+        let mut state = SessionState {
+            run_started_at: 0,
+            media: Some(MediaState::Connected),
+            own_seen: true,
+            ..Default::default()
+        };
+        assert_eq!(state.next_status(100), Some(CallStatus::Connected));
+        state
+    }
+
+    #[test]
+    fn joining_shows_steps_and_times_out() {
+        let mut state = SessionState::default();
+        assert_eq!(state.next_status(0), Some(CallStatus::JoiningMedia));
+        assert_eq!(state.next_status(1_000), None);
+        state.media = Some(MediaState::Connected);
+        assert_eq!(
+            state.next_status(2_000),
+            Some(CallStatus::JoiningMembership)
+        );
+        state.media = Some(MediaState::Reconnecting);
+        assert_eq!(state.next_status(9_000), Some(CallStatus::JoiningSlow));
+        assert_eq!(state.next_status(MEDIA_CONNECT_TIMEOUT_MS + 1), None);
+        assert_eq!(state.fatal.as_ref().unwrap().0, CallErrorKind::Timeout);
+    }
+
+    #[test]
+    fn short_blips_never_show_as_reconnecting() {
+        let mut state = joined_state();
+        state.media = Some(MediaState::Reconnecting);
+        state.media_since = 1_000;
+        assert_eq!(state.next_status(1_500), None);
+        state.media = Some(MediaState::Connected);
+        assert_eq!(state.next_status(2_000), None);
+    }
+
+    #[test]
+    fn reconnecting_shows_after_a_while_and_stays_briefly() {
+        let mut state = joined_state();
+        state.media = Some(MediaState::Reconnecting);
+        state.media_since = 1_000;
+        assert_eq!(state.next_status(3_000), Some(CallStatus::Reconnecting));
+        state.media = Some(MediaState::Connected);
+        assert_eq!(state.next_status(3_200), None);
+        assert_eq!(state.next_status(4_100), Some(CallStatus::Connected));
+        state.media = Some(MediaState::Disconnected);
+        state.media_since = 5_000;
+        assert_eq!(state.next_status(7_000), Some(CallStatus::Reconnecting));
+        assert_eq!(state.next_status(5_000 + RECONNECT_GIVE_UP_MS + 1), None);
+        assert_eq!(state.fatal.as_ref().unwrap().0, CallErrorKind::Disconnected);
+    }
+
+    #[test]
+    fn a_missing_membership_shows_only_when_it_lasts() {
+        let mut state = joined_state();
+        state.own_seen = false;
+        state.own_missing_since = Some(1_000);
+        assert_eq!(state.next_status(5_000), None);
+        assert_eq!(
+            state.next_status(1_000 + MEMBERSHIP_GAP_SHOW_MS),
+            Some(CallStatus::Reconnecting)
+        );
+    }
+
+    #[test]
+    fn disconnect_reasons_decide_what_happens() {
+        assert!(media_decision(MediaState::Disconnected, "SIGNAL_CLOSE").0);
+        assert!(media_decision(MediaState::Disconnected, "").0);
+        assert_eq!(
+            media_decision(MediaState::Disconnected, "CLIENT_INITIATED"),
+            (false, None)
+        );
+        let (reconnect, fatal) = media_decision(MediaState::Disconnected, "DUPLICATE_IDENTITY");
+        assert!(!reconnect);
+        assert_eq!(
+            fatal.map(|f| (f.0, f.2)),
+            Some((CallErrorKind::Replaced, false))
+        );
+        let (_, fatal) = media_decision(MediaState::Disconnected, "PARTICIPANT_REMOVED");
+        assert_eq!(
+            fatal.map(|f| (f.0, f.2)),
+            Some((CallErrorKind::Removed, true))
+        );
+        assert!(!media_decision(MediaState::Reconnecting, "").0);
+    }
+
+    #[test]
+    fn renews_short_memberships_with_room_to_spare() {
+        let state = SessionState {
+            started_at: 0,
+            expiry_iteration: 1,
+            expiry_ms: NO_DELAY_MEMBERSHIP_EXPIRES_MS,
+            ..Default::default()
+        };
+        assert_eq!(
+            state.renew_at(&CallTimings::default()),
+            NO_DELAY_MEMBERSHIP_EXPIRES_MS - 60_000
+        );
+    }
+
     #[test]
     fn renews_before_expiry() {
         let timings = CallTimings {
@@ -2078,7 +2676,7 @@ mod tests {
                 ..Default::default()
             }
             .renew_at(&CallTimings::default()),
-            2 * 60 * 60 * 1000 - 5_000
+            2 * 60 * 60 * 1000 - 60_000
         );
     }
 }

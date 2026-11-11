@@ -1,6 +1,7 @@
 import {
   AudioPresets,
   ConnectionState,
+  DisconnectReason,
   Room as LivekitRoom,
   RoomEvent,
   ScreenSharePresets,
@@ -14,12 +15,15 @@ import {
   type RemoteTrackPublication,
   type RoomOptions,
   type ScreenShareCaptureOptions,
+  version as livekitVersion,
 } from 'livekit-client';
 import E2EEWorker from 'livekit-client/e2ee-worker?worker';
 import type {
   CallEvent,
   CallMember,
   CallSession,
+  CallStatus,
+  MediaState,
   Subscription,
   WizardClient,
 } from '@wizardchat/core';
@@ -28,7 +32,18 @@ import { MatrixKeyProvider } from './keyProvider';
 
 export type CallPhase = 'joining' | 'joined' | 'left' | 'error';
 export type RingState = 'ringing' | 'declined' | 'unanswered';
-export type CallErrorKind = 'noSfu' | 'auth' | 'connection' | 'membership' | 'unknown';
+export type CallErrorKind =
+  | 'noSfu'
+  | 'auth'
+  | 'connection'
+  | 'membership'
+  | 'timeout'
+  | 'disconnected'
+  | 'replaced'
+  | 'removed'
+  | 'unknown';
+export type { CallStatus };
+export type LeaveReason = 'hangup' | 'switch' | 'unload' | 'signedOut' | 'alone';
 export type DeviceKind = 'audioinput' | 'videoinput' | 'audiooutput';
 export type PreferredDevices = Partial<Record<DeviceKind, string>>;
 
@@ -60,6 +75,8 @@ export interface CallParticipant {
   watchingScreen: boolean;
   /** Their media can't be decrypted: no or a wrong key so far */
   keyMissing: boolean;
+  /** In the call by their membership, but never showed up on the SFU: a client that vanished */
+  stale: boolean;
   /** Who watches our own screen share (user IDs) */
   screenWatchers: string[];
   cameraHidden: boolean;
@@ -85,9 +102,7 @@ export interface CallSnapshot {
   pushToTalk: boolean;
   participants: CallParticipant[];
   ring: RingState | null;
-  reconnecting: boolean;
-  /** Connected, but our own call membership isn't published yet: others can't see us */
-  awaitingMembership: boolean;
+  status: CallStatus;
 }
 
 export interface JoinOptions {
@@ -110,6 +125,7 @@ interface Connection {
   room: LivekitRoom;
   publisher: boolean;
   worker?: Worker;
+  keyProvider?: MatrixKeyProvider;
   sfuUrl: string;
   alias: string;
 }
@@ -128,6 +144,21 @@ function messageOf(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return String(error);
 }
+
+function errorText(error: unknown): string {
+  const name = error instanceof Error ? error.name : '';
+  return name && name !== 'Error' ? `${name}: ${messageOf(error)}` : messageOf(error);
+}
+
+function printCallLog(line: string) {
+  // eslint-disable-next-line no-console
+  console.info(line);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const pendingLeaves = new Set<Promise<unknown>>();
+const LEAVE_WAIT_MS = 5000;
 
 function normalizeUrl(url: string): string {
   return url.trim().replace(/\/+$/, '');
@@ -150,8 +181,9 @@ const SCREEN_SHARE: ScreenShareCaptureOptions = {
   audio: { restrictOwnAudio: true } as AudioCaptureOptions,
   systemAudio: 'include',
 };
-const RECONNECT_GIVE_UP_MS = 120_000;
 const SUBSCRIBE_RETRY_MS = 5000;
+const STALE_MEMBER_MS = 20_000;
+const ENCRYPTION_LOG_MS = 10_000;
 const REACTION_VISIBLE_MS = 3000;
 const NEW_JOINER_MIC_WINDOW_MS = 2000;
 const KEY_CHECK_MS = 2000;
@@ -224,7 +256,15 @@ export class CallMedia {
   private subscribeRetry?: ReturnType<typeof setTimeout>;
   private joinedAfterUs = new Map<string, number>();
   private micGraceTimer?: ReturnType<typeof setTimeout>;
-  private keyProvider?: MatrixKeyProvider;
+  private encrypted = false;
+  private keys = new Map<string, { latest: number; byIndex: Map<number, string> }>();
+  private publisherTask?: Promise<boolean>;
+  private unconnectedSince = new Map<string, number>();
+  private staleTimer?: ReturnType<typeof setTimeout>;
+  private encryptionErrors = new Map<string, number>();
+  private encryptionLogTimer?: ReturnType<typeof setTimeout>;
+  private joinStartedAt = Date.now();
+  onNotice?: (kind: 'microphone' | 'camera', message: string) => void;
   private audio = new Map<RemoteTrack, { elements: HTMLMediaElement[]; identity: string }>();
   private audioContainer?: HTMLDivElement;
   private userVolumes = new Map<string, number>();
@@ -236,8 +276,6 @@ export class CallMedia {
   private micWanted = false;
   private cameraWanted = false;
   private deafened = false;
-  /** The publisher connection is being rebuilt */
-  private reconnecting = false;
   private pushToTalk = false;
   private transmitting = false;
   private inputVolume = 1;
@@ -274,8 +312,7 @@ export class CallMedia {
       pushToTalk: false,
       participants: [],
       ring: null,
-      reconnecting: false,
-      awaitingMembership: false,
+      status: 'joiningMedia',
     };
   }
 
@@ -294,7 +331,11 @@ export class CallMedia {
     this.pushToTalk = options.pushToTalk;
     this.inputVolume = options.inputVolume;
     this.outputVolume = options.outputVolume;
+    this.joinStartedAt = Date.now();
     try {
+      if (pendingLeaves.size)
+        await Promise.race([Promise.allSettled([...pendingLeaves]), sleep(LEAVE_WAIT_MS)]);
+      if (this.disposed) return;
       const serviceUrl =
         options.serviceUrl ?? (await this.client.rtcServiceUrl().catch(() => null));
       if (!serviceUrl) throw new CallError('noSfu', 'This homeserver has no call server (LiveKit)');
@@ -308,34 +349,105 @@ export class CallMedia {
         return;
       }
       this.session = session;
-      const encrypted = await session.encrypted();
-      if (encrypted) {
-        this.keyProvider = new MatrixKeyProvider();
-        this.keyProvider.onKey = (identity) => {
-          if (this.keyIssues.delete(identity)) this.scheduleUpdate();
-        };
-      }
+      this.log(
+        'client',
+        `web livekit-client=${livekitVersion} online=${navigator.onLine} ${navigator.userAgent}`
+      );
+      this.encrypted = await session.encrypted();
       this.patch({
-        encrypted,
+        encrypted: this.encrypted,
         deafened: this.deafened,
         ring: session.rang() ? 'ringing' : null,
       });
       this.run = session.run((event) => this.onEvent(event));
       window.addEventListener('online', this.onOnline);
-      const publisher = await this.connect(session.serviceUrl(), true);
-      if (this.disposed) return;
-      const local = publisher.room.localParticipant;
-      if (this.micWanted && !this.deafened) {
-        await local.setMicrophoneEnabled(true);
-        await this.applyInputVolume();
-      }
-      this.applyGate();
+      window.addEventListener('offline', this.onOffline);
+      if (!(await this.connectPublisher())) return;
       this.patch({ phase: 'joined', pushToTalk: this.pushToTalk });
       this.syncConnections();
       this.scheduleUpdate();
     } catch (error) {
       this.fail(messageOf(error), error instanceof CallError ? error.kind : 'connection');
     }
+  }
+
+  private log(event: string, detail = '') {
+    if (this.session) void this.session.log(event, detail).catch(() => {});
+    else printCallLog(`[call] ${event} ${detail}`);
+  }
+
+  private connectPublisher(): Promise<boolean> {
+    this.publisherTask ??= (async () => {
+      const own = this.session?.serviceUrl();
+      if (!own) return false;
+      let backoff = 1000;
+      for (let attempt = 1; !this.disposed; attempt += 1) {
+        await waitForNetwork();
+        if (this.disposed) break;
+        const started = Date.now();
+        let connection: Connection | undefined;
+        try {
+          connection = await this.connect(own, true);
+          const info = connection.room.serverInfo;
+          this.log(
+            'media.connect',
+            `ok attempt=${attempt} ${Date.now() - started}ms sfu=${connection.sfuUrl} region=${info?.region ?? '?'} version=${info?.version ?? '?'}`
+          );
+          await this.enableLocalMedia(connection);
+          this.syncConnections();
+          this.scheduleUpdate();
+          return true;
+        } catch (error) {
+          if (connection && this.connections.get(own) === connection) this.close(connection);
+          if (this.disposed) break;
+          this.log(
+            'media.connect',
+            `failed attempt=${attempt} ${Date.now() - started}ms, retry in ${backoff}ms: ${errorText(error)}`
+          );
+          void this.session?.reportMedia('reconnecting', null).catch(() => false);
+          await sleep(backoff);
+          backoff = Math.min(backoff * 2, 10_000);
+        }
+      }
+      return false;
+    })().finally(() => {
+      this.publisherTask = undefined;
+    });
+    return this.publisherTask;
+  }
+
+  private async enableLocalMedia(connection: Connection) {
+    const local = connection.room.localParticipant;
+    if (this.micWanted && !this.deafened) {
+      try {
+        await local.setMicrophoneEnabled(true);
+        await this.applyInputVolume();
+        this.log('mic', `on device=${this.devices.audioinput ?? 'default'}`);
+      } catch (error) {
+        if (connection.room.state !== ConnectionState.Connected) throw error;
+        this.micWanted = false;
+        this.log('mic', `failed: ${errorText(error)}`);
+        this.onNotice?.('microphone', messageOf(error));
+      }
+    }
+    if (this.cameraWanted) {
+      try {
+        await local.setCameraEnabled(true);
+      } catch (error) {
+        if (connection.room.state !== ConnectionState.Connected) throw error;
+        this.cameraWanted = false;
+        this.log('camera', `failed: ${errorText(error)}`);
+        this.onNotice?.('camera', messageOf(error));
+      }
+    }
+    this.applyGate();
+  }
+
+  private get readyParticipant() {
+    const publisher = this.publisher;
+    return publisher?.room.state === ConnectionState.Connected
+      ? publisher.room.localParticipant
+      : undefined;
   }
 
   /** Rings again after nobody answered */
@@ -349,21 +461,38 @@ export class CallMedia {
     this.scheduleUpdate();
   }
 
-  async leave() {
+  async leave(reason: LeaveReason = 'hangup') {
     if (this.disposed) return;
     this.disposed = true;
     const session = this.session;
+    this.log('leave', reason);
     this.stopNativeShare();
     this.teardown();
     this.patch({ phase: 'left' });
-    await session?.leave().catch(() => {});
+    await this.leaveSession(session);
+  }
+
+  private leaveSession(session: CallSession | null): Promise<void> {
+    if (!session) return Promise.resolve();
+    const leaving = session.leave().catch(() => {});
+    pendingLeaves.add(leaving);
+    return leaving.finally(() => pendingLeaves.delete(leaving));
   }
 
   async setMicrophone(enabled: boolean) {
     this.micWanted = enabled;
     if (enabled && this.deafened) this.setDeafenedInternal(false);
-    await this.localParticipant?.setMicrophoneEnabled(enabled);
-    if (enabled) await this.applyInputVolume();
+    const local = this.readyParticipant;
+    if (local) {
+      try {
+        await local.setMicrophoneEnabled(enabled);
+        if (enabled) await this.applyInputVolume();
+      } catch (error) {
+        this.log('mic', `failed: ${errorText(error)}`);
+        if (enabled) this.micWanted = false;
+        throw error;
+      }
+    }
     this.applyGate();
     this.scheduleUpdate();
   }
@@ -426,14 +555,14 @@ export class CallMedia {
 
   async setDeafened(deafened: boolean) {
     this.setDeafenedInternal(deafened);
-    if (deafened) await this.localParticipant?.setMicrophoneEnabled(false);
-    else if (this.micWanted) await this.localParticipant?.setMicrophoneEnabled(true);
+    if (deafened) await this.readyParticipant?.setMicrophoneEnabled(false);
+    else if (this.micWanted) await this.readyParticipant?.setMicrophoneEnabled(true);
     this.scheduleUpdate();
   }
 
   async setCamera(enabled: boolean) {
     this.cameraWanted = enabled;
-    await this.localParticipant?.setCameraEnabled(enabled);
+    await this.readyParticipant?.setCameraEnabled(enabled);
     this.scheduleUpdate();
   }
 
@@ -503,6 +632,7 @@ export class CallMedia {
 
   async switchDevice(kind: DeviceKind, deviceId: string) {
     this.devices = { ...this.devices, [kind]: deviceId };
+    this.log('device', `${kind}=${deviceId}`);
     await Promise.all(
       [...this.connections.values()].map((c) =>
         kind === 'audiooutput' || c.publisher ? c.room.switchActiveDevice(kind, deviceId) : null
@@ -585,8 +715,21 @@ export class CallMedia {
         this.scheduleUpdate();
         break;
       }
-      case 'key':
-        void this.keyProvider?.setKey(event.identity, event.index, event.key);
+      case 'key': {
+        const known = this.keys.get(event.identity) ?? { latest: event.index, byIndex: new Map() };
+        known.latest = event.index;
+        known.byIndex.set(event.index, event.key);
+        this.keys.set(event.identity, known);
+        for (const connection of this.connections.values())
+          void connection.keyProvider?.setKey(event.identity, event.index, event.key);
+        break;
+      }
+      case 'status':
+        this.patch({ status: event.status });
+        this.scheduleUpdate();
+        break;
+      case 'log':
+        printCallLog(event.line);
         break;
       case 'declined':
         if (this.snapshot.ring === 'ringing') this.patch({ ring: 'declined' });
@@ -616,7 +759,7 @@ export class CallMedia {
         this.scheduleUpdate();
         break;
       case 'error':
-        if (event.fatal) this.fail(event.message, 'membership');
+        if (event.fatal) this.fail(event.message, event.kind, false);
         else console.warn('[call]', event.message);
         break;
     }
@@ -636,6 +779,7 @@ export class CallMedia {
     const sfu = await session.sfuConfig(serviceUrl, publisher).catch((error: unknown) => {
       throw new CallError('auth', messageOf(error));
     });
+    if (this.disposed) throw new CallError('unknown', 'Left the call');
     // Another service can lead to the SFU room we publish to
     const own = this.publisher;
     if (
@@ -647,38 +791,52 @@ export class CallMedia {
       this.sameRoomServices.add(serviceUrl);
       return own;
     }
-    const worker = this.keyProvider ? new E2EEWorker() : undefined;
+    const keyProvider = this.encrypted ? await this.newKeyProvider() : undefined;
+    const worker = keyProvider ? new E2EEWorker() : undefined;
     const room = new LivekitRoom(
-      roomOptions(
-        this.devices,
-        this.keyProvider && worker ? { keyProvider: this.keyProvider, worker } : undefined
-      )
+      roomOptions(this.devices, keyProvider && worker ? { keyProvider, worker } : undefined)
     );
     const connection: Connection = {
       serviceUrl,
       room,
       publisher,
       worker,
+      keyProvider,
       sfuUrl: sfu.url,
       alias: sfu.alias,
     };
+    const previous = this.connections.get(serviceUrl);
+    if (previous) this.close(previous);
     this.connections.set(serviceUrl, connection);
     this.listen(room);
     try {
       await room.connect(sfu.url, sfu.jwt, { autoSubscribe: false });
+      if (this.disposed) throw new CallError('unknown', 'Left the call');
+      for (const participant of room.remoteParticipants.values())
+        for (const publication of participant.trackPublications.values())
+          this.applySubscription(publication, participant);
+      if (keyProvider) await room.setE2EEEnabled(true);
     } catch (error) {
       if (this.connections.get(serviceUrl) === connection) this.close(connection);
       throw error;
     }
-    for (const participant of room.remoteParticipants.values())
-      for (const publication of participant.trackPublications.values())
-        this.applySubscription(publication, participant);
-    if (this.keyProvider) {
-      await room.setE2EEEnabled(true);
-      this.keyProvider.reapplyLatest();
-    }
+    if (publisher) void this.session?.reportMedia('connected', null).catch(() => false);
     this.scheduleUpdate();
     return connection;
+  }
+
+  private async newKeyProvider() {
+    const provider = new MatrixKeyProvider();
+    provider.onKey = (identity) => {
+      if (this.keyIssues.delete(identity)) this.scheduleUpdate();
+    };
+    for (const [identity, { latest, byIndex }] of this.keys) {
+      for (const [index, key] of byIndex)
+        if (index !== latest) await provider.setKey(identity, index, key);
+      const key = byIndex.get(latest);
+      if (key) await provider.setKey(identity, latest, key);
+    }
+    return provider;
   }
 
   /** Subscribes to the SFUs others publish to (MatrixRTC multi-SFU) */
@@ -732,7 +890,7 @@ export class CallMedia {
       .on(RoomEvent.EncryptionError, (error: Error, participant?: Participant) => {
         const reason = /^(InvalidKey|MissingKey|InternalError):/.exec(error.message)?.[1];
         const identity = participant?.identity;
-        console.warn('[wizardchat-call] media encryption error', { identity, reason });
+        this.countEncryptionError(`${identity ?? '?'} ${reason ?? error.message}`);
         if (identity && (reason === 'MissingKey' || reason === 'InvalidKey')) {
           if (!this.keyIssues.has(identity)) {
             this.keyIssues.add(identity);
@@ -771,71 +929,53 @@ export class CallMedia {
         for (const listener of this.dataListeners) listener(topic, payload, from);
       })
       .on(RoomEvent.ConnectionStateChanged, (state) => {
-        const connection = [...this.connections.values()].find((c) => c.room === room);
-        if (connection?.publisher) {
-          if (state === ConnectionState.Connected && !this.reconnecting)
-            this.setReconnecting(false);
-          else if (
-            state === ConnectionState.Reconnecting ||
-            state === ConnectionState.SignalReconnecting
-          )
-            this.setReconnecting(true);
+        const connection = this.connectionOf(room);
+        if (connection?.publisher && !this.disposed) {
+          const media: MediaState | null =
+            state === ConnectionState.Connected
+              ? 'connected'
+              : state === ConnectionState.Reconnecting ||
+                  state === ConnectionState.SignalReconnecting
+                ? 'reconnecting'
+                : null;
+          if (media === 'reconnecting' || (media === 'connected' && !this.publisherTask))
+            void this.session?.reportMedia(media, null).catch(() => false);
         }
-        if (state === ConnectionState.Disconnected && connection && !this.disposed) {
-          this.close(connection);
-          if (connection.publisher) void this.reconnect();
-          else this.retrySubscribeSoon();
+        update();
+      })
+      .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
+        const connection = this.connectionOf(room);
+        if (!connection || this.disposed) return;
+        this.close(connection);
+        const name = reason === undefined ? 'UNKNOWN_REASON' : DisconnectReason[reason];
+        if (!connection.publisher) {
+          this.log('media.subscriber', `disconnected ${connection.serviceUrl} reason=${name}`);
+          this.retrySubscribeSoon();
+        } else {
+          void this.session
+            ?.reportMedia('disconnected', name)
+            .catch(() => true)
+            .then((reconnect) => {
+              if (reconnect && !this.disposed && this.snapshot.phase === 'joined')
+                void this.connectPublisher();
+            });
         }
         update();
       });
   }
 
-  private setReconnecting(reconnecting: boolean) {
-    if (this.snapshot.reconnecting !== reconnecting) this.patch({ reconnecting });
+  private connectionOf(room: LivekitRoom) {
+    return [...this.connections.values()].find((c) => c.room === room);
   }
 
-  private async reconnect() {
-    const own = this.session?.serviceUrl();
-    if (!own || this.reconnecting || this.disposed) return;
-    this.reconnecting = true;
-    this.setReconnecting(true);
-    const giveUpAt = Date.now() + RECONNECT_GIVE_UP_MS;
-    let backoff = 1000;
-    while (!this.disposed) {
-      await waitForNetwork();
-      if (this.disposed) break;
-      try {
-        const connection = await this.connect(own, true);
-        if (this.disposed) {
-          this.close(connection);
-          break;
-        }
-        const local = connection.room.localParticipant;
-        if (this.micWanted && !this.deafened) {
-          await local.setMicrophoneEnabled(true);
-          await this.applyInputVolume();
-        }
-        if (this.cameraWanted)
-          await local.setCameraEnabled(true).catch((error) => console.warn('[call]', error));
-        this.applyGate();
-        this.reconnecting = false;
-        this.setReconnecting(false);
-        this.syncConnections();
-        this.scheduleUpdate();
-        return;
-      } catch (error) {
-        if (Date.now() + backoff > giveUpAt) {
-          this.reconnecting = false;
-          this.setReconnecting(false);
-          this.fail('Lost the connection to the call server');
-          return;
-        }
-        console.warn('[call] reconnecting failed, retrying', error);
-        await new Promise((resolve) => setTimeout(resolve, backoff));
-        backoff = Math.min(backoff * 2, 10_000);
-      }
-    }
-    this.reconnecting = false;
+  private countEncryptionError(key: string) {
+    this.encryptionErrors.set(key, (this.encryptionErrors.get(key) ?? 0) + 1);
+    this.encryptionLogTimer ??= setTimeout(() => {
+      this.encryptionLogTimer = undefined;
+      const summary = [...this.encryptionErrors].map(([k, n]) => `${k} x${n}`).join(', ');
+      this.encryptionErrors.clear();
+      this.log('e2ee.errors', summary);
+    }, ENCRYPTION_LOG_MS);
   }
 
   private retrySubscribeSoon() {
@@ -847,7 +987,12 @@ export class CallMedia {
   }
 
   private onOnline = () => {
+    this.log('network', 'online');
     if (!this.disposed) this.syncConnections();
+  };
+
+  private onOffline = () => {
+    this.log('network', 'offline');
   };
 
   private applySubscription(publication: RemoteTrackPublication, participant: RemoteParticipant) {
@@ -960,18 +1105,22 @@ export class CallMedia {
   }
 
   private close(connection: Connection) {
-    this.connections.delete(connection.serviceUrl);
-    void connection.room.disconnect();
-    connection.worker?.terminate();
+    if (this.connections.get(connection.serviceUrl) === connection)
+      this.connections.delete(connection.serviceUrl);
+    void connection.room
+      .disconnect()
+      .catch(() => {})
+      .finally(() => connection.worker?.terminate());
   }
 
-  private fail(message: string, kind: CallErrorKind = 'connection') {
+  private fail(message: string, kind: CallErrorKind = 'connection', leave = true) {
     if (this.disposed) return;
+    this.log('failed', `${kind}: ${message}`);
     this.disposed = true;
     const session = this.session;
     this.teardown();
     this.patch({ phase: 'error', error: message, errorKind: kind });
-    void session?.leave().catch(() => {});
+    if (leave) void this.leaveSession(session);
   }
 
   private teardown() {
@@ -980,6 +1129,11 @@ export class CallMedia {
     this.keyIssues.clear();
     this.stopKeyCheck();
     window.removeEventListener('online', this.onOnline);
+    window.removeEventListener('offline', this.onOffline);
+    if (this.staleTimer) clearTimeout(this.staleTimer);
+    this.staleTimer = undefined;
+    if (this.encryptionLogTimer) clearTimeout(this.encryptionLogTimer);
+    this.encryptionLogTimer = undefined;
     window.removeEventListener('pointerdown', this.resumeAudio);
     window.removeEventListener('keydown', this.resumeAudio);
     if (this.subscribeRetry) clearTimeout(this.subscribeRetry);
@@ -1015,8 +1169,6 @@ export class CallMedia {
         screenshare: !!local?.isScreenShareEnabled,
         deafened: this.deafened,
         participants: this.readParticipants(),
-        awaitingMembership:
-          this.snapshot.phase === 'joined' && !this.members.some((m) => m.isOwnDevice),
       });
     });
   }
@@ -1051,7 +1203,7 @@ export class CallMedia {
         identity: local.identity,
         serviceUrl: null,
         intent: null,
-        joinedAt: Date.now(),
+        joinedAt: this.joinStartedAt,
         isOwnDevice: true,
         membershipEventId: null,
         displayName: null,
@@ -1060,10 +1212,22 @@ export class CallMedia {
     }
     const now = Date.now();
     let graceEndsIn = Infinity;
+    const mediaUp = this.publisher?.room.state === ConnectionState.Connected;
+    const before = new Map(this.snapshot.participants.map((p) => [p.identity, p]));
+    let staleIn = Infinity;
     for (const member of members) {
       if (seen.has(member.identity)) continue;
       seen.add(member.identity);
       const participant = livekit.get(member.identity);
+      let stale = false;
+      if (member.isOwnDevice || participant || !mediaUp) {
+        if (participant) this.unconnectedSince.delete(member.identity);
+      } else {
+        const since = this.unconnectedSince.get(member.identity) ?? now;
+        this.unconnectedSince.set(member.identity, since);
+        stale = now - since >= STALE_MEMBER_MS;
+        if (!stale) staleIn = Math.min(staleIn, since + STALE_MEMBER_MS - now);
+      }
       const publication = (source: Track.Source) => participant?.getTrackPublication(source);
       const track = (source: Track.Source) => {
         const p = publication(source);
@@ -1088,7 +1252,10 @@ export class CallMedia {
         userId: member.userId,
         deviceId: member.deviceId,
         isLocal: member.isOwnDevice,
-        connected: !!participant,
+        connected:
+          !!participant ||
+          (!mediaUp && !member.isOwnDevice && !!before.get(member.identity)?.connected),
+        stale,
         speaking:
           !!participant?.isSpeaking &&
           !audioMuted &&
@@ -1112,6 +1279,14 @@ export class CallMedia {
         handRaised: this.hands.has(member.identity),
         reaction: this.reactions.get(member.identity) ?? null,
       });
+    }
+    for (const identity of this.unconnectedSince.keys())
+      if (!seen.has(identity)) this.unconnectedSince.delete(identity);
+    if (staleIn !== Infinity && !this.staleTimer) {
+      this.staleTimer = setTimeout(() => {
+        this.staleTimer = undefined;
+        this.scheduleUpdate();
+      }, staleIn + 50);
     }
     if (graceEndsIn !== Infinity && !this.micGraceTimer) {
       this.micGraceTimer = setTimeout(() => {
