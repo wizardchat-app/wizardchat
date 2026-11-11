@@ -1,18 +1,33 @@
 # WizardChat's own F-Droid repository on GitLab Pages (the APKs are too big for Cloudflare Pages),
 # rebuilt with every stable release. Needs FDROID_KEYSTORE_BASE64 and FDROID_KEYSTORE_PASSWORD.
-pages:
-  stage: release
+.fdroid-rules:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $DRY_RUN != "true"'
+
+build-fdroid:
+  stage: build
+  extends: .fdroid-rules
   image:
     name: registry.gitlab.com/fdroid/docker-executable-fdroidserver:master
     entrypoint: ['']
-  needs:
-    - build-android
-    - job: publish-desktop
-      artifacts: false
+  needs: [build-android]
   script:
     - sh .gitlab/scripts/fdroid-repo.sh
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 day
+
+pages:
+  stage: release
+  extends: .fdroid-rules
+  image: alpine:3
+  needs:
+    - build-fdroid
+    - job: create-release
+      artifacts: false
+  script:
+    - test -f public/repo/index-v2.json
   artifacts:
     paths:
       - public

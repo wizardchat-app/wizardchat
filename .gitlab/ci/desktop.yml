@@ -112,6 +112,9 @@ publish-desktop:
     - build-desktop-arch
     - build-android
     - build-ios
+    - job: build-fdroid
+      artifacts: false
+      optional: true
     - job: build-web-release
       artifacts: false
     - job: build-docker
