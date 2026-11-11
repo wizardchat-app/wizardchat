@@ -30,6 +30,9 @@ stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publish
   (`WizardChat_<version>_arm64_foss.apk`). Both also go to a fixed link per channel
   (`wizardchat-desktop/<channel>/WizardChat_arm64.apk` and `..._foss.apk`), which Obtainium can follow, since it can't
   tell next releases from stable ones on the releases page
+- with a stable release, rebuilds our own F-Droid repository (`.gitlab/ci/fdroid.yml`, `.gitlab/scripts/fdroid-repo.sh`)
+  and publishes it on the project's GitLab Pages: the Google-free APK of this and the previous two stable releases, the
+  metadata from `packaging/fdroid/` and the store screenshots, signed with the repository key
 - builds an unsigned iOS `.ipa` for sideloading and lists it with the installers. The SideStore / AltStore source
   (`wizardchat-desktop/<channel>/sidestore.json`, from `.gitlab/scripts/sidestore-source.mjs`) lists it with every
   earlier release's: stable releases go to both channels' sources, next releases only to next
@@ -61,6 +64,21 @@ keystore, `base64 -i wizardchat-release.jks`) and `ANDROID_KEYSTORE_PASSWORD`; t
 Both build the `gplay` flavor, which gets push notifications through Firebase. Its config in
 `apps/android/app/src/gplay/res/values/firebase.xml` comes from the Firebase project's `google-services.json`. The
 `fdroid` flavor has no Google code.
+
+## F-Droid repository
+
+The repository is signed with its own key, separate from the APK's. Create it once and keep it safe: F-Droid remembers
+its fingerprint, and a new key means everyone has to add the repository again.
+
+```sh
+keytool -genkeypair -keystore wizardchat-fdroid.p12 -storetype PKCS12 -alias wizardchat-fdroid -keyalg RSA \
+  -keysize 4096 -validity 10000 -dname "CN=WizardChat F-Droid repository"
+```
+
+CI reads it from the masked variables `FDROID_KEYSTORE_BASE64` (`base64 -i wizardchat-fdroid.p12`) and
+`FDROID_KEYSTORE_PASSWORD`. It's published on the project's GitLab Pages, at `fdroid.wizardchat.org` once that domain
+is added in **Deploy -> Pages**; set `FDROID_REPO_URL` to `https://fdroid.wizardchat.org/repo` then, since the
+address is part of the signed index.
 
 ## GIF search
 

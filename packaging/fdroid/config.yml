@@ -1,0 +1,16 @@
+# fdroidserver config for WizardChat's own F-Droid repository, filled in by .gitlab/scripts/fdroid-repo.sh
+repo_url: REPO_URL
+repo_name: WizardChat
+repo_description: >-
+  The Android app of WizardChat, a Matrix client, as published on
+  https://gitlab.com/wizardchat/wizardchat/-/releases. This is the build without Google
+  code; it is signed by the WizardChat developers, not by F-Droid.
+repo_icon: icon.png
+archive_older: 0
+keystore: keystore.p12
+repo_keyalias: wizardchat-fdroid
+keystorepass:
+  env: FDROID_KEYSTORE_PASSWORD
+keypass:
+  env: FDROID_KEYSTORE_PASSWORD
+keydname: CN=WizardChat F-Droid repository

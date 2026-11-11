@@ -80,6 +80,11 @@ Not in the stores yet. Every release has an APK (arm64) on the
 gets push notifications through Google's Firebase, `WizardChat_<version>_arm64_foss.apk` has no Google code and no push
 notifications yet. Both are signed with the same key, so you can switch between them without losing your data.
 
+**F-Droid**: add our repository in F-Droid, Droid-ify or Neo Store to get the version without Google code and its
+updates. Open <https://fdroid.wizardchat.org/repo> on your phone and tap the link there, or scan its QR code in F-Droid
+(**Settings -> Repositories**, then the QR button). The page also shows the repository's fingerprint, which F-Droid checks.
+These are our own builds signed by us, not F-Droid's, so they update the APKs from the releases page and Obtainium too.
+
 With [Obtainium](https://obtainium.imranr.dev) you get updates automatically. Add the app with **Add App** and one of these
 URLs:
 

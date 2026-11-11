@@ -6,3 +6,4 @@ include:
   - local: .gitlab/ci/desktop.yml
   - local: .gitlab/ci/mobile.yml
   - local: .gitlab/ci/release.yml
+  - local: .gitlab/ci/fdroid.yml

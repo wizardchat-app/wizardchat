@@ -1,0 +1,26 @@
+Categories:
+  - Internet
+  - Messaging
+License: AGPL-3.0-only
+AuthorName: WizardChat
+WebSite: https://wizardchat.org
+SourceCode: https://gitlab.com/wizardchat/wizardchat
+IssueTracker: https://gitlab.com/wizardchat/wizardchat/-/issues
+Changelog: https://gitlab.com/wizardchat/wizardchat/-/releases
+
+Name: WizardChat
+Summary: Simple, secure, magical Matrix chat
+Description: |-
+  WizardChat is a Matrix client: end-to-end encrypted, open source, and available in your
+  browser, on the desktop and on your phone.
+
+  * Chat in rooms, direct messages and threads, organised in spaces
+  * End-to-end encryption with verified devices and key backup
+  * Voice and video calls and voice rooms
+  * Themes, custom emoji and stickers
+
+  This build has no Google code. It doesn't get push notifications yet.
+
+AntiFeatures:
+  NonFreeNet:
+    en-US: GIF search uses Giphy, and calls can use a hosted LiveKit server.
