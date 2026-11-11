@@ -43,6 +43,7 @@ build-ios:
   needs: []
   script:
     - !reference [.install-rust, script]
+    - !reference [.install-sccache-mac, script]
     - brew install xcodegen
     - npm ci --ignore-scripts
     - npm run assets
@@ -52,6 +53,7 @@ build-ios:
     - mkdir -p Payload "$CI_PROJECT_DIR/target/ios"
     - cp -R build/Build/Products/Release-iphoneos/WizardChat.app Payload/
     - zip -qry "$CI_PROJECT_DIR/target/ios/WizardChat_$(node -p "require('../../package.json').version").ipa" Payload
+    - sccache --show-stats
   artifacts:
     paths:
       - target/ios/*.ipa

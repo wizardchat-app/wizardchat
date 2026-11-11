@@ -57,6 +57,10 @@ workflow:
   script:
     - curl -sSfL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE}/sccache-v${SCCACHE}-x86_64-unknown-linux-musl.tar.gz" | tar -xz --strip-components=1 -C "$CARGO_HOME/bin" "sccache-v${SCCACHE}-x86_64-unknown-linux-musl/sccache"
 
+.install-sccache-mac:
+  script:
+    - curl -sSfL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE}/sccache-v${SCCACHE}-aarch64-apple-darwin.tar.gz" | tar -xz --strip-components=1 -C "$CARGO_HOME/bin" "sccache-v${SCCACHE}-aarch64-apple-darwin/sccache"
+
 .rust-web:
   extends: .rust-cache
   before_script:

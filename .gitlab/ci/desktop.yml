@@ -27,7 +27,7 @@ build-desktop-mac:
   script:
     - !reference [.install-rust, script]
     - rustup target add "$TARGET"
-    - curl -sSfL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE}/sccache-v${SCCACHE}-aarch64-apple-darwin.tar.gz" | tar -xz --strip-components=1 -C "$CARGO_HOME/bin" "sccache-v${SCCACHE}-aarch64-apple-darwin/sccache"
+    - !reference [.install-sccache-mac, script]
     - npm ci --ignore-scripts
     - node apps/desktop/scripts/release-config.mjs
     - npm run tokens
