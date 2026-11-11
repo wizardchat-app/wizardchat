@@ -1,0 +1,21 @@
+release-notes:
+  stage: build
+  extends: .release-rules
+  image: alpine:3
+  needs: []
+  before_script:
+    - apk add --no-cache git
+  script:
+    - sh .gitlab/scripts/release-notes.sh
+  artifacts:
+    paths:
+      - release-notes.md
+    expire_in: 1 hour
+
+create-release:
+  stage: release
+  extends: .release-rules
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: [release-notes, build-docker, deploy, publish-desktop]
+  script:
+    - sh .gitlab/scripts/create-release.sh

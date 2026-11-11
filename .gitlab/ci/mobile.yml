@@ -1,0 +1,56 @@
+build-android:
+  stage: build
+  extends: [.release-rules, .rust-cache]
+  image: node:22-bookworm
+  needs: []
+  variables:
+    ANDROID_HOME: $CI_PROJECT_DIR/.android-sdk
+    ANDROID_CMDLINE_TOOLS: '15859902'
+    ANDROID_NDK: '28.2.13676358'
+  script:
+    - test -n "$ANDROID_KEYSTORE_BASE64" && test -n "$ANDROID_KEYSTORE_PASSWORD"
+    - apt-get update && apt-get install -y --no-install-recommends openjdk-17-jdk-headless unzip cmake
+    - curl -sSfL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS}_latest.zip" -o /tmp/cmdline-tools.zip
+    - mkdir -p "$ANDROID_HOME/cmdline-tools" && unzip -q /tmp/cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+    - mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+    - (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+    - '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;$ANDROID_NDK" > /dev/null'
+    - !reference [.install-rust, script]
+    - !reference [.install-sccache-linux, script]
+    - npm ci --ignore-scripts
+    - npm run assets
+    - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > apps/android/wizardchat-release.jks
+    - printf 'storeFile=wizardchat-release.jks\nstorePassword=%s\nkeyAlias=wizardchat\nkeyPassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD" > apps/android/keystore.properties
+    - apps/android/scripts/build-core.sh
+    - (cd apps/android && ./gradlew --no-daemon :app:assembleGplayRelease)
+    - rm apps/android/wizardchat-release.jks apps/android/keystore.properties
+    - mkdir -p target/android
+    - cp apps/android/app/build/outputs/apk/gplay/release/app-gplay-release.apk "target/android/WizardChat_$(node -p "require('./package.json').version")_arm64.apk"
+    - '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs target/android/*.apk'
+    - sccache --show-stats
+  artifacts:
+    paths:
+      - target/android/*.apk
+    expire_in: 1 day
+
+# An unsigned IPA for sideloading (SideStore, AltStore and the like sign it on the device)
+build-ios:
+  stage: build
+  extends: [.release-rules, .rust-cache]
+  tags: [saas-macos-medium-m1]
+  needs: []
+  script:
+    - !reference [.install-rust, script]
+    - brew install xcodegen
+    - npm ci --ignore-scripts
+    - npm run assets
+    - apps/ios/scripts/build-core.sh
+    - cd apps/ios && xcodegen generate
+    - xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Release -destination generic/platform=iOS -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= -quiet build
+    - mkdir -p Payload "$CI_PROJECT_DIR/target/ios"
+    - cp -R build/Build/Products/Release-iphoneos/WizardChat.app Payload/
+    - zip -qry "$CI_PROJECT_DIR/target/ios/WizardChat_$(node -p "require('../../package.json').version").ipa" Payload
+  artifacts:
+    paths:
+      - target/ios/*.ipa
+    expire_in: 1 day

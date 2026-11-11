@@ -1,0 +1,19 @@
+lint:
+  stage: lint
+  extends: [.branch-rules, .node-cache]
+  interruptible: true
+  image: node:22-alpine
+  before_script:
+    - npm ci --ignore-scripts
+  script:
+    - npm run lint
+    - npm run format:check
+    - npm run i18n
+
+build-web:
+  stage: build
+  extends: [.branch-rules, .rust-web]
+  interruptible: true
+  image: node:22-bookworm
+  script:
+    - npm run build

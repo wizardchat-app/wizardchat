@@ -1,0 +1,10 @@
+# Run pipeline on main with VERSION=v26.11.0 (or v26.11.0-next.1) to start a release
+prepare-release:
+  stage: prepare
+  image: node:22-alpine
+  before_script:
+    - apk add --no-cache git curl
+  script:
+    - sh .gitlab/scripts/prepare-release.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $VERSION'

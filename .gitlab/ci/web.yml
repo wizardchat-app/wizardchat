@@ -1,0 +1,69 @@
+build-web-release:
+  stage: build
+  extends: [.release-rules, .rust-web]
+  image: node:22-bookworm
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - apps/web/dist/
+    expire_in: 1 hour
+
+build-docker:
+  stage: build
+  extends: .release-rules
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: '/certs'
+  needs: [build-web-release]
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_JOB_TOKEN" "$CI_REGISTRY"
+  script:
+    - |
+      docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG" -f - apps/web <<'EOF'
+      FROM nginx:alpine
+      COPY dist /usr/share/nginx/html
+      COPY nginx.conf /etc/nginx/conf.d/default.conf
+      EXPOSE 80
+      CMD ["nginx", "-g", "daemon off;"]
+      EOF
+      if [ "$DRY_RUN" = "true" ]; then
+        echo "=== DRY RUN: image built but not pushed ==="
+      else
+        docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
+      fi
+
+deploy:
+  stage: deploy
+  extends: .release-rules
+  image: node:22-alpine
+  needs:
+    - build-web-release
+    - job: build-docker
+      artifacts: false
+    - job: build-desktop-mac
+      artifacts: false
+    - job: build-desktop-linux
+      artifacts: false
+    - job: build-desktop-win
+      artifacts: false
+    - job: build-desktop-arch
+      artifacts: false
+    - job: build-android
+      artifacts: false
+    - job: build-ios
+      artifacts: false
+    - job: release-notes
+      artifacts: false
+  script:
+    - |
+      if [ "$DRY_RUN" = "true" ]; then
+        echo "DRY RUN: would deploy apps/web/dist to $PAGES_PROJECT"
+      else
+        npx --yes wrangler@4 pages deploy apps/web/dist --project-name="$PAGES_PROJECT" --branch=main --commit-hash="$CI_COMMIT_SHA"
+      fi
+  environment:
+    name: $PAGES_PROJECT
+    url: $WEB_URL

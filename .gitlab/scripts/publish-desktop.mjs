@@ -3,9 +3,6 @@
 // check (`wizardchat-desktop/<channel>/latest.json`), stable releases to stable and next releases to
 // next. The installers are listed in desktop-assets.json for the release page.
 // The Linux tarball's PKGBUILD goes next to the feed (`<channel>/PKGBUILD`) for Arch users.
-// The Android APK is uploaded and listed with the installers for people who don't use Google Play,
-// and the unsigned iOS IPA for sideloading.
-// See docs/BUILDING.md.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 

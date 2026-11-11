@@ -1,0 +1,86 @@
+stages:
+  - lint
+  - prepare
+  - build
+  - deploy
+  - release
+
+variables:
+  DRY_RUN: 'false'
+  VERSION: ''
+  PKGREL: '1'
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  RUSTUP_HOME: $CI_PROJECT_DIR/.rustup
+  CARGO_TERM_COLOR: always
+  npm_config_cache: $CI_PROJECT_DIR/.npm
+  npm_config_prefer_offline: 'true'
+  WASM_PACK: '0.15.0'
+  SCCACHE: '0.19.0'
+  CARGO_XWIN: '0.23.1'
+  SCCACHE_DIR: $CI_PROJECT_DIR/.sccache
+  SCCACHE_CACHE_SIZE: 3G
+  RUSTC_WRAPPER: sccache
+  CARGO_INCREMENTAL: '0'
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-next\.\d+)?$/'
+
+.node-cache:
+  cache:
+    - &node-cache
+      key:
+        files:
+          - package-lock.json
+      paths:
+        - .npm/
+
+.rust-cache:
+  cache:
+    - *node-cache
+    - key: cargo-$CI_JOB_NAME_SLUG
+      paths:
+        - .rustup/
+        - .sccache/
+
+.install-rust:
+  script:
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+    - export PATH="$CARGO_HOME/bin:$PATH"
+    - rustup toolchain install
+
+.install-sccache-linux:
+  script:
+    - curl -sSfL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE}/sccache-v${SCCACHE}-x86_64-unknown-linux-musl.tar.gz" | tar -xz --strip-components=1 -C "$CARGO_HOME/bin" "sccache-v${SCCACHE}-x86_64-unknown-linux-musl/sccache"
+
+.rust-web:
+  extends: .rust-cache
+  before_script:
+    - !reference [.install-rust, script]
+    - !reference [.install-sccache-linux, script]
+    - curl -sSfL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK}/wasm-pack-v${WASM_PACK}-x86_64-unknown-linux-musl.tar.gz" | tar -xz --strip-components=1 -C "$CARGO_HOME/bin" "wasm-pack-v${WASM_PACK}-x86_64-unknown-linux-musl/wasm-pack"
+    - npm ci --ignore-scripts
+
+.branch-rules:
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^prepare\// || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^prepare\// || $VERSION'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+.release-rules:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      variables:
+        PAGES_PROJECT: wizardchat
+        WEB_URL: https://app.wizardchat.org
+        RELEASE_NAME: Release
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-next\.\d+$/'
+      variables:
+        PAGES_PROJECT: wizardchat-next
+        WEB_URL: https://next.wizardchat.org
+        RELEASE_NAME: Pre-release
