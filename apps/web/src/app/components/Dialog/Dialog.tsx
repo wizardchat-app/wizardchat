@@ -6,7 +6,7 @@ import { FocusTrap } from 'focus-trap-react';
 import { IconButton } from '@/app/components/Button';
 import * as css from './Dialog.css';
 
-export type DialogSize = 'sm' | 'md' | 'lg' | 'xl';
+export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
 
 function isEditableField(el: Element | null): el is HTMLElement {
   if (!el) return false;

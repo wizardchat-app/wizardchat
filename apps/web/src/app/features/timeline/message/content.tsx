@@ -18,7 +18,9 @@ import {
   MapPinIcon,
   ArrowsOutSimpleIcon,
   StickerIcon,
+  EyeIcon,
 } from '@phosphor-icons/react';
+import { FilePreviewModal, previewKind } from './FilePreview';
 import { CopyButton } from '@/app/components/Button';
 import { Tooltip } from '@/app/components/Tooltip';
 import { highlightQuery } from '@/app/hooks/useSearch';
@@ -548,6 +550,7 @@ export function MessageContent({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [revealedSpoilers, setRevealedSpoilers] = useState<ReadonlySet<number>>(() => new Set());
+  const [previewOpen, setPreviewOpen] = useState(false);
   const handleRevealSpoiler = useCallback((index: number) => {
     setRevealedSpoilers((prev) => new Set(prev).add(index));
   }, []);
@@ -820,6 +823,7 @@ export function MessageContent({
     }
     const captionHtml = renderCaptionHtml(media);
     const size = typeof media.size === 'number' && media.size >= 0 ? media.size : undefined;
+    const kind = previewKind(filename, media.mimetype);
     const mediaEl = src ? (
       <div className={css.fileCard}>
         <span className={css.fileIcon}>
@@ -831,6 +835,18 @@ export function MessageContent({
           </Tooltip>
           {size !== undefined && <span className={css.fileSize}>{formatFileSize(size)}</span>}
         </span>
+        {kind && (
+          <Tooltip content={t('timeline.preview')}>
+            <button
+              type="button"
+              className={css.fileDownload}
+              aria-label={t('timeline.preview')}
+              onClick={() => setPreviewOpen(true)}
+            >
+              <EyeIcon size={16} />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip content={t('common.download')}>
           <a
             href={src}
@@ -841,6 +857,14 @@ export function MessageContent({
             <DownloadSimpleIcon size={16} />
           </a>
         </Tooltip>
+        {kind && previewOpen && (
+          <FilePreviewModal
+            src={src}
+            filename={filename}
+            kind={kind}
+            onClose={() => setPreviewOpen(false)}
+          />
+        )}
       </div>
     ) : mediaFailed ? (
       <MediaError />

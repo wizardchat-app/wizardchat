@@ -63,6 +63,7 @@ export const sizes = styleVariants({
   md: { maxWidth: '460px' },
   lg: { maxWidth: '520px' },
   xl: { maxWidth: '640px' },
+  xxl: { maxWidth: '960px' },
 });
 
 export const header = style({
