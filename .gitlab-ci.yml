@@ -423,6 +423,33 @@ build-android:
       - target/android/*.apk
     expire_in: 1 day
 
+# An unsigned IPA for sideloading (SideStore, AltStore and the like sign it on the device)
+build-ios:
+  stage: build
+  extends: .release-rules
+  tags: [saas-macos-medium-m1]
+  needs: []
+  cache:
+    - *node-cache
+    - *cargo-cache
+  script:
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+    - export PATH="$CARGO_HOME/bin:$PATH"
+    - rustup toolchain install
+    - brew install xcodegen
+    - npm ci --ignore-scripts
+    - npm run assets
+    - apps/ios/scripts/build-core.sh
+    - cd apps/ios && xcodegen generate
+    - xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Release -destination generic/platform=iOS -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= -quiet build
+    - mkdir -p Payload "$CI_PROJECT_DIR/target/ios"
+    - cp -R build/Build/Products/Release-iphoneos/WizardChat.app Payload/
+    - zip -qry "$CI_PROJECT_DIR/target/ios/WizardChat_$(node -p "require('../../package.json').version").ipa" Payload
+  artifacts:
+    paths:
+      - target/ios/*.ipa
+    expire_in: 1 day
+
 deploy:
   stage: deploy
   extends: .release-rules
@@ -440,6 +467,8 @@ deploy:
     - job: build-desktop-arch
       artifacts: false
     - job: build-android
+      artifacts: false
+    - job: build-ios
       artifacts: false
     - job: release-notes
       artifacts: false
@@ -465,6 +494,7 @@ publish-desktop:
     - build-desktop-win
     - build-desktop-arch
     - build-android
+    - build-ios
     - job: build-web-release
       artifacts: false
     - job: build-docker
