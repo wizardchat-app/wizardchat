@@ -129,6 +129,13 @@ struct RoomInfoView: View {
                     } label: {
                         LabeledContent { Text("\(pinnedCount)") } label: { Label(String(localized: "room.header.pinnedMessages"), image: "ph-push-pin-regular") }
                     }
+                    if let onJump {
+                        NavigationLink {
+                            JumpToDateView(room: room, client: client, onJump: onJump)
+                        } label: {
+                            Label(String(localized: "room.header.jumpToDate"), image: "ph-clock-counter-clockwise-regular")
+                        }
+                    }
                     if !room.isDirect {
                         NavigationLink {
                             RolesPermissionsView(roomId: room.id)

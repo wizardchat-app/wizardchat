@@ -2210,6 +2210,12 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.resolveAlias', this, [alias]) as Promise<ResolvedAlias>;
   }
 
+  eventAtTime(roomId: string, timestamp: number): Promise<string | null> {
+    return runtime.call('WizardClient.eventAtTime', this, [roomId, timestamp]) as Promise<
+      string | null
+    >;
+  }
+
   /** Reports every state change arriving through sync (to refresh cached settings). */
   watchStateChanges(listener: (value: StateChange) => void): Subscription {
     return runtime.watch('WizardClient.watchStateChanges', this, [listener], Subscription);

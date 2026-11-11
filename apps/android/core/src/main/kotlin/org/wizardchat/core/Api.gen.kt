@@ -2318,6 +2318,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     suspend fun resolveAlias(alias: String): ResolvedAlias =
         Runtime.call("WizardClient.resolveAlias", handle, listOf(Arg.value<String>(alias)))
 
+    suspend fun eventAtTime(roomId: String, timestamp: Long): String? =
+        Runtime.call("WizardClient.eventAtTime", handle, listOf(Arg.value<String>(roomId), Arg.value<Long>(timestamp)))
+
     /** Reports every state change arriving through sync (to refresh cached settings). */
     fun watchStateChanges(listener: (StateChange) -> Unit): Subscription =
         Runtime.watch("WizardClient.watchStateChanges", handle, listOf(Arg.listener<StateChange>(listener)), ::Subscription)

@@ -1,5 +1,6 @@
 package org.wizardchat.android.ui.people
 
+import org.wizardchat.android.ui.room.JumpToDateDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,6 +122,7 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
     var bridges by remember { mutableStateOf<List<RoomBridge>>(emptyList()) }
     var pinnedCount by remember { mutableStateOf(0) }
     var showInvite by remember { mutableStateOf(false) }
+    var showJumpToDate by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -308,6 +310,8 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                             NavRow(tr("timeline.mediaLinksAndDocs"), "images", { push(PeoplePage.Media) })
                             RowDivider()
                             NavRow(tr("room.header.pinnedMessages"), "push-pin", { push(PeoplePage.Pinned(canPin)) }, value = "$pinnedCount")
+                            RowDivider()
+                            ActionRow(tr("room.header.jumpToDate"), "clock-counter-clockwise", { showJumpToDate = true })
                             if (!room.isDirect) {
                                 RowDivider()
                                 NavRow(tr("room.settings.permissions.title"), "shield-check", { push(PeoplePage.Roles(room.id)) })
@@ -405,7 +409,10 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                     onDismiss = { confirmLeave = false },
                 )
             }
-            if (showInvite) {
+            if (showJumpToDate) {
+        JumpToDateDialog(client, room.id, { showJumpToDate = false }, onJump)
+    }
+    if (showInvite) {
                 UserPickerSheet(UserPickerMode.Invite, { showInvite = false }, room.id, onDone = { reloads++ })
             }
             }

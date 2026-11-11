@@ -338,7 +338,8 @@
       "prevMatch": "Vorherige Übereinstimmung (Umschalt+Enter)",
       "nextMatch": "Nächste Übereinstimmung (Enter)",
       "typing_one": "{{names}} tippt...",
-      "typing_other": "{{names}} tippen..."
+      "typing_other": "{{names}} tippen...",
+      "jumpToDate": "Zu Datum springen"
     },
     "settings": {
       "membersCount_one": "{{count}} Mitglied",
@@ -558,6 +559,13 @@
       "conversation": "Unterhaltung",
       "title": "Rauminfo",
       "changePicture": "Raumbild ändern"
+    },
+    "jumpToDate": {
+      "title": "Zu Datum springen",
+      "date": "Datum",
+      "jump": "Springen",
+      "notFound": "Keine Nachrichten um dieses Datum gefunden.",
+      "failed": "Sprung zu diesem Datum fehlgeschlagen: {{error}}"
     }
   },
   "developer": {

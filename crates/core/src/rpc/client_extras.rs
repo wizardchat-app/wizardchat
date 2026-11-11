@@ -91,6 +91,10 @@ rpc_methods! {
             this.resolve_alias(&alias).await
         }
 
+        call fn eventAtTime(room_id: String, timestamp: u64) -> Option<String> {
+            this.event_at_time(&room_id, timestamp).await
+        }
+
         /// Reports every state change arriving through sync (to refresh cached settings).
         watch fn watchStateChanges(listener: Listener<StateChange>) -> Subscription {
             Ok(listener.clone().watch(async move {

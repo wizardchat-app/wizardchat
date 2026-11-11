@@ -7,6 +7,7 @@ import {
   SpeakerHighIcon,
   UsersIcon,
   ChatDotsIcon,
+  ClockCounterClockwiseIcon,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -18,6 +19,7 @@ import { useRoom } from '@/app/data';
 import { isVoiceRoom } from '@/util/matrix';
 import { isModOnly } from '@/app/features/keyboardShortcuts/keyEvents';
 import { PinnedMessagesPopover } from './PinnedMessagesPopover';
+import { JumpToDateDialog } from './JumpToDateDialog';
 import * as css from './RoomHeader.css';
 
 interface RoomHeaderProps {
@@ -60,6 +62,7 @@ export function RoomHeader({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onJumpToEvent]);
+  const [showJumpToDate, setShowJumpToDate] = useState(false);
   const [showTopic, setShowTopic] = useState(false);
   // Calls are available in any joined room (DM or group) that isn't a space.
   const can = useCanSendState(roomId);
@@ -197,6 +200,19 @@ export function RoomHeader({
           </div>
         )}
 
+        {onJumpToEvent && (
+          <Tooltip content={t('room.header.jumpToDate')}>
+            <button
+              type="button"
+              className={css.headerBtn}
+              aria-label={t('room.header.jumpToDate')}
+              onClick={() => setShowJumpToDate(true)}
+            >
+              <ClockCounterClockwiseIcon size={16} />
+            </button>
+          </Tooltip>
+        )}
+
         <div className={css.headerPanelButtons}>
           {hasLeftHeaderActions && <div className={`${css.headerDivider} ${css.hideOnMobile}`} />}
 
@@ -238,6 +254,16 @@ export function RoomHeader({
           onClose={() => setShowPinned(false)}
           anchorRef={pinnedAnchorRef}
           onJumpTo={onJumpToEvent}
+        />
+      )}
+
+      {onJumpToEvent && (
+        <JumpToDateDialog
+          client={client}
+          roomId={roomId}
+          open={showJumpToDate}
+          onClose={() => setShowJumpToDate(false)}
+          onJump={onJumpToEvent}
         />
       )}
 

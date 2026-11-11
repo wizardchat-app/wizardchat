@@ -338,7 +338,8 @@
       "prevMatch": "Previous match (Shift+Enter)",
       "nextMatch": "Next match (Enter)",
       "typing_one": "{{names}} is typing...",
-      "typing_other": "{{names}} are typing..."
+      "typing_other": "{{names}} are typing...",
+      "jumpToDate": "Jump to date"
     },
     "settings": {
       "membersCount_one": "{{count}} Member",
@@ -558,6 +559,13 @@
       "conversation": "Conversation",
       "title": "Room Info",
       "changePicture": "Change room picture"
+    },
+    "jumpToDate": {
+      "title": "Jump to date",
+      "date": "Date",
+      "jump": "Jump",
+      "notFound": "No messages found around that date.",
+      "failed": "Couldn't jump to that date: {{error}}"
     }
   },
   "developer": {

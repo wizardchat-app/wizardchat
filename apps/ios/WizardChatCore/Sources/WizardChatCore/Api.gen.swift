@@ -3342,6 +3342,10 @@ public final class WizardClient: Remote, @unchecked Sendable {
         try await call("WizardClient.resolveAlias", [.value(alias)])
     }
 
+    public func eventAtTime(roomId: String, timestamp: Int) async throws -> String? {
+        try await call("WizardClient.eventAtTime", [.value(roomId), .value(timestamp)])
+    }
+
     /// Reports every state change arriving through sync (to refresh cached settings).
     @discardableResult
     public func watchStateChanges(listener: @escaping @Sendable (StateChange) -> Void) -> Subscription {

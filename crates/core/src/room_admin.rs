@@ -872,6 +872,22 @@ impl WizardClient {
         })
     }
 
+    pub async fn event_at_time(&self, room_id: &str, timestamp: u64) -> Result<Option<String>> {
+        use matrix_sdk::ruma::{
+            api::{client::room::get_event_by_timestamp, Direction},
+            MilliSecondsSinceUnixEpoch, UInt,
+        };
+        let room_id = parse_room_id(room_id)?.to_owned();
+        let ts = MilliSecondsSinceUnixEpoch(UInt::new_saturating(timestamp));
+        for dir in [Direction::Forward, Direction::Backward] {
+            let request = get_event_by_timestamp::v1::Request::new(room_id.clone(), ts, dir);
+            if let Ok(response) = self.sdk().send(request).await {
+                return Ok(Some(response.event_id.to_string()));
+            }
+        }
+        Ok(None)
+    }
+
     /// Reports state changes arriving through sync, for refreshing cached settings.
     pub async fn watch_state_changes(&self, mut on_change: impl FnMut(StateChange)) {
         use futures_util::StreamExt;
