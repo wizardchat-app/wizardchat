@@ -5,8 +5,8 @@ use serde_json::Value;
 use super::{Bytes, Handle, Listener, Obj, Subscription};
 use crate::{
     CallMember, CallSession, IncomingCallEvent, Notification, PusherConfig, QrLoginControl,
-    QrLoginStatus, ResolvedAlias, RoomSection, RoomTag, ServerFeatures, SfuConfig, SpaceNode,
-    StateChange, WizardClient,
+    QrLoginStatus, ResolvedAlias, RoomSection, RoomSoundPacks, RoomTag, ServerFeatures, SfuConfig,
+    SoundCredit, SoundPack, SoundboardSound, SpaceNode, StateChange, WizardClient,
 };
 
 rpc_methods! {
@@ -143,6 +143,58 @@ rpc_methods! {
                     tracing::error!("call members stream failed: {error}");
                 }
             }))
+        }
+
+        call fn soundboardPacks(room_id: Option<String>) -> Vec<SoundPack> {
+            this.soundboard_packs(room_id.as_deref()).await
+        }
+
+        call fn favoriteSoundPacks() -> Vec<SoundPack> {
+            this.favorite_sound_packs().await
+        }
+
+        call fn allSoundPacks() -> Vec<SoundPack> {
+            this.all_sound_packs().await
+        }
+
+        call fn recordSoundPlayed(url: String) -> () {
+            this.record_sound_played(&url).await
+        }
+
+        call fn roomSoundPacks(room_id: String) -> RoomSoundPacks {
+            this.room_sound_packs(&room_id).await
+        }
+
+        call fn mySounds() -> SoundPack {
+            this.my_sounds().await
+        }
+
+        call fn uploadSound(data: Bytes, mimetype: String, duration_ms: u32) -> SoundboardSound {
+            this.upload_sound(data.0, &mimetype, duration_ms).await
+        }
+
+        call fn saveSoundPack(room_id: Option<String>, state_key: String, name: String, attribution: Option<String>, sounds: Vec<SoundboardSound>) -> () {
+            this.save_sound_pack(room_id.as_deref(), &state_key, &name, attribution.as_deref(), sounds).await
+        }
+
+        call fn createSoundPack(room_id: String, name: String) -> String {
+            this.create_sound_pack(&room_id, &name).await
+        }
+
+        call fn deleteSoundPack(room_id: String, state_key: String) -> () {
+            this.delete_sound_pack(&room_id, &state_key).await
+        }
+
+        call fn setSoundPackEverywhere(room_id: String, state_key: String, everywhere: bool) -> () {
+            this.set_sound_pack_everywhere(&room_id, &state_key, everywhere).await
+        }
+
+        call fn soundboardCredits() -> Vec<SoundCredit> {
+            Ok(crate::soundboard_credits())
+        }
+
+        call fn soundboardSound(url: String) -> Bytes {
+            Ok(Bytes(this.soundboard_sound(&url).await?))
         }
 
         /// A token for a LiveKit service, for this device in the room's call.

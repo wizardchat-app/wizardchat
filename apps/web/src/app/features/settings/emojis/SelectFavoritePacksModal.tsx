@@ -8,6 +8,7 @@ import { Popover } from '@/app/components/Popover';
 import { Button } from '@/app/components/Button';
 import { AuthMediaImg } from '@/app/components/AuthMediaImg';
 import * as css from './EmojisStickers.css';
+import * as skeletonCss from '@/app/features/soundboard/SoundPackEditor.css';
 
 interface Props {
   client: MatrixClient;
@@ -35,7 +36,7 @@ export function FavoritePacksSelect({ client, current, onSave }: Props) {
   const roomNames = useRoomNames();
   const allPacks = useMemo(() => {
     const byRoom = new Map<string, RoomPackSummary[]>();
-    for (const pack of packs) {
+    for (const pack of packs ?? []) {
       const list = byRoom.get(pack.roomId) ?? [];
       list.push(pack);
       byRoom.set(pack.roomId, list);
@@ -65,7 +66,17 @@ export function FavoritePacksSelect({ client, current, onSave }: Props) {
         {t('settings.emojisStickers.selectPacks')}
       </Button>
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchorRef}>
-        {allPacks.length === 0 ? (
+        {packs === null ? (
+          <div className={css.popRoomGroup} aria-busy="true" aria-label={t('common.loading')}>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className={skeletonCss.skeleton}
+                style={{ height: 28, margin: '6px 8px' }}
+              />
+            ))}
+          </div>
+        ) : allPacks.length === 0 ? (
           <div className={css.popEmpty}>{t('settings.emojisStickers.noPacksFound')}</div>
         ) : (
           allPacks.map((group) => {

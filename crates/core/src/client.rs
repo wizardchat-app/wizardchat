@@ -88,6 +88,7 @@ pub struct WizardClient {
     pub(crate) spaces: Mutex<Option<Arc<SpaceService>>>,
     pub(crate) notifications:
         Mutex<Option<matrix_sdk::notification_settings::NotificationSettings>>,
+    pub(crate) sound_states: crate::sound_packs::PackStates,
 }
 
 impl WizardClient {
@@ -149,6 +150,7 @@ impl WizardClient {
             identity_reset_cancel: Mutex::new(None),
             spaces: Mutex::new(None),
             notifications: Mutex::new(None),
+            sound_states: Default::default(),
         }
     }
 

@@ -34,6 +34,8 @@ pub mod rpc;
 mod sections;
 mod session;
 mod settings;
+mod sound_packs;
+mod soundboard;
 mod spaces;
 mod timeline;
 #[cfg(not(target_arch = "wasm32"))]
@@ -77,6 +79,8 @@ pub use rooms::{UnreadMention, UnreadThread};
 pub use sections::RoomSection;
 pub use session::{Session, StoreConfig};
 pub use settings::{MentionRule, NotificationMode, NotificationPrefs};
+pub use sound_packs::{RoomSoundPacks, SoundPack, SoundPackSource};
+pub use soundboard::{soundboard_credits, SoundCredit, SoundboardSound};
 pub use spaces::SpaceHierarchy;
 pub use spaces::{SpaceChild, SpaceLink, SpaceNode, SpaceSummary};
 pub use timeline::{

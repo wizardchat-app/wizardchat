@@ -80,6 +80,7 @@ struct WizardTheme {
     var error: Color { colors.statusDanger }
     var danger: Color { colors.statusDanger }
     var success: Color { colors.statusSuccess }
+    var info: Color { colors.statusInfo }
     var warningColor: Color { colors.statusWarning }
     var linkColor: Color { colors.textLink }
     var logo: [Color] { [colors.logoP0, colors.logoP1, colors.logoP2, colors.logoP3, colors.logoP4, colors.logoP5] }

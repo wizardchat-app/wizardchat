@@ -28,6 +28,8 @@ pub enum Error {
     /// The homeserver refused, with a Matrix error code like `M_FORBIDDEN` or `M_LIMIT_EXCEEDED`
     #[error("{message}")]
     Matrix { errcode: String, message: String },
+    #[error("{0}")]
+    InvalidSound(String),
     #[error("the recovery key or passphrase is wrong")]
     WrongRecoveryKey,
     #[error("{0}")]

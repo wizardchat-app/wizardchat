@@ -71,6 +71,10 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['voice-video', 'settings.voiceVideo.pushToTalkKey'],
   ['voice-video', 'settings.voiceVideo.sounds'],
   ...SOUNDS.map((id): SettingsIndexEntry => ['voice-video', `settings.voiceVideo.sound.${id}`]),
+  ['voice-video', 'settings.voiceVideo.soundboard.title'],
+  ['voice-video', 'settings.voiceVideo.soundboard.volume'],
+  ['soundboard', 'settings.soundboard.defaultPack', 'settings.soundboard.defaultPackNote'],
+  ['soundboard', 'settings.soundboard.favoritePacks', 'settings.soundboard.favoritePacksNote'],
 
   ['appearance', 'settings.appearance.theme'],
   ['appearance', 'settings.appearance.messageLayout'],

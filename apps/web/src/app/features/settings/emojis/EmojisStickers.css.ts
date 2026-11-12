@@ -105,8 +105,6 @@ export const popRoomName = style({
   fontSize: '0.72rem',
   fontWeight: 700,
   color: vars.color.textMuted,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
   padding: '8px 10px 4px',
 });
 

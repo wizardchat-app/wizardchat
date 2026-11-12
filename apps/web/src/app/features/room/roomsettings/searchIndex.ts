@@ -2,8 +2,8 @@ import type { SettingsIndexEntry } from '@/app/components/Settings/SettingsSearc
 import { PERMISSION_GROUPS } from './permissionMatrix';
 
 export type RoomSettingsTab =
-  'general' | 'members' | 'permissions' | 'widgets' | 'emojis' | 'developer';
-export type SpaceSettingsTab = 'general' | 'members' | 'permissions' | 'emojis';
+  'general' | 'members' | 'permissions' | 'widgets' | 'emojis' | 'sounds' | 'developer';
+export type SpaceSettingsTab = 'general' | 'members' | 'permissions' | 'emojis' | 'sounds';
 
 function permissions(space: boolean): SettingsIndexEntry<'permissions'>[] {
   return PERMISSION_GROUPS.flatMap((group) => {
@@ -25,6 +25,7 @@ const SHARED: SettingsIndexEntry<SpaceSettingsTab>[] = [
   ['general', 'room.settings.security.access'],
   ['members', 'room.settings.members.searchMembers'],
   ['emojis', 'room.settings.emojis.createPack', 'room.settings.emojis.description'],
+  ['sounds', 'room.settings.sounds.createPack', 'room.settings.sounds.description'],
 ];
 
 export const ROOM_SETTINGS_INDEX: SettingsIndexEntry<RoomSettingsTab>[] = [

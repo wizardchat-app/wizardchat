@@ -10,7 +10,7 @@ export const field = style({
 
 export const columns = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(max(220px, calc(50% - 12px)), 1fr))',
   columnGap: '24px',
 });
 

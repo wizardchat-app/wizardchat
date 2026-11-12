@@ -87,6 +87,9 @@ struct SpaceSettingsView: View {
                     NavigationLink { RoomPacksView(roomId: space.id) } label: {
                         Label(String(localized: "room.settings.emojis.title"), image: "ph-smiley-regular")
                     }
+                    NavigationLink { RoomSoundPacksView(roomId: space.id) } label: {
+                        Label(String(localized: "room.settings.sounds.title"), image: "ph-vinyl-record-regular")
+                    }
                     CopyButton(title: "space.copyLink", image: "ph-link-simple-regular", value: "https://matrix.to/#/\(space.id)")
                 }
 

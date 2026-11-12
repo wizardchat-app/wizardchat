@@ -1799,6 +1799,16 @@ public struct RoomSettings: Codable, Hashable, Sendable {
     }
 }
 
+public struct RoomSoundPacks: Codable, Hashable, Sendable {
+    public var canEdit: Bool
+    public var packs: [SoundPack]
+
+    public init(canEdit: Bool, packs: [SoundPack]) {
+        self.canEdit = canEdit
+        self.packs = packs
+    }
+}
+
 /// What a room list row needs, without touching the SDK.
 public struct RoomSummary: Codable, Hashable, Sendable {
     public var id: String
@@ -2034,6 +2044,75 @@ public struct SfuConfig: Codable, Hashable, Sendable {
         self.jwt = jwt
         self.identity = identity
         self.alias = alias
+    }
+}
+
+public struct SoundCredit: Codable, Hashable, Sendable {
+    public var title: String
+    public var author: String
+    public var url: String
+
+    public init(title: String, author: String, url: String) {
+        self.title = title
+        self.author = author
+        self.url = url
+    }
+}
+
+public struct SoundPack: Codable, Hashable, Sendable {
+    public var id: String
+    public var source: SoundPackSource
+    public var roomId: String?
+    public var stateKey: String?
+    public var name: String?
+    public var roomName: String?
+    public var avatarUrl: String?
+    public var attribution: String?
+    public var everywhere: Bool
+    public var canEdit: Bool
+    public var sounds: [SoundboardSound]
+
+    public init(id: String, source: SoundPackSource, roomId: String? = nil, stateKey: String? = nil, name: String? = nil, roomName: String? = nil, avatarUrl: String? = nil, attribution: String? = nil, everywhere: Bool, canEdit: Bool, sounds: [SoundboardSound]) {
+        self.id = id
+        self.source = source
+        self.roomId = roomId
+        self.stateKey = stateKey
+        self.name = name
+        self.roomName = roomName
+        self.avatarUrl = avatarUrl
+        self.attribution = attribution
+        self.everywhere = everywhere
+        self.canEdit = canEdit
+        self.sounds = sounds
+    }
+}
+
+public enum SoundPackSource: String, Codable, Hashable, Sendable, CaseIterable {
+    case frequent = "frequent"
+    case builtIn = "builtIn"
+    case mine = "mine"
+    case everywhere = "everywhere"
+    case room = "room"
+    case space = "space"
+}
+
+public struct SoundboardSound: Codable, Hashable, Sendable {
+    public var shortcode: String
+    public var url: String
+    public var body: String?
+    public var emoji: String?
+    public var mimetype: String?
+    public var size: Int?
+    public var durationMs: Int?
+
+    public init(shortcode: String, url: String, body: String? = nil, emoji: String? = nil, mimetype: String? = nil, size: Int? = nil, durationMs: Int? = nil) {
+        self.shortcode = shortcode
+        self.url = url
+        self.body = body
+        self.emoji = emoji
+        self.mimetype = mimetype
+        self.size = size
+        self.durationMs = durationMs
     }
 }
 
@@ -3497,6 +3576,58 @@ public final class WizardClient: Remote, @unchecked Sendable {
     @discardableResult
     public func watchCallMembers(roomId: String, listener: @escaping @Sendable ([CallMember]) -> Void) -> Subscription {
         watch("WizardClient.watchCallMembers", [.value(roomId), .listener([CallMember].self, listener)])
+    }
+
+    public func soundboardPacks(roomId: String? = nil) async throws -> [SoundPack] {
+        try await call("WizardClient.soundboardPacks", [.value(roomId)])
+    }
+
+    public func favoriteSoundPacks() async throws -> [SoundPack] {
+        try await call("WizardClient.favoriteSoundPacks", [])
+    }
+
+    public func allSoundPacks() async throws -> [SoundPack] {
+        try await call("WizardClient.allSoundPacks", [])
+    }
+
+    public func recordSoundPlayed(url: String) async throws {
+        _ = try await call("WizardClient.recordSoundPlayed", [.value(url)]) as Empty
+    }
+
+    public func roomSoundPacks(roomId: String) async throws -> RoomSoundPacks {
+        try await call("WizardClient.roomSoundPacks", [.value(roomId)])
+    }
+
+    public func mySounds() async throws -> SoundPack {
+        try await call("WizardClient.mySounds", [])
+    }
+
+    public func uploadSound(data: Data, mimetype: String, durationMs: Int) async throws -> SoundboardSound {
+        try await call("WizardClient.uploadSound", [.bytes(data), .value(mimetype), .value(durationMs)])
+    }
+
+    public func saveSoundPack(roomId: String?, stateKey: String, name: String, attribution: String?, sounds: [SoundboardSound]) async throws {
+        _ = try await call("WizardClient.saveSoundPack", [.value(roomId), .value(stateKey), .value(name), .value(attribution), .value(sounds)]) as Empty
+    }
+
+    public func createSoundPack(roomId: String, name: String) async throws -> String {
+        try await call("WizardClient.createSoundPack", [.value(roomId), .value(name)])
+    }
+
+    public func deleteSoundPack(roomId: String, stateKey: String) async throws {
+        _ = try await call("WizardClient.deleteSoundPack", [.value(roomId), .value(stateKey)]) as Empty
+    }
+
+    public func setSoundPackEverywhere(roomId: String, stateKey: String, everywhere: Bool) async throws {
+        _ = try await call("WizardClient.setSoundPackEverywhere", [.value(roomId), .value(stateKey), .value(everywhere)]) as Empty
+    }
+
+    public func soundboardCredits() async throws -> [SoundCredit] {
+        try await call("WizardClient.soundboardCredits", [])
+    }
+
+    public func soundboardSound(url: String) async throws -> Data {
+        try await call("WizardClient.soundboardSound", [.value(url)])
     }
 
     /// A token for a LiveKit service, for this device in the room's call.

@@ -503,7 +503,7 @@
           "upgrade_room": "Upgrade the room",
           "change_encryption": "Enable encryption",
           "other_state_events": "Change other settings",
-          "manage_emotes": "Manage emojis & stickers",
+          "manage_emotes": "Manage emojis, stickers & sounds",
           "modify_widgets": "Modify widgets",
           "space_child": "Add / remove spaces"
         },
@@ -514,6 +514,25 @@
         "changePicture": "Change picture",
         "sectionTitle": "Permissions",
         "editHint": "Only people allowed to change roles can edit these."
+      },
+      "sounds": {
+        "title": "Soundboard",
+        "description": "Manage custom sound packs for this room.",
+        "createPack": "Create pack",
+        "packName": "Pack name",
+        "packNamePlaceholder": "Party sounds",
+        "createFailed": "Couldn't create the pack: {{error}}",
+        "noPacks": "No sound packs here yet.",
+        "deletePack": "Delete pack",
+        "deletePackConfirm": "Delete \"{{name}}\" and its sounds for everyone? This cannot be undone.",
+        "soundCount_one": "{{count}} sound",
+        "soundCount_other": "{{count}} sounds",
+        "sounds": "Sounds",
+        "addSounds": "Add Sounds",
+        "noSounds": "No sounds in this pack yet.",
+        "emoji": "Emoji",
+        "name": "Name",
+        "removeSound": "Remove sound"
       }
     },
     "dm": {
@@ -1067,6 +1086,41 @@
       "focus": "Focus video",
       "waitingFor": "Waiting for {{name}}..."
     },
+    "soundboard": {
+      "title": "Soundboard",
+      "loading": "Loading sounds...",
+      "failed": "The sounds couldn't be loaded.",
+      "note": "Only people using WizardChat hear these sounds.",
+      "sounds": {
+        "applause": "Applause",
+        "laugh": "Laughter",
+        "rimshot": "Ba-dum-tss",
+        "drumroll": "Drum roll",
+        "tada": "Ta-da",
+        "airhorn": "Air horn",
+        "crickets": "Crickets",
+        "sad_trombone": "Sad trombone"
+      },
+      "limits": "MP3, M4A or WAV, up to 1 MB and 15 seconds.",
+      "preview": "Play",
+      "stopPreview": "Stop",
+      "packs": {
+        "builtIn": "WizardChat",
+        "mine": "My sounds",
+        "frequent": "Frequently used"
+      },
+      "errors": {
+        "unsupported": "This file can't be used. Choose an MP3, M4A or WAV file.",
+        "tooLarge": "The sound is larger than 1 MB.",
+        "tooLong": "The sound is longer than 15 seconds.",
+        "badShortcode": "Shortcodes may only contain letters, numbers, hyphens and underscores (max 100 chars).",
+        "shortcodeTaken": "That shortcode is already in use."
+      },
+      "noRoomSounds": "No sounds in this room. Add some in Room Settings.",
+      "search": "Search sounds",
+      "noResults": "No sounds found",
+      "volume": "Soundboard volume"
+    },
     "volumeHint": "Tap to change their volume",
     "userScreen": "{{name}}'s screen",
     "empty": "No one is here yet",
@@ -1455,6 +1509,10 @@
         "reaction": "Reaction",
         "watchTogether": "Watch together started"
       },
+      "soundboard": {
+        "title": "Soundboard",
+        "volume": "Soundboard volume"
+      },
       "pushToTalkNote": "In calls, hold the mic button to talk. You're silent the rest of the time."
     },
     "emojisStickers": {
@@ -1567,7 +1625,9 @@
       "phosphorIcons": "<phosphorLink>Phosphor Icons</phosphorLink> is © Phosphor Icons used under the terms of the MIT License.",
       "privacyPolicy": "Privacy policy",
       "creditMatrix": "is © The Matrix.org Foundation C.I.C. used under the terms of the Apache License, Version 2.0.",
-      "creditRoboto": "is © Google used under the terms of the Apache License, Version 2.0."
+      "creditRoboto": "is © Google used under the terms of the Apache License, Version 2.0.",
+      "sounds": "Sounds",
+      "creditSound": "by {{author}} on Freesound, CC0 1.0 (public domain)."
     },
     "encryption": {
       "title": "Encryption",
@@ -1593,7 +1653,14 @@
       "wrongKey": "Wrong decryption key. Please check your recovery key and try again.",
       "recoveryKeySaveHint": "Save this key somewhere safe. You need it to read your encrypted messages on new devices.\n\n{{key}}"
     },
-    "search": "Search settings"
+    "search": "Search settings",
+    "soundboard": {
+      "title": "Soundboard",
+      "favoritePacks": "Favorite Packs",
+      "favoritePacksNote": "Pick sound packs from your rooms to use them in every call.",
+      "defaultPack": "Default Pack",
+      "defaultPackNote": "Your personal pack is available in every call."
+    }
   },
   "verification": {
     "otherDeviceHint": "Open WizardChat (or another Matrix app) on a device that's already verified and accept the request.",

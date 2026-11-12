@@ -5,6 +5,7 @@ import {
   keybindsAtom,
   pushToTalkEnabledAtom,
   settingsPageAtom,
+  soundboardVolumeAtom,
   voiceSoundsAtom,
 } from '@/app/store/atoms';
 import { ToggleRow } from '@/app/components/Toggle';
@@ -208,6 +209,21 @@ function Sounds() {
   );
 }
 
+function Soundboard() {
+  const { t } = useTranslation();
+  const [volume, setVolume] = useAtom(soundboardVolumeAtom);
+  const label = t('settings.voiceVideo.soundboard.volume');
+  return (
+    <div className={layoutCss.section}>
+      <h3 className={layoutCss.sectionTitle}>{t('settings.voiceVideo.soundboard.title')}</h3>
+      <div className={css.field}>
+        <span className={layoutCss.fieldLabel}>{label}</span>
+        <VolumeSlider value={volume} label={label} onChange={setVolume} />
+      </div>
+    </div>
+  );
+}
+
 export function VoiceVideo() {
   const { t } = useTranslation();
   const devices = useDevices(AUDIO_KINDS);
@@ -253,6 +269,9 @@ export function VoiceVideo() {
 
       <div className={layoutCss.divider} />
       <Sounds />
+
+      <div className={layoutCss.divider} />
+      <Soundboard />
     </div>
   );
 }

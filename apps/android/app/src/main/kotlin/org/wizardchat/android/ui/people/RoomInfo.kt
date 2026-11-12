@@ -61,6 +61,9 @@ import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.core.RoomSummary
+import org.wizardchat.core.SoundPack
+import org.wizardchat.android.ui.voice.SoundPackEditorScreen
+import org.wizardchat.android.ui.voice.RoomSoundPacksScreen
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
 
@@ -70,6 +73,8 @@ internal sealed interface PeoplePage {
     data class Roles(val roomId: String) : PeoplePage
     data class Packs(val roomId: String) : PeoplePage
     data class PackEditor(val roomId: String, val key: String, val content: JsonObject, val canEdit: Boolean) : PeoplePage
+    data class SoundPacks(val roomId: String) : PeoplePage
+    data class SoundPackEditor(val roomId: String, val pack: SoundPack, val canEdit: Boolean) : PeoplePage
     data object Search : PeoplePage
     data object Media : PeoplePage
     data class Pinned(val canPin: Boolean) : PeoplePage
@@ -87,6 +92,15 @@ internal fun SharedPage(page: PeoplePage, push: (PeoplePage) -> Unit, pop: () ->
             push(PeoplePage.PackEditor(page.roomId, key, content, canEdit))
         }
         is PeoplePage.PackEditor -> PackEditorScreen(page.roomId, page.key, page.content, page.canEdit, pop)
+        is PeoplePage.SoundPacks -> RoomSoundPacksScreen(page.roomId, pop) { pack, canEdit ->
+            push(PeoplePage.SoundPackEditor(page.roomId, pack, canEdit))
+        }
+        is PeoplePage.SoundPackEditor -> {
+            val client = LocalSession.current.client
+            SoundPackEditorScreen(page.roomId, page.pack, page.canEdit, pop, onDelete = {
+                runCatching { client?.deleteSoundPack(page.roomId, page.pack.stateKey ?: "") }
+            })
+        }
         else -> return false
     }
     return true
@@ -317,6 +331,8 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                                 NavRow(tr("room.settings.permissions.title"), "shield-check", { push(PeoplePage.Roles(room.id)) })
                                 RowDivider()
                                 NavRow(tr("room.settings.emojis.title"), "smiley", { push(PeoplePage.Packs(room.id)) })
+                                RowDivider()
+                                NavRow(tr("room.settings.sounds.title"), "vinyl-record", { push(PeoplePage.SoundPacks(room.id)) })
                                 RowDivider()
                                 NavRow(tr("room.settings.widgets.title"), "puzzle-piece", { push(PeoplePage.Widgets(canManageWidgets)) })
                                 if (bridges.isNotEmpty()) {

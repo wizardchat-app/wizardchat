@@ -79,6 +79,7 @@ class WizardTheme(val id: WZ.Theme) {
     val error get() = colors.statusDanger
     val danger get() = colors.statusDanger
     val success get() = colors.statusSuccess
+    val info get() = colors.statusInfo
     val warningColor get() = colors.statusWarning
     val linkColor get() = colors.textLink
     val presenceOnline get() = colors.presenceOnline

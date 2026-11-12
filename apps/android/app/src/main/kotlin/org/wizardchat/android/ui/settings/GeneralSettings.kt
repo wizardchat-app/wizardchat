@@ -73,6 +73,7 @@ import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.tokens.WZ
+import org.wizardchat.core.SoundCredit
 
 @Composable
 internal fun AppearanceSettings(onBack: () -> Unit) {
@@ -515,6 +516,7 @@ internal fun AboutSettings(onBack: () -> Unit) {
                 Credit("matrix-rust-sdk", "https://github.com/matrix-org/matrix-rust-sdk", tr("settings.about.creditMatrix"))
                 Credit("Roboto", "https://fonts.google.com/specimen/Roboto", tr("settings.about.creditRoboto"))
             }
+            SoundCredits()
         }
 
         Row(
@@ -537,6 +539,32 @@ private fun FooterLink(text: String, icon: String, onClick: () -> Unit) {
     ) {
         PhIcon(icon, size = WZ.SizeIcon.sm, tint = theme.textMuted)
         Text(text, style = wizardFont(WZ.FontSize.sm), color = theme.textMuted)
+    }
+}
+
+@Composable
+private fun SoundCredits() {
+    val client = LocalSession.current.client
+    var expanded by remember { mutableStateOf(false) }
+    var credits by remember { mutableStateOf<List<SoundCredit>>(emptyList()) }
+    LaunchedEffect(expanded, client) {
+        if (expanded && credits.isEmpty() && client != null) credits = runCatching { client.soundboardCredits() }.getOrDefault(emptyList())
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded }
+            .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4),
+        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(tr("settings.about.sounds"), Modifier.weight(1f), style = wizardFont(WZ.FontSize.lg), color = theme.textPrimary)
+        PhIcon("caret-down", size = WZ.SizeIcon.sm, tint = theme.textMuted, modifier = Modifier.rotate(if (expanded) 180f else 0f))
+    }
+    AnimatedVisibility(expanded) {
+        SettingsItem {
+            credits.forEach { Credit(it.title, it.url, tr("settings.about.creditSound", it.author)) }
+        }
     }
 }
 

@@ -205,6 +205,8 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
                                 RowDivider()
                                 NavRow(tr("room.settings.emojis.title"), "smiley", { push(PeoplePage.Packs(space.id)) })
                                 RowDivider()
+                                NavRow(tr("room.settings.sounds.title"), "vinyl-record", { push(PeoplePage.SoundPacks(space.id)) })
+                                RowDivider()
                                 CopyRow(tr("space.copyLink"), "link-simple", "https://matrix.to/#/${space.id}")
                             }
                         }

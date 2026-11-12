@@ -20,6 +20,7 @@ import {
 import { AuthMediaImg } from '@/app/components/AuthMediaImg';
 import { PackEditor, type PackData } from './PackEditor';
 import * as css from './RoomSettingsEmojiSticker.css';
+import * as skeletonCss from '@/app/features/soundboard/SoundPackEditor.css';
 import * as panelCss from '@/app/components/Settings/Settings.css';
 
 const PONIES_ROOM_EMOTES = 'im.ponies.room_emotes';
@@ -135,6 +136,7 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
   const can = useCanSendState(roomId);
   const canManage = can(PONIES_ROOM_EMOTES);
   const [packs, setPacks] = useState<PackData[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState<PackData | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newPackName, setNewPackName] = useState('');
@@ -149,11 +151,13 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
   useEffect(() => {
     let cancelled = false;
     setPacks([]);
+    setLoaded(false);
     readRoomPackContents(client, roomId)
       .then((packEvents) => {
         if (!cancelled) setPacks(parsePacks(packEvents));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => !cancelled && setLoaded(true));
     const onState = (event: Event) => {
       const { roomId: changedRoom, eventType } = (
         event as CustomEvent<{ roomId: string; eventType: string }>
@@ -297,7 +301,13 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
 
       <div className={panelCss.divider} />
 
-      {packs.length === 0 ? (
+      {!loaded ? (
+        <div className={css.packList} aria-busy="true" aria-label={t('common.loading')}>
+          {[0, 1].map((i) => (
+            <div key={i} className={skeletonCss.skeleton} style={{ height: 58 }} />
+          ))}
+        </div>
+      ) : packs.length === 0 ? (
         <div className={css.emptyPacks}>{t('room.settings.emojis.noPacks')}</div>
       ) : (
         <div className={css.packList}>

@@ -138,6 +138,9 @@ struct CallControls: View {
                     label: calls.deafened ? "call.undeafen" : "call.deafen") { calls.toggleDeafen() }
             control(calls.cameraOn ? "ph-video-camera-regular" : "ph-video-camera-slash-regular", active: false, highlighted: calls.cameraOn,
                     label: calls.cameraOn ? "call.turnCameraOff" : "call.turnCameraOn") { calls.toggleCamera() }
+            if calls.soundboard != nil {
+                control("ph-vinyl-record-regular", active: false, label: "call.soundboard.title") { showSoundboard = true }
+            }
             Menu {
                 ControlGroup {
                     ForEach(CallReaction.all.prefix(6)) { reaction in
@@ -205,9 +208,11 @@ struct CallControls: View {
         .sheet(isPresented: $showWatchSheet) {
             if let watch = calls.watch { WatchTogetherStartSheet(watch: watch) }
         }
+        .sheet(isPresented: $showSoundboard) { SoundboardSheet() }
     }
 
     @State private var showWatchSheet = false
+    @State private var showSoundboard = false
 
     private var moreHighlighted: Bool { calls.handRaised || calls.screenSharing }
 

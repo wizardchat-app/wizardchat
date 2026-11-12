@@ -62,6 +62,7 @@ internal enum class SettingsPageId(val titleKey: String, val icon: String) {
     account("settings.account.title", "user"),
     privacy("settings.privacy.title", "shield"),
     emojis("room.settings.emojis.title", "smiley-sticker"),
+    soundboard("settings.soundboard.title", "vinyl-record"),
     notifications("settings.notifications.title", "bell"),
     voiceVideo("settings.voiceVideo.title", "microphone"),
     appearance("settings.appearance.title", "palette"),
@@ -106,6 +107,7 @@ fun SettingsScreen(isTab: Boolean, onDismiss: (() -> Unit)? = null) {
             SettingsPageId.account -> AccountSettings(pop)
             SettingsPageId.privacy -> PrivacySettings(pop)
             SettingsPageId.emojis -> EmojisSettings(pop)
+            SettingsPageId.soundboard -> org.wizardchat.android.ui.voice.SoundboardSettings(pop)
             SettingsPageId.notifications -> NotificationSettingsPage(pop)
             SettingsPageId.voiceVideo -> VoiceVideoSettings(pop)
             SettingsPageId.appearance -> AppearanceSettings(pop)
@@ -171,7 +173,7 @@ private fun SettingsRoot(isTab: Boolean, onDismiss: (() -> Unit)?, open: (Settin
                 SettingsDivider()
                 AccountSwitcher(onLogout = { if (!isTab) onDismiss?.invoke() })
             }
-            PageRows(listOf(SettingsPageId.privacy, SettingsPageId.notifications, SettingsPageId.emojis), open)
+            PageRows(listOf(SettingsPageId.privacy, SettingsPageId.notifications, SettingsPageId.emojis, SettingsPageId.soundboard), open)
             PageRows(listOf(SettingsPageId.voiceVideo, SettingsPageId.appearance, SettingsPageId.accessibility, SettingsPageId.language), open)
             PageRows(listOf(SettingsPageId.sessions, SettingsPageId.encryption, SettingsPageId.developer, SettingsPageId.about), open)
             }

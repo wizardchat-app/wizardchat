@@ -100,7 +100,7 @@ export interface InviteModalState {
 export const inviteModalRoomIdAtom = atom<InviteModalState | null>(null);
 export const roomSettingsRoomIdAtom = atom<string | null>(null);
 export const roomSettingsTabAtom = atom<
-  'general' | 'members' | 'permissions' | 'widgets' | 'emojis' | 'developer' | null
+  'general' | 'members' | 'permissions' | 'widgets' | 'emojis' | 'sounds' | 'developer' | null
 >(null);
 export const spaceSettingsRoomIdAtom = atom<string | null>(null);
 
@@ -256,6 +256,7 @@ export type SettingsPage =
   | 'notifications'
   | 'voice-video'
   | 'emojis-stickers'
+  | 'soundboard'
   | 'keybinds'
   | 'language'
   | 'developer'

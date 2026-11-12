@@ -19,6 +19,7 @@ import {
   SquaresFourIcon,
   VideoCameraIcon,
   VideoCameraSlashIcon,
+  VinylRecordIcon,
   YoutubeLogoIcon,
 } from '@phosphor-icons/react';
 import { Tooltip } from '@/app/components/Tooltip';
@@ -27,6 +28,7 @@ import {
   callActionsAtom,
   callEffectiveViewAtom,
   callIsVoiceRoomAtom,
+  callPanelAtom,
   callUiAtom,
   callSessionAtom,
   showNonVideoParticipantsAtom,
@@ -55,6 +57,7 @@ export function CallControlBar() {
   const view = useAtomValue(callEffectiveViewAtom);
   const isVoiceCall = useAtomValue(callIsVoiceRoomAtom);
   const callSession = useAtomValue(callSessionAtom);
+  const panel = useAtomValue(callPanelAtom);
   const [showNonVideo, setShowNonVideo] = useAtom(showNonVideoParticipantsAtom);
   const callSnapshot = useCallSnapshot();
   const hasVideo = !!callSnapshot?.participants.some((p) => p.camera || p.screenShared);
@@ -150,6 +153,38 @@ export function CallControlBar() {
           </button>
         </Tooltip>
       </div>
+
+      {callSession && view !== 'tile' && (
+        <>
+          <span className={css.divider} />
+          <div className={css.group}>
+            <Tooltip content={t('call.soundboard.title')}>
+              <button
+                type="button"
+                data-call-panel-toggle
+                className={panel === 'soundboard' ? css.ctrlAccent : css.ctrl}
+                onClick={() => actions.openSoundboard()}
+                aria-label={t('call.soundboard.title')}
+                aria-pressed={panel === 'soundboard'}
+              >
+                <VinylRecordIcon size={20} weight={panel === 'soundboard' ? 'fill' : 'regular'} />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('call.reactions')}>
+              <button
+                type="button"
+                data-call-panel-toggle
+                className={panel === 'reactions' ? css.ctrlAccent : css.ctrl}
+                onClick={() => actions.openReactions()}
+                aria-label={t('call.reactions')}
+                aria-pressed={panel === 'reactions'}
+              >
+                <SmileyIcon size={20} weight={panel === 'reactions' ? 'fill' : 'regular'} />
+              </button>
+            </Tooltip>
+          </div>
+        </>
+      )}
 
       <span className={css.divider} />
 
@@ -319,20 +354,6 @@ export function CallControlBar() {
               <span className={css.menuBadge}>{t('call.watchTogether.beta')}</span>
             </button>
           )}
-
-          <button
-            type="button"
-            role="menuitem"
-            className={css.menuItem}
-            onClick={() => {
-              actions.openReactions();
-              closeMenu();
-            }}
-          >
-            <SmileyIcon size={16} />
-            <span className={css.menuItemLabel}>{t('call.reactions')}</span>
-            <span className={css.menuItemSpacer} />
-          </button>
 
           <button
             type="button"
