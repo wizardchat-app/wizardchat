@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PlusIcon, StickerIcon, TrashIcon, PencilSimpleIcon } from '@phosphor-icons/react';
 import type { WizardClient } from '@wizardchat/core';
@@ -138,6 +138,8 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
   const [editing, setEditing] = useState<PackData | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newPackName, setNewPackName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   const reload = useCallback(async () => {
     const packEvents = await readRoomPackContents(client, roomId);
@@ -175,7 +177,9 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
   const canCreatePack = newPackName.trim().length > 0 && canManage;
 
   const handleCreate = useCallback(async () => {
-    if (!canCreatePack) return;
+    if (!canCreatePack || creatingRef.current) return;
+    creatingRef.current = true;
+    setCreating(true);
     const name = newPackName.trim();
     const stateKey = crypto.randomUUID();
     try {
@@ -193,6 +197,9 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
       setNewPackName('');
     } catch (err) {
       toast.error(t('room.settings.emojis.createFailed', { error: getErrorMessage(err) }));
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
     }
   }, [canCreatePack, newPackName, client, roomId, reload, toast, t]);
 
@@ -362,7 +369,12 @@ export function EmojiStickerPanel({ client, roomId }: Props) {
             >
               {t('common.cancel')}
             </Button>
-            <Button variant="primary" onClick={handleCreate} disabled={!canCreatePack}>
+            <Button
+              variant="primary"
+              onClick={handleCreate}
+              disabled={!canCreatePack}
+              loading={creating}
+            >
               {t('room.settings.emojis.createPack')}
             </Button>
           </div>
