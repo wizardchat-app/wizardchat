@@ -1413,7 +1413,11 @@
       "keywordExists": "This keyword is already set.",
       "bannerNote": "Show a banner when a message arrives.",
       "systemDisabledIos": "Notifications are turned off for WizardChat in the iOS Settings app.",
-      "systemDisabledAndroid": "Notifications are turned off for WizardChat in Android's settings."
+      "systemDisabledAndroid": "Notifications are turned off for WizardChat in Android's settings.",
+      "pushNoDistributor": "To get notifications while WizardChat is closed, install a UnifiedPush app such as ntfy.",
+      "pushGetNtfy": "Get ntfy",
+      "pushOpenDistributor": "Open {{app}} once so it can deliver notifications to WizardChat, and turn off battery optimization for it.",
+      "pushOpenApp": "Open {{app}}"
     },
     "voiceVideo": {
       "title": "Voice & Video",

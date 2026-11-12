@@ -10,6 +10,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 internal object PushProvider {
+    fun setup(): PushSetup = PushSetup.Ready
+
+    fun openDistributor() = Unit
+
+    fun gateway(@Suppress("UNUSED_PARAMETER") pushkey: String) = "https://push.wizardchat.org/_matrix/push/v1/notify"
+
     suspend fun token(): String? = runCatching {
         suspendCancellableCoroutine { continuation ->
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->

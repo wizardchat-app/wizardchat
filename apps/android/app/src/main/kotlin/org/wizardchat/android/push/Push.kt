@@ -20,8 +20,13 @@ import org.wizardchat.android.matrix.StoredSession
 import org.wizardchat.core.PusherConfig
 import org.wizardchat.core.SyncState
 
+sealed interface PushSetup {
+    data object Ready : PushSetup
+    data object NoDistributor : PushSetup
+    data class OpenDistributor(val name: String) : PushSetup
+}
+
 object Push {
-    private const val GATEWAY = "https://push.wizardchat.org/_matrix/push/v1/notify"
     private const val FETCH_TIMEOUT_MS = 15_000L
     private const val REGISTER_TIMEOUT_MS = 30_000L
     private const val TAG = "Push"
@@ -33,12 +38,13 @@ object Push {
     /** Points every signed-in account's pusher at this device's current token */
     suspend fun register(token: String? = null) {
         val pushkey = token ?: PushProvider.token() ?: return
+        val gateway = PushProvider.gateway(pushkey)
         mutex.withLock {
             coroutineScope {
                 SessionStore.all().forEach { stored ->
                     launch {
                         val userId = stored.session.userId
-                        val done = withTimeoutOrNull(REGISTER_TIMEOUT_MS) { register(stored, pushkey) }
+                        val done = withTimeoutOrNull(REGISTER_TIMEOUT_MS) { register(stored, pushkey, gateway) }
                         if (done == null) Log.w(TAG, "registering the pusher for $userId timed out")
                     }
                 }
@@ -46,9 +52,9 @@ object Push {
         }
     }
 
-    private suspend fun register(stored: StoredSession, pushkey: String) {
+    private suspend fun register(stored: StoredSession, pushkey: String, gateway: String) {
         val userId = stored.session.userId
-        val current = "$pushkey|$GATEWAY"
+        val current = "$pushkey|$gateway"
         val previous = registered.getString(userId, null)
         if (previous == current) return
         try {
@@ -57,7 +63,7 @@ object Push {
                 PusherConfig(
                     appId = BuildConfig.APPLICATION_ID,
                     pushkey = pushkey,
-                    gatewayUrl = GATEWAY,
+                    gatewayUrl = gateway,
                     appName = "WizardChat",
                     deviceName = MatrixSession.DEVICE_NAME,
                     lang = Locale.getDefault().toLanguageTag(),

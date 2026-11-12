@@ -1413,7 +1413,11 @@
       "keywordExists": "Dieses Schlüsselwort ist bereits gesetzt.",
       "bannerNote": "Zeige ein Banner, wenn eine Nachricht eintrifft.",
       "systemDisabledIos": "Benachrichtigungen für WizardChat sind in der iOS-Einstellungen-App ausgeschaltet.",
-      "systemDisabledAndroid": "Benachrichtigungen für WizardChat sind in den Android-Einstellungen ausgeschaltet."
+      "systemDisabledAndroid": "Benachrichtigungen für WizardChat sind in den Android-Einstellungen ausgeschaltet.",
+      "pushNoDistributor": "Installiere eine UnifiedPush-App wie ntfy, um Benachrichtigungen zu bekommen, während WizardChat geschlossen ist.",
+      "pushGetNtfy": "ntfy holen",
+      "pushOpenDistributor": "Öffne {{app}} einmal, damit es Benachrichtigungen an WizardChat zustellen kann, und schalte die Akkuoptimierung dafür aus.",
+      "pushOpenApp": "{{app}} öffnen"
     },
     "voiceVideo": {
       "title": "Sprache & Video",

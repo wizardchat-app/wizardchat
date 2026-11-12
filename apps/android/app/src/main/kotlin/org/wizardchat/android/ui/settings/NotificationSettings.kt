@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.LocalSession
@@ -43,6 +45,9 @@ import org.wizardchat.android.matrix.ManagedRule
 import org.wizardchat.android.matrix.NotifLevel
 import org.wizardchat.android.matrix.PushRuleSets
 import org.wizardchat.android.matrix.PushRules
+import org.wizardchat.android.push.Push
+import org.wizardchat.android.push.PushProvider
+import org.wizardchat.android.push.PushSetup
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PhWeight
@@ -73,6 +78,21 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
     var keyword by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var bannersDenied by remember { mutableStateOf(false) }
+    var pushSetup by remember { mutableStateOf(PushProvider.setup()) }
+
+    LifecycleResumeEffect(Unit) {
+        pushSetup = PushProvider.setup()
+        val registering = if (pushSetup is PushSetup.OpenDistributor) {
+            scope.launch {
+                Push.register()
+                delay(2_000)
+                pushSetup = PushProvider.setup()
+            }
+        } else {
+            null
+        }
+        onPauseOrDispose { registering?.cancel() }
+    }
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         bannersDenied = !granted || !notificationsAllowed(context)
@@ -163,23 +183,22 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
         if (bannersDenied) {
             StatusText(tr("settings.notifications.systemDisabledAndroid"))
             // The app's notification settings in Android
-            SettingsSection {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = WZ.Space.space11)
-                        .clickable {
-                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            runCatching { context.startActivity(intent) }
-                        }
-                        .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(tr("common.settings"), Modifier.weight(1f), style = wizardFont(WZ.FontSize.md), color = theme.accent)
-                    PhIcon("arrow-square-out", size = WZ.SizeIcon.sm, tint = theme.accent)
-                }
+            LinkRow(tr("common.settings")) {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { context.startActivity(intent) }
+            }
+        }
+        when (val setup = pushSetup) {
+            PushSetup.Ready -> {}
+            PushSetup.NoDistributor -> {
+                StatusText(tr("settings.notifications.pushNoDistributor"))
+                LinkRow(tr("settings.notifications.pushGetNtfy"), PushProvider::openDistributor)
+            }
+            is PushSetup.OpenDistributor -> {
+                StatusText(tr("settings.notifications.pushOpenDistributor", setup.name))
+                LinkRow(tr("settings.notifications.pushOpenApp", setup.name), PushProvider::openDistributor)
             }
         }
 
@@ -254,3 +273,21 @@ private fun FlowChips(items: List<String>, onRemove: (String) -> Unit) {
         }
     }
 }
+
+@Composable
+private fun LinkRow(text: String, onClick: () -> Unit) {
+    SettingsSection {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = WZ.Space.space11)
+                .clickable(onClick = onClick)
+                .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text, Modifier.weight(1f), style = wizardFont(WZ.FontSize.md), color = theme.accent)
+            PhIcon("arrow-square-out", size = WZ.SizeIcon.sm, tint = theme.accent)
+        }
+    }
+}
+

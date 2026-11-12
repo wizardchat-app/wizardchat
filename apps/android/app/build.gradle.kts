@@ -35,7 +35,7 @@ android {
         versionName = appVersion
     }
 
-    // gplay pushes through Firebase; fdroid has no Google code (UnifiedPush comes later)
+    // gplay pushes through Firebase; fdroid through UnifiedPush, with no Google code
     flavorDimensions += "distribution"
     productFlavors {
         create("gplay") { dimension = "distribution" }
@@ -87,6 +87,12 @@ kotlin {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
 
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.google.crypto.tink:tink")).using(module("com.google.crypto.tink:tink-android:1.24.0"))
+    }
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(platform(libs.compose.bom))
@@ -107,4 +113,5 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
     "gplayImplementation"(libs.firebase.messaging)
+    "fdroidImplementation"(libs.unifiedpush.connector)
 }
