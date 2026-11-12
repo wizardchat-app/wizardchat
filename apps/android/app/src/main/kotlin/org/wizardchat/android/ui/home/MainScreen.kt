@@ -146,6 +146,11 @@ fun MainScreen(roomList: RoomListModel) {
         }
     }
 
+    fun showThread(roomId: String, rootEventId: String) {
+        show(roomId)
+        paths[tab] = paths[tab].orEmpty() + Route.Thread(roomId, rootEventId)
+    }
+
     fun showSpace(spaceId: String) {
         tab = Tab.spaces
         paths[Tab.spaces] = listOf(Route.Space(spaceId))
@@ -271,7 +276,7 @@ fun MainScreen(roomList: RoomListModel) {
                 whatsNew = null
             }
         }
-        if (showInbox) InboxSheet(roomList, { showInbox = false }, onOpenRoom = ::show, onOpenSpace = ::showSpace)
+        if (showInbox) InboxSheet(roomList, { showInbox = false }, onOpenRoom = ::show, onOpenSpace = ::showSpace, onOpenThread = ::showThread)
         if (showCreateSpace) CreateSpaceSheet({ showCreateSpace = false }, onCreated = ::showSpace)
         if (showExplore) {
             ExploreSheet(roomList, { showExplore = false }) { roomId ->

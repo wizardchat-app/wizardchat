@@ -1615,7 +1615,6 @@ public struct RichSpan: Codable, Hashable, Sendable {
     /// A mentioned user's ID; `text` is "@name", as the plain body shows mentions
     public var mention: String?
     public var spoiler: Bool
-    /// A custom emoji's image (an `mxc://` URL); `text` is its ":shortcode:"
     public var emoticon: String?
 
     public init(text: String, bold: Bool, italic: Bool, strike: Bool, underline: Bool, code: Bool, link: String? = nil, mention: String? = nil, spoiler: Bool, emoticon: String? = nil) {
@@ -1810,6 +1809,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
     public var isFavourite: Bool
     public var unreadMessages: Int
     public var unreadMentions: Int
+    public var unreadThreads: Int
     public var unreadNotifications: Int
     public var markedUnread: Bool
     public var isVoice: Bool
@@ -1840,7 +1840,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
     public var dmUserName: String?
     public var dmUserAvatar: String?
 
-    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil) {
+    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil) {
         self.id = id
         self.name = name
         self.avatarUrl = avatarUrl
@@ -1849,6 +1849,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
         self.isFavourite = isFavourite
         self.unreadMessages = unreadMessages
         self.unreadMentions = unreadMentions
+        self.unreadThreads = unreadThreads
         self.unreadNotifications = unreadNotifications
         self.markedUnread = markedUnread
         self.isVoice = isVoice
@@ -2539,6 +2540,28 @@ public struct UnreadMention: Codable, Hashable, Sendable {
     }
 }
 
+public struct UnreadThread: Codable, Hashable, Sendable {
+    public var rootEventId: String
+    public var rootBody: String?
+    public var unread: Int
+    public var latestEventId: String
+    public var latestSender: String
+    public var latestSenderName: String?
+    public var latestBody: String?
+    public var latestTimestamp: Int
+
+    public init(rootEventId: String, rootBody: String? = nil, unread: Int, latestEventId: String, latestSender: String, latestSenderName: String? = nil, latestBody: String? = nil, latestTimestamp: Int) {
+        self.rootEventId = rootEventId
+        self.rootBody = rootBody
+        self.unread = unread
+        self.latestEventId = latestEventId
+        self.latestSender = latestSender
+        self.latestSenderName = latestSenderName
+        self.latestBody = latestBody
+        self.latestTimestamp = latestTimestamp
+    }
+}
+
 /// How far an upload got, in bytes
 public struct UploadProgress: Codable, Hashable, Sendable {
     public var current: Int
@@ -3153,6 +3176,10 @@ public final class WizardClient: Remote, @unchecked Sendable {
     /// replies to them), newest first.
     public func unreadMentions(roomId: String, limit: Int) async throws -> [UnreadMention] {
         try await call("WizardClient.unreadMentions", [.value(roomId), .value(limit)])
+    }
+
+    public func unreadThreads(roomId: String) async throws -> [UnreadThread] {
+        try await call("WizardClient.unreadThreads", [.value(roomId)])
     }
 
     /// Calls `listener` with diffs of every joined space, subspaces included.

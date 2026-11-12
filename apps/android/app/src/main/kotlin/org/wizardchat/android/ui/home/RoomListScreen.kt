@@ -315,7 +315,7 @@ fun RoomListScreen(roomList: RoomListModel, selection: SidebarSelection, onOpenI
 @Composable
 private fun InboxButton(roomList: RoomListModel, onClick: () -> Unit) {
     val mentions = roomList.mentionRooms.isNotEmpty()
-    val badge = mentions || roomList.invites.isNotEmpty()
+    val badge = mentions || roomList.invites.isNotEmpty() || roomList.threadRooms.isNotEmpty()
     BarButton("tray", tr("inbox.title"), onClick, badge = if (badge) ({ UnreadDot(mentions) }) else null)
 }
 

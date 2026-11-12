@@ -47,6 +47,7 @@ final class RoomListModel: ObservableObject {
     @Published private(set) var joinedRooms: [RoomSummary] = []
     @Published private(set) var invites: [RoomSummary] = []
     @Published private(set) var mentionRooms: [RoomSummary] = []
+    @Published private(set) var threadRooms: [RoomSummary] = []
     /// Notification settings just picked here, shown until the room list catches up (as on the web)
     @Published private var notificationOverrides: [String: NotificationMode?] = [:]
     @Published private(set) var spaces: [SpaceSummary] = []
@@ -292,6 +293,7 @@ final class RoomListModel: ObservableObject {
         }
         invites = rooms.filter(\.isInvite)
         mentionRooms = joinedRooms.filter { $0.mentionCount > 0 }
+        threadRooms = joinedRooms.filter { $0.unreadThreads > 0 }
         roomsReceived = true
         refreshGraph()
     }

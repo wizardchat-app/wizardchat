@@ -104,7 +104,7 @@ struct MainTabView: View {
             if loaded, whatsNew == nil { whatsNew = WhatsNew.unseen }
         }
         .sheet(isPresented: $showInbox) {
-            InboxView(roomList: roomList, onOpenRoom: show, onOpenSpace: showSpace)
+            InboxView(roomList: roomList, onOpenRoom: show, onOpenSpace: showSpace, onOpenThread: showThread)
         }
         .sheet(isPresented: $showCreateSpace) {
             CreateSpaceView { spaceId in showSpace(spaceId) }
@@ -188,6 +188,15 @@ struct MainTabView: View {
                         .toolbar(.hidden, for: .tabBar)
                     case .space(let id):
                         RoomListScreen(roomList: roomList, selection: .space(id))
+                    case .thread(let id, let root):
+                        Group {
+                            if let room = roomList.room(id: id) {
+                                RoomView(room: room, client: roomList.client, threadRoot: root).id("\(id)|\(root)")
+                            } else {
+                                ProgressView().tint(theme.accent)
+                            }
+                        }
+                        .toolbar(.hidden, for: .tabBar)
                     }
                 }
             }
@@ -213,7 +222,7 @@ struct MainTabView: View {
     private func showsCallBar(in item: Tab) -> Bool {
         guard calls.isInCall, calls.room?.id != nil else { return false }
         switch paths[item]?.last {
-        case .room?, .chat?: return false
+        case .room?, .chat?, .thread?: return false
         default: return true
         }
     }
@@ -240,6 +249,11 @@ struct MainTabView: View {
             tab = .home
             paths[.home] = [.room(roomId)]
         }
+    }
+
+    private func showThread(_ roomId: String, root: String) {
+        show(roomId)
+        paths[tab, default: []].append(.thread(roomId, root))
     }
 
     private func showSpace(_ spaceId: String) {

@@ -54,19 +54,33 @@ import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.core.RoomSummary
+import org.wizardchat.core.UnreadThread
 import org.wizardchat.tokens.WZ
 
-private enum class InboxTab { invites, mentions }
+private enum class InboxTab { invites, mentions, threads }
 
 /** Invites and rooms that mention you */
 @Composable
-fun InboxSheet(roomList: RoomListModel, onDismiss: () -> Unit, onOpenRoom: (String) -> Unit, onOpenSpace: (String) -> Unit) {
+fun InboxSheet(
+    roomList: RoomListModel,
+    onDismiss: () -> Unit,
+    onOpenRoom: (String) -> Unit,
+    onOpenSpace: (String) -> Unit,
+    onOpenThread: (String, String) -> Unit,
+) {
     val session = LocalSession.current
     val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf(InboxTab.invites) }
     var busyId by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val inviters = remember { mutableStateMapOf<String, String>() }
+    var threads by remember { mutableStateOf(listOf<Pair<RoomSummary, UnreadThread>>()) }
+    LaunchedEffect(roomList.threadRooms.map { Triple(it.id, it.unreadThreads, it.lastActivity) }) {
+        val client = session.client ?: return@LaunchedEffect
+        threads = roomList.threadRooms
+            .flatMap { room -> runCatching { client.unreadThreads(room.id) }.getOrDefault(emptyList()).map { room to it } }
+            .sortedByDescending { it.second.latestTimestamp }
+    }
 
     fun accept(invite: RoomSummary) {
         scope.launch {
@@ -104,7 +118,7 @@ fun InboxSheet(roomList: RoomListModel, onDismiss: () -> Unit, onOpenRoom: (Stri
             trailing = { BarTextButton(tr("common.done"), onDismiss, bold = true) },
         )
         Column(Modifier.fillMaxWidth().background(theme.bgSecondary)) {
-            Tabs(tab, roomList.invites.size, roomList.mentionRooms.size) { tab = it }
+            Tabs(tab, roomList.invites.size, roomList.mentionRooms.size, threads.size) { tab = it }
             errorMessage?.let {
                 Text(it, Modifier.padding(horizontal = WZ.Space.space8, vertical = WZ.Space.space3), style = wizardFont(WZ.FontSize.sm), color = theme.error)
             }
@@ -126,6 +140,21 @@ fun InboxSheet(roomList: RoomListModel, onDismiss: () -> Unit, onOpenRoom: (Stri
                                         if (info != null) inviters[invite.id] = info.inviterName ?: info.inviterId
                                     }
                                     InviteRow(invite, inviters[invite.id], busyId == invite.id, { accept(invite) }, { decline(invite) })
+                                }
+                            }
+                        }
+                    }
+                    InboxTab.threads -> item(key = "threads") {
+                        if (threads.isEmpty()) {
+                            Empty(tr("inbox.emptyThreads"), "chat-dots")
+                        } else {
+                            GroupedSection {
+                                threads.forEachIndexed { index, (room, thread) ->
+                                    if (index > 0) RowDivider()
+                                    ThreadRow(room, thread) {
+                                        onOpenThread(room.id, thread.rootEventId)
+                                        onDismiss()
+                                    }
                                 }
                             }
                         }
@@ -165,7 +194,7 @@ fun InboxSheet(roomList: RoomListModel, onDismiss: () -> Unit, onOpenRoom: (Stri
 
 /** Two equal halves, the active one raised, each with its count */
 @Composable
-private fun Tabs(selected: InboxTab, invites: Int, mentions: Int, onSelect: (InboxTab) -> Unit) {
+private fun Tabs(selected: InboxTab, invites: Int, mentions: Int, threads: Int, onSelect: (InboxTab) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -177,6 +206,7 @@ private fun Tabs(selected: InboxTab, invites: Int, mentions: Int, onSelect: (Inb
     ) {
         TabButton(tr("inbox.tabInvites"), invites, selected == InboxTab.invites) { onSelect(InboxTab.invites) }
         TabButton(tr("inbox.tabMentions"), mentions, selected == InboxTab.mentions) { onSelect(InboxTab.mentions) }
+        TabButton(tr("inbox.tabThreads"), threads, selected == InboxTab.threads) { onSelect(InboxTab.threads) }
     }
 }
 
@@ -316,5 +346,34 @@ private fun MentionRow(room: RoomSummary, onOpen: () -> Unit, onMarkRead: () -> 
         }
         UnreadBadge(room.mentionCount, isMention = true)
         RoundButton("check", tr("common.markRead"), theme.fill, theme.textMuted, true, onMarkRead)
+    }
+}
+
+@Composable
+private fun ThreadRow(room: RoomSummary, thread: UnreadThread, onOpen: () -> Unit) {
+    val sender = thread.latestSenderName ?: thread.latestSender
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
+    ) {
+        RoomAvatar(room)
+        Column(Modifier.weight(1f)) {
+            Text(
+                thread.rootBody?.let { "${room.displayName} · $it" } ?: room.displayName,
+                style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
+                color = theme.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                thread.latestBody?.let { tr("inbox.threadReply", sender, it) } ?: tr("inbox.threadReplied", sender),
+                style = wizardFont(WZ.FontSize.sm),
+                color = theme.textMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        UnreadBadge(thread.unread.toInt(), isMention = false)
     }
 }

@@ -5,7 +5,7 @@ use serde_json::Value;
 use super::{Bytes, Listener, Subscription};
 use crate::{
     EventSource, ListDiff, MemberEntry, MessageVersion, RoomSettings, ServerCapabilities,
-    SpaceHierarchy, SpaceSummary, ThirdPartyId, UnreadMention, WizardClient,
+    SpaceHierarchy, SpaceSummary, ThirdPartyId, UnreadMention, UnreadThread, WizardClient,
 };
 
 rpc_methods! {
@@ -25,6 +25,10 @@ rpc_methods! {
         /// replies to them), newest first.
         call fn unreadMentions(room_id: String, limit: u32) -> Vec<UnreadMention> {
             this.unread_mentions(&room_id, limit).await
+        }
+
+        call fn unreadThreads(room_id: String) -> Vec<UnreadThread> {
+            this.unread_threads(&room_id).await
         }
 
         /// Calls `listener` with diffs of every joined space, subspaces included.

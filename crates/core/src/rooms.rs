@@ -48,6 +48,7 @@ pub struct RoomSummary {
     pub is_favourite: bool,
     pub unread_messages: u64,
     pub unread_mentions: u64,
+    pub unread_threads: u64,
     pub unread_notifications: u64,
     pub marked_unread: bool,
     pub is_voice: bool,
@@ -99,6 +100,7 @@ pub(crate) struct RoomExtras {
     dm_user_name: Option<String>,
     dm_user_avatar: Option<String>,
     unread: Option<UnreadCounts>,
+    unread_threads: u64,
     last_activity: Option<u64>,
     call: crate::calls::RoomCallState,
 }
@@ -131,6 +133,7 @@ impl RoomSummary {
             is_favourite: room.is_favourite(),
             unread_messages: room.num_unread_messages(),
             unread_mentions: unread.map_or(room.num_unread_mentions(), |u| u.mentions),
+            unread_threads: extras.map_or(0, |e| e.unread_threads),
             unread_notifications: unread
                 .map_or(room.num_unread_notifications(), |u| u.notifications),
             marked_unread: room.is_marked_unread(),
@@ -740,6 +743,155 @@ pub struct UnreadMention {
     pub timestamp: u64,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct UnreadThread {
+    pub root_event_id: String,
+    pub root_body: Option<String>,
+    pub unread: u64,
+    pub latest_event_id: String,
+    pub latest_sender: String,
+    pub latest_sender_name: Option<String>,
+    pub latest_body: Option<String>,
+    pub latest_timestamp: u64,
+}
+
+struct ThreadScan {
+    root: String,
+    root_event: Option<Value>,
+    unread: u64,
+    latest: Value,
+}
+
+async fn scan_threads(room: &Room) -> Vec<ThreadScan> {
+    use matrix_sdk::ruma::events::receipt::{ReceiptThread, ReceiptType};
+    let own = room.own_user_id().to_owned();
+    let Ok((cache, _handles)) = room.event_cache().await else {
+        return Vec::new();
+    };
+    let Ok(loaded) = cache.events().await else {
+        return Vec::new();
+    };
+    let events: Vec<Value> = loaded
+        .iter()
+        .filter_map(|event| event.raw().deserialize_as_unchecked::<Value>().ok())
+        .collect();
+    let ts_of = |event: &Value| {
+        event
+            .get("origin_server_ts")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    };
+
+    let mut threads: Vec<(String, Vec<&Value>)> = Vec::new();
+    for event in &events {
+        if str_at(event, "/content/m.relates_to/rel_type") != Some("m.thread")
+            || event.pointer("/unsigned/redacted_because").is_some()
+            || !NOTIFYING_TYPES.contains(&str_at(event, "/type").unwrap_or_default())
+        {
+            continue;
+        }
+        let Some(root) = str_at(event, "/content/m.relates_to/event_id") else {
+            continue;
+        };
+        match threads.iter_mut().find(|(id, _)| id == root) {
+            Some((_, replies)) => replies.push(event),
+            None => threads.push((root.to_owned(), vec![event])),
+        }
+    }
+
+    let mut unthreaded_ts = 0;
+    for receipt_type in [ReceiptType::Read, ReceiptType::ReadPrivate] {
+        if let Ok(Some((event_id, receipt))) = room
+            .load_user_receipt(receipt_type, &ReceiptThread::Unthreaded, &own)
+            .await
+        {
+            let target = events
+                .iter()
+                .find(|e| str_at(e, "/event_id") == Some(event_id.as_str()))
+                .map(ts_of);
+            unthreaded_ts = unthreaded_ts.max(
+                target
+                    .or_else(|| receipt.ts.map(|ts| u64::from(ts.0)))
+                    .unwrap_or(0),
+            );
+        }
+    }
+
+    let mut found = Vec::new();
+    for (root, replies) in threads {
+        let Ok(root_id) = matrix_sdk::ruma::EventId::parse(&root) else {
+            continue;
+        };
+        let root_event = match events
+            .iter()
+            .find(|e| str_at(e, "/event_id") == Some(root.as_str()))
+        {
+            Some(event) => Some(event.clone()),
+            None => cache
+                .find_event(&root_id)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|event| event.raw().deserialize_as_unchecked::<Value>().ok()),
+        };
+        let participated = replies
+            .iter()
+            .any(|e| str_at(e, "/sender") == Some(own.as_str()))
+            || root_event.as_ref().is_some_and(|root| {
+                str_at(root, "/sender") == Some(own.as_str())
+                    || root
+                        .pointer("/unsigned/m.relations/m.thread/current_user_participated")
+                        .and_then(Value::as_bool)
+                        == Some(true)
+            });
+        if !participated {
+            continue;
+        }
+        let mut read_ts = unthreaded_ts;
+        for receipt_type in [ReceiptType::Read, ReceiptType::ReadPrivate] {
+            if let Ok(Some((event_id, receipt))) = room
+                .load_user_receipt(receipt_type, &ReceiptThread::Thread(root_id.clone()), &own)
+                .await
+            {
+                let target = events
+                    .iter()
+                    .find(|e| str_at(e, "/event_id") == Some(event_id.as_str()))
+                    .map(ts_of);
+                read_ts = read_ts.max(
+                    target
+                        .or_else(|| receipt.ts.map(|ts| u64::from(ts.0)))
+                        .unwrap_or(0),
+                );
+            }
+        }
+        if let Some(own_reply) = replies
+            .iter()
+            .filter(|e| str_at(e, "/sender") == Some(own.as_str()))
+            .map(|e| ts_of(e))
+            .max()
+        {
+            read_ts = read_ts.max(own_reply);
+        }
+        let unread: Vec<&&Value> = replies
+            .iter()
+            .filter(|e| str_at(e, "/sender") != Some(own.as_str()) && ts_of(e) > read_ts)
+            .collect();
+        let Some(latest) = unread.last() else {
+            continue;
+        };
+        found.push(ThreadScan {
+            root,
+            root_event,
+            unread: unread.len() as u64,
+            latest: (**latest).clone(),
+        });
+    }
+    found.sort_by_key(|thread| std::cmp::Reverse(ts_of(&thread.latest)));
+    found
+}
+
 struct UnreadScan {
     count: u64,
     mentions: Vec<(Value, u64)>,
@@ -968,6 +1120,9 @@ pub(crate) async fn room_extras(room: &Room) -> RoomExtras {
     }
     extras.dm_user_id = partner;
     extras.unread = unread_counts(room).await;
+    if room.state() == RoomState::Joined && !is_muted(room) {
+        extras.unread_threads = scan_threads(room).await.len() as u64;
+    }
     extras.call = crate::calls::room_call_state(room).await;
     if let Ok((cache, _handles)) = room.event_cache().await {
         extras.last_activity = cache
@@ -1011,6 +1166,47 @@ impl WizardClient {
             });
         }
         Ok(mentions)
+    }
+}
+
+impl WizardClient {
+    pub async fn unread_threads(&self, room_id: &str) -> Result<Vec<UnreadThread>> {
+        let room = self.room(room_id)?;
+        if is_muted(&room) {
+            return Ok(Vec::new());
+        }
+        let mut threads = Vec::new();
+        for thread in scan_threads(&room).await {
+            let latest = &thread.latest;
+            let sender = str_at(latest, "/sender").unwrap_or_default().to_owned();
+            let sender_name = match parse_user_id(&sender) {
+                Ok(id) => room
+                    .get_member_no_sync(id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|m| member_name(&m)),
+                Err(_) => None,
+            };
+            threads.push(UnreadThread {
+                root_event_id: thread.root,
+                root_body: thread
+                    .root_event
+                    .as_ref()
+                    .and_then(|root| str_at(root, "/content/body"))
+                    .map(ToOwned::to_owned),
+                unread: thread.unread,
+                latest_event_id: str_at(latest, "/event_id").unwrap_or_default().to_owned(),
+                latest_sender: sender,
+                latest_sender_name: sender_name,
+                latest_body: str_at(latest, "/content/body").map(ToOwned::to_owned),
+                latest_timestamp: latest
+                    .get("origin_server_ts")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default(),
+            });
+        }
+        Ok(threads)
     }
 }
 

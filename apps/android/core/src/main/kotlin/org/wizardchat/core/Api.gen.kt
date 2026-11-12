@@ -1030,7 +1030,6 @@ data class RichSpan(
     /** A mentioned user's ID; `text` is "@name", as the plain body shows mentions */
     val mention: String? = null,
     val spoiler: Boolean,
-    /** A custom emoji's image (an `mxc://` URL); `text` is its ":shortcode:" */
     val emoticon: String? = null,
 )
 
@@ -1153,6 +1152,7 @@ data class RoomSummary(
     val isFavourite: Boolean,
     val unreadMessages: Long,
     val unreadMentions: Long,
+    val unreadThreads: Long,
     val unreadNotifications: Long,
     val markedUnread: Boolean,
     val isVoice: Boolean,
@@ -1612,6 +1612,18 @@ data class UnreadMention(
     val sender: String,
     val senderName: String? = null,
     val timestamp: Long,
+)
+
+@Serializable
+data class UnreadThread(
+    val rootEventId: String,
+    val rootBody: String? = null,
+    val unread: Long,
+    val latestEventId: String,
+    val latestSender: String,
+    val latestSenderName: String? = null,
+    val latestBody: String? = null,
+    val latestTimestamp: Long,
 )
 
 /** How far an upload got, in bytes */
@@ -2136,6 +2148,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
      */
     suspend fun unreadMentions(roomId: String, limit: Long): List<UnreadMention> =
         Runtime.call("WizardClient.unreadMentions", handle, listOf(Arg.value<String>(roomId), Arg.value<Long>(limit)))
+
+    suspend fun unreadThreads(roomId: String): List<UnreadThread> =
+        Runtime.call("WizardClient.unreadThreads", handle, listOf(Arg.value<String>(roomId)))
 
     /** Calls `listener` with diffs of every joined space, subspaces included. */
     fun watchAllSpaces(listener: (List<ListDiff<SpaceSummary>>) -> Unit): Subscription =

@@ -5,6 +5,7 @@ enum Route: Hashable {
     case room(String)
     case space(String)
     case chat(String)
+    case thread(String, String)
 }
 
 struct RoomListScreen: View {
@@ -434,7 +435,7 @@ private struct InboxButton: View {
 
     var body: some View {
         let mentions = !roomList.mentionRooms.isEmpty
-        let badge = mentions || !roomList.invites.isEmpty
+        let badge = mentions || !roomList.invites.isEmpty || !roomList.threadRooms.isEmpty
         Button(action: action) {
             Image("ph-tray-regular")
                 .overlay(alignment: .topTrailing) {

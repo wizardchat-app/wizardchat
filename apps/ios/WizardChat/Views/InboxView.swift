@@ -5,16 +5,18 @@ struct InboxView: View {
     @ObservedObject var roomList: RoomListModel
     let onOpenRoom: (String) -> Void
     let onOpenSpace: (String) -> Void
+    let onOpenThread: (String, String) -> Void
 
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
 
-    private enum Tab { case invites, mentions }
+    private enum Tab { case invites, mentions, threads }
 
     @State private var tab = Tab.invites
     @State private var busyId: String?
     @State private var errorMessage: String?
     @State private var inviters: [String: String] = [:]
+    @State private var threads: [(room: RoomSummary, thread: UnreadThread)] = []
     @EnvironmentObject private var session: MatrixSession
 
     var body: some View {
@@ -38,6 +40,14 @@ struct InboxView: View {
                     } else {
                         Section {
                             ForEach(roomList.invites) { invite in inviteRow(invite) }
+                        }
+                    }
+                case .threads:
+                    if threads.isEmpty {
+                        empty(String(localized: "inbox.emptyThreads"), icon: "ph-chat-dots-regular")
+                    } else {
+                        Section {
+                            ForEach(threads, id: \.thread.rootEventId) { item in threadRow(item.room, item.thread) }
                         }
                     }
                 case .mentions:
@@ -67,6 +77,9 @@ struct InboxView: View {
             }
             .tint(theme.control)
         }
+        .task(id: roomList.threadRooms.map { "\($0.id)|\($0.unreadThreads)|\($0.lastActivity ?? 0)" }) {
+            await loadThreads()
+        }
         .presentationDetents([.medium, .large])
     }
 
@@ -75,6 +88,7 @@ struct InboxView: View {
         HStack(spacing: WZ.Space.space1) {
             tabButton(String(localized: "inbox.tabInvites"), count: roomList.invites.count, tab: .invites)
             tabButton(String(localized: "inbox.tabMentions"), count: roomList.mentionRooms.count, tab: .mentions)
+            tabButton(String(localized: "inbox.tabThreads"), count: threads.count, tab: .threads)
         }
         .padding(WZ.Space.space1)
         .background(theme.fill, in: Capsule())
@@ -203,6 +217,40 @@ struct InboxView: View {
             }
             .tint(theme.textMuted)
         }
+    }
+
+    private func threadRow(_ room: RoomSummary, _ thread: UnreadThread) -> some View {
+        let sender = thread.latestSenderName ?? thread.latestSender
+        return HStack(spacing: WZ.Space.space5) {
+            avatar(room)
+            VStack(alignment: .leading, spacing: WZ.Space.space0) {
+                Text(thread.rootBody.map { "\(room.displayName) · \($0)" } ?? room.displayName)
+                    .font(.wizard(WZ.FontSize.md, .semibold))
+                    .foregroundStyle(theme.textPrimary)
+                Text(thread.latestBody.map { L10n.format("inbox.threadReply", sender, $0) }
+                     ?? L10n.format("inbox.threadReplied", sender))
+                    .font(.wizard(WZ.FontSize.sm))
+                    .foregroundStyle(theme.textMuted)
+            }
+            .lineLimit(1)
+            Spacer(minLength: WZ.Space.space4)
+            UnreadBadge(count: thread.unread, isMention: false)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onOpenThread(room.id, thread.rootEventId)
+            dismiss()
+        }
+    }
+
+    private func loadThreads() async {
+        guard let client = session.client else { return }
+        var found: [(room: RoomSummary, thread: UnreadThread)] = []
+        for room in roomList.threadRooms {
+            guard let unread = try? await client.unreadThreads(roomId: room.id) else { continue }
+            found += unread.map { (room: room, thread: $0) }
+        }
+        threads = found.sorted { $0.thread.latestTimestamp > $1.thread.latestTimestamp }
     }
 
     private func accept(_ invite: RoomSummary) async {

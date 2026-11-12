@@ -750,9 +750,6 @@ export type RichSpan = {
    */
   mention: string | null;
   spoiler: boolean;
-  /**
-   * A custom emoji's image (an `mxc://` URL); `text` is its ":shortcode:"
-   */
   emoticon: string | null;
 };
 
@@ -893,6 +890,7 @@ export type RoomSummary = {
   isFavourite: boolean;
   unreadMessages: number;
   unreadMentions: number;
+  unreadThreads: number;
   unreadNotifications: number;
   markedUnread: boolean;
   isVoice: boolean;
@@ -1291,6 +1289,17 @@ export type UnreadMention = {
   sender: string;
   senderName: string | null;
   timestamp: number;
+};
+
+export type UnreadThread = {
+  rootEventId: string;
+  rootBody: string | null;
+  unread: number;
+  latestEventId: string;
+  latestSender: string;
+  latestSenderName: string | null;
+  latestBody: string | null;
+  latestTimestamp: number;
 };
 
 /**
@@ -1867,6 +1876,12 @@ export class WizardClient extends Remote {
   unreadMentions(roomId: string, limit: number): Promise<Array<UnreadMention>> {
     return runtime.call('WizardClient.unreadMentions', this, [roomId, limit]) as Promise<
       Array<UnreadMention>
+    >;
+  }
+
+  unreadThreads(roomId: string): Promise<Array<UnreadThread>> {
+    return runtime.call('WizardClient.unreadThreads', this, [roomId]) as Promise<
+      Array<UnreadThread>
     >;
   }
 

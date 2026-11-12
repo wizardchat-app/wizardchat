@@ -41,6 +41,9 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
         private set
     var mentionRooms by mutableStateOf(listOf<RoomSummary>())
         private set
+
+    var threadRooms by mutableStateOf(listOf<RoomSummary>())
+        private set
     var spaces by mutableStateOf(listOf<SpaceSummary>())
         private set
     var allSpaces by mutableStateOf(listOf<SpaceSummary>())
@@ -238,6 +241,7 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
         }
         invites = rooms.filter { it.isInvite }
         mentionRooms = joinedRooms.filter { it.mentionCount > 0 }
+        threadRooms = joinedRooms.filter { it.unreadThreads > 0 }
         isLoaded = true
         refreshGraph()
     }
