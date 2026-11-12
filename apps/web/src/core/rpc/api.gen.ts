@@ -750,6 +750,10 @@ export type RichSpan = {
    */
   mention: string | null;
   spoiler: boolean;
+  /**
+   * A custom emoji's image (an `mxc://` URL); `text` is its ":shortcode:"
+   */
+  emoticon: string | null;
 };
 
 /**
@@ -2784,8 +2788,18 @@ export class RoomTimeline extends Remote {
     return runtime.call('RoomTimeline.sendSticker', this, [body, url]) as Promise<void>;
   }
 
-  editText(itemKey: string, body: string): Promise<void> {
-    return runtime.call('RoomTimeline.editText', this, [itemKey, body]) as Promise<void>;
+  editText(
+    itemKey: string,
+    body: string,
+    html?: string | null,
+    mentions?: Mentions | null
+  ): Promise<void> {
+    return runtime.call('RoomTimeline.editText', this, [
+      itemKey,
+      body,
+      html,
+      mentions,
+    ]) as Promise<void>;
   }
 
   editCaption(

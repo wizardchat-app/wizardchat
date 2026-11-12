@@ -365,7 +365,7 @@ private fun StickerGrid(packs: List<ImagePack>, loading: Boolean, onPick: (PackI
 
 /** An emoji/sticker image from a pack */
 @Composable
-fun PackThumb(url: String, modifier: Modifier = Modifier, animated: Boolean = false) {
+fun PackThumb(url: String, modifier: Modifier = Modifier, animated: Boolean = false, rounded: Boolean = true) {
     val media = LocalMedia.current
     val animates = animated || LocalPrefs.current.autoplayGifs
     var image by remember(url) { mutableStateOf<Bitmap?>(null) }
@@ -374,7 +374,7 @@ fun PackThumb(url: String, modifier: Modifier = Modifier, animated: Boolean = fa
         image = media?.thumbnail(url, 160)
         playing = if (animates) media?.animated(JsonObject(mapOf("url" to JsonPrimitive(url)))) else null
     }
-    Box(modifier.clip(RoundedCornerShape(WZ.Radius.md))) {
+    Box(if (rounded) modifier.clip(RoundedCornerShape(WZ.Radius.md)) else modifier) {
         val bitmap = image
         val drawable = playing
         if (drawable != null) {

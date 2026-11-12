@@ -170,7 +170,7 @@ data class ChatEntry(
         val id: String get() = key
     }
 
-    data class ReplyQuote(val eventId: String, val senderName: String, val text: String, val sender: String = "")
+    data class ReplyQuote(val eventId: String, val senderName: String, val text: String, val sender: String = "", val emotes: Map<String, String> = emptyMap())
 
     val allowsActions: Boolean get() = kind !is Kind.Redacted && kind !is Kind.Undecryptable
     val canBeRepliedTo: Boolean get() = eventId != null && allowsActions
@@ -380,12 +380,12 @@ class TimelineModel(
         report { timeline.sendHtml(text, escaped, replyTo) }
     }
 
-    suspend fun edit(entry: ChatEntry, newText: String) {
+    suspend fun edit(entry: ChatEntry, newText: String, html: String? = null, mentions: Mentions? = null) {
         val timeline = timeline ?: return
         val itemKey = entry.itemKey ?: return
         report {
-            if (entry.editableMedia != null) timeline.editCaption(itemKey, newText)
-            else timeline.editText(itemKey, newText)
+            if (entry.editableMedia != null) timeline.editCaption(itemKey, newText, html, mentions)
+            else timeline.editText(itemKey, newText, html, mentions)
         }
     }
 
@@ -899,7 +899,15 @@ class TimelineModel(
         }
 
         private fun quote(reply: ReplyPreview): ChatEntry.ReplyQuote = when (reply) {
-            is ReplyPreview.Ready -> ChatEntry.ReplyQuote(reply.eventId, reply.senderName ?: reply.sender, reply.summary, reply.sender)
+            is ReplyPreview.Ready -> {
+                val rich = when (val content = reply.content) {
+                    is EntryContent.Text -> content.rich
+                    is EntryContent.Notice -> content.rich
+                    is EntryContent.Emote -> content.rich
+                    else -> null
+                }
+                ChatEntry.ReplyQuote(reply.eventId, reply.senderName ?: reply.sender, reply.summary, reply.sender, rich?.emoticons().orEmpty())
+            }
             is ReplyPreview.Unavailable -> ChatEntry.ReplyQuote(reply.eventId, "", "")
             is ReplyPreview.Pending -> ChatEntry.ReplyQuote(reply.eventId, "", "")
         }
@@ -953,4 +961,18 @@ fun readableError(error: Throwable): String {
         message.isNotBlank() -> message
         else -> L10n.format("common.somethingWentWrong")
     }
+}
+
+fun List<RichBlock>.emoticons(): Map<String, String> {
+    val found = LinkedHashMap<String, String>()
+    for (block in this) {
+        when (block) {
+            is RichBlock.Paragraph -> block.spans.forEach { span -> span.emoticon?.let { found.putIfAbsent(span.text, it) } }
+            is RichBlock.Heading -> block.spans.forEach { span -> span.emoticon?.let { found.putIfAbsent(span.text, it) } }
+            is RichBlock.Quote -> block.blocks.emoticons().forEach { (k, v) -> found.putIfAbsent(k, v) }
+            is RichBlock.ItemList -> block.items.forEach { item -> item.emoticons().forEach { (k, v) -> found.putIfAbsent(k, v) } }
+            else -> {}
+        }
+    }
+    return found
 }

@@ -51,6 +51,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.OutputTransformation
+import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -61,6 +63,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -80,14 +83,17 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -98,14 +104,15 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.LocalSession
+import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.matrix.ChatEntry
 import org.wizardchat.android.matrix.Emoji
 import org.wizardchat.android.matrix.MediaMetadata
 import org.wizardchat.android.matrix.PacksStore
 import org.wizardchat.android.matrix.TimelineModel
 import org.wizardchat.android.matrix.displayName
+import org.wizardchat.android.matrix.emoticons
 import org.wizardchat.android.matrix.text
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.L10n
@@ -114,14 +121,18 @@ import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.android.ui.Spinner
 import org.wizardchat.android.ui.WizardMenu
+import org.wizardchat.android.ui.room.EmojiText
+import org.wizardchat.android.ui.room.RoomLinks
 import org.wizardchat.android.ui.theme.nameColor
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.withNameColors
 import org.wizardchat.android.ui.theme.wizardFont
-import org.wizardchat.android.ui.room.RoomLinks
 import org.wizardchat.android.ui.tr
 import org.wizardchat.core.Member
+import org.wizardchat.core.Mentions
 import org.wizardchat.core.PackImage
+import org.wizardchat.core.RichBlock
+import org.wizardchat.core.RichSpan
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
@@ -167,7 +178,7 @@ fun ComposerView(
     val draft = rememberTextFieldState()
     val attachments = remember { mutableStateListOf<PendingAttachment>() }
     val packStore = remember { PacksStore() }
-    val usedEmotes = remember { HashMap<String, PackImage>() }
+    val usedEmotes = remember { mutableStateMapOf<String, PackImage>() }
     val mentions = remember { HashMap<String, String>() }
     val roomLinks = remember { HashMap<String, String>() }
     var members by remember { mutableStateOf(listOf<Member>()) }
@@ -356,10 +367,12 @@ fun ComposerView(
         val links = roomLinks.filterKeys { message.contains(it) }.entries.sortedByDescending { it.key.length }
         val body = links.fold(message) { text, (label, link) -> text.replace(label, RoomLinks.target(link) ?: link) }
         val html = richHtml(body, usedEmotes, mentions, timeline.client, links.associate { (_, link) -> (RoomLinks.target(link) ?: link) to link })
+        val userIds = mentions.filter { message.contains(it.key) && it.value != session.userId }.values.toSet().sorted()
+        val room = Regex("(^|\\s)@room\\b").containsMatchIn(message)
         usedEmotes.clear()
         mentions.clear()
         roomLinks.clear()
-        timeline.send(body, html = html, replyTo = reply)
+        timeline.send(body, html = html, replyTo = reply, mentions = Mentions(userIds, if (room) true else null))
     }
 
     suspend fun submit() {
@@ -371,7 +384,12 @@ fun ComposerView(
         editing?.let { entry ->
             onEditingChange(null)
             setDraft("")
-            timeline.edit(entry, message)
+            val html = richHtml(message, usedEmotes, mentions, timeline.client)
+            val userIds = mentions.filter { message.contains(it.key) && it.value != session.userId }.values.toSet().sorted()
+            val room = Regex("(^|\\s)@room\\b").containsMatchIn(message)
+            usedEmotes.clear()
+            mentions.clear()
+            timeline.edit(entry, message, html, Mentions(userIds, if (room) true else null))
             return
         }
 
@@ -461,7 +479,12 @@ fun ComposerView(
         }
     }
     LaunchedEffect(editing?.id) {
-        val text = editing?.editableText ?: return@LaunchedEffect
+        val entry = editing ?: return@LaunchedEffect
+        val text = entry.editableText ?: return@LaunchedEffect
+        usedEmotes.clear()
+        usedEmotes.putAll(emotesIn(entry.rich.orEmpty()))
+        mentions.clear()
+        entry.mentions.forEach { mentions.putIfAbsent(it.label, it.userId) }
         setDraft(text)
         focus(true)
     }
@@ -540,12 +563,12 @@ fun ComposerView(
                 }
                 Column(Modifier.weight(1f).floatingGlass(RoundedCornerShape(WZ.Radius.xl), theme.bgTertiary)) {
                     replyTo?.let { entry ->
-                        ContextBar("arrow-bend-up-left", L10n.format("composer.replyingToName", entry.senderName), entry.summary, entry.senderName to nameColor(entry.sender)) {
+                        ContextBar("arrow-bend-up-left", L10n.format("composer.replyingToName", entry.senderName), entry.summary, entry.rich?.emoticons().orEmpty(), entry.senderName to nameColor(entry.sender)) {
                             onReplyToChange(null)
                         }
                     }
                     editing?.let { entry ->
-                        ContextBar("pencil-simple", tr("timeline.editing"), entry.summary) {
+                        ContextBar("pencil-simple", tr("timeline.editing"), entry.summary, entry.rich?.emoticons().orEmpty()) {
                             onEditingChange(null)
                             setDraft("")
                         }
@@ -564,6 +587,7 @@ fun ComposerView(
                     }
                     InputField(
                         draft,
+                        emotes = usedEmotes,
                         placeholder = when {
                             editing != null -> tr("composer.editMessage")
                             threadRoot != null -> tr("timeline.threadComposerPlaceholder")
@@ -705,8 +729,30 @@ private fun Bubble(icon: String, label: String, iconSize: Dp = WZ.SizeIcon.md, o
     }
 }
 
+internal fun emotesIn(blocks: List<RichBlock>): Map<String, PackImage> =
+    blocks.emoticons().entries.associate { (text, url) ->
+        val code = text.trim(':')
+        code to PackImage(shortcode = code, url = url, emoticon = true, sticker = false)
+    }
+
+private val shortcodePattern = Regex(":([^\\s:]+):")
+
+private class EmojiOutput(private val emotes: Map<String, PackImage>) : OutputTransformation {
+    override fun TextFieldBuffer.transformOutput() {
+        if (emotes.isEmpty()) return
+        for (match in shortcodePattern.findAll(originalText).toList().asReversed()) {
+            if (match.groupValues[1] in emotes) replace(match.range.first, match.range.last + 1, EMOJI_SPACE)
+        }
+    }
+}
+
+private const val EMOJI_SPACE = "\u2003"
+
 @Composable
-private fun InputField(state: TextFieldState, placeholder: String, modifier: Modifier = Modifier) {
+private fun InputField(state: TextFieldState, emotes: Map<String, PackImage>, placeholder: String, modifier: Modifier = Modifier) {
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val density = LocalDensity.current
+    val output = remember(emotes.keys.toSet()) { EmojiOutput(emotes.toMap()) }
     BasicTextField(
         state,
         modifier
@@ -715,6 +761,8 @@ private fun InputField(state: TextFieldState, placeholder: String, modifier: Mod
             .padding(vertical = WZ.Space.space5, horizontal = WZ.Space.space6),
         textStyle = wizardFont(WZ.FontSize.lg).copy(color = theme.textPrimary),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+        outputTransformation = output,
+        onTextLayout = { result -> layout = result() },
         cursorBrush = SolidColor(theme.accent),
         decorator = { inner ->
             Box {
@@ -722,6 +770,25 @@ private fun InputField(state: TextFieldState, placeholder: String, modifier: Mod
                     Text(placeholder, style = wizardFont(WZ.FontSize.lg), color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 inner()
+                val result = layout
+                if (result != null && emotes.isNotEmpty()) {
+                    val shown = result.layoutInput.text.text
+                    var offset = 0
+                    val codes = shortcodePattern.findAll(state.text).map { it.groupValues[1] }.filter { it in emotes }.toList()
+                    for (code in codes) {
+                        val index = shown.indexOf(EMOJI_SPACE, offset).takeIf { it >= 0 } ?: break
+                        offset = index + 1
+                        val box = result.getBoundingBox(index)
+                        val size = with(density) { minOf(box.width, box.height).toDp() }
+                        PackThumb(
+                            emotes.getValue(code).url,
+                            Modifier
+                                .offset { IntOffset(box.left.toInt(), (box.top + (box.height - size.toPx()) / 2).toInt()) }
+                                .size(size),
+                            rounded = false,
+                        )
+                    }
+                }
             }
         },
     )
@@ -767,7 +834,7 @@ private fun FormatButton(icon: String, label: String, tint: Color = theme.textPr
 }
 
 @Composable
-private fun ContextBar(icon: String, title: String, text: String, name: Pair<String, Color>? = null, onClose: () -> Unit) {
+private fun ContextBar(icon: String, title: String, text: String, emotes: Map<String, String>, name: Pair<String, Color>? = null, onClose: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -785,7 +852,7 @@ private fun ContextBar(icon: String, title: String, text: String, name: Pair<Str
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(text, style = wizardFont(WZ.FontSize.sm), color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            EmojiText(text, emotes, wizardFont(WZ.FontSize.sm), theme.textMuted, maxLines = 1)
         }
         Box(Modifier.clip(CircleShape).clickable(onClick = onClose)) {
             PhIcon("x-circle", size = WZ.SizeIcon.md, tint = theme.textMuted, contentDescription = tr("common.cancel"))

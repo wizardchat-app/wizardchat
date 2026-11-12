@@ -918,8 +918,13 @@ struct MessageRow: View {
     }
 
     private var isEmojiOnly: Bool {
-        if prefs.largeEmoji, case .message(let body, false, _) = entry.kind { return MessageText.isEmojiOnly(body) }
-        return false
+        guard prefs.largeEmoji, case .message(let body, false, _) = entry.kind else { return false }
+        guard let rich = entry.rich else { return MessageText.isEmojiOnly(body) }
+        guard rich.count == 1, case .paragraph(let paragraph) = rich[0],
+              paragraph.spans.contains(where: { $0.emoticon != nil }) else { return false }
+        return paragraph.spans.allSatisfy {
+            $0.emoticon != nil || $0.text.allSatisfy(\.isWhitespace) || MessageText.isEmojiOnly($0.text)
+        }
     }
 
     @ViewBuilder
@@ -973,7 +978,8 @@ struct MessageRow: View {
                 RichBlocksView(blocks: entry.rich ?? [], style: RichStyle(
                     mentions: entry.mentions, revealSpoilers: spoilersRevealed || entry.spoilers.isEmpty,
                     prettifyLinks: prefs.prettifyLinks, scale: scale, theme: theme,
-                    roomName: actions?.roomName ?? { _ in nil }))
+                    roomName: actions?.roomName ?? { _ in nil },
+                    emojiSize: WZ.FontSize.lg * (isEmojiOnly ? 2.5 : 1) * scale * 1.2))
                 if entry.isEdited {
                     Text(String(localized: "timeline.edited"))
                         .font(.wizard(WZ.FontSize.xs * scale))
@@ -1260,6 +1266,7 @@ struct RichStyle {
     let scale: CGFloat
     let theme: WizardTheme
     var roomName: (String) -> String? = { _ in nil }
+    var emojiSize: CGFloat = 20
 }
 
 /// A formatted message as the web shows it: paragraphs, headings, quotes, lists and code blocks
@@ -1285,10 +1292,10 @@ private struct RichBlockView: View {
     var body: some View {
         switch block {
         case .paragraph(let paragraph):
-            Text(MessageText.rich(paragraph.spans, style: style))
+            RichText(spans: paragraph.spans, style: style)
                 .fixedSize(horizontal: false, vertical: true)
         case .heading(let heading):
-            Text(MessageText.rich(heading.spans, style: style))
+            RichText(spans: heading.spans, style: style)
                 .font(.wizard((heading.level <= 1 ? WZ.FontSize.xxl : heading.level == 2 ? WZ.FontSize.xl : WZ.FontSize.lg)
                               * style.scale, .bold))
                 .fixedSize(horizontal: false, vertical: true)
@@ -1321,6 +1328,149 @@ private struct RichBlockView: View {
         case .rule:
             Rectangle().fill(theme.border).frame(height: WZ.BorderWidth.thin)
         }
+    }
+}
+
+struct EmojiText: View {
+    let text: String
+    let emotes: [String: String]
+    let size: CGFloat
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        if emotes.isEmpty {
+            Text(text)
+        } else {
+            RichText(spans: InlineEmoji.spans(text, emotes: emotes),
+                     style: RichStyle(mentions: [], revealSpoilers: true, prettifyLinks: false, scale: 1, theme: theme,
+                                      emojiSize: size))
+        }
+    }
+}
+
+struct RichText: View {
+    let spans: [RichSpan]
+    let style: RichStyle
+    @Environment(\.mediaLoader) private var mediaLoader
+    @Environment(\.displayScale) private var displayScale
+    @EnvironmentObject private var prefs: AppPreferences
+    @State private var images: [String: UIImage] = [:]
+
+    private var urls: [String] {
+        var seen = Set<String>()
+        return spans.compactMap(\.emoticon).filter { seen.insert($0).inserted }
+    }
+
+    var body: some View {
+        if urls.isEmpty {
+            Text(MessageText.rich(spans, style: style))
+        } else {
+            Group {
+                if prefs.autoplayGifs, images.values.contains(where: { $0.images != nil }) {
+                    TimelineView(.animation(minimumInterval: 1 / 20)) { context in
+                        text(at: context.date.timeIntervalSinceReferenceDate)
+                    }
+                } else {
+                    text(at: nil)
+                }
+            }
+            .task(id: "\(urls)|\(style.emojiSize)|\(prefs.autoplayGifs)") { await load() }
+        }
+    }
+
+    private func text(at time: TimeInterval?) -> Text {
+        var result = Text(verbatim: "")
+        var run: [RichSpan] = []
+        func flush() {
+            if !run.isEmpty { result = result + Text(MessageText.rich(run, style: style)) }
+            run = []
+        }
+        for span in spans {
+            guard let url = span.emoticon else { run.append(span); continue }
+            flush()
+            if span.spoiler && !style.revealSpoilers {
+                var hidden = AttributedString(span.text)
+                hidden.foregroundColor = style.theme.textMuted
+                hidden.backgroundColor = style.theme.textMuted
+                result = result + Text(hidden)
+            } else if let image = images[url] {
+                result = result + Text(Image(uiImage: frame(of: image, at: time)))
+                    .baselineOffset(-style.emojiSize * 0.2)
+                    .accessibilityLabel(span.text)
+            } else {
+                result = result + Text(span.text).foregroundColor(style.theme.textMuted)
+            }
+        }
+        flush()
+        return result
+    }
+
+    private func frame(of image: UIImage, at time: TimeInterval?) -> UIImage {
+        guard let frames = image.images, !frames.isEmpty else { return image }
+        guard let time, image.duration > 0 else { return frames[0] }
+        let index = Int(time.truncatingRemainder(dividingBy: image.duration) / image.duration * Double(frames.count))
+        return frames[min(index, frames.count - 1)]
+    }
+
+    private func load() async {
+        guard let mediaLoader else { return }
+        let size = style.emojiSize
+        let animated = prefs.autoplayGifs
+        for url in urls {
+            let key = "\(url)|\(size)|\(animated)|\(displayScale)"
+            if let cached = InlineEmoji.cache.object(forKey: key as NSString) {
+                images[url] = cached
+                continue
+            }
+            let source: MediaSource = .object(["url": .string(url)])
+            guard let loaded = await mediaLoader.image(for: source, thumbnailSize: 96, animated: animated) else { continue }
+            let scaled = InlineEmoji.scaled(loaded, height: size, scale: displayScale)
+            InlineEmoji.cache.setObject(scaled, forKey: key as NSString)
+            images[url] = scaled
+        }
+    }
+}
+
+@MainActor
+enum InlineEmoji {
+    static func spans(_ text: String, emotes: [String: String]) -> [RichSpan] {
+        func span(_ text: Substring, _ emoticon: String? = nil) -> RichSpan {
+            RichSpan(text: String(text), bold: false, italic: false, strike: false, underline: false, code: false,
+                     spoiler: false, emoticon: emoticon)
+        }
+        var result: [RichSpan] = []
+        var plainStart = text.startIndex
+        var searchFrom = text.startIndex
+        while let match = text[searchFrom...].firstMatch(of: /:[^\s:]+:/) {
+            guard let url = emotes[String(match.output)] else {
+                searchFrom = text.index(before: match.range.upperBound)
+                continue
+            }
+            if match.range.lowerBound > plainStart { result.append(span(text[plainStart..<match.range.lowerBound])) }
+            result.append(span(match.output, url))
+            plainStart = match.range.upperBound
+            searchFrom = plainStart
+        }
+        if plainStart < text.endIndex { result.append(span(text[plainStart...])) }
+        return result
+    }
+
+    static let cache = NSCache<NSString, UIImage>()
+
+    static func scaled(_ image: UIImage, height: CGFloat, scale: CGFloat) -> UIImage {
+        let frames = image.images ?? [image]
+        guard let first = frames.first, first.size.height > 0 else { return image }
+        let size = CGSize(width: min(first.size.width / first.size.height * height, height * 3), height: height)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        let drawn = frames.map { frame in
+            renderer.image { _ in frame.draw(in: CGRect(origin: .zero, size: size)) }
+        }
+        if image.images != nil {
+            return UIImage.animatedImage(with: drawn, duration: image.duration) ?? drawn[0]
+        }
+        return drawn[0]
     }
 }
 

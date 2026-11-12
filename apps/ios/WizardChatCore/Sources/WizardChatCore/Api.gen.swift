@@ -1615,8 +1615,10 @@ public struct RichSpan: Codable, Hashable, Sendable {
     /// A mentioned user's ID; `text` is "@name", as the plain body shows mentions
     public var mention: String?
     public var spoiler: Bool
+    /// A custom emoji's image (an `mxc://` URL); `text` is its ":shortcode:"
+    public var emoticon: String?
 
-    public init(text: String, bold: Bool, italic: Bool, strike: Bool, underline: Bool, code: Bool, link: String? = nil, mention: String? = nil, spoiler: Bool) {
+    public init(text: String, bold: Bool, italic: Bool, strike: Bool, underline: Bool, code: Bool, link: String? = nil, mention: String? = nil, spoiler: Bool, emoticon: String? = nil) {
         self.text = text
         self.bold = bold
         self.italic = italic
@@ -1626,6 +1628,7 @@ public struct RichSpan: Codable, Hashable, Sendable {
         self.link = link
         self.mention = mention
         self.spoiler = spoiler
+        self.emoticon = emoticon
     }
 }
 
@@ -3784,8 +3787,8 @@ public final class RoomTimeline: Remote, @unchecked Sendable {
         _ = try await call("RoomTimeline.sendSticker", [.value(body), .value(url)]) as Empty
     }
 
-    public func editText(itemKey: String, body: String) async throws {
-        _ = try await call("RoomTimeline.editText", [.value(itemKey), .value(body)]) as Empty
+    public func editText(itemKey: String, body: String, html: String? = nil, mentions: Mentions? = nil) async throws {
+        _ = try await call("RoomTimeline.editText", [.value(itemKey), .value(body), .value(html), .value(mentions)]) as Empty
     }
 
     public func editCaption(itemKey: String, caption: String, html: String? = nil, mentions: Mentions? = nil) async throws {

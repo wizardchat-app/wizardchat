@@ -822,13 +822,7 @@ fun ReplyQuoteView(quote: ChatEntry.ReplyQuote) {
         Box(Modifier.width(WZ.Space.space1).fillMaxHeight().background(theme.accent, CircleShape))
         Column {
             Text(quote.senderName, style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = nameColor(quote.sender), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                quote.text.ifEmpty { tr("timeline.originalMessage") },
-                style = wizardFont(WZ.FontSize.sm),
-                color = theme.textMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            EmojiText(quote.text.ifEmpty { tr("timeline.originalMessage") }, quote.emotes, wizardFont(WZ.FontSize.sm), theme.textMuted, maxLines = 1)
         }
     }
 }

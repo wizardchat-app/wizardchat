@@ -528,7 +528,8 @@ struct ReplyQuoteView: View {
                 Text(quote.senderName)
                     .font(.wizard(WZ.FontSize.sm, .semibold))
                     .foregroundStyle(theme.nameColor(quote.sender, colored: prefs.colorUsernames))
-                Text(quote.text.isEmpty ? String(localized: "timeline.originalMessage") : quote.text)
+                EmojiText(text: quote.text.isEmpty ? String(localized: "timeline.originalMessage") : quote.text,
+                          emotes: quote.emotes, size: WZ.FontSize.sm * 1.2)
                     .font(.wizard(WZ.FontSize.sm))
                     .foregroundStyle(theme.textMuted)
             }

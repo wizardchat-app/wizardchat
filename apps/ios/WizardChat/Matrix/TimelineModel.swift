@@ -110,6 +110,7 @@ struct ChatEntry: Identifiable {
         let senderName: String
         let text: String
         var sender = ""
+        var emotes: [String: String] = [:]
     }
 
     let id: String
@@ -353,12 +354,12 @@ final class TimelineModel: ObservableObject {
         await report { try await timeline.sendHtml(body: text, html: escaped, replyTo: replyTo) }
     }
 
-    func edit(_ entry: ChatEntry, newText: String) async {
+    func edit(_ entry: ChatEntry, newText: String, html: String? = nil, mentions: Mentions? = nil) async {
         guard let timeline, let itemKey = entry.itemKey else { return }
         if entry.editableMedia != nil {
-            await report { try await timeline.editCaption(itemKey: itemKey, caption: newText) }
+            await report { try await timeline.editCaption(itemKey: itemKey, caption: newText, html: html, mentions: mentions) }
         } else {
-            await report { try await timeline.editText(itemKey: itemKey, body: newText) }
+            await report { try await timeline.editText(itemKey: itemKey, body: newText, html: html, mentions: mentions) }
         }
     }
 
@@ -821,8 +822,14 @@ final class TimelineModel: ObservableObject {
     private static func quote(_ reply: ReplyPreview) -> ChatEntry.ReplyQuote {
         switch reply {
         case .ready(let ready):
+            let rich: [RichBlock]? = switch ready.content {
+            case .text(let text): text.rich
+            case .notice(let notice): notice.rich
+            case .emote(let emote): emote.rich
+            default: nil
+            }
             return .init(eventId: ready.eventId, senderName: ready.senderName ?? ready.sender, text: ready.summary,
-                         sender: ready.sender)
+                         sender: ready.sender, emotes: rich?.emoticons ?? [:])
         case .unavailable(let reply):
             return .init(eventId: reply.eventId, senderName: "", text: "")
         case .pending(let reply):
@@ -871,4 +878,23 @@ func readableError(_ error: Error) -> String {
         return String(localized: "common.connectionFailed")
     }
     return message.isEmpty ? String(localized: "common.somethingWentWrong") : message
+}
+
+extension [RichBlock] {
+    var emoticons: [String: String] {
+        var found: [String: String] = [:]
+        func visit(_ spans: [RichSpan]) {
+            for span in spans { if let url = span.emoticon, found[span.text] == nil { found[span.text] = url } }
+        }
+        for block in self {
+            switch block {
+            case .paragraph(let paragraph): visit(paragraph.spans)
+            case .heading(let heading): visit(heading.spans)
+            case .quote(let quote): found.merge(quote.blocks.emoticons) { first, _ in first }
+            case .itemList(let list): for item in list.items { found.merge(item.emoticons) { first, _ in first } }
+            case .code, .rule: break
+            }
+        }
+        return found
+    }
 }

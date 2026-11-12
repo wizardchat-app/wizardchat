@@ -20,6 +20,7 @@ pub struct RichSpan {
     /// A mentioned user's ID; `text` is "@name", as the plain body shows mentions
     pub mention: Option<String>,
     pub spoiler: bool,
+    pub emoticon: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -103,6 +104,9 @@ fn attr(node: &NodeRef, key: &str) -> Option<String> {
 fn has_formatting(node: &NodeRef) -> bool {
     let tag = name(node);
     if tag.as_deref().is_some_and(|n| FORMATTING.contains(&n)) {
+        return true;
+    }
+    if tag.as_deref() == Some("img") && emoticon_url(node).is_some() {
         return true;
     }
     // A named link ("[text](url)"); mentions are links too but the plain body shows them
@@ -225,7 +229,16 @@ fn inlines(node: &NodeRef, style: &RichSpan, out: &mut Vec<RichSpan>) {
     let mut style = style.clone();
     match tag.as_str() {
         "br" => return push(out, &style, "\n".to_owned()),
-        "img" => return push(out, &style, attr(node, "alt").unwrap_or_default()),
+        "img" => {
+            style.emoticon = emoticon_url(node);
+            let alt = attr(node, "alt").unwrap_or_default();
+            let text = if style.emoticon.is_some() && alt.is_empty() {
+                ":emoji:".to_owned()
+            } else {
+                alt
+            };
+            return push(out, &style, text);
+        }
         "b" | "strong" => style.bold = true,
         "i" | "em" => style.italic = true,
         "del" | "s" | "strike" => style.strike = true,
@@ -258,6 +271,11 @@ fn inlines(node: &NodeRef, style: &RichSpan, out: &mut Vec<RichSpan>) {
     for child in node.children() {
         inlines(&child, &style, out);
     }
+}
+
+fn emoticon_url(node: &NodeRef) -> Option<String> {
+    attr(node, "data-mx-emoticon")?;
+    attr(node, "src").filter(|src| src.starts_with("mxc://"))
 }
 
 /// `https://matrix.to/#/@user:server` links name users
@@ -300,7 +318,7 @@ fn push(out: &mut Vec<RichSpan>, style: &RichSpan, text: String) {
             text: String::new(),
             ..style.clone()
         };
-        if same && style.mention.is_none() {
+        if same && style.mention.is_none() && style.emoticon.is_none() {
             last.text.push_str(&text);
             return;
         }
@@ -442,5 +460,19 @@ mod tests {
         };
         assert_eq!(spans[2].text, "@Ann");
         assert_eq!(spans[2].mention.as_deref(), Some("@a:x"));
+    }
+
+    #[test]
+    fn custom_emoji_keep_their_image() {
+        let html = r#"hi <img data-mx-emoticon src="mxc://x/a" alt=":a:"><img data-mx-emoticon src="mxc://x/a" alt=":a:">"#;
+        let blocks = rich_blocks(html).unwrap();
+        let RichBlock::Paragraph { spans } = &blocks[0] else {
+            panic!("{blocks:?}")
+        };
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[1].text, ":a:");
+        assert_eq!(spans[1].emoticon.as_deref(), Some("mxc://x/a"));
+        assert_eq!(spans[2].emoticon.as_deref(), Some("mxc://x/a"));
+        assert_eq!(rich_blocks(r#"<img src="mxc://x/a" alt="pic">"#), None);
     }
 }

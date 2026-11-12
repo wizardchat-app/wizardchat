@@ -1,6 +1,5 @@
 package org.wizardchat.android.ui.room
 
-import org.wizardchat.core.MessageVersion
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -55,6 +54,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -90,9 +91,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -100,10 +103,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import java.time.Instant
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -136,6 +142,7 @@ import org.wizardchat.android.ui.WizardTextField
 import org.wizardchat.android.ui.composer.ComposerView
 import org.wizardchat.android.ui.composer.MediaPicker
 import org.wizardchat.android.ui.composer.MediaPickerTab
+import org.wizardchat.android.ui.composer.PackThumb
 import org.wizardchat.android.ui.copyToClipboard
 import org.wizardchat.android.ui.home.LocalCalls
 import org.wizardchat.android.ui.home.LocalNavigator
@@ -148,15 +155,15 @@ import org.wizardchat.android.ui.theme.withNameColors
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.android.ui.voice.JoinCallBar
+import org.wizardchat.android.ui.voice.rememberMemberProfile
 import org.wizardchat.core.CallHistoryView
 import org.wizardchat.core.CallOutcome
+import org.wizardchat.core.MessageVersion
 import org.wizardchat.core.RichBlock
 import org.wizardchat.core.RichSpan
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
-import java.time.Instant
-import org.wizardchat.android.ui.voice.rememberMemberProfile
 
 /** What a message row can do; null actions (settings preview, pinned list) make it read-only */
 class MessageActions(
@@ -1138,7 +1145,13 @@ private fun TextContent(
     val scale = prefs.chatScale
     var spoilersRevealed by remember { mutableStateOf(false) }
     val kindBody = (entry.kind as? ChatEntry.Kind.Message)?.takeIf { !it.isEmote }?.body
-    val size = WZ.FontSize.lg * scale * (if (prefs.largeEmoji && kindBody != null && MessageText.isEmojiOnly(kindBody)) 2.5f else 1f)
+    val emojiOnly = prefs.largeEmoji && kindBody != null && entry.rich.let { rich ->
+        if (rich == null) return@let MessageText.isEmojiOnly(kindBody)
+        val spans = (rich.singleOrNull() as? RichBlock.Paragraph)?.spans ?: return@let false
+        spans.any { it.emoticon != null } &&
+            spans.all { it.emoticon != null || it.text.isBlank() || MessageText.isEmojiOnly(it.text) }
+    }
+    val size = WZ.FontSize.lg * scale * (if (emojiOnly) 2.5f else 1f)
     val style = wizardFont(size).copy(lineHeight = (size.value + 3 * scale + 4).sp)
     val rich = entry.rich
     val message = entry.kind as? ChatEntry.Kind.Message
@@ -1268,7 +1281,12 @@ private fun RichBlocks(blocks: List<RichBlock>, style: RichStyle) {
 @Composable
 private fun RichBlockView(block: RichBlock, style: RichStyle) {
     when (block) {
-        is RichBlock.Paragraph -> Text(richText(block.spans, style), style = style.text, color = style.color)
+        is RichBlock.Paragraph -> Text(
+            richText(block.spans, style),
+            style = style.text,
+            color = style.color,
+            inlineContent = emojiContent(block.spans),
+        )
         is RichBlock.Heading -> {
             val size = when (block.level) {
                 1L -> WZ.FontSize.xxl
@@ -1279,6 +1297,7 @@ private fun RichBlockView(block: RichBlock, style: RichStyle) {
                 richText(block.spans, style),
                 style = style.text.copy(fontSize = size, lineHeight = size * 1.3f, fontWeight = FontWeight.Bold),
                 color = style.color,
+                inlineContent = emojiContent(block.spans),
             )
         }
         is RichBlock.Quote -> Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
@@ -1312,6 +1331,41 @@ private fun RichBlockView(block: RichBlock, style: RichStyle) {
     }
 }
 
+@Composable
+internal fun EmojiText(text: String, emotes: Map<String, String>, style: TextStyle, color: Color, maxLines: Int = Int.MAX_VALUE) {
+    val annotated = remember(text, emotes) {
+        buildAnnotatedString {
+            var plain = 0
+            var from = 0
+            while (true) {
+                val match = emojiShortcode.find(text, from) ?: break
+                val url = emotes[match.value]
+                if (url == null) {
+                    from = match.range.last
+                    continue
+                }
+                append(text.substring(plain, match.range.first))
+                appendInlineContent(url, match.value)
+                plain = match.range.last + 1
+                from = plain
+            }
+            append(text.substring(plain))
+        }
+    }
+    Text(annotated, style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis, inlineContent = emojiContent(emotes.values))
+}
+
+private val emojiShortcode = Regex(":[^\\s:]+:")
+
+private fun emojiContent(spans: List<RichSpan>): Map<String, InlineTextContent> = emojiContent(spans.mapNotNull { it.emoticon })
+
+private fun emojiContent(urls: Collection<String>): Map<String, InlineTextContent> =
+    urls.distinct().associateWith { url ->
+        InlineTextContent(Placeholder(1.2.em, 1.2.em, PlaceholderVerticalAlign.Center)) {
+            PackThumb(url, Modifier.fillMaxSize(), rounded = false)
+        }
+    }
+
 /** Styled runs as one annotated string: bold, italic, strikethrough, code, links, mention pills and hidden spoilers */
 private fun richText(spans: List<RichSpan>, style: RichStyle): AnnotatedString = buildAnnotatedString {
     for (span in spans) {
@@ -1330,8 +1384,10 @@ private fun richText(spans: List<RichSpan>, style: RichStyle): AnnotatedString =
         if (hidden) spanStyle = spanStyle.copy(color = Color.Transparent, background = style.cover)
         val mention = span.mention
         val link = span.link
+        val emoticon = span.emoticon
         when {
             hidden -> withStyle(spanStyle) { append(span.text) }
+            emoticon != null -> appendInlineContent(emoticon, span.text)
             mention != null -> {
                 val pill = TextLinkStyles(style.mentionColors.pill(style.mentions.any { it.userId == mention && it.isOwn }))
                 val onMention = style.onMention

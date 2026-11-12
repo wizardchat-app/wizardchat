@@ -1030,6 +1030,8 @@ data class RichSpan(
     /** A mentioned user's ID; `text` is "@name", as the plain body shows mentions */
     val mention: String? = null,
     val spoiler: Boolean,
+    /** A custom emoji's image (an `mxc://` URL); `text` is its ":shortcode:" */
+    val emoticon: String? = null,
 )
 
 /** Why a ring stopped */
@@ -2650,8 +2652,8 @@ class RoomTimeline(handle: Long, props: JsonObject) : Remote(handle, props) {
         Runtime.callUnit("RoomTimeline.sendSticker", handle, listOf(Arg.value<String>(body), Arg.value<String>(url)))
     }
 
-    suspend fun editText(itemKey: String, body: String) {
-        Runtime.callUnit("RoomTimeline.editText", handle, listOf(Arg.value<String>(itemKey), Arg.value<String>(body)))
+    suspend fun editText(itemKey: String, body: String, html: String? = null, mentions: Mentions? = null) {
+        Runtime.callUnit("RoomTimeline.editText", handle, listOf(Arg.value<String>(itemKey), Arg.value<String>(body), Arg.value<String?>(html), Arg.value<Mentions?>(mentions)))
     }
 
     suspend fun editCaption(itemKey: String, caption: String, html: String? = null, mentions: Mentions? = null) {

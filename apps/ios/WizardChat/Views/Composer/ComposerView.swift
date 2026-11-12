@@ -15,6 +15,8 @@ struct ComposerView: View {
     @EnvironmentObject private var session: MatrixSession
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
+    @Environment(\.mediaLoader) private var mediaLoader
+    @Environment(\.displayScale) private var displayScale
 
     @State private var draft = ""
     @State private var selection = NSRange(location: 0, length: 0)
@@ -23,6 +25,7 @@ struct ComposerView: View {
     @StateObject private var packStore = PacksStore()
     private var packs: [ImagePack] { packStore.packs }
     @State private var usedEmotes: [String: PackImage] = [:]
+    @State private var emoteImages: [String: UIImage] = [:]
     @State private var mentions: [String: String] = [:]
     @State private var roomLinks: [String: String] = [:]
     @State private var members: [Member] = []
@@ -64,10 +67,12 @@ struct ComposerView: View {
                     VStack(spacing: WZ.Space.space0) {
                         if let replyTo { contextBar(icon: "ph-arrow-bend-up-left-regular",
                                                     title: L10n.format("composer.replyingToName", "\(replyTo.senderName)"), text: replyTo.summary,
+                                                    emotes: replyTo.rich?.emoticons ?? [:],
                                                     name: (replyTo.senderName, theme.nameColor(replyTo.sender, colored: prefs.colorUsernames))) {
                             self.replyTo = nil
                         } }
-                        if let editing { contextBar(icon: "ph-pencil-simple-regular", title: String(localized: "timeline.editing"), text: editing.summary) {
+                        if let editing { contextBar(icon: "ph-pencil-simple-regular", title: String(localized: "timeline.editing"), text: editing.summary,
+                                                    emotes: editing.rich?.emoticons ?? [:]) {
                             self.editing = nil
                             draft = ""
                         } }
@@ -111,7 +116,9 @@ struct ComposerView: View {
         }
         .task { members = await timeline.members() }
         .onChange(of: editing?.id) { _, _ in
-            if let text = editing?.editableText {
+            if let editing, let text = editing.editableText {
+                usedEmotes = Self.emotes(in: editing.rich ?? [])
+                mentions = Dictionary(editing.mentions.map { ($0.label, $0.userId) }, uniquingKeysWith: { first, _ in first })
                 draft = text
                 focused = true
             }
@@ -242,8 +249,10 @@ struct ComposerView: View {
             textColor: UIColor(theme.textPrimary),
             placeholderColor: UIColor(theme.textMuted),
             tintColor: UIColor(theme.accent),
+            emotes: emoteImages,
             onPaste: addPasted)
             .onChange(of: draft) { _, text in onTyping(!text.isEmpty) }
+            .task(id: usedEmotes.keys.sorted()) { await loadEmoteImages() }
             .padding(.vertical, WZ.Space.space5)
             .padding(.horizontal, WZ.Space.space6)
             .frame(minHeight: WZ.Space.space10)
@@ -326,13 +335,14 @@ struct ComposerView: View {
         setCursor(draft.index(draft.startIndex, offsetBy: startOffset + replaced.count))
     }
 
-    private func contextBar(icon: String, title: String, text: String, name: (String, Color)? = nil,
-                            onClose: @escaping () -> Void) -> some View {
+    private func contextBar(icon: String, title: String, text: String, emotes: [String: String] = [:],
+                            name: (String, Color)? = nil, onClose: @escaping () -> Void) -> some View {
         HStack(spacing: WZ.Space.space4) {
             Image(icon).foregroundStyle(theme.accent)
             VStack(alignment: .leading, spacing: WZ.Space.space0) {
                 Text(withNameColors(title, name.map { [$0] } ?? [])).font(.wizard(WZ.FontSize.sm, .semibold)).foregroundStyle(theme.accent)
-                Text(text).font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.textMuted)
+                EmojiText(text: text, emotes: emotes, size: WZ.FontSize.sm * 1.2)
+                    .font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.textMuted)
             }
             .lineLimit(1)
             Spacer()
@@ -691,6 +701,26 @@ struct ComposerView: View {
         }
     }
 
+    private func loadEmoteImages() async {
+        guard let mediaLoader else { return }
+        let height = ceil(Font.wizardUIFont(17).lineHeight)
+        for (code, image) in usedEmotes where emoteImages[code] == nil {
+            let source: MediaSource = .object(["url": .string(image.url)])
+            guard let loaded = await mediaLoader.image(for: source, thumbnailSize: 96, animated: prefs.autoplayGifs)
+            else { continue }
+            emoteImages[code] = InlineEmoji.scaled(loaded, height: height, scale: displayScale)
+        }
+    }
+
+    static func emotes(in blocks: [RichBlock]) -> [String: PackImage] {
+        var found: [String: PackImage] = [:]
+        for (text, url) in blocks.emoticons {
+            let code = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+            found[code] = PackImage(shortcode: code, url: url, emoticon: true, sticker: false)
+        }
+        return found
+    }
+
     private func insertEmoji(_ text: String, _ image: PackImage?) {
         if let image { usedEmotes[image.shortcode] = image }
         draft += text
@@ -705,7 +735,13 @@ struct ComposerView: View {
         if let editing {
             self.editing = nil
             draft = ""
-            await timeline.edit(editing, newText: text)
+            let html = await Self.richHtml(text, emotes: usedEmotes, mentions: mentions, client: session.client)
+            let userIds = mentions.filter { text.contains($0.key) && $0.value != session.userId }.map(\.value)
+            let room = text.range(of: #"(^|\s)@room\b"#, options: .regularExpression) != nil
+            usedEmotes = [:]
+            mentions = [:]
+            await timeline.edit(editing, newText: text, html: html,
+                                mentions: Mentions(userIds: Array(Set(userIds)).sorted(), room: room ? true : nil))
             return
         }
 

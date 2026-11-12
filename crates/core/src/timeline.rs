@@ -1015,8 +1015,20 @@ impl RoomTimeline {
     }
 
     /// Replaces the text of one of the user's own messages.
-    pub async fn edit_text(&self, item_key: &str, body: &str) -> Result<()> {
-        let content = RoomMessageEventContentWithoutRelation::text_markdown(body);
+    pub async fn edit_text(
+        &self,
+        item_key: &str,
+        body: &str,
+        html: Option<&str>,
+        mentions: Option<MentionsInput>,
+    ) -> Result<()> {
+        let mut content = match html.filter(|h| !h.trim().is_empty()) {
+            Some(html) => RoomMessageEventContentWithoutRelation::text_html(body, html),
+            None => RoomMessageEventContentWithoutRelation::text_markdown(body),
+        };
+        if let Some(mentions) = mentions {
+            content = content.add_mentions(mentions_of(mentions));
+        }
         self.timeline
             .edit(
                 &parse_item_key(item_key)?,

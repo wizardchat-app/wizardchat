@@ -160,8 +160,8 @@ rpc_methods! {
             this.send_sticker(&body, &url).await
         }
 
-        call fn editText(item_key: String, body: String) -> () {
-            this.edit_text(&item_key, &body).await
+        call fn editText(item_key: String, body: String, html: Option<String>, mentions: Option<MentionsInput>) -> () {
+            this.edit_text(&item_key, &body, html.as_deref(), mentions).await
         }
 
         call fn editCaption(item_key: String, caption: String, html: Option<String>, mentions: Option<MentionsInput>) -> () {
