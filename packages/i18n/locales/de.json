@@ -1197,6 +1197,10 @@
     "daysAgo_one": "vor {{count}} Tg.",
     "daysAgo_other": "vor {{count}} Tg."
   },
+  "calendar": {
+    "previousMonth": "Vorheriger Monat",
+    "nextMonth": "Nächster Monat"
+  },
   "inbox": {
     "title": "Posteingang",
     "tabInvites": "Einladungen",

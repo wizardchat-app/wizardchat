@@ -1197,6 +1197,10 @@
     "daysAgo_one": "{{count}}d ago",
     "daysAgo_other": "{{count}}d ago"
   },
+  "calendar": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month"
+  },
   "inbox": {
     "title": "Inbox",
     "tabInvites": "Invites",

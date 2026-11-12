@@ -3,11 +3,14 @@ import { useTranslation } from 'react-i18next';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { Modal } from '@/app/components/Modal/Modal';
 import { Button } from '@/app/components/Button/Button';
-import { Input } from '@/app/components/Input/Input';
+import { Calendar } from '@/app/components/Calendar';
+import { Field } from '@/app/components/Field';
 import { getErrorMessage } from '@/util/error';
 
-const dateValue = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const startOfToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
 
 interface Props {
   client: MatrixClient;
@@ -19,25 +22,25 @@ interface Props {
 
 export function JumpToDateDialog({ client, roomId, open, onClose, onJump }: Props) {
   const { t } = useTranslation();
-  const today = dateValue(new Date());
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(startOfToday);
+  const [openedAt, setOpenedAt] = useState(0);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setDate(today);
+    setDate(startOfToday());
+    setOpenedAt(Date.now());
     setError(undefined);
     setBusy(false);
-  }, [open, today]);
+  }, [open]);
 
   const jump = async () => {
-    const [year, month, day] = date.split('-').map(Number);
-    if (!year || !month || !day) return;
+    if (busy) return;
     setBusy(true);
     setError(undefined);
     try {
-      const eventId = await client.eventAtTime(roomId, new Date(year, month - 1, day).getTime());
+      const eventId = await client.eventAtTime(roomId, date.getTime());
       if (!eventId) {
         setError(t('room.jumpToDate.notFound'));
         return;
@@ -62,25 +65,25 @@ export function JumpToDateDialog({ client, roomId, open, onClose, onJump }: Prop
           <Button variant="secondary" size="md" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" size="md" onClick={() => void jump()} disabled={!date || busy}>
+          <Button variant="primary" size="md" onClick={() => void jump()} disabled={busy}>
             {t('room.jumpToDate.jump')}
           </Button>
         </>
       }
     >
-      <Input
-        type="date"
-        label={t('room.jumpToDate.date')}
-        value={date}
-        max={today}
-        onChange={(e) => {
-          setDate(e.target.value);
-          setError(undefined);
-        }}
-        onKeyDown={(e) => e.key === 'Enter' && void jump()}
-        error={error}
-        data-dialog-autofocus
-      />
+      <Field error={error}>
+        <Calendar
+          key={openedAt}
+          value={date}
+          max={new Date()}
+          autoFocus
+          onChange={(next) => {
+            setDate(next);
+            setError(undefined);
+          }}
+          onSubmit={() => void jump()}
+        />
+      </Field>
     </Modal>
   );
 }
