@@ -344,7 +344,7 @@ private fun Detail(label: String, value: String) {
 @Composable
 private fun SmallSheet(title: String, onDismiss: () -> Unit, onCancel: () -> Unit = onDismiss, content: @Composable () -> Unit) {
     WizardSheet(onDismiss) {
-        SheetTopBar(title, leading = { BarTextButton(tr("common.cancel"), onCancel) })
+        SheetTopBar("", leading = { BarTextButton(tr("common.cancel"), onCancel) })
         Column(
             Modifier
                 .fillMaxWidth()
@@ -352,7 +352,10 @@ private fun SmallSheet(title: String, onDismiss: () -> Unit, onCancel: () -> Uni
                 .navigationBarsPadding()
                 .padding(WZ.Space.space6),
             verticalArrangement = Arrangement.spacedBy(WZ.Space.space5),
-        ) { content() }
+        ) {
+            Text(title, style = wizardFont(WZ.FontSize.xl, FontWeight.Bold), color = theme.textPrimary)
+            content()
+        }
     }
 }
 

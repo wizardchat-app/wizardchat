@@ -127,7 +127,11 @@ struct VerificationSheet: View {
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: WZ.Space.space6) {
+                Text(title)
+                    .font(.wizard(WZ.FontSize.xl, .bold))
+                    .multilineTextAlignment(.center)
                 switch model.step {
                 case .starting, .waitingForOtherDevice:
                     ProgressView().tint(theme.accent)
@@ -138,6 +142,7 @@ struct VerificationSheet: View {
                             Text(String(localized: "verification.waitingForOther"))
                         }
                     }
+                    .foregroundStyle(theme.textMuted)
                     .multilineTextAlignment(.center)
                 case .incoming(let otherUser, let isSelf):
                     Image("ph-shield-warning-regular").font(.system(size: WZ.SizeIcon.xxl)).foregroundStyle(theme.warningColor)
@@ -156,44 +161,61 @@ struct VerificationSheet: View {
                 case .waitingForEmojis:
                     ProgressView().tint(theme.accent)
                     Text(String(localized: "verification.waitingForOtherDevice"))
+                        .foregroundStyle(theme.textMuted)
+                        .multilineTextAlignment(.center)
                 case .compare(let emojis):
                     Text(String(localized: "verification.compareEmojis"))
+                        .foregroundStyle(theme.textMuted)
                         .multilineTextAlignment(.center)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: WZ.Space.space5) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: 4), spacing: WZ.Space.space6) {
                         ForEach(Array(emojis.enumerated()), id: \.offset) { _, emoji in
                             VStack(spacing: WZ.Space.space2) {
-                                Text(emoji.symbol).font(.system(size: WZ.SizeIcon.xl))
+                                Text(emoji.symbol).font(.system(size: WZ.SizeIcon.xxl))
                                 Text(emoji.description)
                                     .font(.wizard(WZ.FontSize.xs))
                                     .foregroundStyle(theme.textMuted)
-                                    .lineLimit(1)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
                             }
                         }
                     }
-                    HStack(spacing: WZ.Space.space4) {
-                        Button(String(localized: "verification.theyDontMatch")) { Task { await model.confirm(false) } }
-                            .buttonStyle(SecondaryButtonStyle())
+                    VStack(spacing: WZ.Space.space4) {
                         Button(String(localized: "verification.theyMatch")) { Task { await model.confirm(true) } }
                             .buttonStyle(PrimaryButtonStyle())
+                        Button(String(localized: "verification.theyDontMatch")) { Task { await model.confirm(false) } }
+                            .buttonStyle(SecondaryButtonStyle())
                     }
                 case .done:
                     Image("ph-shield-check-regular").font(.system(size: WZ.SizeIcon.xxl)).foregroundStyle(theme.success)
-                    Text(String(localized: "common.verified")).font(.wizard(WZ.FontSize.lg, .bold))
+                    Text(String(localized: "verification.complete")).font(.wizard(WZ.FontSize.lg, .bold))
+                        .multilineTextAlignment(.center)
+                    Text(String(localized: "verification.deviceVerifiedOther"))
+                        .foregroundStyle(theme.textMuted)
+                        .multilineTextAlignment(.center)
                     Button(String(localized: "common.done")) { dismiss() }.buttonStyle(PrimaryButtonStyle())
                 case .failed(let message):
                     Image("ph-x-circle-regular").font(.system(size: WZ.SizeIcon.xxl)).foregroundStyle(theme.error)
                     Text(message).multilineTextAlignment(.center)
+                    Button(String(localized: "common.done")) { dismiss() }.buttonStyle(SecondaryButtonStyle())
                 case .cancelled:
-                    Text(String(localized: "verification.cancelled"))
+                    Image("ph-x-circle-regular").font(.system(size: WZ.SizeIcon.xxl)).foregroundStyle(theme.textMuted)
+                    Text(String(localized: "verification.cancelled")).font(.wizard(WZ.FontSize.lg, .bold))
+                        .multilineTextAlignment(.center)
+                    Text(String(localized: "verification.cancelledNote"))
+                        .foregroundStyle(theme.textMuted)
+                        .multilineTextAlignment(.center)
+                    Button(String(localized: "common.done")) { dismiss() }.buttonStyle(SecondaryButtonStyle())
                 }
-                Spacer()
             }
+            .fixedSize(horizontal: false, vertical: true)
             .font(.wizard(WZ.FontSize.md))
             .foregroundStyle(theme.textPrimary)
-            .padding(WZ.Space.space7)
+            .padding(.horizontal, WZ.Space.space7)
+            .padding(.bottom, WZ.Space.space7)
+            .padding(.top, WZ.Space.space4)
             .frame(maxWidth: .infinity)
+            }
             .background(theme.bgSecondary)
-            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

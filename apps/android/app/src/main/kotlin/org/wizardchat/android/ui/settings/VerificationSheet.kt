@@ -15,6 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -163,7 +165,7 @@ internal fun VerificationSheet(model: VerificationModel, onDismiss: () -> Unit) 
 
     WizardSheet(onDismiss = { if (!waitingOnYou) onDismiss() }) {
         SheetTopBar(
-            title,
+            "",
             leading = {
                 BarTextButton(tr("common.cancel"), {
                     scope.launch { model.cancel() }
@@ -174,17 +176,20 @@ internal fun VerificationSheet(model: VerificationModel, onDismiss: () -> Unit) 
         Column(
             Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(WZ.Space.space7),
+                .padding(horizontal = WZ.Space.space7)
+                .padding(bottom = WZ.Space.space7, top = WZ.Space.space4),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(WZ.Space.space6),
         ) {
             val body = wizardFont(WZ.FontSize.md)
+            Text(title, style = wizardFont(WZ.FontSize.xl, FontWeight.Bold), color = theme.textPrimary, textAlign = TextAlign.Center)
             when (val step = model.step) {
                 VerificationModel.Step.Starting, VerificationModel.Step.WaitingForOtherDevice -> {
                     Spinner()
                     val waiting = if (model.start is VerificationModel.Start.OwnDevice) "verification.otherDeviceHint" else "verification.waitingForOther"
-                    Text(tr(waiting), style = body, color = theme.textPrimary, textAlign = TextAlign.Center)
+                    Text(tr(waiting), style = body, color = theme.textMuted, textAlign = TextAlign.Center)
                 }
                 is VerificationModel.Step.Incoming -> {
                     PhIcon("shield-warning", size = WZ.SizeIcon.xxl, tint = theme.warningColor)
@@ -204,15 +209,15 @@ internal fun VerificationSheet(model: VerificationModel, onDismiss: () -> Unit) 
                 }
                 VerificationModel.Step.WaitingForEmojis -> {
                     Spinner()
-                    Text(tr("verification.waitingForOtherDevice"), style = body, color = theme.textPrimary)
+                    Text(tr("verification.waitingForOtherDevice"), style = body, color = theme.textMuted, textAlign = TextAlign.Center)
                 }
                 is VerificationModel.Step.Compare -> {
-                    Text(tr("verification.compareEmojis"), style = body, color = theme.textPrimary, textAlign = TextAlign.Center)
+                    Text(tr("verification.compareEmojis"), style = body, color = theme.textMuted, textAlign = TextAlign.Center)
                     step.emojis.chunked(4).forEach { row ->
                         Row(Modifier.fillMaxWidth()) {
                             row.forEach { emoji ->
                                 Column(
-                                    Modifier.weight(1f),
+                                    Modifier.weight(1f).padding(vertical = WZ.Space.space2),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(WZ.Space.space2),
                                 ) {
@@ -221,30 +226,36 @@ internal fun VerificationSheet(model: VerificationModel, onDismiss: () -> Unit) 
                                         emoji.description,
                                         style = wizardFont(WZ.FontSize.xs),
                                         color = theme.textMuted,
-                                        maxLines = 1,
+                                        maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center,
                                     )
                                 }
                             }
                             repeat(4 - row.size) { Box(Modifier.weight(1f)) }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-                        SecondaryButton(tr("verification.theyDontMatch"), { scope.launch { model.confirm(false) } }, Modifier.weight(1f))
-                        PrimaryButton(tr("verification.theyMatch"), { scope.launch { model.confirm(true) } }, Modifier.weight(1f))
+                    Column(verticalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
+                        PrimaryButton(tr("verification.theyMatch"), { scope.launch { model.confirm(true) } })
+                        SecondaryButton(tr("verification.theyDontMatch"), { scope.launch { model.confirm(false) } })
                     }
                 }
                 VerificationModel.Step.Done -> {
                     PhIcon("shield-check", size = WZ.SizeIcon.xxl, tint = theme.success)
-                    Text(tr("common.verified"), style = wizardFont(WZ.FontSize.lg, FontWeight.Bold), color = theme.textPrimary)
+                    Text(tr("verification.complete"), style = wizardFont(WZ.FontSize.lg, FontWeight.Bold), color = theme.textPrimary, textAlign = TextAlign.Center)
+                    Text(tr("verification.deviceVerifiedOther"), style = body, color = theme.textMuted, textAlign = TextAlign.Center)
                     PrimaryButton(tr("common.done"), onDismiss)
                 }
                 is VerificationModel.Step.Failed -> {
                     PhIcon("x-circle", size = WZ.SizeIcon.xxl, tint = theme.error)
                     Text(step.message, style = body, color = theme.textPrimary, textAlign = TextAlign.Center)
+                    SecondaryButton(tr("common.done"), onDismiss)
                 }
                 VerificationModel.Step.Cancelled -> {
-                    Text(tr("verification.cancelled"), style = body, color = theme.textPrimary)
+                    PhIcon("x-circle", size = WZ.SizeIcon.xxl, tint = theme.textMuted)
+                    Text(tr("verification.cancelled"), style = wizardFont(WZ.FontSize.lg, FontWeight.Bold), color = theme.textPrimary, textAlign = TextAlign.Center)
+                    Text(tr("verification.cancelledNote"), style = body, color = theme.textMuted, textAlign = TextAlign.Center)
+                    SecondaryButton(tr("common.done"), onDismiss)
                 }
             }
         }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -156,21 +157,41 @@ fun SheetTopBar(
             .height(WZ.Space.space11)
             .padding(horizontal = WZ.Space.space3),
     ) {
-        Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically, content = leading)
-        Box(Modifier.align(Alignment.Center).padding(horizontal = WZ.Space.space12)) {
-            if (titleContent != null) {
-                titleContent()
-            } else {
-                Text(
-                    title,
-                    style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold),
-                    color = theme.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        // The title stays centred but only gets the room between the buttons, so a long one ellipsizes instead of
+        // running under them
+        Layout(
+            content = {
+                Row(verticalAlignment = Alignment.CenterVertically, content = leading)
+                Box(contentAlignment = Alignment.Center) {
+                    if (titleContent != null) {
+                        titleContent()
+                    } else {
+                        Text(
+                            title,
+                            style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold),
+                            color = theme.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, content = trailing)
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) { measurables, constraints ->
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val lead = measurables[0].measure(loose)
+            val trail = measurables[2].measure(loose)
+            val gap = WZ.Space.space4.roundToPx()
+            val side = maxOf(lead.width, trail.width).let { if (it > 0) it + gap else 0 }
+            val titlePlaceable = measurables[1].measure(loose.copy(maxWidth = (constraints.maxWidth - side * 2).coerceAtLeast(0)))
+            val height = constraints.maxHeight
+            layout(constraints.maxWidth, height) {
+                lead.place(0, (height - lead.height) / 2)
+                trail.place(constraints.maxWidth - trail.width, (height - trail.height) / 2)
+                titlePlaceable.place((constraints.maxWidth - titlePlaceable.width) / 2, (height - titlePlaceable.height) / 2)
             }
         }
-        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, content = trailing)
     }
 }
 

@@ -356,6 +356,9 @@ struct RecoveryKeyEntrySheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: WZ.Space.space5) {
+                Text(String(localized: "settings.keyBackup.enterRecoveryKeyTitle"))
+                    .font(.wizard(WZ.FontSize.xl, .bold))
+                    .foregroundStyle(theme.textPrimary)
                 Text(String(localized: "settings.encryption.enterRecoveryKeyNote"))
                     .font(.wizard(WZ.FontSize.md))
                     .foregroundStyle(theme.textMuted)
@@ -383,7 +386,6 @@ struct RecoveryKeyEntrySheet: View {
             }
             .padding(WZ.Space.space6)
             .background(theme.bgSecondary)
-            .navigationTitle(String(localized: "settings.keyBackup.enterRecoveryKeyTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button(String(localized: "common.cancel")) { dismiss() } } }
         }

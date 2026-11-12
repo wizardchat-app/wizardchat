@@ -5,6 +5,15 @@ import kotlinx.coroutines.Dispatchers
 import org.wizardchat.android.matrix.SessionStore
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import org.wizardchat.android.ui.expressiveClickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -191,7 +200,7 @@ fun MainScreen(roomList: RoomListModel) {
     LaunchedEffect(session.client) {
         val client = session.client ?: return@LaunchedEffect
         session.loadSyncedSettings()?.let(prefs::applySynced)
-        prefs.onSyncedSettingsChange = { settings -> launch { session.saveSyncedSettings(settings) } }
+        prefs.onSyncedSettingsChange = { settings -> session.saveSyncedSettings(settings) }
         session.applyPresence(prefs.showPresence)
         notifier.start(roomList, prefs)
         calls.watchIncoming(client)
@@ -357,30 +366,47 @@ private fun TabIsland(roomList: RoomListModel, selected: Tab, onSelect: (Tab) ->
         UnreadState(state.unread || unread.unread, state.mention || unread.mention)
     }
     Surface(modifier.fillMaxWidth(), shape = CircleShape, color = theme.bgTertiary.copy(alpha = 0.96f), shadowElevation = 8.dp) {
-        Row(Modifier.padding(WZ.Space.space2)) {
-            TabItem(Tab.home, selected, tr("nav.home"), "house", roomList.unreadState(SidebarSelection.Home), onSelect)
-            TabItem(Tab.dms, selected, tr("search.switcher.prefixDms"), "chat-circle", roomList.unreadState(SidebarSelection.Dms), onSelect)
-            TabItem(Tab.spaces, selected, tr("room.settings.permissions.groups.spaces"), "stack", spacesUnread, onSelect)
-            val isSelected = selected == Tab.me
-            val youLabel = tr("nav.you")
-            Column(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = WZ.Space.space11)
-                    .clip(CircleShape)
-                    .background(if (isSelected) theme.accent.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
-                    .clickable { onSelect(Tab.me) }
-                    .semantics { contentDescription = youLabel }
-                    .padding(vertical = WZ.Space.space2),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Avatar(
-                    session.displayName ?: session.userId ?: "",
-                    session.avatarUrl,
-                    WZ.SizeIcon.xl,
-                    modifier = Modifier.border(WZ.BorderWidth.thick, if (isSelected) theme.accent else androidx.compose.ui.graphics.Color.Transparent, CircleShape),
+        BoxWithConstraints(Modifier.padding(WZ.Space.space2)) {
+            val itemWidth = maxWidth / Tab.entries.size
+            val indicator by animateDpAsState(
+                itemWidth * Tab.entries.indexOf(selected),
+                spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+                label = "tab",
+            )
+            Box(Modifier.matchParentSize()) {
+                Box(
+                    Modifier
+                        .offset(x = indicator)
+                        .width(itemWidth)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(theme.accent.copy(alpha = 0.14f)),
                 )
+            }
+            Row {
+                TabItem(Tab.home, selected, tr("nav.home"), "house", roomList.unreadState(SidebarSelection.Home), onSelect)
+                TabItem(Tab.dms, selected, tr("search.switcher.prefixDms"), "chat-circle", roomList.unreadState(SidebarSelection.Dms), onSelect)
+                TabItem(Tab.spaces, selected, tr("room.settings.permissions.groups.spaces"), "stack", spacesUnread, onSelect)
+                val isSelected = selected == Tab.me
+                val youLabel = tr("nav.you")
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = WZ.Space.space11)
+                        .clip(CircleShape)
+                        .expressiveClickable({ onSelect(Tab.me) }, role = Role.Tab, pressedScale = 0.92f)
+                        .semantics { contentDescription = youLabel }
+                        .padding(vertical = WZ.Space.space2),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Avatar(
+                        session.displayName ?: session.userId ?: "",
+                        session.avatarUrl,
+                        WZ.SizeIcon.xl,
+                        modifier = Modifier.border(WZ.BorderWidth.thick, if (isSelected) theme.accent else androidx.compose.ui.graphics.Color.Transparent, CircleShape),
+                    )
+                }
             }
         }
     }
@@ -396,14 +422,13 @@ private fun androidx.compose.foundation.layout.RowScope.TabItem(
     onSelect: (Tab) -> Unit,
 ) {
     val isSelected = selected == tab
-    val color = if (isSelected) theme.accent else theme.textMuted
+    val color by animateColorAsState(if (isSelected) theme.accent else theme.textMuted, label = "tabColor")
     Column(
         Modifier
             .weight(1f)
             .heightIn(min = WZ.Space.space11)
             .clip(CircleShape)
-            .background(if (isSelected) theme.accent.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
-            .clickable { onSelect(tab) }
+            .expressiveClickable({ onSelect(tab) }, role = Role.Tab, pressedScale = 0.92f)
             .padding(vertical = WZ.Space.space2),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(WZ.Space.space1),

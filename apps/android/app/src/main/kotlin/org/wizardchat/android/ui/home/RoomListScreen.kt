@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -336,11 +337,14 @@ private fun SwipeableRoomRow(
     val unread = room.unreadCount > 0 || room.mentionCount > 0
     var menuOpen by remember { mutableStateOf(false) }
     var notificationsOpen by remember { mutableStateOf(false) }
+    val currentUnread by rememberUpdatedState(unread)
+    val currentToggleRead by rememberUpdatedState(onToggleRead)
+    val currentLeave by rememberUpdatedState(onLeave)
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> onToggleRead(unread)
-                SwipeToDismissBoxValue.EndToStart -> onLeave()
+                SwipeToDismissBoxValue.StartToEnd -> currentToggleRead(currentUnread)
+                SwipeToDismissBoxValue.EndToStart -> currentLeave()
                 SwipeToDismissBoxValue.Settled -> {}
             }
             false

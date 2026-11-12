@@ -233,6 +233,7 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
                 background = if (moreHighlighted) theme.accent else theme.fill,
                 tint = if (moreHighlighted) theme.textOnAccent else theme.textPrimary,
                 onClick = { showMenu = true },
+                active = moreHighlighted,
                 weight = if (calls.handRaised) PhWeight.regular else PhWeight.bold,
             )
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }, containerColor = theme.bgTertiary) {
@@ -297,7 +298,7 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
                 }
             }
         }
-        RoundIconButton("phone-x", tr("common.leave"), background = theme.danger, tint = theme.textOnAccent, onClick = { calls.leave() })
+        RoundIconButton("phone-x", tr("common.leave"), background = theme.danger, tint = theme.textOnAccent, onClick = { calls.leave() }, width = WZ.Space.space12 + WZ.Space.space4)
     }
     if (showWatchSheet) {
         calls.watch?.let { WatchTogetherStartSheet(it, onDismiss = { showWatchSheet = false }) }
@@ -329,6 +330,7 @@ private fun Control(
         tint = if (active || highlighted) theme.textOnAccent else theme.textPrimary,
         onClick = onClick,
         weight = weight,
+        active = active || highlighted,
     )
 }
 
@@ -415,6 +417,7 @@ private fun BarControl(icon: String, active: Boolean, label: String, weight: PhW
         background = if (active) theme.danger else theme.fill,
         tint = if (active) theme.textOnAccent else theme.textPrimary,
         onClick = onClick,
+        active = active,
         size = WZ.Space.space10,
         iconSize = WZ.SizeIcon.sm,
         weight = weight,

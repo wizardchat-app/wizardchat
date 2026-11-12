@@ -5,6 +5,9 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -46,6 +49,8 @@ import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.CallManager
 import org.wizardchat.android.matrix.MemberDirectory
 import org.wizardchat.android.ui.PhIcon
+import org.wizardchat.android.ui.expressiveClickable
+import org.wizardchat.android.ui.rememberMorphShape
 import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
@@ -131,14 +136,18 @@ internal fun RoundIconButton(
     size: Dp = WZ.Space.space11,
     iconSize: Dp = WZ.SizeIcon.md,
     weight: PhWeight = PhWeight.regular,
+    active: Boolean = false,
+    width: Dp = size,
     modifier: Modifier = Modifier,
 ) {
+    val color by animateColorAsState(background, spring(stiffness = Spring.StiffnessMediumLow), label = "button")
+    val shape = rememberMorphShape(active)
     Box(
         modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(background)
-            .clickable(onClick = onClick)
+            .size(width, size)
+            .expressiveClickable(onClick)
+            .clip(shape)
+            .background(color)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
