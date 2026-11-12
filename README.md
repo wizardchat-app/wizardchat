@@ -27,83 +27,92 @@ macOS and Linux, and as a native app for iOS and Android. All apps share one Rus
 - A range of dark and light themes to choose from
 - English and German
 
-## Try out WizardChat
+## Get WizardChat
 
-### Web
-
-- **Stable**: [app.wizardchat.org](https://app.wizardchat.org)
-- **Next** (pre-release): [next.wizardchat.org](https://next.wizardchat.org)
+| Platform              | Get it                                                                |
+| --------------------- | --------------------------------------------------------------------- |
+| Web                   | [![Open in your browser][b-web]][web]                                 |
+| Windows, macOS, Linux | [![Download][b-desktop]][desktop]                                     |
+| Android               | [![F-Droid][b-fdroid]][fdroid] [![Obtainium][b-obtainium]][obtainium] |
+| iOS                   | [![SideStore or AltStore][b-ios]](#ios)                               |
 
 ### Desktop
 
-Windows (installer), macOS (Apple Silicon or Intel, DMG) and Linux (AppImage, `.deb`, `.rpm`, Arch `.pkg.tar.zst` or tarball):
-download from [wizardchat.org](https://wizardchat.org) or the
-[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases). The app updates itself; the `.deb` and `.rpm` ask
-for your password to install an update. The Arch package and the tarball can't, so they open the new release to
-download instead.
-
-> **macOS:** the app isn't signed yet, so macOS may block it the first time. Open **System Settings -> Privacy & Security**,
-> scroll down to **Security** and click **Allow WizardChat**.
-
-On Arch Linux, install [`wizardchat-bin`](https://aur.archlinux.org/packages/wizardchat-bin) from the AUR with your
-AUR helper, which also keeps it up to date:
+Download the installer for your system from [wizardchat.org][desktop]: Windows, macOS (Apple Silicon or Intel) and Linux
+(AppImage, `.deb` or `.rpm`). On Arch Linux, install [`wizardchat-bin`](https://aur.archlinux.org/packages/wizardchat-bin)
+from the AUR:
 
 ```sh
 yay -S wizardchat-bin
 ```
 
-<details>
-<summary>Build the Arch package yourself (stable or next)</summary>
-
-Stable:
-
-```sh
-curl -LO https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/PKGBUILD
-makepkg -si
-```
-
-Next (pre-release):
-
-```sh
-curl -LO https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/next/PKGBUILD
-makepkg -si
-```
-
-Both install as `wizardchat-bin`, so building the other one switches channels. Run it again to update.
-
-</details>
+> **macOS:** the app isn't signed yet, so macOS may block it the first time. Open **System Settings -> Privacy & Security**,
+> scroll down to **Security** and click **Allow WizardChat**.
 
 ### Android
 
-Not in the stores yet. Every release has an APK (arm64) on the
-[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases), in two versions: `WizardChat_<version>_arm64.apk`
-gets push notifications through Google's Firebase, `WizardChat_<version>_arm64_foss.apk` has no Google code and no push
-notifications yet. Both are signed with the same key, so you can switch between them without losing your data.
+Not in the Play Store yet. Install it with one of these, and it stays up to date:
 
-**F-Droid**: add our repository in F-Droid, Droid-ify or Neo Store to get the version without Google code and its
-updates. Open <https://fdroid.wizardchat.org/repo> on your phone and tap the link there, or scan its QR code in F-Droid
-(**Settings -> Repositories**, then the QR button). The page also shows the repository's fingerprint, which F-Droid checks.
-These are our own builds signed by us, not F-Droid's, so they update the APKs from the releases page and Obtainium too.
+- **F-Droid** (or Droid-ify, Neo Store): open <https://fdroid.wizardchat.org/repo> on your phone, tap the link to add
+  our repository, then install WizardChat.
+- **[Obtainium](https://obtainium.imranr.dev)**: install Obtainium, then tap [Add to Obtainium][obtainium] on your phone.
 
-With [Obtainium](https://obtainium.imranr.dev) you get updates automatically. Add the app with **Add App** and one of these
-URLs:
+This is the version without any Google code. For push notifications it needs a [UnifiedPush](https://unifiedpush.org)
+app like [ntfy](https://f-droid.org/packages/io.heckel.ntfy/); WizardChat's notification settings walk you through it.
 
-- **Stable**, with Firebase: `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/WizardChat_arm64.apk`
-- **Stable**, without Google: `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/WizardChat_arm64_foss.apk`
-- **Every release, including next** (pre-releases): `https://gitlab.com/wizardchat/wizardchat`, and pick the APK you want
-  when Obtainium asks
+<details>
+<summary>Prefer push through Google's Firebase?</summary>
+
+Install [this version with Obtainium][obtainium-firebase], or download `WizardChat_<version>_arm64.apk` from the
+[releases page][releases]. It gets push notifications without an extra app. Both versions are signed with the same key,
+so you can switch between them without losing your data.
+
+</details>
 
 ### iOS
 
-Not in the App Store yet. Every release has an unsigned `.ipa` on the
-[releases page](https://gitlab.com/wizardchat/wizardchat/-/releases) for sideloading. With
-[SideStore](https://sidestore.io) or [AltStore](https://altstore.io) you can add WizardChat as a source, which also
-brings the updates: in **Sources**, tap **+** and add one of these URLs:
+Not in the App Store yet, but you can sideload it with [SideStore](https://sidestore.io) or
+[AltStore](https://altstore.io), which also bring the updates:
 
-- **Stable**: `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/sidestore.json`
-- **Next** (pre-releases too): `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/next/sidestore.json`
+1. Install SideStore or AltStore and set it up, following its guide.
+2. In **Sources**, tap **+** and add
+   `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/stable/sidestore.json`
+3. Open the WizardChat source and install it.
 
-Sideloaded with a free Apple account, push notifications, the share sheet and the widgets may not work.
+With a free Apple account, push notifications, the share sheet and widgets may not work. The `.ipa` is also on the
+[releases page][releases] if you'd rather install it by hand.
+
+### Pre-releases
+
+<details>
+<summary>Try new features early with the <b>next</b> channel</summary>
+
+- **Web**: [next.wizardchat.org](https://next.wizardchat.org)
+- **Desktop**: download a release marked as pre-release from the [releases page][releases]. On Arch:
+
+  ```sh
+  curl -LO https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/next/PKGBUILD
+  makepkg -si
+  ```
+
+- **Android**: [next with Obtainium][obtainium-next] (or [with Firebase][obtainium-next-firebase])
+- **iOS**: add `https://gitlab.com/api/v4/projects/wizardchat%2Fwizardchat/packages/generic/wizardchat-desktop/next/sidestore.json` as a source instead
+
+</details>
+
+[web]: https://app.wizardchat.org
+[desktop]: https://wizardchat.org
+[fdroid]: https://fdroid.wizardchat.org/repo
+[releases]: https://gitlab.com/wizardchat/wizardchat/-/releases
+[obtainium]: https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22org.wizardchat.android%22%2C%22url%22%3A%22https%3A%2F%2Fgitlab.com%2Fwizardchat%2Fwizardchat%22%2C%22author%22%3A%22WizardChat%22%2C%22name%22%3A%22WizardChat%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22about%5C%22%3A%5C%22A%20Matrix%20chat%20app%20for%20communities%5C%22%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22_arm64_foss%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%7D%22%2C%22overrideSource%22%3A%22GitLab%22%7D
+[obtainium-firebase]: https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22org.wizardchat.android%22%2C%22url%22%3A%22https%3A%2F%2Fgitlab.com%2Fwizardchat%2Fwizardchat%22%2C%22author%22%3A%22WizardChat%22%2C%22name%22%3A%22WizardChat%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22about%5C%22%3A%5C%22A%20Matrix%20chat%20app%20for%20communities%5C%22%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22_arm64%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%7D%22%2C%22overrideSource%22%3A%22GitLab%22%7D
+[obtainium-next]: https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22org.wizardchat.android%22%2C%22url%22%3A%22https%3A%2F%2Fgitlab.com%2Fwizardchat%2Fwizardchat%22%2C%22author%22%3A%22WizardChat%22%2C%22name%22%3A%22WizardChat%20Next%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22about%5C%22%3A%5C%22A%20Matrix%20chat%20app%20for%20communities%5C%22%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22_arm64_foss%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22includePrereleases%5C%22%3Atrue%7D%22%2C%22overrideSource%22%3A%22GitLab%22%7D
+[obtainium-next-firebase]: https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22org.wizardchat.android%22%2C%22url%22%3A%22https%3A%2F%2Fgitlab.com%2Fwizardchat%2Fwizardchat%22%2C%22author%22%3A%22WizardChat%22%2C%22name%22%3A%22WizardChat%20Next%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22about%5C%22%3A%5C%22A%20Matrix%20chat%20app%20for%20communities%5C%22%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22_arm64%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22includePrereleases%5C%22%3Atrue%7D%22%2C%22overrideSource%22%3A%22GitLab%22%7D
+[b-web]: https://img.shields.io/badge/Web-5865F2?style=for-the-badge&logo=firefoxbrowser&logoColor=white
+[b-desktop]: https://img.shields.io/badge/Desktop-0078D6?style=for-the-badge&logo=tauri&logoColor=white
+[b-fdroid]: https://img.shields.io/badge/F--Droid-1976D2?style=for-the-badge&logo=fdroid&logoColor=white
+[b-obtainium]: https://img.shields.io/badge/Obtainium-6750A3?style=for-the-badge
+[b-ios]: https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white
 
 ## Local Development
 
