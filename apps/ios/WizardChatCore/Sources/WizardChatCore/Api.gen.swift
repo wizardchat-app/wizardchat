@@ -1145,8 +1145,9 @@ public struct Notification: Codable, Hashable, Sendable {
     public var highlight: Bool
     public var sound: Bool
     public var isDirect: Bool
+    public var ts: Int
 
-    public init(roomId: String, roomName: String? = nil, roomAvatarUrl: String? = nil, eventId: String, sender: String, senderName: String? = nil, body: String, spoiler: Bool, encrypted: Bool, highlight: Bool, sound: Bool, isDirect: Bool) {
+    public init(roomId: String, roomName: String? = nil, roomAvatarUrl: String? = nil, eventId: String, sender: String, senderName: String? = nil, body: String, spoiler: Bool, encrypted: Bool, highlight: Bool, sound: Bool, isDirect: Bool, ts: Int) {
         self.roomId = roomId
         self.roomName = roomName
         self.roomAvatarUrl = roomAvatarUrl
@@ -1159,6 +1160,7 @@ public struct Notification: Codable, Hashable, Sendable {
         self.highlight = highlight
         self.sound = sound
         self.isDirect = isDirect
+        self.ts = ts
     }
 }
 

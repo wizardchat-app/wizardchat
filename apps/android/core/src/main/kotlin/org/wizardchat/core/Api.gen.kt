@@ -741,6 +741,7 @@ data class Notification(
     val highlight: Boolean,
     val sound: Boolean,
     val isDirect: Boolean,
+    val ts: Long,
 )
 
 /** How much a room notifies */

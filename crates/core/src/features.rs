@@ -84,6 +84,7 @@ pub struct Notification {
     pub highlight: bool,
     pub sound: bool,
     pub is_direct: bool,
+    pub ts: u64,
 }
 
 const ROOM_PACK_TYPES: [&str; 2] = ["im.ponies.room_emotes", "m.room.image_pack"];
@@ -501,6 +502,7 @@ pub(crate) async fn notification_for(
         highlight,
         sound,
         is_direct: room.direct_targets_length() > 0,
+        ts: sent_at(&event),
     })
 }
 

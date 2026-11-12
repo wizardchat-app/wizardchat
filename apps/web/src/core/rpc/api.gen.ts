@@ -566,6 +566,7 @@ export type Notification = {
   highlight: boolean;
   sound: boolean;
   isDirect: boolean;
+  ts: number;
 };
 
 /**

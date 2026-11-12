@@ -311,7 +311,10 @@ struct RoomView: View {
             }, onSticker: { _ in }, onGif: { _ in }, emojiOnly: true)
             .task { await reactionPacks.load(session: session, roomId: room.id) }
         }
-        .onAppear { if threadRoot == nil { notifier.activeRoomId = room.id } }
+        .onAppear {
+            notifier.clear(roomId: room.id)
+            if threadRoot == nil { notifier.activeRoomId = room.id }
+        }
         .onDisappear {
             if threadRoot == nil, notifier.activeRoomId == room.id { notifier.activeRoomId = nil }
             timeline.setTyping(false)

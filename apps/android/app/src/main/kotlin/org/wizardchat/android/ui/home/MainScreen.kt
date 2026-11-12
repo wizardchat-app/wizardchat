@@ -70,6 +70,7 @@ import org.wizardchat.android.matrix.RecentEmoji
 import org.wizardchat.android.matrix.RoomListModel
 import org.wizardchat.android.matrix.SidebarSelection
 import org.wizardchat.android.matrix.UnreadState
+import org.wizardchat.android.matrix.mentionCount
 import org.wizardchat.android.matrix.unreadCount
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.ConnectionBanner
@@ -227,6 +228,8 @@ fun MainScreen(roomList: RoomListModel) {
     }
     val totalUnread = roomList.joinedRooms.sumOf { it.unreadCount }
     LaunchedEffect(totalUnread) { notifier.updateBadge(totalUnread) }
+    val readRooms = roomList.joinedRooms.filter { it.unreadCount == 0 && it.mentionCount == 0 }.map { "${it.id}|${it.lastActivity}" }
+    LaunchedEffect(readRooms) { notifier.clearRead(roomList.joinedRooms) }
 
     BackHandler(enabled = paths[tab].orEmpty().isNotEmpty()) {
         paths[tab] = paths[tab].orEmpty().dropLast(1)

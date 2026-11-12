@@ -111,6 +111,7 @@ struct WizardChatApp: App {
         }
         await session.applyPresence(prefs.showPresence)
         if let roomList = session.roomList {
+            roomList.prefs = prefs
             notifier.start(roomList: roomList, prefs: prefs)
         }
         if let client = session.client {

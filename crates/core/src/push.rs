@@ -146,5 +146,10 @@ fn undecrypted_notification(
         highlight: false,
         sound: true,
         is_direct: false,
+        ts: raw
+            .get_field("origin_server_ts")
+            .ok()
+            .flatten()
+            .unwrap_or_default(),
     })
 }

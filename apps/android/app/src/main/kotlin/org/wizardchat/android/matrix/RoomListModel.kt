@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
+import org.wizardchat.android.WizardApplication
 import org.wizardchat.core.ListDiff
 import org.wizardchat.core.NotificationMode
 import org.wizardchat.core.RoomSection
@@ -116,7 +117,7 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
     }
 
     suspend fun setRead(room: RoomSummary, read: Boolean) {
-        if (read) runCatching { client.timeline(room.id).markAsRead() }
+        if (read) runCatching { client.timeline(room.id).markAsRead(!WizardApplication.instance.prefs.sendReadReceipts) }
         runCatching { client.setMarkedUnread(room.id, !read) }
     }
 

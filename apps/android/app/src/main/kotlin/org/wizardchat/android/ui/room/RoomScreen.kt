@@ -317,6 +317,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     }
 
     DisposableEffect(timeline) {
+        notifier.clear(room.id)
         if (threadRoot == null) notifier.activeRoomId = room.id
         onDispose {
             if (threadRoot == null && notifier.activeRoomId == room.id) notifier.activeRoomId = null

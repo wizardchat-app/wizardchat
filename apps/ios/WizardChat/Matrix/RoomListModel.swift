@@ -59,6 +59,7 @@ final class RoomListModel: ObservableObject {
     @Published private(set) var roomTags: [String: Set<String>] = [:]
     @Published private(set) var favouriteOrder: [String: Double] = [:]
     @Published private(set) var homeOrder: [String] = []
+    weak var prefs: AppPreferences?
 
     static let roomsAnchor = "chats"
     static let homeSpace = "home-space"
@@ -132,7 +133,7 @@ final class RoomListModel: ObservableObject {
 
     func setRead(_ room: RoomSummary, read: Bool) async {
         if read {
-            try? await client.timeline(roomId: room.id).markAsRead()
+            try? await client.timeline(roomId: room.id).markAsRead(_private: prefs?.sendReadReceipts == false)
         }
         try? await client.setMarkedUnread(roomId: room.id, unread: !read)
     }

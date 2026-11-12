@@ -14,7 +14,7 @@ enum NotificationContent {
         content.body = notification.isDirect || notification.roomName == nil ? text : "\(sender): \(text)"
         content.threadIdentifier = notification.roomId
         content.categoryIdentifier = messageCategory
-        var info = ["roomId": notification.roomId, "eventId": notification.eventId]
+        var info = ["roomId": notification.roomId, "eventId": notification.eventId, "ts": String(notification.ts)]
         if let userId { info["userId"] = userId }
         content.userInfo = info
         if notification.highlight { content.interruptionLevel = .timeSensitive }
