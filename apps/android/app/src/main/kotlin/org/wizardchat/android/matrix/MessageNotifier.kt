@@ -90,7 +90,12 @@ class MessageNotifier {
         clear(userId, roomId)
     }
 
-    private fun clear(userId: String, roomId: String) = cancel { it.tag == "$userId|$roomId" }
+    fun clear(userId: String, roomId: String) = cancel { it.tag == "$userId|$roomId" }
+
+    fun deliveredRooms(userId: String): List<String> {
+        val system = context.getSystemService(NotificationManager::class.java) ?: return emptyList()
+        return system.activeNotifications.mapNotNull { it.tag?.takeIf { tag -> tag.startsWith("$userId|") }?.substringAfter('|') }.distinct()
+    }
 
     fun clearRead(rooms: List<RoomSummary>) {
         val userId = roomList?.client?.userId ?: return

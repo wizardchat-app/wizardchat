@@ -1,7 +1,12 @@
 use matrix_sdk::cross_process_lock::CrossProcessLockConfig;
 use matrix_sdk::ruma::{
-    api::client::push::{PusherIds, PusherInit, PusherKind},
+    api::client::{
+        filter::{FilterDefinition, RoomEventFilter},
+        push::{PusherIds, PusherInit, PusherKind},
+        sync::sync_events,
+    },
     events::AnySyncTimelineEvent,
+    presence::PresenceState,
     push::{HttpPusherData, PushFormat},
     serde::Raw,
     UserId,
@@ -64,6 +69,36 @@ impl WizardClient {
             .delete(PusherIds::new(pushkey, app_id))
             .await?;
         Ok(())
+    }
+
+    pub async fn read_rooms(&self, room_ids: Vec<String>) -> Result<Vec<String>> {
+        let rooms = room_ids
+            .iter()
+            .filter_map(|id| parse_room_id(id).ok().map(ToOwned::to_owned))
+            .collect::<Vec<_>>();
+        if rooms.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut filter = FilterDefinition::ignore_all();
+        filter.room.rooms = Some(rooms);
+        filter.room.timeline = RoomEventFilter::empty();
+        filter.room.timeline.limit = Some(1u32.into());
+        let mut request = sync_events::v3::Request::new();
+        request.filter = Some(sync_events::v3::Filter::FilterDefinition(filter));
+        request.set_presence = PresenceState::Offline;
+        request.timeout = Some(std::time::Duration::ZERO);
+        let response = self.sdk().send(request).await?;
+        Ok(response
+            .rooms
+            .join
+            .into_iter()
+            .filter(|(_, room)| {
+                let counts = &room.unread_notifications;
+                counts.notification_count.is_none_or(|n| n == 0u32.into())
+                    && counts.highlight_count.is_none_or(|n| n == 0u32.into())
+            })
+            .map(|(id, _)| id.to_string())
+            .collect())
     }
 
     pub async fn pushed_notification(

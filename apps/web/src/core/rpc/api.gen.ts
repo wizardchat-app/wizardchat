@@ -2480,6 +2480,10 @@ export class WizardClient extends Remote {
     ]) as Promise<Notification | null>;
   }
 
+  readRooms(roomIds: Array<string>): Promise<Array<string>> {
+    return runtime.call('WizardClient.readRooms', this, [roomIds]) as Promise<Array<string>>;
+  }
+
   logout(): Promise<void> {
     return runtime.call('WizardClient.logout', this, []) as Promise<void>;
   }

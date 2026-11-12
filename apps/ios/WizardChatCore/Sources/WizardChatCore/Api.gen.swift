@@ -3675,6 +3675,10 @@ public final class WizardClient: Remote, @unchecked Sendable {
         try await call("WizardClient.pushedNotification", [.value(roomId), .value(eventId)])
     }
 
+    public func readRooms(roomIds: [String]) async throws -> [String] {
+        try await call("WizardClient.readRooms", [.value(roomIds)])
+    }
+
     public func logout() async throws {
         _ = try await call("WizardClient.logout", []) as Empty
     }

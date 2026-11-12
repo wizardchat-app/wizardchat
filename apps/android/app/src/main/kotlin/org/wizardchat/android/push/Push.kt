@@ -28,6 +28,7 @@ sealed interface PushSetup {
 
 object Push {
     private const val FETCH_TIMEOUT_MS = 15_000L
+    private const val READ_CHECK_TIMEOUT_MS = 8_000L
     private const val REGISTER_TIMEOUT_MS = 30_000L
     private const val TAG = "Push"
 
@@ -89,18 +90,38 @@ object Push {
         val stored = SessionStore.all().firstOrNull { it.session.userId == userId } ?: return
         val roomId = data["room_id"]
         val eventId = data["event_id"]
+        val session = WizardApplication.instance.session
+        val syncing = session.userId == userId && session.syncState == SyncState.running
         if (roomId == null || eventId == null) {
-            if (data["unread"] == "0") MessageNotifier.shared.removeDelivered(userId)
+            if (data["unread"] == "0") {
+                MessageNotifier.shared.removeDelivered(userId)
+            } else if (!syncing) {
+                clearRead(stored, except = null)
+            }
             return
         }
-        val session = WizardApplication.instance.session
-        if (session.userId == userId && session.syncState == SyncState.running) return
+        if (syncing) return
         try {
             val client = SessionClients.restore(stored)
             val notification = withTimeout(FETCH_TIMEOUT_MS) { client.pushedNotification(roomId, eventId) }
             if (notification != null) MessageNotifier.shared.show(notification, client)
         } catch (_: Exception) {
             MessageNotifier.shared.showPlaceholder(userId, roomId, eventId)
+        }
+        clearRead(stored, except = roomId)
+    }
+
+    private suspend fun clearRead(stored: StoredSession, except: String?) {
+        val userId = stored.session.userId
+        val rooms = MessageNotifier.shared.deliveredRooms(userId).filter { it != except }
+        if (rooms.isEmpty()) return
+        try {
+            val client = SessionClients.restore(stored)
+            val read = withTimeoutOrNull(READ_CHECK_TIMEOUT_MS) { client.readRooms(rooms) } ?: return
+            read.forEach { MessageNotifier.shared.clear(userId, it) }
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            Log.w(TAG, "couldn't check which rooms were read", error)
         }
     }
 }

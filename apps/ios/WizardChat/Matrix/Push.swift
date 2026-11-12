@@ -13,7 +13,14 @@ enum Push {
     static let log = Logger(subsystem: "org.wizardchat.ios", category: "Push")
     static weak var activeClient: WizardClient?
 
-    static var appId: String { Bundle.main.bundleIdentifier ?? "org.wizardchat.ios" }
+    static var appId: String {
+        let bundleId = Bundle.main.bundleIdentifier ?? "org.wizardchat.ios"
+        #if DEBUG
+        return bundleId + ".dev"
+        #else
+        return bundleId
+        #endif
+    }
 
     static func start() {
         UIApplication.shared.registerForRemoteNotifications()
@@ -71,8 +78,11 @@ enum Push {
             ))
             registered.set(current, forKey: userId)
             log.info("registered the pusher for \(userId, privacy: .private)")
-            if let oldKey = previous?.components(separatedBy: "|").first, oldKey != pushkey {
-                try? await client.removePusher(appId: appId, pushkey: oldKey)
+            if let parts = previous?.components(separatedBy: "|"), let oldKey = parts.first {
+                let oldAppId = parts.count > 2 ? parts[2] : appId
+                if oldKey != pushkey || oldAppId != appId {
+                    try? await client.removePusher(appId: oldAppId, pushkey: oldKey)
+                }
             }
         } catch {
             log.error("couldn't register the pusher for \(userId, privacy: .private): \(error)")

@@ -35,7 +35,13 @@ final class NotificationService: UNNotificationServiceExtension {
             self.fallback = fallback
         }
         guard let roomId, let eventId else {
-            finish(fallback)
+            task = Task { [weak self] in
+                _ = await Self.withClient(userId: userId) { client, ownUserId -> Bool? in
+                    await Self.clearRead(client: client, userId: ownUserId, except: nil)
+                    return nil
+                }
+                self?.finish(fallback)
+            }
             return
         }
         task = Task { [weak self] in
@@ -59,6 +65,33 @@ final class NotificationService: UNNotificationServiceExtension {
 
     private static func message(userId: String?, roomId: String, eventId: String,
                                 unread: Int?) async -> UNNotificationContent? {
+        await withClient(userId: userId) { client, ownUserId in
+            async let cleared: Void = clearRead(client: client, userId: ownUserId, except: roomId)
+            let content = try await build(client: client, userId: ownUserId, roomId: roomId, eventId: eventId,
+                                          unread: unread)
+            await cleared
+            return content
+        }
+    }
+
+    private static func build(client: WizardClient, userId: String, roomId: String, eventId: String,
+                              unread: Int?) async throws -> UNNotificationContent? {
+        guard let notification = try await client.pushedNotification(roomId: roomId, eventId: eventId) else {
+            return nil
+        }
+        let content = UNMutableNotificationContent()
+        NotificationContent.fill(content, with: notification, userId: userId)
+        if notification.sound { content.sound = .default }
+        if let unread { content.badge = NSNumber(value: unread) }
+        async let senderAvatar = avatar(try? await client.userProfile(userId: notification.sender).avatarUrl,
+                                        client: client)
+        async let roomAvatar = avatar(notification.roomAvatarUrl, client: client)
+        return await NotificationContent.asMessage(content, from: notification, senderAvatar: senderAvatar,
+                                                  roomAvatar: roomAvatar)
+    }
+
+    private static func withClient<T>(userId: String?,
+                                      _ body: (WizardClient, String) async throws -> T?) async -> T? {
         let accounts = SessionStore.all()
         guard let stored = userId.map({ id in accounts.first { $0.session.userId == id } }) ?? SessionStore.active()
         else { return nil }
@@ -75,22 +108,24 @@ final class NotificationService: UNNotificationServiceExtension {
                 SessionStore.save(latest)
             }
             defer { saving?.cancel() }
-            guard let notification = try await client.pushedNotification(roomId: roomId, eventId: eventId) else {
-                return nil
-            }
-            let content = UNMutableNotificationContent()
-            NotificationContent.fill(content, with: notification, userId: stored.session.userId)
-            if notification.sound { content.sound = .default }
-            if let unread { content.badge = NSNumber(value: unread) }
-            async let senderAvatar = avatar(try? await client.userProfile(userId: notification.sender).avatarUrl,
-                                            client: client)
-            async let roomAvatar = avatar(notification.roomAvatarUrl, client: client)
-            return await NotificationContent.asMessage(content, from: notification, senderAvatar: senderAvatar,
-                                                      roomAvatar: roomAvatar)
+            return try await body(client, stored.session.userId)
         } catch {
-            log.error("couldn't fetch the pushed message: \(error)")
+            log.error("couldn't handle the push: \(error)")
             return nil
         }
+    }
+
+    private static func clearRead(client: WizardClient, userId: String, except: String?) async {
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications()
+            .filter { $0.request.content.userInfo["userId"] as? String == userId }
+        let rooms = Set(delivered.compactMap { $0.request.content.userInfo["roomId"] as? String })
+            .subtracting(except.map { [$0] } ?? [])
+        guard !rooms.isEmpty, let read = try? await client.readRooms(roomIds: Array(rooms)) else { return }
+        let ids = delivered
+            .filter { read.contains($0.request.content.userInfo["roomId"] as? String ?? "") }
+            .map(\.request.identifier)
+        if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
     }
 
     private static func avatar(_ mxc: String?, client: WizardClient) async -> Data? {

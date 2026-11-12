@@ -2565,6 +2565,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     suspend fun pushedNotification(roomId: String, eventId: String): Notification? =
         Runtime.call("WizardClient.pushedNotification", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
 
+    suspend fun readRooms(roomIds: List<String>): List<String> =
+        Runtime.call("WizardClient.readRooms", handle, listOf(Arg.value<List<String>>(roomIds)))
+
     suspend fun logout() {
         Runtime.callUnit("WizardClient.logout", handle, listOf())
     }

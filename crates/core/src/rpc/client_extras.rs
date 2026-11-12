@@ -249,6 +249,10 @@ rpc_methods! {
             this.pushed_notification(&room_id, &event_id).await
         }
 
+        call fn readRooms(room_ids: Vec<String>) -> Vec<String> {
+            this.read_rooms(room_ids).await
+        }
+
         call fn logout() -> () {
             this.logout().await
         }
