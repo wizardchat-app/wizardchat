@@ -26,6 +26,8 @@ export function useFaviconBadge() {
 
   useEffect(() => {
     const assets = resolveLogoAssets(theme, themedAppIcon);
-    setFavicon(hasUnread ? assets.notification : assets.logo);
+    const icon = hasUnread ? assets.notification : assets.logo;
+    setFavicon(icon);
+    window.desktopAPI?.setUnread?.(hasUnread, icon);
   }, [hasUnread, theme, themedAppIcon]);
 }

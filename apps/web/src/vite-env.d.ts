@@ -31,6 +31,7 @@ interface DesktopAPI {
   /** Flashes the taskbar entry or bounces the dock icon until the window is focused or `false` */
   requestAttention?: (on: boolean) => void;
   getPendingRoom?: () => Promise<string | null>;
+  setUnread?: (unread: boolean, iconUrl: string) => void;
   getAppVersion?: () => Promise<string>;
   setGlobalKey?: (
     id: string,

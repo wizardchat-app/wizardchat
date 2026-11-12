@@ -22,6 +22,17 @@ function platform(): string {
   return 'linux';
 }
 
+async function pngOf(url: string, size = 256): Promise<string> {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  canvas.getContext('2d')?.drawImage(image, 0, 0, size, size);
+  return canvas.toDataURL('image/png').split(',')[1] ?? '';
+}
+
 const takePendingRoom = () => invoke<string | null>('take_pending_room');
 
 export const desktopApi: DesktopAPI = {
@@ -34,6 +45,14 @@ export const desktopApi: DesktopAPI = {
     });
   },
   getPendingRoom: takePendingRoom,
+  setUnread(unread, iconUrl) {
+    const apply = (icon?: string) => void invoke('set_unread', { unread, icon }).catch(() => {});
+    if (platform() === 'darwin') {
+      apply();
+      return;
+    }
+    void pngOf(iconUrl).then(apply, () => apply());
+  },
   requestAttention(on) {
     void getCurrentWindow()
       .requestUserAttention(on ? UserAttentionType.Critical : null)

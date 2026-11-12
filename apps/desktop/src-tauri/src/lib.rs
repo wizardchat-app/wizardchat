@@ -33,6 +33,24 @@ fn set_background_color(window: WebviewWindow, color: Color) {
     let _ = window.set_background_color(Some(color));
 }
 
+#[tauri::command]
+fn set_unread(window: WebviewWindow, unread: bool, icon: Option<String>) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = icon;
+        let _ = window.set_badge_label(unread.then(|| "•".to_owned()));
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        use base64::Engine;
+        let _ = unread;
+        let png = icon.and_then(|icon| base64::engine::general_purpose::STANDARD.decode(icon).ok());
+        if let Some(image) = png.and_then(|png| tauri::image::Image::from_bytes(&png).ok()) {
+            let _ = window.set_icon(image);
+        }
+    }
+}
+
 pub(crate) fn focus_main<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -114,6 +132,7 @@ pub fn run() {
             rpc::rpc_cancel,
             core_delete_store,
             set_background_color,
+            set_unread,
             loopback::loopback_listen,
             loopback::loopback_wait,
             loopback::loopback_cancel,
