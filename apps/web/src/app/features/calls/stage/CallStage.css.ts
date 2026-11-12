@@ -107,6 +107,10 @@ export const tileSpeaking = style({
   selectors: { '&::after': { boxShadow: `inset 0 0 0 3px ${DISCORD_SPEAKING}` } },
 });
 
+export const tileSoundboard = style({
+  selectors: { '&::after': { boxShadow: `inset 0 0 0 3px ${vars.color.info}` } },
+});
+
 export const tileFocused = style({});
 
 export const tileClickable = style({
@@ -325,6 +329,11 @@ export const bubbleRing = style({
 export const bubbleRingSpeaking = style([
   bubbleRing,
   { boxShadow: `0 0 0 3px ${DISCORD_SPEAKING}` },
+]);
+
+export const bubbleRingSoundboard = style([
+  bubbleRing,
+  { boxShadow: `0 0 0 3px ${vars.color.info}` },
 ]);
 
 export const bubbleMuted = style({
@@ -633,4 +642,114 @@ export const bubbleConnecting = style({
   height: '32px',
   borderRadius: '50%',
   backgroundColor: vars.color.bgTertiary,
+});
+
+export const soundBtn = style({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '4px',
+  height: '68px',
+  padding: '4px',
+  borderRadius: vars.radius.sm,
+  border: 'none',
+  background: 'none',
+  color: vars.color.textPrimary,
+  cursor: 'pointer',
+  transition: `background-color ${fast}, opacity ${fast}`,
+  ':hover': { backgroundColor: vars.color.bgHover },
+  ':disabled': { opacity: 0.5, cursor: 'default', backgroundColor: 'transparent' },
+});
+
+export const soundEmoji = style({
+  fontSize: '1.5rem',
+  lineHeight: 1,
+});
+
+export const soundLabel = style({
+  maxWidth: '100%',
+  fontSize: '0.75rem',
+  textAlign: 'center',
+  lineHeight: 1.2,
+  overflow: 'hidden',
+  overflowWrap: 'anywhere',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+});
+
+export const soundNote = style({
+  margin: 0,
+  fontSize: '0.75rem',
+  color: vars.color.textMuted,
+  textAlign: 'center',
+});
+
+export const soundFooter = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '6px',
+  padding: '6px 10px',
+  borderTop: `1px solid ${vars.color.border}`,
+});
+
+export const soundSettingsBtn = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  flexShrink: 0,
+  borderRadius: vars.radius.sm,
+  border: 'none',
+  background: 'none',
+  color: vars.color.textMuted,
+  cursor: 'pointer',
+  transition: `background-color ${fast}, color ${fast}`,
+  ':hover': { backgroundColor: vars.color.bgHover, color: vars.color.textPrimary },
+});
+
+export const soundPanel = style({
+  width: '352px',
+  padding: 0,
+  gap: 0,
+  overflow: 'hidden',
+});
+
+export const soundBody = style({
+  height: 'min(300px, 45vh)',
+  flex: 'none',
+  borderTop: `1px solid ${vars.color.border}`,
+});
+
+export const soundNavEmoji = style({
+  fontSize: '1rem',
+  lineHeight: 1,
+});
+
+export const soundSearchRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+});
+
+export const soundVolumePop = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+  width: '180px',
+  padding: '10px 12px',
+});
+
+export const soundVolumeTitle = style({
+  fontSize: '0.8rem',
+  fontWeight: 600,
+  color: vars.color.textPrimary,
+});
+
+export const soundVolumeAnchor = style({
+  display: 'inline-flex',
+  flexShrink: 0,
 });

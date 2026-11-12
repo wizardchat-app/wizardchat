@@ -554,7 +554,8 @@ private struct PersonTile: View {
                     AvatarView(name: label, url: avatarUrl, size: avatarSize)
                         .overlay {
                             Circle()
-                                .stroke(participant.speaking && style == .full ? theme.success : .clear,
+                                .stroke(style != .full ? .clear : participant.soundboard != nil ? theme.info
+                                            : participant.speaking ? theme.success : .clear,
                                         lineWidth: WZ.BorderWidth.thick)
                                 .padding(-WZ.Space.space3)
                         }
@@ -576,7 +577,12 @@ private struct PersonTile: View {
                 }
                 .transition(.opacity)
             }
-            if let reaction = participant.reaction {
+            if let flash = participant.soundboard {
+                Text(flash.emoji)
+                    .font(.system(size: style == .strip || style == .pip ? WZ.SizeIcon.xl : WZ.SizeIcon.xxl))
+                    .transition(.scale.combined(with: .opacity))
+                    .id("\(flash.emoji)\(flash.key)")
+            } else if let reaction = participant.reaction {
                 Text(reaction)
                     .font(.system(size: style == .strip || style == .pip ? WZ.SizeIcon.xl : WZ.SizeIcon.xxl))
                     .transition(.scale.combined(with: .opacity))
@@ -587,7 +593,8 @@ private struct PersonTile: View {
         .overlay {
             if style != .full && style != .pip {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(participant.speaking ? theme.success : .clear, lineWidth: WZ.BorderWidth.thick)
+                    .stroke(participant.soundboard != nil ? theme.info : participant.speaking ? theme.success : .clear,
+                            lineWidth: WZ.BorderWidth.thick)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -631,6 +638,7 @@ private struct PersonTile: View {
         }
         .animation(.easeInOut(duration: WZ.MotionDuration.slow), value: participant.cameraTrack != nil)
         .animation(.spring(duration: WZ.MotionDuration.slow), value: participant.reaction)
+        .animation(.spring(duration: WZ.MotionDuration.slow), value: participant.soundboard)
         .animation(.easeOut(duration: WZ.MotionDuration.fast), value: participant.speaking)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)

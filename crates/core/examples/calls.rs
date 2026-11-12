@@ -15,7 +15,7 @@ use serde_json::json;
 use tokio::{sync::mpsc, task::JoinHandle};
 use wizardchat_core::{
     CallErrorKind, CallEvent, CallStatus, CallTimings, CreateRoomOptions, IncomingCallEvent,
-    MediaState, RingEnd,
+    MediaState, RingEnd, SoundPackSource,
 };
 
 use common::BoxError;
@@ -381,6 +381,131 @@ async fn main() -> Result<(), BoxError> {
         "the caller leaving should end the ring: {ended:?}"
     );
     println!("the caller hanging up ends the ring as missed");
+
+    let sounds = a.soundboard_sounds().await?;
+    let urls = |list: &[wizardchat_core::SoundboardSound]| {
+        list.iter().map(|s| s.url.clone()).collect::<Vec<_>>()
+    };
+    assert_eq!(sounds.len(), 8);
+    assert!(sounds.iter().all(|s| s.url.starts_with("mxc://")));
+    assert_eq!(urls(&a.soundboard_sounds().await?), urls(&sounds));
+    assert_eq!(urls(&b.soundboard_sounds().await?), urls(&sounds));
+    let own = a.soundboard_sound(&sounds[0].url).await?;
+    let fetched = c.soundboard_sound(&sounds[0].url).await?;
+    assert_eq!(own, fetched);
+    assert!(fetched.starts_with(b"ID3") || fetched.first() == Some(&0xFF));
+    assert!(c
+        .soundboard_sound("https://example.org/sound.mp3")
+        .await
+        .is_err());
+    println!("soundboard sounds are uploaded once per account and fetched by others");
+
+    let clip = own.clone();
+    let reason = |e: wizardchat_core::Error| match e {
+        wizardchat_core::Error::InvalidSound(reason) => reason,
+        other => format!("{other:?}"),
+    };
+    let too_long = a.upload_sound(clip.clone(), "audio/mpeg", 15_001).await;
+    assert_eq!(too_long.map_err(reason).err().as_deref(), Some("tooLong"));
+    let ogg = a.upload_sound(clip.clone(), "audio/ogg", 1000).await;
+    assert_eq!(ogg.map_err(reason).err().as_deref(), Some("unsupported"));
+    let big = a
+        .upload_sound(vec![0; 1024 * 1024 + 1], "audio/mpeg", 1000)
+        .await;
+    assert_eq!(big.map_err(reason).err().as_deref(), Some("tooLarge"));
+    let upload = a
+        .upload_sound(clip.clone(), "audio/mpeg; x=1", 3400)
+        .await?;
+    assert_eq!(upload.mimetype.as_deref(), Some("audio/mpeg"));
+    let boing = wizardchat_core::SoundboardSound {
+        shortcode: "boing".into(),
+        body: Some("Boing, boing!".into()),
+        emoji: Some("🪀".into()),
+        ..upload.clone()
+    };
+    let bad = a
+        .save_sound_pack(
+            None,
+            "",
+            "Mine",
+            None,
+            vec![wizardchat_core::SoundboardSound {
+                shortcode: "no spaces".into(),
+                ..boing.clone()
+            }],
+        )
+        .await;
+    assert_eq!(bad.map_err(reason).err().as_deref(), Some("badShortcode"));
+    let twice = a
+        .save_sound_pack(None, "", "Mine", None, vec![boing.clone(), boing.clone()])
+        .await;
+    assert_eq!(
+        twice.map_err(reason).err().as_deref(),
+        Some("shortcodeTaken")
+    );
+    a.save_sound_pack(None, "", "Mine", Some("me"), vec![boing.clone()])
+        .await?;
+    let mine = a.my_sounds().await?;
+    assert_eq!(mine.name.as_deref(), Some("Mine"));
+    assert_eq!(mine.attribution.as_deref(), Some("me"));
+    assert_eq!(mine.sounds.len(), 1);
+    assert_eq!(mine.sounds[0].emoji.as_deref(), Some("🪀"));
+    assert_eq!(mine.sounds[0].duration_ms, Some(3400));
+    let packs = a.soundboard_packs(None).await?;
+    assert_eq!(packs[0].source, SoundPackSource::BuiltIn);
+    assert_eq!(packs[1].source, SoundPackSource::Mine);
+    println!("the user's own pack is kept in account data and offered in every call");
+
+    a.record_sound_played(&boing.url).await?;
+    eventually("the played sound to rank first", 20, async || {
+        a.soundboard_packs(None).await.is_ok_and(|packs| {
+            packs[0].source == SoundPackSource::Frequent && packs[0].sounds[0].url == boing.url
+        })
+    })
+    .await?;
+    println!("the most played sounds come first");
+
+    let key = a.create_sound_pack(&room, "Room sounds").await?;
+    assert_eq!(key, "room_sounds");
+    assert_eq!(
+        a.create_sound_pack(&room, "Room sounds").await?,
+        "room_sounds_2"
+    );
+    let horn = wizardchat_core::SoundboardSound {
+        shortcode: "horn".into(),
+        body: Some("Horn".into()),
+        ..upload.clone()
+    };
+    a.save_sound_pack(Some(&room), &key, "Room sounds", None, vec![horn])
+        .await?;
+    let in_room = a.room_sound_packs(&room).await?;
+    assert!(in_room.can_edit);
+    assert_eq!(in_room.packs.len(), 2);
+    let seen = b.soundboard_packs(Some(&room)).await?;
+    let pack = seen
+        .iter()
+        .find(|p| p.state_key.as_deref() == Some(key.as_str()))
+        .ok_or("room pack missing for B")?;
+    assert_eq!(pack.source, SoundPackSource::Room);
+    assert_eq!(pack.name.as_deref(), Some("Room sounds"));
+    assert_eq!(pack.sounds.len(), 1);
+    assert!(
+        seen.iter()
+            .all(|p| p.state_key.as_deref() != Some("room_sounds_2")),
+        "empty packs are offered"
+    );
+    b.set_sound_pack_everywhere(&room, &key, true).await?;
+    assert!(b
+        .soundboard_packs(None)
+        .await?
+        .iter()
+        .any(|p| p.source == SoundPackSource::Everywhere && p.everywhere));
+    assert!(b.all_sound_packs().await?.iter().any(|p| p.everywhere));
+    a.delete_sound_pack(&room, &key).await?;
+    a.delete_sound_pack(&room, "room_sounds_2").await?;
+    assert!(a.room_sound_packs(&room).await?.packs.is_empty());
+    b.set_sound_pack_everywhere(&room, &key, false).await?;
+    println!("room sound packs are shared with the room and can be offered everywhere");
     c.logout().await.ok();
 
     let widget = a

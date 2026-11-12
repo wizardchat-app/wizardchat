@@ -13,6 +13,7 @@ import {
   BellIcon,
   HeadphonesIcon,
   SmileyStickerIcon,
+  VinylRecordIcon,
   KeyboardIcon,
   GlobeSimpleIcon,
   WrenchIcon,
@@ -27,6 +28,7 @@ import {
   settingsHighlightAtom,
   settingsOpenAtom,
   settingsPageAtom,
+  emojiPickerAtom,
 } from '@/app/store/atoms';
 import type { SettingsPage } from '@/app/store/atoms';
 import { ChangePassword, EmailSettings, DeactivateAccount } from './account';
@@ -40,6 +42,7 @@ import { Language } from './language';
 import { Notifications } from './notifications';
 import { VoiceVideo } from './voiceVideo';
 import { EmojisStickers } from './emojis';
+import { SoundboardSettings } from './soundboard/SoundboardSettings';
 import { Keybinds } from './keybinds';
 import { DeveloperOptions } from './developer';
 import { Sessions } from './sessions';
@@ -143,6 +146,8 @@ function PageContent({ page }: { page: SettingsPage }) {
       return <VoiceVideo />;
     case 'emojis-stickers':
       return <EmojisStickers />;
+    case 'soundboard':
+      return <SoundboardSettings />;
     case 'keybinds':
       return <Keybinds />;
     case 'developer':
@@ -168,6 +173,7 @@ export function useSettingsNav(): NarrowSettingsItem<SettingsPage>[] {
       label: t('settings.emojisStickers.title'),
       Icon: SmileyStickerIcon,
     },
+    { key: 'soundboard', label: t('settings.soundboard.title'), Icon: VinylRecordIcon },
     { key: 'notifications', label: t('settings.notifications.title'), Icon: BellIcon },
     {
       key: 'voice-video',
@@ -198,6 +204,7 @@ export function useSettingsNav(): NarrowSettingsItem<SettingsPage>[] {
 }
 
 export function Settings() {
+  const emojiPickerOpen = !!useAtomValue(emojiPickerAtom);
   const { t } = useTranslation();
   const [open, setOpen] = useAtom(settingsOpenAtom);
   const youTabOpen = useAtomValue(mobileYouOpenAtom);
@@ -277,6 +284,7 @@ export function Settings() {
   return (
     <Dialog
       open={open}
+      trapPaused={emojiPickerOpen}
       onClose={showPage && !pageOnly ? backToList : close}
       swipeBack={pageOnly}
       size="xl"

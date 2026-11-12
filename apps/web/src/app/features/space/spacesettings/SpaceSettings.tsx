@@ -1,15 +1,16 @@
 import { useState, useLayoutEffect, useCallback, useRef } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import {
   SlidersIcon,
   UsersIcon,
   ShieldIcon,
   SmileyStickerIcon,
+  VinylRecordIcon,
   XIcon,
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react';
-import { spaceSettingsRoomIdAtom } from '@/app/store/atoms';
+import { spaceSettingsRoomIdAtom, emojiPickerAtom } from '@/app/store/atoms';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useRoomDetails, useSpaceGraph } from '@/app/data';
 import { Dialog } from '@/app/components/Dialog/Dialog';
@@ -17,6 +18,7 @@ import { GeneralPanel } from './General';
 import { PermissionsPanel } from '@/app/features/room/roomsettings/Permissions';
 import { RoomPermissionsMatrix } from '@/app/features/room/roomsettings/RoomPermissionsMatrix';
 import { EmojiStickerPanel } from '@/app/features/room/roomsettings/EmojiStickerPanel';
+import { SoundsPanel } from '@/app/features/room/roomsettings/SoundsPanel';
 import { NarrowSettingsList, NarrowSettingsPage } from '@/app/components/Settings/NarrowSettings';
 import {
   SettingsSearchInput,
@@ -47,9 +49,11 @@ const NAV: { tab: Tab; labelKey: string; Icon: PhosphorIcon }[] = [
     labelKey: 'room.settings.emojis.title',
     Icon: SmileyStickerIcon,
   },
+  { tab: 'sounds', labelKey: 'room.settings.sounds.title', Icon: VinylRecordIcon },
 ];
 
 export function SpaceSettings() {
+  const emojiPickerOpen = !!useAtomValue(emojiPickerAtom);
   const { t } = useTranslation();
   const [spaceId, setSpaceId] = useAtom(spaceSettingsRoomIdAtom);
   const client = getMatrixClientOrNull();
@@ -106,12 +110,16 @@ export function SpaceSettings() {
       {activeTab === 'emojis' && space && client && (
         <EmojiStickerPanel roomId={spaceId!} client={client} />
       )}
+      {activeTab === 'sounds' && space && client && (
+        <SoundsPanel roomId={spaceId!} client={client} />
+      )}
     </div>
   );
 
   return (
     <Dialog
       open={Boolean(spaceId)}
+      trapPaused={emojiPickerOpen}
       onClose={showPage ? backToList : close}
       size="xl"
       zIndex={7000}

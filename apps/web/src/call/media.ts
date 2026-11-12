@@ -2,6 +2,7 @@ import {
   AudioPresets,
   ConnectionState,
   DisconnectReason,
+  Encryption_Type,
   Room as LivekitRoom,
   RoomEvent,
   ScreenSharePresets,
@@ -29,6 +30,13 @@ import type {
 } from '@wizardchat/core';
 import { GainProcessor } from './gainProcessor';
 import { MatrixKeyProvider } from './keyProvider';
+import {
+  parseSoundboardPlay,
+  SOUNDBOARD_TOPIC,
+  soundboardEmoji,
+  SOUNDBOARD_EMOJI_KEY,
+  SoundboardPlayer,
+} from './soundboard';
 
 export type CallPhase = 'joining' | 'joined' | 'left' | 'error';
 export type RingState = 'ringing' | 'declined' | 'unanswered';
@@ -85,6 +93,7 @@ export interface CallParticipant {
   handRaised: boolean;
   /** An emoji they just sent, shown for a few seconds */
   reaction: string | null;
+  soundboard: { emoji: string; key: number } | null;
 }
 
 export interface CallSnapshot {
@@ -287,6 +296,10 @@ export class CallMedia {
   private reactions = new Map<string, string>();
   private reactionTimers = new Set<ReturnType<typeof setTimeout>>();
   private disposed = false;
+  private soundboard = new SoundboardPlayer((url) => this.client.soundboardSound(url));
+  private soundboardPlaying = new Map<string, { emoji: string; key: number }>();
+  private soundboardKey = 0;
+  soundboardVolume: () => number = () => 1;
   /** A desktop screen share captured natively (the in-app picker) */
   private nativeShare: {
     video: MediaStreamTrack;
@@ -687,6 +700,49 @@ export class CallMedia {
     this.resubscribe(identity);
   }
 
+  async playSound(url: string, shortcode: string, emoji?: string | null) {
+    const identity = this.localParticipant?.identity;
+    this.hearSound(url, shortcode, emoji ?? undefined, this.client.userId() ?? '', identity);
+    await this.sendData(SOUNDBOARD_TOPIC, {
+      url,
+      shortcode,
+      ...(emoji ? { [SOUNDBOARD_EMOJI_KEY]: emoji } : {}),
+    });
+  }
+
+  prefetchSound(url: string) {
+    this.soundboard.prefetch(url);
+  }
+
+  private hearSound(
+    url: string,
+    shortcode: string | undefined,
+    emoji: string | undefined,
+    userId: string,
+    identity: string | undefined
+  ) {
+    if (this.deafened || this.mutedUsers.has(userId) || this.soundboardVolume() <= 0) return;
+    const key = ++this.soundboardKey;
+    void this.soundboard.play(
+      url,
+      userId,
+      this.soundboardVolume() * this.outputVolume,
+      this.devices.audiooutput,
+      {
+        onStart: () => {
+          if (!identity || this.disposed) return;
+          this.soundboardPlaying.set(identity, { emoji: soundboardEmoji(shortcode, emoji), key });
+          this.scheduleUpdate();
+        },
+        onEnd: () => {
+          if (!identity || this.soundboardPlaying.get(identity)?.key !== key) return;
+          this.soundboardPlaying.delete(identity);
+          this.scheduleUpdate();
+        },
+      }
+    );
+  }
+
   async sendData(topic: string, payload: unknown) {
     await this.localParticipant?.publishData(new TextEncoder().encode(JSON.stringify(payload)), {
       reliable: true,
@@ -913,7 +969,20 @@ export class CallMedia {
         window.addEventListener('pointerdown', this.resumeAudio);
         window.addEventListener('keydown', this.resumeAudio);
       })
-      .on(RoomEvent.DataReceived, (data, participant, _kind, topic, _encryption, identity) => {
+      .on(RoomEvent.DataReceived, (data, participant, _kind, topic, encryption, identity) => {
+        if (topic === SOUNDBOARD_TOPIC) {
+          if (!participant || (this.encrypted && encryption === Encryption_Type.NONE)) return;
+          const play = parseSoundboardPlay(data);
+          if (play)
+            this.hearSound(
+              play.url,
+              play.shortcode,
+              play.emoji,
+              this.userOf(participant.identity),
+              participant.identity
+            );
+          return;
+        }
         const from = participant?.identity ?? identity;
         if (!topic || !from) return;
         let payload: unknown;
@@ -1146,6 +1215,8 @@ export class CallMedia {
     this.audioContainer = undefined;
     for (const timer of this.reactionTimers) clearTimeout(timer);
     this.reactionTimers.clear();
+    this.soundboard.dispose();
+    this.soundboardPlaying.clear();
     void this.audioContext?.close();
     this.audioContext = undefined;
     this.gain = undefined;
@@ -1278,6 +1349,7 @@ export class CallMedia {
         locallyMuted: this.mutedUsers.has(member.userId),
         handRaised: this.hands.has(member.identity),
         reaction: this.reactions.get(member.identity) ?? null,
+        soundboard: this.soundboardPlaying.get(member.identity) ?? null,
       });
     }
     for (const identity of this.unconnectedSince.keys())

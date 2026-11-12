@@ -668,7 +668,12 @@ private fun PersonTile(
     val label = if (participant.isOwnOtherDevice) tr("call.ownOtherDevice", name) else name
     val shape = RoundedCornerShape(if (style == TileStyle.Full) 0.dp else WZ.Radius.xl)
     val ring by animateColorAsState(
-        if (participant.speaking && style != TileStyle.Full && style != TileStyle.Pip) theme.success else Color.Transparent,
+        when {
+            style == TileStyle.Full || style == TileStyle.Pip -> Color.Transparent
+            participant.soundboard != null -> theme.info
+            participant.speaking -> theme.success
+            else -> Color.Transparent
+        },
         tween(WZ.MotionDuration.fast),
         label = "speaking",
     )
@@ -703,7 +708,12 @@ private fun PersonTile(
             verticalArrangement = Arrangement.spacedBy(WZ.Space.space5),
         ) {
             val halo by animateColorAsState(
-                if (participant.speaking && style == TileStyle.Full) theme.success else Color.Transparent,
+                when {
+                    style != TileStyle.Full -> Color.Transparent
+                    participant.soundboard != null -> theme.info
+                    participant.speaking -> theme.success
+                    else -> Color.Transparent
+                },
                 tween(WZ.MotionDuration.fast),
                 label = "halo",
             )
@@ -727,11 +737,11 @@ private fun PersonTile(
             }
         }
         AnimatedContent(
-            participant.reaction,
+            participant.soundboard?.let { it.emoji to it.key } ?: participant.reaction?.let { it to 0 },
             transitionSpec = { (scaleIn(spring()) + fadeIn()) togetherWith (scaleOut() + fadeOut()) },
             label = "reaction",
-        ) { reaction ->
-            if (reaction != null) Text(reaction, fontSize = (if (style == TileStyle.Strip || style == TileStyle.Pip) WZ.SizeIcon.xl else WZ.SizeIcon.xxl).value.sp)
+        ) { flash ->
+            if (flash != null) Text(flash.first, fontSize = (if (style == TileStyle.Strip || style == TileStyle.Pip) WZ.SizeIcon.xl else WZ.SizeIcon.xxl).value.sp)
         }
         if (participant.handRaised) {
             val small = style == TileStyle.Strip || style == TileStyle.Pip

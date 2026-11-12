@@ -878,6 +878,8 @@ export type RoomSettings = {
   predecessor: string | null;
 };
 
+export type RoomSoundPacks = { canEdit: boolean; packs: Array<SoundPack> };
+
 /**
  * What a room list row needs, without touching the SDK.
  */
@@ -1034,6 +1036,34 @@ export type SfuConfig = {
    * The LiveKit room the token is for: services leading to the same SFU room share a connection
    */
   alias: string;
+};
+
+export type SoundCredit = { title: string; author: string; url: string };
+
+export type SoundPack = {
+  id: string;
+  source: SoundPackSource;
+  roomId: string | null;
+  stateKey: string | null;
+  name: string | null;
+  roomName: string | null;
+  avatarUrl: string | null;
+  attribution: string | null;
+  everywhere: boolean;
+  canEdit: boolean;
+  sounds: Array<SoundboardSound>;
+};
+
+export type SoundPackSource = 'frequent' | 'builtIn' | 'mine' | 'everywhere' | 'room' | 'space';
+
+export type SoundboardSound = {
+  shortcode: string;
+  url: string;
+  body?: string | null;
+  emoji?: string | null;
+  mimetype?: string | null;
+  size?: number | null;
+  durationMs?: number | null;
 };
 
 /**
@@ -2314,6 +2344,80 @@ export class WizardClient extends Remote {
   /** Calls `listener` with the room's call members now and on every change. */
   watchCallMembers(roomId: string, listener: (value: Array<CallMember>) => void): Subscription {
     return runtime.watch('WizardClient.watchCallMembers', this, [roomId, listener], Subscription);
+  }
+
+  soundboardPacks(roomId?: string | null): Promise<Array<SoundPack>> {
+    return runtime.call('WizardClient.soundboardPacks', this, [roomId]) as Promise<
+      Array<SoundPack>
+    >;
+  }
+
+  favoriteSoundPacks(): Promise<Array<SoundPack>> {
+    return runtime.call('WizardClient.favoriteSoundPacks', this, []) as Promise<Array<SoundPack>>;
+  }
+
+  allSoundPacks(): Promise<Array<SoundPack>> {
+    return runtime.call('WizardClient.allSoundPacks', this, []) as Promise<Array<SoundPack>>;
+  }
+
+  recordSoundPlayed(url: string): Promise<void> {
+    return runtime.call('WizardClient.recordSoundPlayed', this, [url]) as Promise<void>;
+  }
+
+  roomSoundPacks(roomId: string): Promise<RoomSoundPacks> {
+    return runtime.call('WizardClient.roomSoundPacks', this, [roomId]) as Promise<RoomSoundPacks>;
+  }
+
+  mySounds(): Promise<SoundPack> {
+    return runtime.call('WizardClient.mySounds', this, []) as Promise<SoundPack>;
+  }
+
+  uploadSound(data: Uint8Array, mimetype: string, durationMs: number): Promise<SoundboardSound> {
+    return runtime.call('WizardClient.uploadSound', this, [
+      data,
+      mimetype,
+      durationMs,
+    ]) as Promise<SoundboardSound>;
+  }
+
+  saveSoundPack(
+    roomId: string | null | undefined,
+    stateKey: string,
+    name: string,
+    attribution: string | null | undefined,
+    sounds: Array<SoundboardSound>
+  ): Promise<void> {
+    return runtime.call('WizardClient.saveSoundPack', this, [
+      roomId,
+      stateKey,
+      name,
+      attribution,
+      sounds,
+    ]) as Promise<void>;
+  }
+
+  createSoundPack(roomId: string, name: string): Promise<string> {
+    return runtime.call('WizardClient.createSoundPack', this, [roomId, name]) as Promise<string>;
+  }
+
+  deleteSoundPack(roomId: string, stateKey: string): Promise<void> {
+    return runtime.call('WizardClient.deleteSoundPack', this, [roomId, stateKey]) as Promise<void>;
+  }
+
+  setSoundPackEverywhere(roomId: string, stateKey: string, everywhere: boolean): Promise<void> {
+    return runtime.call('WizardClient.setSoundPackEverywhere', this, [
+      roomId,
+      stateKey,
+      everywhere,
+    ]) as Promise<void>;
+  }
+
+  soundboardCredits(): Promise<Array<SoundCredit>> {
+    return runtime.call('WizardClient.soundboardCredits', this, []) as Promise<Array<SoundCredit>>;
+  }
+
+  soundboardSound(url: string): Promise<Uint8Array> {
+    return runtime.call('WizardClient.soundboardSound', this, [url]) as Promise<Uint8Array>;
   }
 
   /** A token for a LiveKit service, for this device in the room's call. */

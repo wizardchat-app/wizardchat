@@ -17,6 +17,7 @@ import io.livekit.android.ConnectOptions
 import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
 import io.livekit.android.RoomOptions
+import io.livekit.android.annotations.Beta
 import io.livekit.android.audio.NoAudioHandler
 import io.livekit.android.e2ee.BaseKeyProvider
 import io.livekit.android.e2ee.E2EEOptions
@@ -64,6 +65,8 @@ import livekit.org.webrtc.RtpParameters
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.matrix.rtc.CallActivityState
 import org.wizardchat.android.matrix.rtc.CallNotificationController
+import org.wizardchat.android.matrix.rtc.Soundboard
+import org.wizardchat.android.matrix.rtc.SoundboardFlash
 import org.wizardchat.android.matrix.rtc.CallSounds
 import org.wizardchat.android.matrix.rtc.WatchParticipant
 import org.wizardchat.android.matrix.rtc.WatchTogether
@@ -79,6 +82,7 @@ import org.wizardchat.core.IncomingCall
 import org.wizardchat.core.IncomingCallEvent
 import org.wizardchat.core.RingEnd
 import org.wizardchat.core.RoomSummary
+import org.wizardchat.core.SoundboardSound
 import org.wizardchat.core.Subscription
 import org.wizardchat.core.WizardClient
 
@@ -103,6 +107,7 @@ data class CallParticipantInfo(
     val connection: LiveKitRoom? = null,
     val handRaised: Boolean = false,
     val reaction: String? = null,
+    val soundboard: SoundboardFlash? = null,
     val volume: Double = 1.0,
     val locallyMuted: Boolean = false,
     val screenWatchers: List<String> = emptyList(),
@@ -166,6 +171,10 @@ class CallManager {
     val reconnecting: Boolean get() = status == CallStatus.reconnecting
     var watch by mutableStateOf<WatchTogether?>(null)
         private set
+    var soundboard by mutableStateOf<Soundboard?>(null)
+        private set
+    private val soundboardPlaying = mutableMapOf<String, SoundboardFlash>()
+    private var soundboardKey = 0
     var ring by mutableStateOf<RingState?>(null)
         private set
     var incoming by mutableStateOf<RingingCall?>(null)
@@ -323,6 +332,7 @@ class CallManager {
                     participants.filter { it.connected }.map { WatchParticipant(it.identity, it.userId, it.isLocal) }
                 },
             )
+            soundboard = Soundboard(client, scope)
             if (pushToTalk) micMuted = false
             CallSounds.play("call_join")
             notification.start(room.displayName, room.isDirect, activityState)
@@ -459,6 +469,9 @@ class CallManager {
         knownOthers = emptySet()
         watch?.close()
         watch = null
+        soundboard?.stop()
+        soundboard = null
+        soundboardPlaying.clear()
         refreshTimer?.cancel()
         refreshTimer = null
         publisherJob?.cancel()
@@ -551,6 +564,7 @@ class CallManager {
         refresh()
     }
 
+    @OptIn(Beta::class)
     private suspend fun connect(service: String, publisher: Boolean): LiveKitRoom {
         val session = session ?: throw CancellationException()
         val sfu = session.sfuConfig(service, publisher)
@@ -596,6 +610,7 @@ class CallManager {
             close(livekit)
             throw error
         }
+        livekit.e2eeManager?.dataChannelEncryptionEnabled = true
         if (this.session !== session) {
             close(livekit)
             throw CancellationException()
@@ -801,6 +816,35 @@ class CallManager {
         refresh()
     }
 
+    fun playSound(sound: SoundboardSound) {
+        hearSound(sound.url, sound.shortcode, sound.emoji, client?.userId ?: "", session?.identity)
+        sendData(Soundboard.message(sound), Soundboard.TOPIC)
+    }
+
+    private fun hearSound(url: String, shortcode: String?, emoji: String?, userId: String, identity: String?) {
+        if (deafened || userId in mutedUsers || Soundboard.volume <= 0f) return
+        val flash = SoundboardFlash(Soundboard.emoji(shortcode, emoji), ++soundboardKey)
+        soundboard?.play(url, userId, Soundboard.volume * outputVolume.toFloat()) { durationMs ->
+            if (identity == null) return@play
+            soundboardPlaying[identity] = flash
+            refresh()
+            scope.launch {
+                delay(durationMs)
+                if (soundboardPlaying[identity] == flash) {
+                    soundboardPlaying.remove(identity)
+                    refresh()
+                }
+            }
+        }
+    }
+
+    private fun receiveSound(data: ByteArray, identity: String, encryption: String) {
+        if (keyProvider != null && encryption == "NONE") return
+        val play = Soundboard.parse(data) ?: return
+        val userId = members.firstOrNull { it.identity == identity }?.userId ?: identity.substringBeforeLast(":")
+        hearSound(play.url, play.shortcode, play.emoji, userId, identity)
+    }
+
     fun sendReaction(reaction: CallReaction) {
         val session = session ?: return
         show(reaction.emoji, session.identity)
@@ -937,6 +981,7 @@ class CallManager {
             info = info.copy(
                 handRaised = member.identity in raisedHands,
                 reaction = reactions[member.identity],
+                soundboard = soundboardPlaying[member.identity],
                 volume = userVolumes[member.userId] ?: 1.0,
                 locallyMuted = member.userId in mutedUsers,
                 watchingScreen = isLocal || member.identity in watchedScreens,
@@ -968,6 +1013,7 @@ class CallManager {
             is RoomEvent.Reconnected -> if (livekit === publisher) reportMedia(MediaState.connected)
             is RoomEvent.DataReceived -> {
                 val from = event.participant?.identity?.value ?: ""
+                if (event.topic == Soundboard.TOPIC && event.participant != null) receiveSound(event.data, from, (event.encryptionType as Any).toString())
                 if (event.topic == WatchTogether.TOPIC) watch?.receive(event.data, from)
                 if (event.topic == STREAM_WATCH_TOPIC) receiveStreamWatch(event.data, from)
             }

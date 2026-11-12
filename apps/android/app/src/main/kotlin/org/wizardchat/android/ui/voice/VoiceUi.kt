@@ -182,6 +182,7 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
     val haptics = LocalHapticFeedback.current
     var showMenu by remember { mutableStateOf(false) }
     var showWatchSheet by remember { mutableStateOf(false) }
+    var showSoundboard by remember { mutableStateOf(false) }
     val moreHighlighted = calls.handRaised || calls.screenSharing
 
     fun light() = haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -226,6 +227,9 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
             weight = PhWeight.regular,
             label = tr(if (calls.cameraOn) "call.turnCameraOff" else "call.turnCameraOn"),
         ) { calls.toggleCamera() }
+        if (calls.soundboard != null) {
+            Control("vinyl-record", active = false, label = tr("call.soundboard.title")) { showSoundboard = true }
+        }
         Box {
             RoundIconButton(
                 if (calls.handRaised) "hand" else "dots-three",
@@ -303,6 +307,7 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
     if (showWatchSheet) {
         calls.watch?.let { WatchTogetherStartSheet(it, onDismiss = { showWatchSheet = false }) }
     }
+    if (showSoundboard) SoundboardSheet(onDismiss = { showSoundboard = false })
 }
 
 @Composable

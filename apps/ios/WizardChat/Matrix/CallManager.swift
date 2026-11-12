@@ -19,6 +19,7 @@ struct CallParticipantInfo: Identifiable, Equatable {
     var watchingScreen = false
     var handRaised = false
     var reaction: String?
+    var soundboard: SoundboardFlash?
     var volume: Double = 1
     var locallyMuted = false
     var screenWatchers: [String] = []
@@ -28,7 +29,7 @@ struct CallParticipantInfo: Identifiable, Equatable {
             && lhs.micMuted == rhs.micMuted && lhs.cameraTrack === rhs.cameraTrack
             && lhs.screenTrack === rhs.screenTrack && lhs.screenShared == rhs.screenShared
             && lhs.watchingScreen == rhs.watchingScreen && lhs.handRaised == rhs.handRaised
-            && lhs.reaction == rhs.reaction && lhs.volume == rhs.volume && lhs.locallyMuted == rhs.locallyMuted
+            && lhs.reaction == rhs.reaction && lhs.soundboard == rhs.soundboard && lhs.volume == rhs.volume && lhs.locallyMuted == rhs.locallyMuted
             && lhs.screenWatchers == rhs.screenWatchers
     }
 }
@@ -118,6 +119,9 @@ final class CallManager: NSObject, ObservableObject {
     private var mutedUsers: Set<String> = []
     private var appliedVolumes: [String: Double] = [:]
     private var reactions: [String: String] = [:]
+    private(set) var soundboard: Soundboard?
+    private var soundboardPlaying: [String: SoundboardFlash] = [:]
+    private var soundboardKey = 0
     private var raisedHands: Set<String> = []
     private static let streamWatchTopic = "org.wizardchat.stream-watch"
     private var watchedScreens: Set<String> = []
@@ -209,6 +213,7 @@ final class CallManager: NSObject, ObservableObject {
                 participants: { [weak self] in
                     (self?.participants ?? []).filter(\.connected).map { ($0.identity, $0.userId, $0.isLocal) }
                 })
+            soundboard = Soundboard(client: client)
             if pushToTalk { micMuted = false }
             CallSounds.play("call_join")
             if self.ring == .ringing { ringback = CallSounds.loop("ringback") }
@@ -351,6 +356,9 @@ final class CallManager: NSObject, ObservableObject {
         knownOthers = []
         watch?.close()
         watch = nil
+        soundboard?.stop()
+        soundboard = nil
+        soundboardPlaying = [:]
         refreshTimer?.invalidate()
         refreshTimer = nil
         run?.cancel()
@@ -636,6 +644,34 @@ final class CallManager: NSObject, ObservableObject {
         }
     }
 
+    func playSound(_ sound: SoundboardSound) {
+        hearSound(sound.url, shortcode: sound.shortcode, emoji: sound.emoji, from: client?.userId ?? "", identity: session?.identity)
+        sendData(Soundboard.message(sound), topic: Soundboard.topic)
+    }
+
+    private func hearSound(_ url: String, shortcode: String?, emoji: String?, from userId: String, identity: String?) {
+        guard !deafened, !mutedUsers.contains(userId), Soundboard.volume > 0 else { return }
+        soundboardKey += 1
+        let flash = SoundboardFlash(emoji: Soundboard.emoji(shortcode, emoji), key: soundboardKey)
+        soundboard?.play(url, from: userId, volume: Soundboard.volume * outputVolume) { [weak self] duration in
+            guard let self, let identity else { return }
+            soundboardPlaying[identity] = flash
+            refresh()
+            Task {
+                try? await Task.sleep(for: .seconds(duration))
+                if self.soundboardPlaying[identity] == flash { self.soundboardPlaying[identity] = nil; self.refresh() }
+            }
+        }
+    }
+
+    private func receiveSound(_ data: Data, from identity: String, encryption: EncryptionType) {
+        if keyProvider != nil && encryption == .none { return }
+        guard let play = Soundboard.parse(data) else { return }
+        let userId = members.first { $0.identity == identity }?.userId
+            ?? identity.split(separator: ":").dropLast().joined(separator: ":")
+        hearSound(play.url, shortcode: play.shortcode, emoji: play.emoji, from: userId, identity: identity)
+    }
+
     func toggleHand() {
         guard let session else { return }
         handRaised.toggle()
@@ -741,6 +777,7 @@ final class CallManager: NSObject, ObservableObject {
             if info.micMuted || (isLocal && !micEnabled) { info.speaking = false }
             info.handRaised = raisedHands.contains(member.identity)
             info.reaction = reactions[member.identity]
+            info.soundboard = soundboardPlaying[member.identity]
             info.volume = userVolumes[member.userId] ?? 1
             info.locallyMuted = mutedUsers.contains(member.userId)
             if isLocal {
@@ -940,7 +977,11 @@ extension CallManager: RoomDelegate {
     nonisolated func room(_ room: LiveKit.Room, participant: RemoteParticipant?, didReceiveData data: Data,
                           forTopic topic: String, encryptionType: EncryptionType) {
         let from = participant?.identity?.stringValue ?? ""
+        let attributed = participant != nil
         Task { @MainActor in
+            if topic == Soundboard.topic, attributed {
+                self.receiveSound(data, from: from, encryption: encryptionType)
+            }
             if topic == WatchTogether.topic { self.watch?.receive(data, from: from) }
             if topic == Self.streamWatchTopic { self.receiveStreamWatch(data, from: from) }
         }

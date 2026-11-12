@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import WizardChatCore
 
 struct AppearanceSettings: View {
     @EnvironmentObject private var prefs: AppPreferences
@@ -291,8 +292,10 @@ extension WizardTheme {
 }
 
 struct AboutSettings: View {
+    @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
     @State private var showWhatsNew = false
+    @State private var soundCredits: [SoundCredit] = []
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -330,6 +333,14 @@ struct AboutSettings: View {
                     credit("Roboto", url: "https://fonts.google.com/specimen/Roboto",
                            text: String(localized: "settings.about.creditRoboto"))
                 }
+                DisclosureGroup(String(localized: "settings.about.sounds")) {
+                    ForEach(soundCredits, id: \.url) { sound in
+                        credit(sound.title, url: sound.url,
+                               text: L10n.format("settings.about.creditSound", sound.author))
+                    }
+                }
+                .tint(theme.textMuted)
+                .task { soundCredits = (try? await session.client?.soundboardCredits()) ?? [] }
             }
 
             HStack(spacing: WZ.Space.space7) {

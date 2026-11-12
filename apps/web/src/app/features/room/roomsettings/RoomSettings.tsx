@@ -7,11 +7,17 @@ import {
   UsersIcon,
   ShieldIcon,
   SmileyStickerIcon,
+  VinylRecordIcon,
   WrenchIcon,
   XIcon,
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react';
-import { roomSettingsRoomIdAtom, roomSettingsTabAtom, developerModeAtom } from '@/app/store/atoms';
+import {
+  roomSettingsRoomIdAtom,
+  roomSettingsTabAtom,
+  developerModeAtom,
+  emojiPickerAtom,
+} from '@/app/store/atoms';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useRoom } from '@/app/data';
 import { Dialog } from '@/app/components/Dialog/Dialog';
@@ -20,6 +26,7 @@ import { PermissionsPanel } from './Permissions';
 import { RoomPermissionsMatrix } from './RoomPermissionsMatrix';
 import { Widgets } from './Widgets';
 import { EmojiStickerPanel } from './EmojiStickerPanel';
+import { SoundsPanel } from './SoundsPanel';
 import { DeveloperPanel } from './Developer';
 import { NarrowSettingsList, NarrowSettingsPage } from '@/app/components/Settings/NarrowSettings';
 import {
@@ -53,12 +60,14 @@ const NAV: { tab: Tab; labelKey: string; Icon: PhosphorIcon }[] = [
     labelKey: 'room.settings.emojis.title',
     Icon: SmileyStickerIcon,
   },
+  { tab: 'sounds', labelKey: 'room.settings.sounds.title', Icon: VinylRecordIcon },
   { tab: 'developer', labelKey: 'developer.title', Icon: WrenchIcon },
 ];
 
 const DEV_TABS: Tab[] = ['widgets', 'developer'];
 
 export function RoomSettings() {
+  const emojiPickerOpen = !!useAtomValue(emojiPickerAtom);
   const { t } = useTranslation();
   const [roomId, setRoomId] = useAtom(roomSettingsRoomIdAtom);
   const [roomSettingsTab, setRoomSettingsTab] = useAtom(roomSettingsTabAtom);
@@ -122,6 +131,7 @@ export function RoomSettings() {
       {shownTab === 'permissions' && room && <RoomPermissionsMatrix roomId={roomId!} />}
       {shownTab === 'widgets' && <Widgets roomId={roomId!} client={client!} />}
       {shownTab === 'emojis' && <EmojiStickerPanel roomId={roomId!} client={client!} />}
+      {shownTab === 'sounds' && <SoundsPanel roomId={roomId!} client={client!} />}
       {shownTab === 'developer' && <DeveloperPanel roomId={roomId!} client={client!} />}
     </div>
   );
@@ -129,6 +139,7 @@ export function RoomSettings() {
   return (
     <Dialog
       open={Boolean(roomId)}
+      trapPaused={emojiPickerOpen}
       onClose={showPage ? backToList : close}
       size="xl"
       zIndex={7000}

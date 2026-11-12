@@ -33,6 +33,7 @@ import { buildCallBackground } from '@/app/features/calls/callBackground';
 import { shownParticipants, useCallSnapshot } from './useCallSnapshot';
 import { StreamCallMenu, UserCallMenu, type UserMenuAnchor } from './UserCallMenu';
 import { useDismiss } from './useDismiss';
+import { SoundboardPanel } from './SoundboardPanel';
 import { useMemberLookup, type MemberInfo } from '../useMemberLookup';
 import {
   watchActionsAtom,
@@ -141,6 +142,9 @@ function Tile({
   const unwatched = screen && !participant.watchingScreen;
   const track = screen ? participant.screen : participant.camera;
   const speaking = !screen && participant.speaking;
+  const soundboard = screen ? null : participant.soundboard;
+  const flash =
+    soundboard ?? (participant.reaction ? { emoji: participant.reaction, key: 0 } : null);
   const videoHidden = !screen && participant.cameraHidden;
   const canFullscreen = !!track && !previewHidden && !unwatched;
   const [isFullscreen, toggleFullscreen] = useFullscreen(ref);
@@ -149,7 +153,7 @@ function Tile({
   const classes = [
     css.tile,
     screen ? css.tileScreen : '',
-    speaking ? css.tileSpeaking : '',
+    soundboard ? css.tileSoundboard : speaking ? css.tileSpeaking : '',
     focused ? css.tileFocused : '',
     onSelect ? css.tileClickable : '',
   ]
@@ -234,9 +238,9 @@ function Tile({
           ✋
         </span>
       )}
-      {!screen && participant.reaction && (
-        <span key={participant.reaction} className={css.reaction}>
-          {participant.reaction}
+      {!screen && flash && (
+        <span key={`${flash.emoji}${flash.key}`} className={css.reaction}>
+          {flash.emoji}
         </span>
       )}
       {participant.keyMissing && (
@@ -332,7 +336,11 @@ function AvatarBubble({
     >
       <span
         className={[
-          participant.speaking ? css.bubbleRingSpeaking : css.bubbleRing,
+          participant.soundboard
+            ? css.bubbleRingSoundboard
+            : participant.speaking
+              ? css.bubbleRingSpeaking
+              : css.bubbleRing,
           participant.connected ? '' : css.connecting,
         ]
           .filter(Boolean)
@@ -359,9 +367,16 @@ function AvatarBubble({
           ✋
         </span>
       )}
-      {participant.reaction && (
-        <span key={participant.reaction} className={css.bubbleReaction}>
-          {participant.reaction}
+      {(participant.soundboard || participant.reaction) && (
+        <span
+          key={
+            participant.soundboard
+              ? `${participant.soundboard.emoji}${participant.soundboard.key}`
+              : participant.reaction
+          }
+          className={css.bubbleReaction}
+        >
+          {participant.soundboard?.emoji ?? participant.reaction}
         </span>
       )}
     </div>
@@ -748,6 +763,9 @@ export function CallStage() {
       {watchActive && <WatchPlayerLayer rootRef={stageRef} startedByName={watchStartedBy} />}
       {!compact && panel === 'reactions' && (
         <ReactionsPanel session={session} handRaised={!!own?.handRaised} onClose={closePanel} />
+      )}
+      {!compact && panel === 'soundboard' && (
+        <SoundboardPanel session={session} onClose={closePanel} />
       )}
       {userMenu?.screen && (
         <StreamCallMenu

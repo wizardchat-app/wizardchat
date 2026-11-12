@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { LogoHover } from '@/app/components/AppLoading';
 import {
+  CaretDownIcon,
+  CaretUpIcon,
   GitlabLogoSimpleIcon,
   DownloadSimpleIcon,
   HeartStraightIcon,
@@ -9,6 +11,8 @@ import {
   SparkleIcon,
 } from '@phosphor-icons/react';
 import { useSetAtom } from 'jotai';
+import type { SoundCredit } from '@wizardchat/core';
+import { useClient } from '@/app/data';
 import { getAppsOpenAtom, whatsNewOpenAtom } from '@/app/store/atoms';
 import { latestWhatsNew } from '@/app/features/whatsNew';
 import * as css from '../Settings.css';
@@ -16,6 +20,50 @@ import { GITLAB_URL, PRIVACY_POLICY_URL } from '@/const/links';
 import * as heroCss from './About.css';
 
 const LIBERAPAY_URL = 'https://liberapay.com/JPK/donate';
+
+function SoundCredits() {
+  const { t } = useTranslation();
+  const client = useClient();
+  const [expanded, setExpanded] = useState(false);
+  const [credits, setCredits] = useState<SoundCredit[]>([]);
+  useEffect(() => {
+    if (expanded && credits.length === 0)
+      void client
+        .soundboardCredits()
+        .then(setCredits)
+        .catch(() => {});
+  }, [expanded, credits.length, client]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={css.accessTokenBtn}
+        aria-expanded={expanded}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? <CaretUpIcon size={14} /> : <CaretDownIcon size={14} />}
+        {t('settings.about.sounds')}
+      </button>
+      {expanded &&
+        credits.map((credit) => (
+          <div key={credit.url} className={css.settingRow}>
+            <span className={css.settingLabel}>
+              <a
+                href={credit.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={css.externalLink}
+              >
+                {credit.title}
+              </a>{' '}
+              {t('settings.about.creditSound', { author: credit.author })}
+            </span>
+          </div>
+        ))}
+    </>
+  );
+}
 
 export function About() {
   const { t } = useTranslation();
@@ -109,6 +157,7 @@ export function About() {
             />
           </span>
         </div>
+        <SoundCredits />
       </div>
 
       <div className={heroCss.footerLinks}>

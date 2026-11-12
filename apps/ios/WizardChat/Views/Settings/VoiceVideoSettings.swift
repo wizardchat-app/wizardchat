@@ -92,6 +92,7 @@ struct VoiceVideoSettings: View {
                         }))
                 }
             }
+            SoundboardSettingsSection()
         }
         .onAppear { inputs = Self.availableInputs() }
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification).receive(on: RunLoop.main)) { _ in
@@ -272,5 +273,20 @@ private struct CameraPreview: UIViewRepresentable {
 
     func updateUIView(_ view: PreviewView, context: Context) {
         view.show(position)
+    }
+}
+
+struct SoundboardSettingsSection: View {
+    @AppStorage(Soundboard.volumeKey) private var volume = 0.5
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        SettingsSection(title: "settings.voiceVideo.soundboard.title") {
+            VStack(alignment: .leading, spacing: WZ.Space.space2) {
+                Text(String(localized: "settings.voiceVideo.soundboard.volume")).foregroundStyle(theme.textPrimary)
+                Slider(value: $volume, in: 0...1)
+                    .accessibilityLabel(String(localized: "settings.voiceVideo.soundboard.volume"))
+            }
+        }
     }
 }

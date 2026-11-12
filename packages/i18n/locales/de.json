@@ -503,7 +503,7 @@
           "upgrade_room": "Raum upgraden",
           "change_encryption": "Verschlüsselung aktivieren",
           "other_state_events": "Andere Einstellungen ändern",
-          "manage_emotes": "Emojis & Sticker verwalten",
+          "manage_emotes": "Emojis, Sticker & Sounds verwalten",
           "modify_widgets": "Widgets ändern",
           "space_child": "Spaces hinzufügen / entfernen"
         },
@@ -514,6 +514,25 @@
         "changePicture": "Bild ändern",
         "sectionTitle": "Berechtigungen",
         "editHint": "Nur wer Rollen ändern darf, kann diese bearbeiten."
+      },
+      "sounds": {
+        "title": "Soundboard",
+        "description": "Verwalte benutzerdefinierte Sound-Packs für diesen Raum.",
+        "createPack": "Pack erstellen",
+        "packName": "Packname",
+        "packNamePlaceholder": "Party-Sounds",
+        "createFailed": "Das Pack konnte nicht erstellt werden: {{error}}",
+        "noPacks": "Hier gibt es noch keine Sound-Packs.",
+        "deletePack": "Pack löschen",
+        "deletePackConfirm": "„{{name}}“ und seine Sounds für alle löschen? Das kann nicht rückgängig gemacht werden.",
+        "soundCount_one": "{{count}} Sound",
+        "soundCount_other": "{{count}} Sounds",
+        "sounds": "Sounds",
+        "addSounds": "Sounds hinzufügen",
+        "noSounds": "Noch keine Sounds in diesem Pack.",
+        "emoji": "Emoji",
+        "name": "Name",
+        "removeSound": "Sound entfernen"
       }
     },
     "dm": {
@@ -1067,6 +1086,41 @@
       "focus": "Video hervorheben",
       "waitingFor": "Warte auf {{name}}..."
     },
+    "soundboard": {
+      "title": "Soundboard",
+      "loading": "Sounds werden geladen...",
+      "failed": "Die Sounds konnten nicht geladen werden.",
+      "note": "Nur Personen mit WizardChat hören diese Sounds.",
+      "sounds": {
+        "applause": "Applaus",
+        "laugh": "Gelächter",
+        "rimshot": "Ba-dum-tss",
+        "drumroll": "Trommelwirbel",
+        "tada": "Tada",
+        "airhorn": "Drucklufthorn",
+        "crickets": "Grillen",
+        "sad_trombone": "Traurige Posaune"
+      },
+      "limits": "MP3, M4A oder WAV, bis 1 MB und 15 Sekunden.",
+      "preview": "Abspielen",
+      "stopPreview": "Stoppen",
+      "packs": {
+        "builtIn": "WizardChat",
+        "mine": "Meine Sounds",
+        "frequent": "Häufig verwendet"
+      },
+      "errors": {
+        "unsupported": "Diese Datei kann nicht verwendet werden. Wähle eine MP3-, M4A- oder WAV-Datei.",
+        "tooLarge": "Der Sound ist größer als 1 MB.",
+        "tooLong": "Der Sound ist länger als 15 Sekunden.",
+        "badShortcode": "Shortcodes dürfen nur Buchstaben, Zahlen, Bindestriche und Unterstriche enthalten (max. 100 Zeichen).",
+        "shortcodeTaken": "Dieser Shortcode wird bereits verwendet."
+      },
+      "noRoomSounds": "Keine Sounds in diesem Raum. Füge welche in den Raumeinstellungen hinzu.",
+      "search": "Sounds durchsuchen",
+      "noResults": "Keine Sounds gefunden",
+      "volume": "Soundboard-Lautstärke"
+    },
     "volumeHint": "Tippe, um die Lautstärke zu ändern",
     "userScreen": "Bildschirm von {{name}}",
     "empty": "Noch niemand hier",
@@ -1455,6 +1509,10 @@
         "reaction": "Reaktion",
         "watchTogether": "Watch together gestartet"
       },
+      "soundboard": {
+        "title": "Soundboard",
+        "volume": "Soundboard-Lautstärke"
+      },
       "pushToTalkNote": "Halte in Anrufen die Mikrofontaste gedrückt, um zu sprechen. Sonst bist du still."
     },
     "emojisStickers": {
@@ -1567,7 +1625,9 @@
       "phosphorIcons": "<phosphorLink>Phosphor Icons</phosphorLink> ist © Phosphor Icons und wird unter den Bedingungen der MIT License verwendet.",
       "privacyPolicy": "Datenschutzerklärung",
       "creditMatrix": "ist © The Matrix.org Foundation C.I.C. und wird unter den Bedingungen der Apache License, Version 2.0 verwendet.",
-      "creditRoboto": "ist © Google und wird unter den Bedingungen der Apache License, Version 2.0 verwendet."
+      "creditRoboto": "ist © Google und wird unter den Bedingungen der Apache License, Version 2.0 verwendet.",
+      "sounds": "Sounds",
+      "creditSound": "von {{author}} auf Freesound, CC0 1.0 (gemeinfrei)."
     },
     "encryption": {
       "title": "Verschlüsselung",
@@ -1593,7 +1653,14 @@
       "wrongKey": "Falscher Entschlüsselungsschlüssel. Bitte prüfe deinen Wiederherstellungsschlüssel und versuche es erneut.",
       "recoveryKeySaveHint": "Bewahre diesen Schlüssel sicher auf. Du brauchst ihn, um deine verschlüsselten Nachrichten auf neuen Geräten zu lesen.\n\n{{key}}"
     },
-    "search": "Einstellungen durchsuchen"
+    "search": "Einstellungen durchsuchen",
+    "soundboard": {
+      "title": "Soundboard",
+      "favoritePacks": "Favoriten-Packs",
+      "favoritePacksNote": "Wähle Sound-Packs aus deinen Räumen, um sie in jedem Anruf zu verwenden.",
+      "defaultPack": "Standard-Pack",
+      "defaultPackNote": "Dein persönliches Pack ist in jedem Anruf verfügbar."
+    }
   },
   "verification": {
     "otherDeviceHint": "Öffne WizardChat (oder eine andere Matrix-App) auf einem bereits verifizierten Gerät und nimm die Anfrage an.",

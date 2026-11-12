@@ -11,7 +11,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     enum Page: Hashable, CaseIterable {
-        case account, privacy, emojis, notifications, voiceVideo, appearance, accessibility, language, sessions, encryption, developer, about
+        case account, privacy, emojis, soundboard, notifications, voiceVideo, appearance, accessibility, language, sessions, encryption, developer, about
 
         var title: LocalizedStringKey { LocalizedStringKey(titleKey) }
         var name: String { NSLocalizedString(titleKey, comment: "") }
@@ -21,6 +21,7 @@ struct SettingsView: View {
             case .account: return "settings.account.title"
             case .privacy: return "settings.privacy.title"
             case .emojis: return "room.settings.emojis.title"
+            case .soundboard: return "settings.soundboard.title"
             case .notifications: return "settings.notifications.title"
             case .voiceVideo: return "settings.voiceVideo.title"
             case .appearance: return "settings.appearance.title"
@@ -38,6 +39,7 @@ struct SettingsView: View {
             case .account: return "ph-user-regular"
             case .privacy: return "ph-shield-regular"
             case .emojis: return "ph-smiley-sticker-regular"
+            case .soundboard: return "ph-vinyl-record-regular"
             case .notifications: return "ph-bell-regular"
             case .voiceVideo: return "ph-microphone-regular"
             case .appearance: return "ph-palette-regular"
@@ -88,7 +90,7 @@ struct SettingsView: View {
                 .listRowBackground(theme.groupedRow)
 
                 Section {
-                    ForEach([Page.privacy, .notifications, .emojis]) { pageRow($0) }
+                    ForEach([Page.privacy, .notifications, .emojis, .soundboard]) { pageRow($0) }
                 }
                 Section {
                     ForEach([Page.voiceVideo, .appearance, .accessibility, .language]) { pageRow($0) }
@@ -119,6 +121,7 @@ struct SettingsView: View {
                 case .account: AccountSettings()
                 case .privacy: PrivacySettings()
                 case .emojis: EmojisSettings()
+                case .soundboard: SoundboardSettings()
                 case .notifications: NotificationSettingsPage()
                 case .voiceVideo: VoiceVideoSettings()
                 case .appearance: AppearanceSettings()

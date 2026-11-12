@@ -87,7 +87,7 @@ pub struct Notification {
 }
 
 const ROOM_PACK_TYPES: [&str; 2] = ["im.ponies.room_emotes", "m.room.image_pack"];
-const MAX_SPACE_DEPTH: usize = 5;
+pub(crate) const MAX_SPACE_DEPTH: usize = 5;
 const USER_PACK: &str = "im.ponies.user_emotes";
 const ENABLED_ROOM_PACKS: &str = "im.ponies.emote_rooms";
 
@@ -132,7 +132,7 @@ fn parse_pack(id: String, room_id: Option<String>, content: &Value) -> Option<Em
 
 /// A room's current state from the server, as JSON. Sliding sync only keeps the state the
 /// room list asks for, so packs and space parents aren't in the local store.
-async fn room_state(client: &WizardClient, room_id: &str) -> Vec<Value> {
+pub(crate) async fn room_state(client: &WizardClient, room_id: &str) -> Vec<Value> {
     let Ok(room_id) = parse_room_id(room_id) else {
         return Vec::new();
     };
@@ -182,7 +182,7 @@ fn room_packs(
     packs
 }
 
-fn canonical_parents(state: &[Value]) -> Vec<String> {
+pub(crate) fn canonical_parents(state: &[Value]) -> Vec<String> {
     of_type(state, "m.space.parent")
         .filter(|event| {
             event

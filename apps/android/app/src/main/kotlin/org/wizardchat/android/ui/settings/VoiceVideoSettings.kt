@@ -51,10 +51,13 @@ import kotlinx.coroutines.withContext
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.matrix.CallManager
 import org.wizardchat.android.matrix.rtc.CallSounds
+import org.wizardchat.android.matrix.rtc.Soundboard
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.tokens.WZ
+import org.wizardchat.android.ui.PhIcon
+import org.wizardchat.android.ui.PhWeight
 
 private val SOUND_TOGGLES = listOf(
     "mute", "deafen", "camera", "screenshare", "join", "leave",
@@ -152,6 +155,27 @@ internal fun VoiceVideoSettings(onBack: () -> Unit) {
                     sounds = sounds + (key to on)
                 })
             }
+        }
+        SoundboardSettingsSection()
+    }
+}
+
+@Composable
+internal fun SoundboardSettingsSection() {
+    var volume by remember { mutableFloatStateOf(Soundboard.volume) }
+    SettingsSection(tr("settings.voiceVideo.soundboard.title")) {
+        Column(Modifier.padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4)) {
+            Text(tr("settings.voiceVideo.soundboard.volume"), style = wizardFont(WZ.FontSize.lg), color = theme.textPrimary)
+            Slider(
+                value = volume,
+                onValueChange = { volume = it },
+                onValueChangeFinished = { Soundboard.volume = volume },
+                colors = SliderDefaults.colors(
+                    thumbColor = theme.accent,
+                    activeTrackColor = theme.accent,
+                    inactiveTrackColor = theme.fill,
+                ),
+            )
         }
     }
 }

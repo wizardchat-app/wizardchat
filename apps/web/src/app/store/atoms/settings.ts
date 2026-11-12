@@ -81,6 +81,7 @@ export interface Preferences {
   excludeInsecureSessions: boolean;
   pushToTalk: boolean;
   voiceSounds: Partial<Record<string, boolean>>;
+  soundboardVolume: number;
 }
 
 export const themeAtom = atomWithStorage<ThemeName>(STORAGE_KEY_THEME, DEFAULT_THEME as ThemeName);
@@ -124,6 +125,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   excludeInsecureSessions: false,
   pushToTalk: false,
   voiceSounds: {},
+  soundboardVolume: 0.5,
 };
 
 export const preferencesAtom = atomWithStorage<Preferences>(
@@ -176,6 +178,7 @@ export const themedAppIconAtom = preferenceFieldAtom('themedAppIcon');
 export const excludeInsecureSessionsAtom = preferenceFieldAtom('excludeInsecureSessions');
 export const pushToTalkEnabledAtom = preferenceFieldAtom('pushToTalk');
 export const voiceSoundsAtom = preferenceFieldAtom('voiceSounds');
+export const soundboardVolumeAtom = preferenceFieldAtom('soundboardVolume');
 
 const rawStringStorage = {
   getItem: (key: string, init: string) => localStorage.getItem(key) ?? init,

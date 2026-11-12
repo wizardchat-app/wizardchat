@@ -1141,6 +1141,12 @@ data class RoomSettings(
     val predecessor: String? = null,
 )
 
+@Serializable
+data class RoomSoundPacks(
+    val canEdit: Boolean,
+    val packs: List<SoundPack>,
+)
+
 /** What a room list row needs, without touching the SDK. */
 @Serializable
 data class RoomSummary(
@@ -1293,6 +1299,49 @@ data class SfuConfig(
     val identity: String,
     /** The LiveKit room the token is for: services leading to the same SFU room share a connection */
     val alias: String,
+)
+
+@Serializable
+data class SoundCredit(
+    val title: String,
+    val author: String,
+    val url: String,
+)
+
+@Serializable
+data class SoundPack(
+    val id: String,
+    val source: SoundPackSource,
+    val roomId: String? = null,
+    val stateKey: String? = null,
+    val name: String? = null,
+    val roomName: String? = null,
+    val avatarUrl: String? = null,
+    val attribution: String? = null,
+    val everywhere: Boolean,
+    val canEdit: Boolean,
+    val sounds: List<SoundboardSound>,
+)
+
+@Serializable
+enum class SoundPackSource {
+    @SerialName("frequent") frequent,
+    @SerialName("builtIn") builtIn,
+    @SerialName("mine") mine,
+    @SerialName("everywhere") everywhere,
+    @SerialName("room") room,
+    @SerialName("space") space,
+}
+
+@Serializable
+data class SoundboardSound(
+    val shortcode: String,
+    val url: String,
+    val body: String? = null,
+    val emoji: String? = null,
+    val mimetype: String? = null,
+    val size: Long? = null,
+    val durationMs: Long? = null,
 )
 
 /** A room or subspace inside a space, joined or not */
@@ -2430,6 +2479,49 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     /** Calls `listener` with the room's call members now and on every change. */
     fun watchCallMembers(roomId: String, listener: (List<CallMember>) -> Unit): Subscription =
         Runtime.watch("WizardClient.watchCallMembers", handle, listOf(Arg.value<String>(roomId), Arg.listener<List<CallMember>>(listener)), ::Subscription)
+
+    suspend fun soundboardPacks(roomId: String? = null): List<SoundPack> =
+        Runtime.call("WizardClient.soundboardPacks", handle, listOf(Arg.value<String?>(roomId)))
+
+    suspend fun favoriteSoundPacks(): List<SoundPack> =
+        Runtime.call("WizardClient.favoriteSoundPacks", handle, listOf())
+
+    suspend fun allSoundPacks(): List<SoundPack> =
+        Runtime.call("WizardClient.allSoundPacks", handle, listOf())
+
+    suspend fun recordSoundPlayed(url: String) {
+        Runtime.callUnit("WizardClient.recordSoundPlayed", handle, listOf(Arg.value<String>(url)))
+    }
+
+    suspend fun roomSoundPacks(roomId: String): RoomSoundPacks =
+        Runtime.call("WizardClient.roomSoundPacks", handle, listOf(Arg.value<String>(roomId)))
+
+    suspend fun mySounds(): SoundPack =
+        Runtime.call("WizardClient.mySounds", handle, listOf())
+
+    suspend fun uploadSound(data: Bytes, mimetype: String, durationMs: Long): SoundboardSound =
+        Runtime.call("WizardClient.uploadSound", handle, listOf(Arg.bytes(data), Arg.value<String>(mimetype), Arg.value<Long>(durationMs)))
+
+    suspend fun saveSoundPack(roomId: String?, stateKey: String, name: String, attribution: String?, sounds: List<SoundboardSound>) {
+        Runtime.callUnit("WizardClient.saveSoundPack", handle, listOf(Arg.value<String?>(roomId), Arg.value<String>(stateKey), Arg.value<String>(name), Arg.value<String?>(attribution), Arg.value<List<SoundboardSound>>(sounds)))
+    }
+
+    suspend fun createSoundPack(roomId: String, name: String): String =
+        Runtime.call("WizardClient.createSoundPack", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(name)))
+
+    suspend fun deleteSoundPack(roomId: String, stateKey: String) {
+        Runtime.callUnit("WizardClient.deleteSoundPack", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(stateKey)))
+    }
+
+    suspend fun setSoundPackEverywhere(roomId: String, stateKey: String, everywhere: Boolean) {
+        Runtime.callUnit("WizardClient.setSoundPackEverywhere", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(stateKey), Arg.value<Boolean>(everywhere)))
+    }
+
+    suspend fun soundboardCredits(): List<SoundCredit> =
+        Runtime.call("WizardClient.soundboardCredits", handle, listOf())
+
+    suspend fun soundboardSound(url: String): Bytes =
+        Runtime.call("WizardClient.soundboardSound", handle, listOf(Arg.value<String>(url)))
 
     /** A token for a LiveKit service, for this device in the room's call. */
     suspend fun sfuConfig(roomId: String, serviceUrl: String): SfuConfig =

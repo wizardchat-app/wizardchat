@@ -303,7 +303,7 @@ export async function getAllRoomsPacks(
   return perRoom.flat();
 }
 
-export function useAllRoomsPacks(client: MatrixClient | null): RoomPackSummary[] {
+export function useAllRoomsPacks(client: MatrixClient | null): RoomPackSummary[] | null {
   const rooms = useAllRooms();
   const revision = usePackRevision();
   const roomIds = useMemo(
@@ -314,7 +314,7 @@ export function useAllRoomsPacks(client: MatrixClient | null): RoomPackSummary[]
         .join('\n'),
     [rooms]
   );
-  const [packs, setPacks] = useState<RoomPackSummary[]>([]);
+  const [packs, setPacks] = useState<RoomPackSummary[] | null>(null);
 
   useEffect(() => {
     if (!client) {

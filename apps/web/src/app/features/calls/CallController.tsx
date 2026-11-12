@@ -19,7 +19,7 @@ import {
   type CallPresentation,
 } from '@/app/store/atoms/call';
 import { currentRoomIdAtom } from '@/app/store/atoms/rooms';
-import { deafenedAtom, micMutedAtom } from '@/app/store/atoms/settings';
+import { deafenedAtom, micMutedAtom, soundboardVolumeAtom } from '@/app/store/atoms/settings';
 import { useToast } from '@/app/hooks/useToast';
 import { loopVoiceSound, playVoiceSound, type VoiceSound } from '@/app/features/voice/voiceSounds';
 import { usePushToTalk } from '@/app/features/calls/usePushToTalk';
@@ -123,6 +123,7 @@ export function CallController() {
           toast.error(
             t(kind === 'microphone' ? 'call.micFailed' : 'call.cameraFailed', { error: message })
           );
+        next.soundboardVolume = () => store.get(soundboardVolumeAtom);
         sessionRef.current = next;
         for (const [userId, audio] of Object.entries(store.get(callUserAudioAtom))) {
           next.setUserVolume(userId, audio.volume);
@@ -385,6 +386,10 @@ export function CallController() {
     () => setPanel((p) => (p === 'reactions' ? null : 'reactions')),
     [setPanel]
   );
+  const openSoundboard = useCallback(
+    () => setPanel((p) => (p === 'soundboard' ? null : 'soundboard')),
+    [setPanel]
+  );
   const setPresentation = useCallback(
     (presentation: CallPresentation) => setUi((prev) => ({ ...prev, presentation })),
     [setUi]
@@ -412,6 +417,7 @@ export function CallController() {
       toggleScreenshare,
       setSpotlight,
       openReactions,
+      openSoundboard,
       setPresentation,
       copyCallLog,
     });
@@ -427,6 +433,7 @@ export function CallController() {
     toggleScreenshare,
     setSpotlight,
     openReactions,
+    openSoundboard,
     setPresentation,
     setActions,
   ]);

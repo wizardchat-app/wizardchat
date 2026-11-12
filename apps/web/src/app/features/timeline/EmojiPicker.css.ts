@@ -185,8 +185,6 @@ export const sectionHeader = style({
   fontWeight: 600,
   color: vars.color.textMuted,
   padding: '4px 8px',
-  letterSpacing: '0.03em',
-  textTransform: 'uppercase',
   position: 'sticky',
   top: 0,
   backgroundColor: vars.color.bgSecondary,

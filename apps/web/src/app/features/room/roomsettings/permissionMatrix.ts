@@ -3,6 +3,7 @@ export type PermissionRowKind = 'scalar' | 'event' | 'nested';
 export interface PermissionRow {
   id: string;
   key: string;
+  linkedKeys?: string[];
   kind: PermissionRowKind;
   isState?: boolean;
   specDefault: number;
@@ -112,7 +113,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       STATE('upgrade_room', 'm.room.tombstone', true),
       STATE('change_encryption', 'm.room.encryption', true),
       SCALAR('other_state_events', 'state_default', POWER_LEVEL_DEFAULTS.state_default),
-      STATE('manage_emotes', 'im.ponies.room_emotes'),
+      {
+        ...STATE('manage_emotes', 'im.ponies.room_emotes'),
+        linkedKeys: ['m.room.image_pack', 'moe.crafty.room_soundboard'],
+      },
       STATE('modify_widgets', 'm.room.widget', true),
     ],
   },
@@ -186,8 +190,10 @@ export function buildUpdatedContent(
 
     if (row.kind === 'event') {
       const events = { ...(asObject(current.events) ?? {}) };
-      if (value === inherited) delete events[row.key];
-      else events[row.key] = value;
+      for (const key of [row.key, ...(row.linkedKeys ?? [])]) {
+        if (value === inherited) delete events[key];
+        else events[key] = value;
+      }
       if (Object.keys(events).length === 0) delete next.events;
       else next.events = events;
       continue;

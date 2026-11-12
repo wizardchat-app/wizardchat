@@ -148,6 +148,11 @@ struct RoomInfoView: View {
                             Label(String(localized: "room.settings.emojis.title"), image: "ph-smiley-regular")
                         }
                         NavigationLink {
+                            RoomSoundPacksView(roomId: room.id)
+                        } label: {
+                            Label(String(localized: "room.settings.sounds.title"), image: "ph-vinyl-record-regular")
+                        }
+                        NavigationLink {
                             RoomWidgetsView(roomId: room.id, client: client, canManage: canManageWidgets)
                         } label: {
                             Label(String(localized: "room.settings.widgets.title"), image: "ph-puzzle-piece-regular")
