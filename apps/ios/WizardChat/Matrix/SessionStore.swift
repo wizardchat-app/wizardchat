@@ -42,6 +42,7 @@ enum SessionStore {
     private static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.ios"
     static let appProcess = "main"
     static let extensionProcess = "nse"
+    static let pushProcess = "push"
 
     static func all() -> [StoredSession] { read().accounts }
 

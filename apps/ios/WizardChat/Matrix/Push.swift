@@ -9,6 +9,7 @@ enum Push {
     private static let registered = UserDefaults(suiteName: "push") ?? .standard
     private static var token: String?
     private static var registering = false
+    private static var again = false
     static let log = Logger(subsystem: "org.wizardchat.ios", category: "Push")
     static weak var activeClient: WizardClient?
 
@@ -25,12 +26,20 @@ enum Push {
     }
 
     static func registerAll() async {
-        guard let token, !registering else { return }
+        guard token != nil else { return }
+        guard !registering else {
+            again = true
+            return
+        }
         registering = true
         defer { registering = false }
-        for stored in SessionStore.all() {
-            await register(stored, pushkey: token)
-        }
+        repeat {
+            again = false
+            guard let token else { return }
+            for stored in SessionStore.all() {
+                await register(stored, pushkey: token)
+            }
+        } while again
     }
 
     private static func register(_ stored: StoredSession, pushkey: String) async {
@@ -39,12 +48,14 @@ enum Push {
         let previous = registered.string(forKey: userId)
         let active = activeClient.flatMap { $0.userId == userId ? $0 : nil }
         guard previous != current || active != nil else { return }
+        if active == nil, SessionStore.active()?.session.userId == userId { return }
         do {
             let client: WizardClient
             if let active {
                 client = active
             } else {
-                client = try await WizardClient.restore(session: stored.session, store: stored.store)
+                client = try await WizardClient.restore(session: stored.session,
+                                                        store: stored.store(process: SessionStore.pushProcess))
             }
             let saving = active != nil ? nil : client.watchSession { event in
                 guard case .refreshed(let refreshed) = event,
