@@ -1411,7 +1411,8 @@ private fun richText(spans: List<RichSpan>, style: RichStyle): AnnotatedString =
             }
             link != null -> {
                 pushLink(LinkAnnotation.Url(link, TextLinkStyles(SpanStyle(color = style.linkColor))))
-                withStyle(spanStyle) { append(span.text) }
+                val pretty = if (style.prettifyLinks) MessageText.prettifiedLink(span.text, link) else null
+                withStyle(spanStyle) { append(pretty ?: span.text) }
                 pop()
             }
             span.code -> withStyle(spanStyle) { append(span.text) }

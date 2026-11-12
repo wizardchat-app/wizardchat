@@ -1256,6 +1256,18 @@ enum MessageText {
         if host.hasPrefix("www.") { host.removeFirst(4) }
         return host
     }
+
+    static func prettifiedLink(_ text: String, link: String) -> String? {
+        guard let url = URL(string: link), bare(text) == bare(link) else { return nil }
+        return prettified(url)
+    }
+
+    private static func bare(_ link: String) -> String {
+        var text = link.trimmingCharacters(in: .whitespaces).lowercased()
+        if let scheme = text.range(of: "://") { text = String(text[scheme.upperBound...]) }
+        while text.hasSuffix("/") { text.removeLast() }
+        return text
+    }
 }
 
 /// What a formatted message's text needs besides its blocks
@@ -1481,9 +1493,12 @@ extension MessageText {
         let theme = style.theme
         var result = AttributedString()
         for span in spans {
+            let pretty = style.prettifyLinks && span.mention == nil
+                ? span.link.flatMap { RoomLinks.target($0) == nil ? prettifiedLink(span.text, link: $0) : nil }
+                : nil
             var part = span.link == nil && span.mention == nil && !span.code
                 ? attributed(span.text, prettifyLinks: style.prettifyLinks)
-                : AttributedString(span.text)
+                : AttributedString(pretty ?? span.text)
             var intent: InlinePresentationIntent = []
             if span.bold { intent.insert(.stronglyEmphasized) }
             if span.italic { intent.insert(.emphasized) }

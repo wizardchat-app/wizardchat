@@ -171,6 +171,11 @@ object MessageText {
         return uri.host?.removePrefix("www.")
     }
 
+    fun prettifiedLink(text: String, link: String): String? = if (bare(text) == bare(link)) prettified(link) else null
+
+    private fun bare(link: String): String =
+        link.trim().lowercase().let { text -> text.substringAfter("://", text) }.trimEnd('/')
+
     /** The first http(s) link that isn't a matrix.to link, for the link preview */
     fun firstPreviewURL(text: String): String? = links(text).map { it.url }.firstOrNull { url ->
         val uri = Uri.parse(url)

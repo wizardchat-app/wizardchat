@@ -30,6 +30,12 @@ function prettifyUrl(href: string): string | null {
   }
 }
 
+function bareLink(link: string): string {
+  const text = link.trim().toLowerCase();
+  const scheme = text.indexOf('://');
+  return (scheme >= 0 ? text.slice(scheme + 3) : text).replace(/\/+$/, '');
+}
+
 const renderer = new Renderer();
 
 // Detect matrix.to user mention links and render as pill spans.
@@ -215,6 +221,8 @@ function prettifyAnchors(html: string): string {
     // Skip mention-pill links (already handled by applyMentionPills)
     if (href.startsWith('https://matrix.to/#/@') || isRoomLink(href)) return;
 
+    // Links with their own text (Markdown `[text](url)`) keep it
+    if (bareLink(a.textContent ?? '') !== bareLink(href)) return;
     const pretty = prettifyUrl(href);
     if (!pretty || pretty === a.textContent) return;
 
