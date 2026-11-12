@@ -123,7 +123,6 @@ final class WatchTogether: ObservableObject {
             guard incoming.at > stoppedAt else { return }
             if let current = state, incoming.at < current.at { return }
             if state?.videoId != incoming.videoId {
-                if consent { watchingVideoId = incoming.videoId }
                 CallSounds.play("watch_together_start")
             }
             state = incoming

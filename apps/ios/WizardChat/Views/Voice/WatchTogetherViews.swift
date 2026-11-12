@@ -221,9 +221,11 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
     }
 }
 
-struct WatchTogetherStage: View {
+struct WatchTogetherTile: View {
     @ObservedObject var watch: WatchTogether
     let room: RoomSummary
+    var compact = false
+    var onFocus: () -> Void = {}
 
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.openURL) private var openURL
@@ -241,6 +243,7 @@ struct WatchTogetherStage: View {
                     invite(state)
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
             .task(id: state.startedBy) {
                 starterName = await session.memberProfile(state.startedBy, in: room.id).name
             }
@@ -248,31 +251,42 @@ struct WatchTogetherStage: View {
     }
 
     private func player(_ state: WatchState) -> some View {
-        VStack(alignment: .leading, spacing: WZ.Space.space4) {
-            ZStack {
-                YouTubeSyncPlayer(state: state,
-                                  onUpdate: { playing, position in watch.update(playing: playing, position: position) },
-                                  onFailed: { failed = true })
-                if failed {
-                    Text(String(localized: "call.watchTogether.videoUnplayable"))
-                        .font(.wizard(WZ.FontSize.md, .semibold))
-                        .foregroundStyle(theme.textOnAccent)
-                        .padding()
-                }
+        ZStack {
+            Color.black
+            YouTubeSyncPlayer(state: state,
+                              onUpdate: { playing, position in watch.update(playing: playing, position: position) },
+                              onFailed: { failed = true })
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .allowsHitTesting(!compact)
+            if failed {
+                Text(String(localized: "call.watchTogether.videoUnplayable"))
+                    .font(.wizard(compact ? WZ.FontSize.xs : WZ.FontSize.md, .semibold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding()
             }
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
-            HStack(spacing: WZ.Space.space4) {
-                Label(L10n.format("call.watchTogether.startedBy", "\(starterName ?? state.startedBy)"), image: "ph-youtube-logo-fill")
-                    .font(.wizard(WZ.FontSize.sm, .semibold))
-                    .foregroundStyle(theme.textMuted)
-                    .lineLimit(1)
-                Spacer()
-                smallButton("ph-arrow-square-out-regular", label: "call.watchTogether.openOnYouTube") {
-                    openURL(WatchTogether.watchURL(state.videoId, seconds: state.expectedPosition()))
+            if compact {
+                Color.clear.contentShape(Rectangle()).onTapGesture(perform: onFocus)
+            }
+        }
+        .overlay(alignment: .top) {
+            if !compact {
+                HStack(spacing: WZ.Space.space3) {
+                    Label(L10n.format("call.watchTogether.startedBy", "\(starterName ?? state.startedBy)"), image: "ph-youtube-logo-fill")
+                        .font(.wizard(WZ.FontSize.sm, .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .padding(.horizontal, WZ.Space.space4)
+                        .padding(.vertical, WZ.Space.space2)
+                        .background(.black.opacity(0.45), in: Capsule())
+                    Spacer(minLength: 0)
+                    smallButton("ph-arrow-square-out-regular", label: "call.watchTogether.openOnYouTube") {
+                        openURL(WatchTogether.watchURL(state.videoId, seconds: state.expectedPosition()))
+                    }
+                    smallButton("ph-eye-slash-regular", label: "call.watchTogether.stopJustMe") { watch.watchingVideoId = nil }
+                    smallButton("ph-x-regular", label: "call.watchTogether.stopForEveryone", tint: theme.danger) { confirmStop = true }
                 }
-                smallButton("ph-eye-slash-regular", label: "call.watchTogether.stopJustMe") { watch.watchingVideoId = nil }
-                smallButton("ph-x-regular", label: "call.watchTogether.stopForEveryone", tint: theme.danger) { confirmStop = true }
+                .padding(WZ.Space.space4)
             }
         }
         .confirmationDialog(String(localized: "call.watchTogether.stopConfirm"), isPresented: $confirmStop, titleVisibility: .visible) {
@@ -282,36 +296,49 @@ struct WatchTogetherStage: View {
     }
 
     private func invite(_ state: WatchState) -> some View {
-        VStack(alignment: .leading, spacing: WZ.Space.space4) {
-            Label(L10n.format("call.watchTogether.isWatching", "\(starterName ?? state.startedBy)"),
-                  image: "ph-youtube-logo-fill")
-                .font(.wizard(WZ.FontSize.md, .semibold))
-                .foregroundStyle(theme.textPrimary)
-            if !watch.consent {
-                Text(String(localized: "call.watchTogether.consentNote"))
-                    .font(.wizard(WZ.FontSize.sm))
-                    .foregroundStyle(theme.textMuted)
+        ZStack {
+            theme.bgTertiary
+            VStack(spacing: compact ? WZ.Space.space3 : WZ.Space.space5) {
+                Image("ph-youtube-logo-fill")
+                    .font(.system(size: compact ? WZ.SizeIcon.lg : WZ.SizeIcon.xxl))
+                    .foregroundStyle(theme.textPrimary)
+                if !compact {
+                    Text(L10n.format("call.watchTogether.isWatching", "\(starterName ?? state.startedBy)"))
+                        .font(.wizard(WZ.FontSize.md, .semibold))
+                        .foregroundStyle(theme.textPrimary)
+                        .multilineTextAlignment(.center)
+                    if !watch.consent {
+                        Text(String(localized: "call.watchTogether.consentNote"))
+                            .font(.wizard(WZ.FontSize.sm))
+                            .foregroundStyle(theme.textMuted)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                Button {
+                    watch.consent = true
+                    watch.watchingVideoId = state.videoId
+                } label: {
+                    Label(String(localized: "call.watchTogether.watch"), image: "ph-play-fill")
+                        .font(.wizard(compact ? WZ.FontSize.xs : WZ.FontSize.md, .semibold))
+                        .foregroundStyle(theme.textOnAccent)
+                        .padding(.horizontal, compact ? WZ.Space.space4 : WZ.Space.space6)
+                        .padding(.vertical, compact ? WZ.Space.space2 : WZ.Space.space4)
+                        .background(theme.accent, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            Button {
-                watch.consent = true
-                watch.watchingVideoId = state.videoId
-            } label: {
-                Label(String(localized: "call.watchTogether.watch"), image: "ph-play-fill")
-            }
-            .buttonStyle(PrimaryButtonStyle())
+            .padding(compact ? WZ.Space.space3 : WZ.Space.space6)
         }
-        .padding(WZ.Space.space5)
-        .background(theme.fill, in: RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
     }
 
-    private func smallButton(_ icon: String, label: LocalizedStringKey, tint: Color? = nil,
+    private func smallButton(_ icon: String, label: LocalizedStringKey, tint: Color = .white,
                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(icon)
                 .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                .foregroundStyle(tint ?? theme.textPrimary)
+                .foregroundStyle(tint)
                 .frame(width: WZ.Space.space9, height: WZ.Space.space9)
-                .background(theme.fill, in: Circle())
+                .background(.black.opacity(0.45), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

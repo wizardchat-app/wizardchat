@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -306,57 +307,67 @@ private fun JsonObject.number(key: String): Double? = (this[key] as? JsonPrimiti
 
 /** The shared video in the call, or the invitation to watch it */
 @Composable
-internal fun WatchTogetherStage(watch: WatchTogether, room: RoomSummary) {
+internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact: Boolean, modifier: Modifier = Modifier, onFocus: () -> Unit) {
     val state = watch.state ?: return
     val starterName = rememberMemberProfile(state.startedBy, room.id).name ?: state.startedBy
-    if (watch.watchingVideoId == state.videoId) {
-        WatchPlayer(watch, state, starterName)
-    } else {
-        WatchInvite(watch, state, starterName)
+    Box(modifier.clip(RoundedCornerShape(WZ.Radius.xl))) {
+        if (watch.watchingVideoId == state.videoId) {
+            WatchPlayer(watch, state, starterName, compact, onFocus)
+        } else {
+            WatchInvite(watch, state, starterName, compact)
+        }
     }
 }
 
 @Composable
-private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: String) {
+private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: String, compact: Boolean, onFocus: () -> Unit) {
     val uriHandler = LocalUriHandler.current
     var failed by remember(state.videoId) { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(WZ.Radius.xl)).background(Color.Black),
-            contentAlignment = Alignment.Center,
-        ) {
-            YouTubeSyncPlayer(
-                state,
-                onUpdate = { playing, position -> watch.update(playing, position) },
-                onFailed = { failed = true },
-                modifier = Modifier.fillMaxSize(),
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        YouTubeSyncPlayer(
+            state,
+            onUpdate = { playing, position -> watch.update(playing, position) },
+            onFailed = { failed = true },
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+        )
+        if (failed) {
+            Text(
+                tr("call.watchTogether.videoUnplayable"),
+                Modifier.padding(WZ.Space.space6),
+                style = wizardFont(if (compact) WZ.FontSize.xs else WZ.FontSize.md, FontWeight.SemiBold),
+                color = Color.White,
+                textAlign = TextAlign.Center,
             )
-            if (failed) {
-                Text(
-                    tr("call.watchTogether.videoUnplayable"),
-                    Modifier.padding(WZ.Space.space6),
-                    style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
-                    color = theme.textOnAccent,
-                    textAlign = TextAlign.Center,
-                )
-            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4), verticalAlignment = Alignment.CenterVertically) {
-            IconLabel(
-                tr("call.watchTogether.startedBy", starterName),
-                "youtube-logo",
-                color = theme.textMuted,
-                size = WZ.FontSize.sm,
-                weight = FontWeight.SemiBold,
-                iconWeight = PhWeight.fill,
-                modifier = Modifier.weight(1f),
-            )
-            SmallButton("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
-                runCatching { uriHandler.openUri(WatchTogether.watchUrl(state.videoId, state.expectedPosition())) }
+        if (compact) {
+            Box(Modifier.fillMaxSize().clickable(onClick = onFocus))
+        } else {
+            Row(
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(WZ.Space.space4),
+                horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconLabel(
+                    tr("call.watchTogether.startedBy", starterName),
+                    "youtube-logo",
+                    color = Color.White,
+                    size = WZ.FontSize.sm,
+                    weight = FontWeight.SemiBold,
+                    iconWeight = PhWeight.fill,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
+                )
+                Spacer(Modifier.weight(1f))
+                SmallButton("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
+                    runCatching { uriHandler.openUri(WatchTogether.watchUrl(state.videoId, state.expectedPosition())) }
+                }
+                SmallButton("eye-slash", tr("call.watchTogether.stopJustMe")) { watch.watchingVideoId = null }
+                SmallButton("x", tr("call.watchTogether.stopForEveryone"), tint = theme.danger) { confirmStop = true }
             }
-            SmallButton("eye-slash", tr("call.watchTogether.stopJustMe")) { watch.watchingVideoId = null }
-            SmallButton("x", tr("call.watchTogether.stopForEveryone"), tint = theme.danger) { confirmStop = true }
         }
     }
     if (confirmStop) {
@@ -370,41 +381,59 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: St
 }
 
 @Composable
-private fun WatchInvite(watch: WatchTogether, state: WatchState, starterName: String) {
+private fun WatchInvite(watch: WatchTogether, state: WatchState, starterName: String, compact: Boolean) {
     Column(
         Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(WZ.Radius.xl))
-            .background(theme.fill)
-            .padding(WZ.Space.space5),
-        verticalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+            .fillMaxSize()
+            .background(theme.bgTertiary)
+            .padding(if (compact) WZ.Space.space3 else WZ.Space.space6),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(if (compact) WZ.Space.space3 else WZ.Space.space5, Alignment.CenterVertically),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3), verticalAlignment = Alignment.CenterVertically) {
-            PhIcon("youtube-logo", PhWeight.fill, size = WZ.SizeIcon.md, tint = theme.textPrimary)
-            Text(tr("call.watchTogether.isWatching", starterName), style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold), color = theme.textPrimary)
+        PhIcon("youtube-logo", PhWeight.fill, size = if (compact) WZ.SizeIcon.lg else WZ.SizeIcon.xxl, tint = theme.textPrimary)
+        if (!compact) {
+            Text(
+                tr("call.watchTogether.isWatching", starterName),
+                style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
+                color = theme.textPrimary,
+                textAlign = TextAlign.Center,
+            )
+            if (!watch.consent) {
+                Text(tr("call.watchTogether.consentNote"), style = wizardFont(WZ.FontSize.sm), color = theme.textMuted, textAlign = TextAlign.Center)
+            }
         }
-        if (!watch.consent) {
-            Text(tr("call.watchTogether.consentNote"), style = wizardFont(WZ.FontSize.sm), color = theme.textMuted)
+        Row(
+            Modifier
+                .clip(CircleShape)
+                .background(theme.accent)
+                .clickable {
+                    watch.consent = true
+                    watch.watchingVideoId = state.videoId
+                }
+                .padding(
+                    horizontal = if (compact) WZ.Space.space4 else WZ.Space.space6,
+                    vertical = if (compact) WZ.Space.space2 else WZ.Space.space4,
+                ),
+            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PhIcon("play", PhWeight.fill, size = WZ.SizeIcon.sm, tint = theme.textOnAccent)
+            Text(
+                tr("call.watchTogether.watch"),
+                style = wizardFont(if (compact) WZ.FontSize.xs else WZ.FontSize.md, FontWeight.SemiBold),
+                color = theme.textOnAccent,
+            )
         }
-        LabelButton(
-            tr("call.watchTogether.watch"),
-            "play",
-            {
-                watch.consent = true
-                watch.watchingVideoId = state.videoId
-            },
-            iconWeight = PhWeight.fill,
-        )
     }
 }
 
 @Composable
-private fun SmallButton(icon: String, label: String, tint: Color = theme.textPrimary, onClick: () -> Unit) {
+private fun SmallButton(icon: String, label: String, tint: Color = Color.White, onClick: () -> Unit) {
     Box(
         Modifier
             .size(WZ.Space.space9)
             .clip(CircleShape)
-            .background(theme.fill)
+            .background(Color.Black.copy(alpha = 0.45f))
             .clickable(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,

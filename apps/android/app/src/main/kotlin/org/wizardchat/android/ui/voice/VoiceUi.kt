@@ -16,6 +16,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -99,15 +101,7 @@ fun VoiceRoomScreen(room: RoomSummary, onBack: () -> Unit, onOpenChat: () -> Uni
             BarButton("chat-text", tr("room.openChat"), onOpenChat)
         }
         if (inThisCall) {
-            CallStageView(live, Modifier.weight(1f))
-            CallControls(
-                onOpenChat = onOpenChat,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(horizontal = WZ.Space.space6)
-                    .padding(bottom = WZ.Space.space4)
-                    .align(Alignment.CenterHorizontally),
-            )
+            InCallView(live, Modifier.weight(1f), onOpenChat = onOpenChat)
         } else {
             Lobby(live, onOpenChat, Modifier.weight(1f))
         }
@@ -182,7 +176,7 @@ private fun Lobby(room: RoomSummary, onOpenChat: () -> Unit, modifier: Modifier 
 
 /** Mute, deafen, camera, more (reactions, hand, screen, Watch Together) and leave */
 @Composable
-fun CallControls(onOpenChat: (() -> Unit)? = null, modifier: Modifier = Modifier) {
+fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {}, modifier: Modifier = Modifier) {
     val calls = CallManager.shared
     val session = LocalSession.current
     val haptics = LocalHapticFeedback.current
@@ -193,7 +187,15 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, modifier: Modifier = Modifier
     fun light() = haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
     Row(
-        modifier.floatingGlass().padding(WZ.Space.space4),
+        modifier
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    onInteraction()
+                }
+            }
+            .floatingGlass()
+            .padding(WZ.Space.space4),
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -565,77 +567,16 @@ fun DMCallScreen(onDismiss: () -> Unit) {
 private fun DMCallContent(onDismiss: () -> Unit) {
     val calls = CallManager.shared
     val room = calls.room
-    val waitingForOther = calls.participants.none { !it.isLocal && !it.isOwnOtherDevice }
     val other = rememberMemberProfile(room?.dmUserId, room?.id)
-
-    Column(Modifier.fillMaxSize().background(theme.bgSecondary).statusBarsPadding().navigationBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6).padding(top = WZ.Space.space4),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(WZ.Space.space10)
-                    .floatingGlass()
-                    .clickable(onClick = onDismiss),
-                contentAlignment = Alignment.Center,
-            ) {
-                PhIcon("caret-down", size = WZ.SizeIcon.sm, tint = theme.textPrimary, contentDescription = tr("call.minimize"))
-            }
-            Text(
-                room?.name ?: "",
-                Modifier.weight(1f).padding(horizontal = WZ.Space.space4),
-                style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold),
-                color = theme.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.size(WZ.Space.space10))
-        }
-
-        if (room != null) {
-            if (waitingForOther) {
-                Waiting(room, other.name ?: room.dmUserId, other.avatarUrl, Modifier.weight(1f))
-            } else {
-                CallStageView(room, Modifier.weight(1f))
-            }
-            CallControls(
-                modifier = Modifier
-                    .padding(horizontal = WZ.Space.space6)
-                    .padding(bottom = WZ.Space.space4)
-                    .align(Alignment.CenterHorizontally),
-            )
-        }
+    if (room == null) {
+        Box(Modifier.fillMaxSize().background(theme.bgSecondary))
+        return
     }
-}
-
-@Composable
-private fun Waiting(room: RoomSummary, otherName: String?, otherAvatar: String?, modifier: Modifier = Modifier) {
-    val calls = CallManager.shared
-    Column(
-        modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(WZ.Space.space6, Alignment.CenterVertically),
-    ) {
-        Avatar(otherName ?: room.displayName, otherAvatar ?: room.avatarUrl, WZ.SizeAvatar.xxl)
-        Text(otherName ?: room.displayName, style = wizardFont(WZ.FontSize.xxl, FontWeight.Bold), color = theme.textPrimary, textAlign = TextAlign.Center)
-        val status = when (calls.ring) {
-            CallManager.RingState.ringing -> tr("call.ringing")
-            CallManager.RingState.declined -> tr("call.event.declined")
-            CallManager.RingState.unanswered -> tr("call.event.unanswered")
-            null -> tr(if (calls.state == CallManager.State.Joining) "call.statusConnecting" else "call.waitingForThem")
-        }
-        Text(
-            status,
-            style = wizardFont(WZ.FontSize.lg),
-            color = if (calls.ring == CallManager.RingState.declined) theme.danger else theme.textMuted,
-            textAlign = TextAlign.Center,
-        )
-        if (calls.ring == CallManager.RingState.declined || calls.ring == CallManager.RingState.unanswered) {
-            LabelButton(tr("call.callAgain"), "phone-outgoing", { calls.ringAgain() }, Modifier.widthIn(max = WZ.Size.sidebar))
-        }
-    }
+    InCallView(
+        room,
+        title = if (room.isDirect) other.name ?: room.dmUserId ?: room.displayName else room.displayName,
+        onMinimize = onDismiss,
+    )
 }
 
 /**

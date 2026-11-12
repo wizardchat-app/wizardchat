@@ -45,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -360,6 +362,7 @@ private fun TabIsland(roomList: RoomListModel, selected: Tab, onSelect: (Tab) ->
             TabItem(Tab.dms, selected, tr("search.switcher.prefixDms"), "chat-circle", roomList.unreadState(SidebarSelection.Dms), onSelect)
             TabItem(Tab.spaces, selected, tr("room.settings.permissions.groups.spaces"), "stack", spacesUnread, onSelect)
             val isSelected = selected == Tab.me
+            val youLabel = tr("nav.you")
             Column(
                 Modifier
                     .weight(1f)
@@ -367,17 +370,17 @@ private fun TabIsland(roomList: RoomListModel, selected: Tab, onSelect: (Tab) ->
                     .clip(CircleShape)
                     .background(if (isSelected) theme.accent.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
                     .clickable { onSelect(Tab.me) }
+                    .semantics { contentDescription = youLabel }
                     .padding(vertical = WZ.Space.space2),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(WZ.Space.space1),
+                verticalArrangement = Arrangement.Center,
             ) {
                 Avatar(
                     session.displayName ?: session.userId ?: "",
                     session.avatarUrl,
-                    WZ.SizeAvatar.sm,
+                    WZ.SizeIcon.xl,
                     modifier = Modifier.border(WZ.BorderWidth.thick, if (isSelected) theme.accent else androidx.compose.ui.graphics.Color.Transparent, CircleShape),
                 )
-                Text(tr("nav.you"), style = wizardFont(WZ.FontSize.xs, FontWeight.SemiBold), color = if (isSelected) theme.accent else theme.textMuted)
             }
         }
     }

@@ -69,81 +69,21 @@ struct DMCallScreen: View {
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
     @State private var otherName: String?
-    @State private var otherAvatar: String?
-
-    private var waitingForOther: Bool { !calls.participants.contains { !$0.isLocal } }
 
     var body: some View {
-        VStack(spacing: WZ.Space.space0) {
-            HStack {
-                Button { calls.showCallScreen = false } label: {
-                    Image("ph-caret-down-regular")
-                        .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                        .foregroundStyle(theme.textPrimary)
-                        .frame(width: WZ.Space.space10, height: WZ.Space.space10)
-                        .floatingGlass(in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "call.minimize"))
-                Spacer()
-                Text(calls.room?.name ?? "")
-                    .font(.wizard(WZ.FontSize.lg, .semibold))
-                    .foregroundStyle(theme.textPrimary)
-                    .lineLimit(1)
-                Spacer()
-                Color.clear.frame(width: WZ.Space.space10, height: WZ.Space.space10)
-            }
-            .padding(.horizontal, WZ.Space.space6)
-            .padding(.top, WZ.Space.space4)
-
+        Group {
             if let room = calls.room {
-                if waitingForOther {
-                    waiting(room)
-                } else {
-                    CallStageView(room: room)
-                }
-                CallControls()
-                    .padding(.horizontal, WZ.Space.space6)
-                    .padding(.bottom, WZ.Space.space4)
+                InCallView(room: room, title: room.isDirect ? otherName ?? room.displayName : room.displayName,
+                           onMinimize: { calls.showCallScreen = false })
+            } else {
+                theme.bgSecondary.ignoresSafeArea()
             }
         }
-        .background(theme.bgSecondary.ignoresSafeArea())
         .task(id: calls.room?.id) {
-            guard let room = calls.room else { return }
-            if let other = room.dmUserId {
-                let profile = await session.memberProfile(other, in: room.id)
-                otherName = profile.name ?? other
-                otherAvatar = profile.avatarUrl
-            }
+            guard let room = calls.room, let other = room.dmUserId else { return }
+            otherName = await session.memberProfile(other, in: room.id).name ?? other
         }
         .onChange(of: calls.isInCall) { _, inCall in if !inCall { calls.showCallScreen = false } }
-    }
-
-    private func waiting(_ room: RoomSummary) -> some View {
-        VStack(spacing: WZ.Space.space6) {
-            Spacer()
-            AvatarView(name: otherName ?? room.displayName, url: otherAvatar ?? room.avatarUrl, size: WZ.SizeAvatar.xxl)
-            Text(otherName ?? room.displayName)
-                .font(.wizard(WZ.FontSize.xxl, .bold))
-                .foregroundStyle(theme.textPrimary)
-            Group {
-                switch calls.ring {
-                case .ringing: Text(String(localized: "call.ringing"))
-                case .declined: Text(String(localized: "call.event.declined"))
-                case .unanswered: Text(String(localized: "call.event.unanswered"))
-                case nil: Text(calls.state == .joining ? String(localized: "call.statusConnecting") : String(localized: "call.waitingForThem"))
-                }
-            }
-            .font(.wizard(WZ.FontSize.lg))
-            .foregroundStyle(calls.ring == .declined ? theme.danger : theme.textMuted)
-            if calls.ring == .declined || calls.ring == .unanswered {
-                Button { calls.ringAgain() } label: { Label(String(localized: "call.callAgain"), image: "ph-phone-outgoing-regular") }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .frame(maxWidth: WZ.Size.sidebar)
-            }
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 

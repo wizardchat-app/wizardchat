@@ -15,6 +15,8 @@ struct CallParticipantInfo: Identifiable, Equatable {
     var micMuted = true
     var cameraTrack: VideoTrack?
     var screenTrack: VideoTrack?
+    var screenShared = false
+    var watchingScreen = false
     var handRaised = false
     var reaction: String?
     var volume: Double = 1
@@ -24,7 +26,8 @@ struct CallParticipantInfo: Identifiable, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.identity == rhs.identity && lhs.connected == rhs.connected && lhs.speaking == rhs.speaking
             && lhs.micMuted == rhs.micMuted && lhs.cameraTrack === rhs.cameraTrack
-            && lhs.screenTrack === rhs.screenTrack && lhs.handRaised == rhs.handRaised
+            && lhs.screenTrack === rhs.screenTrack && lhs.screenShared == rhs.screenShared
+            && lhs.watchingScreen == rhs.watchingScreen && lhs.handRaised == rhs.handRaised
             && lhs.reaction == rhs.reaction && lhs.volume == rhs.volume && lhs.locallyMuted == rhs.locallyMuted
             && lhs.screenWatchers == rhs.screenWatchers
     }
@@ -119,6 +122,7 @@ final class CallManager: NSObject, ObservableObject {
     private static let streamWatchTopic = "org.wizardchat.stream-watch"
     private var watchedScreens: Set<String> = []
     private var streamWatchers: Set<String> = []
+    private var requestedSubscriptions: [ObjectIdentifier: Bool] = [:]
 
     override init() {
         micMuted = UserDefaults.standard.bool(forKey: "voice.micMuted")
@@ -364,6 +368,7 @@ final class CallManager: NSObject, ObservableObject {
         raisedHands = []
         watchedScreens = []
         streamWatchers = []
+        requestedSubscriptions = [:]
         handRaised = false
         cameraOn = false
         screenSharing = false
@@ -457,7 +462,8 @@ final class CallManager: NSObject, ObservableObject {
             encryptionOptions: keyProvider.map { EncryptionOptions(keyProvider: $0) })
         let livekit = LiveKit.Room(delegate: self, roomOptions: options)
         do {
-            try await livekit.connect(url: sfu.url, token: sfu.jwt)
+            // Screen shares are only subscribed once you choose to watch them, like on the web
+            try await livekit.connect(url: sfu.url, token: sfu.jwt, connectOptions: ConnectOptions(autoSubscribe: false))
         } catch {
             await livekit.disconnect()
             throw error
@@ -657,12 +663,31 @@ final class CallManager: NSObject, ObservableObject {
         }
     }
 
-    private func announceWatchedScreens(_ list: [CallParticipantInfo]) {
-        let shown = Set(list.filter { !$0.isLocal && $0.screenTrack != nil }.map(\.identity))
-        guard shown != watchedScreens else { return }
-        for owner in shown.subtracting(watchedScreens) { sendData(["owner": owner, "watching": true], topic: Self.streamWatchTopic) }
-        for owner in watchedScreens.subtracting(shown) { sendData(["owner": owner, "watching": false], topic: Self.streamWatchTopic) }
-        watchedScreens = shown
+    func setWatchingScreen(_ identity: String, _ watching: Bool) {
+        if watching { watchedScreens.insert(identity) } else { watchedScreens.remove(identity) }
+        sendData(["owner": identity, "watching": watching], topic: Self.streamWatchTopic)
+        refresh()
+    }
+
+    private func applySubscriptions(_ remotes: [String: RemoteParticipant]) {
+        var seen = Set<ObjectIdentifier>()
+        for (identity, participant) in remotes {
+            for case let publication as RemoteTrackPublication in participant.trackPublications.values {
+                let key = ObjectIdentifier(publication)
+                seen.insert(key)
+                let screen = publication.source == .screenShareVideo || publication.source == .screenShareAudio
+                let want = !screen || watchedScreens.contains(identity)
+                guard requestedSubscriptions[key] != want else { continue }
+                requestedSubscriptions[key] = want
+                Task {
+                    do { try await publication.set(subscribed: want) } catch {
+                        NSLog("WZCALL subscribing: %@", String(describing: error))
+                        requestedSubscriptions[key] = nil
+                    }
+                }
+            }
+        }
+        requestedSubscriptions = requestedSubscriptions.filter { seen.contains($0.key) }
     }
 
     private func receiveStreamWatch(_ data: Data, from: String) {
@@ -681,6 +706,7 @@ final class CallManager: NSObject, ObservableObject {
         let local = publisher?.localParticipant
         if let local, screenSharing, !local.isScreenShareEnabled() { screenSharing = false }
         if screenSharing { streamWatchers.formIntersection(remotes.keys) } else { streamWatchers = [] }
+        applySubscriptions(remotes)
         var list: [CallParticipantInfo] = []
         var seen = Set<String>()
         let mediaUp = publisher?.connectionState == .connected
@@ -706,9 +732,11 @@ final class CallManager: NSObject, ObservableObject {
                 info.micMuted = !participant.isMicrophoneEnabled()
                 info.cameraTrack = participant.videoTracks
                     .first { $0.source == .camera && !$0.isMuted }?.track as? VideoTrack
-                info.screenTrack = participant.videoTracks
-                    .first { $0.source == .screenShareVideo && !$0.isMuted }?.track as? VideoTrack
+                let screen = participant.videoTracks.first { $0.source == .screenShareVideo && !$0.isMuted }
+                info.screenShared = screen != nil
+                info.screenTrack = screen?.track as? VideoTrack
             }
+            info.watchingScreen = isLocal || watchedScreens.contains(member.identity)
             if isLocal { info.micMuted = !micPublished; info.connected = state == .joined }
             if info.micMuted || (isLocal && !micEnabled) { info.speaking = false }
             info.handRaised = raisedHands.contains(member.identity)
@@ -737,7 +765,6 @@ final class CallManager: NSObject, ObservableObject {
         }
         unconnectedSince = unconnectedSince.filter { seen.contains($0.key) }
         if list != participants { participants = list }
-        announceWatchedScreens(list)
         liveActivity.update(activityState)
     }
 }

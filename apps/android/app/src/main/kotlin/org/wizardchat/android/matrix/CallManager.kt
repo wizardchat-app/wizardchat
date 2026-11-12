@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import io.livekit.android.AudioOptions
+import io.livekit.android.ConnectOptions
 import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
 import io.livekit.android.RoomOptions
@@ -32,6 +33,7 @@ import io.livekit.android.room.track.DataPublishReliability
 import io.livekit.android.room.track.LocalAudioTrackOptions
 import io.livekit.android.room.track.LocalVideoTrackOptions
 import io.livekit.android.room.track.RemoteAudioTrack
+import io.livekit.android.room.track.RemoteTrackPublication
 import io.livekit.android.room.track.Track
 import io.livekit.android.room.track.VideoCodec
 import io.livekit.android.room.track.VideoEncoding
@@ -95,6 +97,8 @@ data class CallParticipantInfo(
     val micMuted: Boolean = true,
     val cameraTrack: VideoTrack? = null,
     val screenTrack: VideoTrack? = null,
+    val screenShared: Boolean = false,
+    val watchingScreen: Boolean = false,
     /** The LiveKit room the tracks come from (video views render with its EGL context) */
     val connection: LiveKitRoom? = null,
     val handRaised: Boolean = false,
@@ -248,6 +252,7 @@ class CallManager {
     private val raisedHands = mutableSetOf<String>()
     private var watchedScreens = setOf<String>()
     private val streamWatchers = mutableSetOf<String>()
+    private val requestedSubscriptions = java.util.IdentityHashMap<RemoteTrackPublication, Boolean>()
 
     init {
         notification.end()
@@ -476,6 +481,7 @@ class CallManager {
         raisedHands.clear()
         watchedScreens = emptySet()
         streamWatchers.clear()
+        requestedSubscriptions.clear()
         handRaised = false
         cameraOn = false
         screenSharing = false
@@ -584,7 +590,8 @@ class CallManager {
         connectionRooms[livekit] = sfuRoom
         connectionJobs[livekit] = scope.launch { livekit.events.collect { roomEvent(livekit, it) } }
         try {
-            livekit.connect(sfu.url, sfu.jwt)
+            // Screen shares are only subscribed once you choose to watch them, like on the web
+            livekit.connect(sfu.url, sfu.jwt, ConnectOptions(autoSubscribe = false))
         } catch (error: Throwable) {
             close(livekit)
             throw error
@@ -839,12 +846,29 @@ class CallManager {
         }
     }
 
-    private fun announceWatchedScreens(list: List<CallParticipantInfo>) {
-        val shown = list.filter { !it.isLocal && it.screenTrack != null }.map { it.identity }.toSet()
-        if (shown == watchedScreens) return
-        for (owner in shown - watchedScreens) sendData(buildJsonObject { put("owner", owner); put("watching", true) }, STREAM_WATCH_TOPIC)
-        for (owner in watchedScreens - shown) sendData(buildJsonObject { put("owner", owner); put("watching", false) }, STREAM_WATCH_TOPIC)
-        watchedScreens = shown
+    fun setWatchingScreen(identity: String, watching: Boolean) {
+        watchedScreens = if (watching) watchedScreens + identity else watchedScreens - identity
+        sendData(buildJsonObject { put("owner", identity); put("watching", watching) }, STREAM_WATCH_TOPIC)
+        refresh()
+    }
+
+    private fun applySubscriptions(remotes: Map<String, Pair<RemoteParticipant, LiveKitRoom>>) {
+        val seen = mutableSetOf<RemoteTrackPublication>()
+        for ((identity, remote) in remotes) {
+            for (publication in remote.first.trackPublications.values) {
+                if (publication !is RemoteTrackPublication) continue
+                seen.add(publication)
+                val screen = publication.source == Track.Source.SCREEN_SHARE || publication.source == Track.Source.SCREEN_SHARE_AUDIO
+                val want = !screen || identity in watchedScreens
+                if (requestedSubscriptions[publication] == want) continue
+                requestedSubscriptions[publication] = want
+                runCatching { publication.setSubscribed(want) }.onFailure {
+                    Log.w(TAG, "subscribing: $it")
+                    requestedSubscriptions.remove(publication)
+                }
+            }
+        }
+        requestedSubscriptions.keys.retainAll(seen)
     }
 
     private fun receiveStreamWatch(data: ByteArray, from: String) {
@@ -868,6 +892,7 @@ class CallManager {
         val local = publisher?.localParticipant
         if (local != null && screenSharing && !local.isScreenShareEnabled) screenSharing = false
         if (screenSharing) streamWatchers.retainAll(remotes.keys) else streamWatchers.clear()
+        applySubscriptions(remotes)
         val list = mutableListOf<CallParticipantInfo>()
         val seen = mutableSetOf<String>()
         val mediaUp = publisher?.state == LiveKitRoom.State.CONNECTED
@@ -895,12 +920,14 @@ class CallManager {
             )
             if (participant != null) {
                 val videos = participant.trackPublications.values.filter { it.kind == Track.Kind.VIDEO && !it.muted }
+                val screen = videos.firstOrNull { it.source == Track.Source.SCREEN_SHARE }
                 info = info.copy(
                     connected = true,
                     speaking = participant.isSpeaking,
                     micMuted = !participant.isMicrophoneEnabled,
                     cameraTrack = videos.firstOrNull { it.source == Track.Source.CAMERA }?.track as? VideoTrack,
-                    screenTrack = videos.firstOrNull { it.source == Track.Source.SCREEN_SHARE }?.track as? VideoTrack,
+                    screenTrack = screen?.track as? VideoTrack,
+                    screenShared = screen != null,
                     connection = if (isLocal) publisher else remote?.second,
                 )
             }
@@ -912,6 +939,7 @@ class CallManager {
                 reaction = reactions[member.identity],
                 volume = userVolumes[member.userId] ?: 1.0,
                 locallyMuted = member.userId in mutedUsers,
+                watchingScreen = isLocal || member.identity in watchedScreens,
             )
             if (isLocal) info = info.copy(screenWatchers = members.filter { it.identity in streamWatchers }.map { it.userId }.distinct())
             list.add(info)
@@ -931,7 +959,6 @@ class CallManager {
         }
         unconnectedSince.keys.retainAll(seen)
         if (list != participants) participants = list
-        announceWatchedScreens(list)
         notification.update(activityState)
     }
 

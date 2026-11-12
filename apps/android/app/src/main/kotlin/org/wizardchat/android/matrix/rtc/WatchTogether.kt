@@ -158,7 +158,6 @@ class WatchTogether(
                 val current = state
                 if (current != null && incoming.at < current.at) return
                 if (current?.videoId != incoming.videoId) {
-                    if (consent) watchingVideoId = incoming.videoId
                     CallSounds.play("watch_together_start")
                 }
                 state = incoming

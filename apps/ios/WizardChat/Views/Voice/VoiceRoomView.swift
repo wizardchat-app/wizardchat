@@ -18,10 +18,7 @@ struct VoiceRoomView: View {
     var body: some View {
         VStack(spacing: WZ.Space.space0) {
             if inThisCall {
-                CallStageView(room: room)
-                CallControls(onOpenChat: onOpenChat)
-                    .padding(.horizontal, WZ.Space.space6)
-                    .padding(.bottom, WZ.Space.space4)
+                InCallView(room: room, onOpenChat: onOpenChat)
             } else {
                 lobby
             }
