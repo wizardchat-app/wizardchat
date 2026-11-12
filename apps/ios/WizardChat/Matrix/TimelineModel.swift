@@ -397,10 +397,17 @@ final class TimelineModel: ObservableObject {
     private func upload(_ url: URL, as id: UUID, caption: String?, replyTo: String?, spoiler: Bool) async {
         guard let timeline else { return }
         let type = UTType(filenameExtension: url.pathExtension) ?? .data
-        let mimetype = type.preferredMIMEType ?? "application/octet-stream"
-        var file = UploadedFile(source: .null, size: 0, filename: url.lastPathComponent, mimetype: mimetype,
-                                caption: caption, spoiler: spoiler, isAnimated: type.conforms(to: .gif), replyTo: replyTo)
-        if type.conforms(to: .image), let size = MediaMetadata.imageSize(at: url) {
+        var mimetype = type.preferredMIMEType ?? "application/octet-stream"
+        var filename = url.lastPathComponent
+        var image: Data?
+        if type.conforms(to: .image), let data = try? Data(contentsOf: url), let shareable = MediaMetadata.shareableImage(data) {
+            image = shareable.data
+            mimetype = shareable.mimetype
+            filename = url.deletingPathExtension().lastPathComponent + "." + shareable.ext
+        }
+        var file = UploadedFile(source: .null, size: 0, filename: filename, mimetype: mimetype,
+                                caption: caption, spoiler: spoiler, isAnimated: mimetype == "image/gif", replyTo: replyTo)
+        if let image, let size = MediaMetadata.imageSize(of: image) {
             file.width = Int(size.width)
             file.height = Int(size.height)
         } else if type.conforms(to: .movie) {
@@ -412,7 +419,7 @@ final class TimelineModel: ObservableObject {
             file.durationMs = await MediaMetadata.duration(at: url).map { Int($0 * 1000) }
         }
         await report {
-            let data = try Data(contentsOf: url)
+            let data = try image ?? Data(contentsOf: url)
             file.size = data.count
             file.source = try await timeline.uploadFile(data: data, mimetype: mimetype) { [weak self] progress in
                 guard progress.total > 0 else { return }

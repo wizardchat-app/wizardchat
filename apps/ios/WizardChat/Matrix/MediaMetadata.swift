@@ -5,8 +5,32 @@ import UIKit
 
 enum MediaMetadata {
     static func imageSize(at url: URL) -> CGSize? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        CGImageSourceCreateWithURL(url as CFURL, nil).flatMap(imageSize)
+    }
+
+    static func imageSize(of data: Data) -> CGSize? {
+        CGImageSourceCreateWithData(data as CFData, nil).flatMap(imageSize)
+    }
+
+    static func webImageType(of data: Data) -> (mimetype: String, ext: String)? {
+        let bytes = [UInt8](data.prefix(12))
+        if bytes.starts(with: [0xFF, 0xD8, 0xFF]) { return ("image/jpeg", "jpg") }
+        if bytes.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return ("image/png", "png") }
+        if bytes.starts(with: [0x47, 0x49, 0x46]) { return ("image/gif", "gif") }
+        if bytes.count == 12, Array(bytes[0..<4]) == [0x52, 0x49, 0x46, 0x46], Array(bytes[8..<12]) == [0x57, 0x45, 0x42, 0x50] {
+            return ("image/webp", "webp")
+        }
+        return nil
+    }
+
+    static func shareableImage(_ data: Data) -> (data: Data, mimetype: String, ext: String)? {
+        if let type = webImageType(of: data) { return (data, type.mimetype, type.ext) }
+        guard let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.9) else { return nil }
+        return (jpeg, "image/jpeg", "jpg")
+    }
+
+    private static func imageSize(_ source: CGImageSource) -> CGSize? {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = props[kCGImagePropertyPixelWidth] as? CGFloat,
               let height = props[kCGImagePropertyPixelHeight] as? CGFloat else { return nil }
         let orientation = props[kCGImagePropertyOrientation] as? UInt32 ?? 1

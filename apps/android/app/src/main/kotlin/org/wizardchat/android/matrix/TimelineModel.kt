@@ -464,10 +464,22 @@ class TimelineModel(
                 file = file.copy(durationMs = MediaMetadata.duration(uri)?.let { (it * 1000).toLong() })
         }
         report {
-            val data = withContext(Dispatchers.IO) {
+            var data = withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             } ?: throw IllegalStateException(L10n.format("common.somethingWentWrong"))
-            val source = timeline.uploadFile(data, mimetype) { progress ->
+            if (mimetype.startsWith("image/") && mimetype != "image/svg+xml") {
+                MediaMetadata.shareableImage(data)?.let { image ->
+                    data = image.data
+                    file = file.copy(
+                        mimetype = image.mimetype,
+                        filename = file.filename.substringBeforeLast('.', file.filename) + "." + image.ext,
+                        isAnimated = image.mimetype == "image/gif",
+                        width = image.size?.first?.toLong() ?: file.width,
+                        height = image.size?.second?.toLong() ?: file.height,
+                    )
+                }
+            }
+            val source = timeline.uploadFile(data, file.mimetype) { progress ->
                 if (progress.total <= 0) return@uploadFile
                 val fraction = progress.current.toFloat() / progress.total
                 scope.launch { uploads = uploads.map { if (it.id == id) it.copy(progress = fraction) else it } }

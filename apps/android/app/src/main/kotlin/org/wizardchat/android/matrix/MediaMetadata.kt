@@ -2,12 +2,15 @@ package org.wizardchat.android.matrix
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.os.Build
 import android.media.ExifInterface
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.nio.ByteBuffer
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,6 +29,35 @@ object MediaMetadata {
             if (options.outWidth <= 0 || options.outHeight <= 0) return@runCatching null
             val rotated = WizardApplication.instance.contentResolver.openInputStream(uri)?.use(::isRotated) ?: false
             if (rotated) options.outHeight to options.outWidth else options.outWidth to options.outHeight
+        }.getOrNull()
+    }
+
+    class ShareableImage(val data: ByteArray, val mimetype: String, val ext: String, val size: Pair<Int, Int>?)
+
+    fun webImageType(data: ByteArray): Pair<String, String>? {
+        fun at(index: Int, vararg bytes: Int) = data.size >= index + bytes.size && bytes.indices.all { data[index + it] == bytes[it].toByte() }
+        return when {
+            at(0, 0xFF, 0xD8, 0xFF) -> "image/jpeg" to "jpg"
+            at(0, 0x89, 0x50, 0x4E, 0x47) -> "image/png" to "png"
+            at(0, 0x47, 0x49, 0x46) -> "image/gif" to "gif"
+            at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50) -> "image/webp" to "webp"
+            else -> null
+        }
+    }
+
+    suspend fun shareableImage(data: ByteArray): ShareableImage? = withContext(Dispatchers.Default) {
+        webImageType(data)?.let { (mimetype, ext) -> return@withContext ShareableImage(data, mimetype, ext, null) }
+        runCatching {
+            val bitmap = if (Build.VERSION.SDK_INT >= 28) {
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(data))) { decoder, _, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            } else {
+                BitmapFactory.decodeByteArray(data, 0, data.size)
+            } ?: return@runCatching null
+            val out = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            ShareableImage(out.toByteArray(), "image/jpeg", "jpg", bitmap.width to bitmap.height)
         }.getOrNull()
     }
 
