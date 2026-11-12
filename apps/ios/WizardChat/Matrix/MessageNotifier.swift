@@ -163,7 +163,7 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     func clearRead(_ rooms: [RoomSummary]) {
         guard let userId = roomList?.client.userId else { return }
         let seen = Dictionary(rooms.filter { $0.unreadCount == 0 && $0.mentionCount == 0 }
-            .map { ($0.id, $0.lastActivity ?? 0) }, uniquingKeysWith: max)
+            .map { ($0.id, $0.latestEventTs ?? $0.lastActivity ?? 0) }, uniquingKeysWith: max)
         guard !seen.isEmpty else { return }
         Task {
             await Self.remove(userId: userId) { delivered in

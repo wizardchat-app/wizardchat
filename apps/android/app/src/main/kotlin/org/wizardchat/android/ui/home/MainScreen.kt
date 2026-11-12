@@ -228,7 +228,7 @@ fun MainScreen(roomList: RoomListModel) {
     }
     val totalUnread = roomList.joinedRooms.sumOf { it.unreadCount }
     LaunchedEffect(totalUnread) { notifier.updateBadge(totalUnread) }
-    val readRooms = roomList.joinedRooms.filter { it.unreadCount == 0 && it.mentionCount == 0 }.map { "${it.id}|${it.lastActivity}" }
+    val readRooms = roomList.joinedRooms.filter { it.unreadCount == 0 && it.mentionCount == 0 }.map { "${it.id}|${it.latestEventTs ?: it.lastActivity}" }
     LaunchedEffect(readRooms) { notifier.clearRead(roomList.joinedRooms) }
 
     BackHandler(enabled = paths[tab].orEmpty().isNotEmpty()) {

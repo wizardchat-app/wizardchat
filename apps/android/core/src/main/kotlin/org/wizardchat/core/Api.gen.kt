@@ -1185,6 +1185,7 @@ data class RoomSummary(
      * "5 min ago"
      */
     val lastActivity: Long? = null,
+    val latestEventTs: Long? = null,
     val isSpace: Boolean,
     /** Asked to join ("knocked") and waiting for an answer; not a member yet */
     val isKnocked: Boolean,

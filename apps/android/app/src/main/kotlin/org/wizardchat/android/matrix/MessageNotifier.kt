@@ -95,13 +95,13 @@ class MessageNotifier {
     fun clearRead(rooms: List<RoomSummary>) {
         val userId = roomList?.client?.userId ?: return
         val seen = rooms.filter { it.unreadCount == 0 && it.mentionCount == 0 }
-            .associate { it.id to (it.lastActivity ?: 0L) }
+            .associate { it.id to (it.latestEventTs ?: it.lastActivity ?: 0L) }
         if (seen.isEmpty()) return
         cancel { delivered ->
             val tag = delivered.tag ?: return@cancel false
             if (!tag.startsWith("$userId|")) return@cancel false
             val latest = seen[tag.substringAfter('|')] ?: return@cancel false
-            latest >= delivered.notification.extras.getLong(EXTRA_TS, delivered.postTime)
+            latest >= delivered.notification.`when`
         }
     }
 
@@ -157,7 +157,8 @@ class MessageNotifier {
             .setOnlyAlertOnce(true)
             .setAutoCancel(true)
             .setNumber(badge)
-            .addExtras(Bundle().apply { putLong(EXTRA_TS, notification.ts) })
+            .setWhen(notification.ts)
+            .setShowWhen(true)
             .setContentIntent(openIntent(notification.roomId, userId))
             .addAction(reply)
             .addAction(markRead)
@@ -348,7 +349,6 @@ class MessageNotifier {
         internal const val EXTRA_USER = "userId"
         internal const val EXTRA_TAG = "tag"
         internal const val EXTRA_PERMISSION = "requestPermission"
-        private const val EXTRA_TS = "org.wizardchat.ts"
     }
 }
 

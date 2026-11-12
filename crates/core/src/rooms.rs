@@ -72,6 +72,7 @@ pub struct RoomSummary {
     /// Milliseconds since the Unix epoch of the latest event of any kind, for sorting and
     /// "5 min ago"
     pub last_activity: Option<u64>,
+    pub latest_event_ts: Option<u64>,
     pub is_space: bool,
     /// Asked to join ("knocked") and waiting for an answer; not a member yet
     pub is_knocked: bool,
@@ -102,6 +103,7 @@ pub(crate) struct RoomExtras {
     unread: Option<UnreadCounts>,
     unread_threads: u64,
     last_activity: Option<u64>,
+    latest_event_ts: Option<u64>,
     call: crate::calls::RoomCallState,
 }
 
@@ -156,6 +158,7 @@ impl RoomSummary {
             last_activity: extras
                 .and_then(|e| e.last_activity)
                 .or_else(|| room.latest_event_timestamp().map(|ts| u64::from(ts.0))),
+            latest_event_ts: extras.and_then(|e| e.latest_event_ts),
             is_space: room.is_space(),
             is_knocked: room.state() == RoomState::Knocked,
             dm_user_name: extras.and_then(|e| e.dm_user_name.clone()),
@@ -1131,6 +1134,17 @@ pub(crate) async fn room_extras(room: &Room) -> RoomExtras {
             .ok()
             .flatten()
             .map(|ts| u64::from(ts.0));
+        extras.latest_event_ts = cache
+            .rfind_map_event_in_memory_by(|event| {
+                event
+                    .raw()
+                    .get_field::<u64>("origin_server_ts")
+                    .ok()
+                    .flatten()
+            })
+            .await
+            .ok()
+            .flatten();
     }
     extras
 }

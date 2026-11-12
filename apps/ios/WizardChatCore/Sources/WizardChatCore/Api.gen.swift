@@ -1845,6 +1845,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
     /// Milliseconds since the Unix epoch of the latest event of any kind, for sorting and
     /// "5 min ago"
     public var lastActivity: Int?
+    public var latestEventTs: Int?
     public var isSpace: Bool
     /// Asked to join ("knocked") and waiting for an answer; not a member yet
     public var isKnocked: Bool
@@ -1852,7 +1853,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
     public var dmUserName: String?
     public var dmUserAvatar: String?
 
-    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil) {
+    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, latestEventTs: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil) {
         self.id = id
         self.name = name
         self.avatarUrl = avatarUrl
@@ -1877,6 +1878,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
         self.inCall = inCall
         self.inCallElsewhere = inCallElsewhere
         self.lastActivity = lastActivity
+        self.latestEventTs = latestEventTs
         self.isSpace = isSpace
         self.isKnocked = isKnocked
         self.dmUserName = dmUserName

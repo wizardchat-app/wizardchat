@@ -931,6 +931,7 @@ export type RoomSummary = {
    * "5 min ago"
    */
   lastActivity: number | null;
+  latestEventTs: number | null;
   isSpace: boolean;
   /**
    * Asked to join ("knocked") and waiting for an answer; not a member yet

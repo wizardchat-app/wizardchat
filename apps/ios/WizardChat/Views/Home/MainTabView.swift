@@ -161,7 +161,7 @@ struct MainTabView: View {
     @MainActor
     private var readRooms: [String] {
         roomList.joinedRooms.filter { $0.unreadCount == 0 && $0.mentionCount == 0 }
-            .map { "\($0.id)|\($0.lastActivity ?? 0)" }
+            .map { "\($0.id)|\($0.latestEventTs ?? $0.lastActivity ?? 0)" }
     }
 
     @ViewBuilder
