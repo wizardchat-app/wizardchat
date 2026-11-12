@@ -4,6 +4,7 @@ import { getThemeLogoAssets } from '@/theme/themeLogos';
 export type NotifLevel = 'default' | 'all' | 'mentions' | 'mute';
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (window.desktopAPI?.showNotification) return 'granted';
   if (!('Notification' in window)) return 'denied';
   if (Notification.permission === 'granted' || Notification.permission === 'denied') {
     return Notification.permission;

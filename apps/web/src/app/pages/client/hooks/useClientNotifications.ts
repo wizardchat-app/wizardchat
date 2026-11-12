@@ -89,7 +89,7 @@ export function useClientNotifications() {
   }, []);
 
   useEffect(() => {
-    if (!('permissions' in navigator)) return;
+    if (window.desktopAPI?.showNotification || !('permissions' in navigator)) return;
     navigator.permissions.query({ name: 'notifications' }).then((status) => {
       const handler = () => {
         if (status.state !== 'granted') {
