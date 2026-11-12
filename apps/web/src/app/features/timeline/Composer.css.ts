@@ -290,6 +290,13 @@ globalStyle(`${richEditor} .mention-pill.room-mention-pill`, {
   color: vars.color.mention,
 });
 
+globalStyle(`${richEditor} .mention-pill.mention-pill-selected`, {
+  backgroundColor: vars.color.accent,
+  color: '#fff',
+  borderRadius: 0,
+  boxShadow: `0 -0.045em 0 0.06em ${vars.color.accent}`,
+});
+
 export const sendBtn = style({
   width: '28px',
   height: '28px',

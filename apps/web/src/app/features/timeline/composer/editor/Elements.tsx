@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 import { useStore } from 'jotai';
+import { Range } from 'slate';
+import { useFocused, useSelected, useSlateSelector } from 'slate-react';
 import type { RenderElementProps, RenderLeafProps } from 'slate-react';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import type { CustomElement, CustomText, EmoticonElement, RoomMentionElement } from './types';
@@ -8,6 +10,33 @@ import { knownRoomName } from '../../roomPills';
 import * as css from './Elements.css';
 
 export const MatrixClientContext = createContext<MatrixClient | null>(null);
+
+function Pill({
+  attributes,
+  children,
+  className,
+  label,
+  ...data
+}: Pick<RenderElementProps, 'attributes' | 'children'> & {
+  className: string;
+  label: string;
+  [key: `data-${string}`]: string;
+}) {
+  const selected = useSelected();
+  const focused = useFocused();
+  const expanded = useSlateSelector((e) => !!e.selection && !Range.isCollapsed(e.selection));
+  return (
+    <span
+      {...attributes}
+      {...data}
+      contentEditable={false}
+      className={selected && focused && expanded ? `${className} mention-pill-selected` : className}
+    >
+      {label}
+      {children}
+    </span>
+  );
+}
 
 export function Element({ attributes, children, element }: RenderElementProps) {
   const el = element as CustomElement;
@@ -56,38 +85,39 @@ export function Element({ attributes, children, element }: RenderElementProps) {
 
     case 'mention':
       return (
-        <span
-          {...attributes}
-          contentEditable={false}
+        <Pill
+          attributes={attributes}
           className="mention-pill"
+          label={`@${el.displayName}`}
           data-user-id={el.userId}
         >
-          @{el.displayName}
           {children}
-        </span>
+        </Pill>
       );
 
     case 'room-mention': {
       const rm = el as RoomMentionElement;
       return (
-        <span
-          {...attributes}
-          contentEditable={false}
+        <Pill
+          attributes={attributes}
           className="mention-pill room-mention-pill"
+          label={rm.label}
           data-room-mention={rm.label}
         >
-          {rm.label}
           {children}
-        </span>
+        </Pill>
       );
     }
 
     case 'room-link':
       return (
-        <span {...attributes} contentEditable={false} className="mention-pill room-pill">
-          #{knownRoomName(el.url, store) ?? el.name}
+        <Pill
+          attributes={attributes}
+          className="mention-pill room-pill"
+          label={`#${knownRoomName(el.url, store) ?? el.name}`}
+        >
           {children}
-        </span>
+        </Pill>
       );
 
     case 'emoticon': {
