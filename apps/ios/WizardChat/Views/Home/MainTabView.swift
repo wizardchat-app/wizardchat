@@ -274,7 +274,12 @@ struct MainTabView: View {
         guard let roomId = notifier.roomToOpen, notifier.accountToOpen == nil, roomList.isLoaded else { return }
         notifier.roomToOpen = nil
         showInbox = false; showCreateSpace = false; showExplore = false
-        show(roomId)
+        if let root = notifier.threadToOpen {
+            notifier.threadToOpen = nil
+            showThread(roomId, root: root)
+        } else {
+            show(roomId)
+        }
     }
 }
 

@@ -568,6 +568,7 @@ export type Notification = {
   isDirect: boolean;
   ts: number;
   kind: NotificationKind;
+  threadId: string | null;
 };
 
 export type NotificationKind =

@@ -16,6 +16,7 @@ import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Shader
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
@@ -24,8 +25,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.MainScope
@@ -51,6 +54,7 @@ class MessageNotifier {
     /** The room on screen, which doesn't notify; set by the room screen */
     var activeRoomId: String? = null
     var roomToOpen by mutableStateOf<String?>(null)
+    var threadToOpen: String? = null
     /** A message to scroll to once its room is open (room ID, event ID) */
     var eventToFocus by mutableStateOf<Pair<String, String>?>(null)
     var accountToOpen by mutableStateOf<String?>(null)
@@ -72,7 +76,7 @@ class MessageNotifier {
         subscription = roomList.client.watchNotifications { notify(it) }
         redactions?.cancel()
         redactions = roomList.client.userId?.let { userId ->
-            roomList.client.watchRedactions { manager.cancel("$userId|${it.roomId}", it.eventId.hashCode()) }
+            roomList.client.watchRedactions { scope.launch { removeMessage(userId, it.roomId, it.eventId) } }
         }
         if (prefs.notificationBanners || prefs.notificationSounds) requestPermission()
     }
@@ -120,7 +124,9 @@ class MessageNotifier {
 
     private fun cancel(matches: (StatusBarNotification) -> Boolean) {
         val system = context.getSystemService(NotificationManager::class.java) ?: return
-        system.activeNotifications.filter(matches).forEach { manager.cancel(it.tag, it.id) }
+        val cancelled = system.activeNotifications.filter { it.tag?.startsWith("summary|") != true && matches(it) }
+        cancelled.forEach { manager.cancel(it.tag, it.id) }
+        cancelled.mapNotNull { it.tag?.substringBefore('|') }.distinct().forEach(::refreshSummary)
     }
 
     private val inForeground get() = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
@@ -137,59 +143,142 @@ class MessageNotifier {
         if (notification.roomId == activeRoomId && inForeground) return
         if (!canPost()) return
         createChannels()
-        val sender = notification.senderName ?: notification.sender
-        val title = notification.roomName ?: sender
-        val body = bodyOf(notification)
-        val sound = prefs.notificationSounds && notification.sound
         val userId = client.userId ?: return
         val tag = "$userId|${notification.roomId}"
-        val id = notification.eventId.hashCode()
+        val style = active(tag)?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification) }
+            ?: NotificationCompat.MessagingStyle(Person.Builder().setName(L10n.format("nav.you")).setKey(userId).build())
+        if (style.messages.any { it.extras.getString(EXTRA_EVENT) == notification.eventId }) return
+        val senderName = notification.senderName ?: notification.sender
+        val senderAvatar = runCatching { MemberDirectory.profile(notification.sender, notification.roomId, client).avatarUrl }.getOrNull()
+        val senderIcon = avatarBitmap(senderAvatar, client)
+        val sender = Person.Builder()
+            .setName(senderName)
+            .setKey(notification.sender)
+            .apply { senderIcon?.let { setIcon(IconCompat.createWithBitmap(it)) } }
+            .build()
+        style.conversationTitle = if (notification.isDirect) null else notification.roomName
+        style.isGroupConversation = !notification.isDirect && notification.roomName != null
+        style.addMessage(
+            NotificationCompat.MessagingStyle.Message(textOf(notification), notification.ts, sender)
+                .also { it.extras.putString(EXTRA_EVENT, notification.eventId) },
+        )
+        val largeIcon = if (notification.isDirect) avatarBitmap(roomAvatar, client) ?: senderIcon else avatarBitmap(roomAvatar, client)
+        post(
+            userId = userId,
+            roomId = notification.roomId,
+            threadId = notification.threadId,
+            style = style,
+            title = notification.roomName ?: senderName,
+            text = bodyOf(notification),
+            largeIcon = largeIcon?.let { Icon.createWithBitmap(it) },
+            highlight = notification.highlight,
+            sound = prefs.notificationSounds && notification.sound,
+            time = notification.ts,
+        )
+    }
 
+    private fun post(
+        userId: String,
+        roomId: String,
+        threadId: String?,
+        style: NotificationCompat.MessagingStyle,
+        title: CharSequence?,
+        text: CharSequence?,
+        largeIcon: Icon?,
+        highlight: Boolean,
+        sound: Boolean,
+        time: Long,
+    ) {
+        val tag = "$userId|$roomId"
         val replyInput = RemoteInput.Builder(KEY_REPLY).setLabel(L10n.format("composer.typeMessage")).build()
         val reply = NotificationCompat.Action.Builder(
             PhIcons.id("arrow-bend-up-left"),
             L10n.format("timeline.reply"),
-            actionIntent(ACTION_REPLY, notification.roomId, userId, tag, id, mutable = true),
-        ).addRemoteInput(replyInput).setAllowGeneratedReplies(false).build()
+            actionIntent(ACTION_REPLY, roomId, userId, tag, ROOM_ID, mutable = true),
+        ).addRemoteInput(replyInput).setAllowGeneratedReplies(false)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY).build()
         val markRead = NotificationCompat.Action.Builder(
             PhIcons.id("envelope-open"),
             L10n.format("common.markRead"),
-            actionIntent(ACTION_MARK_READ, notification.roomId, userId, tag, id, mutable = false),
-        ).build()
-
+            actionIntent(ACTION_MARK_READ, roomId, userId, tag, ROOM_ID, mutable = false),
+        ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build()
         val builder = NotificationCompat.Builder(context, if (sound) CHANNEL_MESSAGES else CHANNEL_SILENT)
             .setSmallIcon(smallIcon())
             .setColor(brandColor)
             .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(text)
+            .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setPriority(if (notification.highlight) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(if (highlight) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
             .setSilent(!sound)
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(!sound)
             .setAutoCancel(true)
             .setNumber(badge)
-            .setWhen(notification.ts)
+            .setWhen(time)
             .setShowWhen(true)
-            .setContentIntent(openIntent(notification.roomId, userId))
+            .setGroup(group(userId))
+            .setContentIntent(openIntent(roomId, userId, threadId))
             .addAction(reply)
             .addAction(markRead)
-        val avatar = if (notification.isDirect) {
-            roomAvatar ?: runCatching { MemberDirectory.profile(notification.sender, notification.roomId, client).avatarUrl }.getOrNull()
-        } else {
-            roomAvatar
-        }
-        avatarBitmap(avatar, client)?.let(builder::setLargeIcon)
+        largeIcon?.let(builder::setLargeIcon)
         try {
-            manager.notify(tag, id, builder.build())
+            manager.notify(tag, ROOM_ID, builder.build())
+        } catch (_: SecurityException) {
+        }
+        refreshSummary(userId)
+    }
+
+    private fun removeMessage(userId: String, roomId: String, eventId: String) {
+        val tag = "$userId|$roomId"
+        val delivered = active(tag) ?: return
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(delivered.notification) ?: return
+        val remaining = style.messages.filter { it.extras.getString(EXTRA_EVENT) != eventId }
+        if (remaining.size == style.messages.size) return
+        val last = remaining.lastOrNull() ?: return clear(userId, roomId)
+        val rebuilt = NotificationCompat.MessagingStyle(style.user).also { rebuilt ->
+            rebuilt.conversationTitle = style.conversationTitle
+            rebuilt.isGroupConversation = style.isGroupConversation
+            remaining.forEach { rebuilt.addMessage(it) }
+        }
+        val title = delivered.notification.extras.getCharSequence(android.app.Notification.EXTRA_TITLE)
+        val text = if (style.isGroupConversation) "${last.person?.name}: ${last.text}" else last.text
+        post(userId, roomId, null, rebuilt, title, text, delivered.notification.getLargeIcon(), false, false, last.timestamp)
+    }
+
+    private fun active(tag: String): StatusBarNotification? =
+        context.getSystemService(NotificationManager::class.java)?.activeNotifications
+            ?.firstOrNull { it.tag == tag && it.id == ROOM_ID }
+
+    private fun group(userId: String) = "messages|$userId"
+
+    private fun refreshSummary(userId: String) {
+        val system = context.getSystemService(NotificationManager::class.java) ?: return
+        val children = system.activeNotifications.count { it.tag?.startsWith("$userId|") == true }
+        val tag = "summary|$userId"
+        if (children == 0) {
+            manager.cancel(tag, SUMMARY_ID)
+            return
+        }
+        val summary = NotificationCompat.Builder(context, CHANNEL_SILENT)
+            .setSmallIcon(smallIcon())
+            .setColor(brandColor)
+            .setSubText(userId)
+            .setGroup(group(userId))
+            .setGroupSummary(true)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setSilent(true)
+            .setAutoCancel(true)
+            .build()
+        try {
+            manager.notify(tag, SUMMARY_ID, summary)
         } catch (_: SecurityException) {
         }
     }
 
-    private fun bodyOf(notification: Notification): String {
+    private fun textOf(notification: Notification): String {
         val sender = notification.senderName ?: notification.sender
-        val text = when (notification.kind) {
-            NotificationKind.invite -> return L10n.format("common.inviteNotification", sender)
+        return when (notification.kind) {
+            NotificationKind.invite -> L10n.format("common.inviteNotification", sender)
             NotificationKind.poll -> L10n.format("common.pollNotification", notification.body)
             NotificationKind.image, NotificationKind.video, NotificationKind.audio, NotificationKind.voice,
             NotificationKind.file, NotificationKind.location, NotificationKind.sticker ->
@@ -199,12 +288,18 @@ class MessageNotifier {
                 else -> notification.body.ifEmpty { L10n.format("common.newMessage") }
             }
         }
-        return if (notification.isDirect || notification.roomName == null) text else "$sender: $text"
+    }
+
+    private fun bodyOf(notification: Notification): String {
+        val text = textOf(notification)
+        if (notification.kind == NotificationKind.invite || notification.isDirect || notification.roomName == null) return text
+        return "${notification.senderName ?: notification.sender}: $text"
     }
 
     fun showPlaceholder(userId: String, roomId: String, eventId: String) {
         val prefs = prefs ?: WizardApplication.instance.prefs
         if (!(prefs.notificationBanners || prefs.notificationSounds) || !canPost()) return
+        if (active("$userId|$roomId") != null) return
         createChannels()
         val sound = prefs.notificationSounds
         val builder = NotificationCompat.Builder(context, if (sound) CHANNEL_MESSAGES else CHANNEL_SILENT)
@@ -215,11 +310,13 @@ class MessageNotifier {
             .setSilent(!sound)
             .setOnlyAlertOnce(true)
             .setAutoCancel(true)
-            .setContentIntent(openIntent(roomId, userId))
+            .setGroup(group(userId))
+            .setContentIntent(openIntent(roomId, userId, null))
         try {
-            manager.notify("$userId|$roomId", eventId.hashCode(), builder.build())
+            manager.notify("$userId|$roomId", ROOM_ID, builder.build())
         } catch (_: SecurityException) {
         }
+        refreshSummary(userId)
     }
 
     /** A ring that ended without any of the user's devices answering */
@@ -239,12 +336,14 @@ class MessageNotifier {
             .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
             .setSilent(!sound)
             .setAutoCancel(true)
-            .setContentIntent(openIntent(roomId, userId))
+            .setGroup(group(userId))
+            .setContentIntent(openIntent(roomId, userId, null))
         if (roomName != null && roomName != callerName) builder.setContentText(roomName)
         try {
             manager.notify("$userId|$roomId", "missed|$roomId".hashCode(), builder.build())
         } catch (_: SecurityException) {
         }
+        refreshSummary(userId)
     }
 
     private suspend fun avatarBitmap(mxc: String?, client: WizardClient): Bitmap? {
@@ -295,11 +394,12 @@ class MessageNotifier {
 
     private val brandColor: Int get() = org.wizardchat.android.ui.theme.WizardTheme.baseLogo[1].toArgb()
 
-    private fun openIntent(roomId: String, userId: String): PendingIntent =
+    private fun openIntent(roomId: String, userId: String, threadId: String?): PendingIntent =
         PendingIntent.getActivity(
             context,
             "$userId|$roomId".hashCode(),
-            Intent(context, NotifierActivity::class.java).putExtra(EXTRA_ROOM, roomId).putExtra(EXTRA_USER, userId),
+            Intent(context, NotifierActivity::class.java).putExtra(EXTRA_ROOM, roomId).putExtra(EXTRA_USER, userId)
+                .putExtra(EXTRA_THREAD, threadId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -311,7 +411,7 @@ class MessageNotifier {
             .putExtra(EXTRA_TAG, tag)
             .putExtra(EXTRA_ID, id)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (mutable) PendingIntent.FLAG_MUTABLE else PendingIntent.FLAG_IMMUTABLE)
-        return PendingIntent.getBroadcast(context, id * 31 + action.hashCode(), intent, flags)
+        return PendingIntent.getBroadcast(context, (tag.hashCode() * 31 + id) * 31 + action.hashCode(), intent, flags)
     }
 
     internal fun handleAction(intent: Intent, done: () -> Unit) {
@@ -389,6 +489,10 @@ class MessageNotifier {
         internal const val EXTRA_USER = "userId"
         internal const val EXTRA_TAG = "tag"
         internal const val EXTRA_PERMISSION = "requestPermission"
+        internal const val EXTRA_THREAD = "threadId"
+        private const val EXTRA_EVENT = "org.wizardchat.eventId"
+        private const val ROOM_ID = 1
+        private const val SUMMARY_ID = 0
     }
 }
 
@@ -419,7 +523,10 @@ class NotifierActivity : Activity() {
         intent.getStringExtra(MessageNotifier.EXTRA_USER)?.let { userId ->
             if (userId != WizardApplication.instance.session.userId) notifier.accountToOpen = userId
         }
-        intent.getStringExtra(MessageNotifier.EXTRA_ROOM)?.let { notifier.roomToOpen = it }
+        intent.getStringExtra(MessageNotifier.EXTRA_ROOM)?.let {
+            notifier.threadToOpen = intent.getStringExtra(MessageNotifier.EXTRA_THREAD)
+            notifier.roomToOpen = it
+        }
         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
         finish()
     }

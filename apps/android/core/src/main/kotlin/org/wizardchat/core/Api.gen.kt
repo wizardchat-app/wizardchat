@@ -743,6 +743,7 @@ data class Notification(
     val isDirect: Boolean,
     val ts: Long,
     val kind: NotificationKind,
+    val threadId: String? = null,
 )
 
 @Serializable

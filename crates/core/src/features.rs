@@ -116,6 +116,7 @@ pub struct Notification {
     pub is_direct: bool,
     pub ts: u64,
     pub kind: NotificationKind,
+    pub thread_id: Option<String>,
 }
 
 const ROOM_PACK_TYPES: [&str; 2] = ["im.ponies.room_emotes", "m.room.image_pack"];
@@ -611,6 +612,12 @@ pub(crate) async fn notification_for(
         is_direct: room.direct_targets_length() > 0,
         ts: sent_at(&event),
         kind,
+        thread_id: content
+            .get("m.relates_to")
+            .filter(|r| r.get("rel_type").and_then(Value::as_str) == Some("m.thread"))
+            .and_then(|r| r.get("event_id"))
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
     })
 }
 

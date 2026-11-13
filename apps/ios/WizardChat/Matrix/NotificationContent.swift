@@ -37,6 +37,7 @@ enum NotificationContent {
         content.categoryIdentifier = messageCategory
         var info = ["roomId": notification.roomId, "eventId": notification.eventId, "ts": String(notification.ts)]
         if let userId { info["userId"] = userId }
+        if let threadId = notification.threadId { info["threadId"] = threadId }
         content.userInfo = info
         if notification.highlight { content.interruptionLevel = .timeSensitive }
     }

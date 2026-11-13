@@ -7,6 +7,7 @@ import UserNotifications
 final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     var activeRoomId: String?
     @Published var roomToOpen: String?
+    var threadToOpen: String?
     @Published var eventToFocus: (roomId: String, eventId: String)?
     @Published var accountToOpen: String?
     private weak var prefs: AppPreferences?
@@ -82,6 +83,7 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     func notifyMissedCall(_ call: IncomingCall) {
         guard let prefs, prefs.notificationBanners || prefs.notificationSounds,
               call.roomId != activeRoomId else { return }
+        if let room = roomList?.room(id: call.roomId), roomList?.notificationMode(of: room) == .mute { return }
         let content = UNMutableNotificationContent()
         content.title = call.roomName ?? call.senderName ?? call.sender
         content.body = L10n.format("call.missedFrom", call.senderName ?? call.sender)
@@ -156,7 +158,8 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
                 }
             default:
                 if let otherAccount { accountToOpen = otherAccount }
-                if let eventId = info["eventId"] as? String { eventToFocus = (roomId, eventId) }
+                threadToOpen = info["threadId"] as? String
+                if threadToOpen == nil, let eventId = info["eventId"] as? String { eventToFocus = (roomId, eventId) }
                 roomToOpen = roomId
             }
         }

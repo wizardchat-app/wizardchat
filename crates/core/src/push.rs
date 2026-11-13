@@ -218,6 +218,7 @@ fn invite_notification(
         is_direct: item.is_direct_message_room || event.content.is_direct == Some(true),
         ts: u64::from(MilliSecondsSinceUnixEpoch::now().get()),
         kind: NotificationKind::Invite,
+        thread_id: None,
     })
 }
 
@@ -244,6 +245,7 @@ fn undecrypted_notification(
         sound: true,
         is_direct: false,
         kind: NotificationKind::Message,
+        thread_id: None,
         ts: raw
             .get_field("origin_server_ts")
             .ok()

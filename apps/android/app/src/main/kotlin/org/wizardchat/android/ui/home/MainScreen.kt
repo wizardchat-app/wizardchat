@@ -224,7 +224,9 @@ fun MainScreen(roomList: RoomListModel) {
         showInbox = false
         showCreateSpace = false
         showExplore = false
-        show(roomId)
+        val thread = notifier.threadToOpen
+        notifier.threadToOpen = null
+        if (thread != null) showThread(roomId, thread) else show(roomId)
     }
     val totalUnread = roomList.joinedRooms.sumOf { it.unreadCount }
     LaunchedEffect(totalUnread) { notifier.updateBadge(totalUnread) }
