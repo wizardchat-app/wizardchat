@@ -62,7 +62,9 @@ pub use encryption::{
 };
 pub use error::{Error, Result};
 pub use extras::{ThreadInfo, ThreadPage, UrlPreview};
-pub use features::{EmojiPack, Notification, PackImage, SearchHit};
+pub use features::{
+    EmojiPack, Notification, NotificationKind, PackImage, RedactedEvent, SearchHit,
+};
 pub use profile::{
     CustomStatus, MutualRoom, Presence, PresenceInfo, UserProfile, MAX_STATUS_LENGTH, STATUS_FIELD,
 };

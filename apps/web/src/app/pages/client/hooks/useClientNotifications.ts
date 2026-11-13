@@ -48,9 +48,14 @@ export function useClientNotifications() {
     if (isWindowVisible && isCurrentRoom) return;
 
     const senderName = notification.senderName ?? notification.sender;
-    const body = notification.spoiler
-      ? tRef.current('common.spoilerNotification')
-      : notification.body || tRef.current('common.newMessage');
+    const t = tRef.current;
+    let body: string;
+    if (notification.kind === 'invite') body = t('common.inviteNotification', { name: senderName });
+    else if (notification.kind === 'poll')
+      body = t('common.pollNotification', { question: notification.body });
+    else if (notification.kind !== 'message') body = t(`common.${notification.kind}Notification`);
+    else if (notification.spoiler) body = t('common.spoilerNotification');
+    else body = notification.body || t('common.newMessage');
 
     if (!isWindowVisible && notificationBannersRef.current) {
       const roomUrl = notification.isDirect

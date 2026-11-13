@@ -567,7 +567,20 @@ export type Notification = {
   sound: boolean;
   isDirect: boolean;
   ts: number;
+  kind: NotificationKind;
 };
+
+export type NotificationKind =
+  | 'message'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'voice'
+  | 'file'
+  | 'location'
+  | 'sticker'
+  | 'poll'
+  | 'invite';
 
 /**
  * How much a room notifies
@@ -672,6 +685,8 @@ export type Reaction = {
 };
 
 export type ReadReceiptView = { userId: string; timestamp: number | null };
+
+export type RedactedEvent = { roomId: string; eventId: string };
 
 /**
  * What the server asks for when registering
@@ -2463,6 +2478,10 @@ export class WizardClient extends Remote {
    */
   watchNotifications(listener: (value: Notification) => void): Subscription {
     return runtime.watch('WizardClient.watchNotifications', this, [listener], Subscription);
+  }
+
+  watchRedactions(listener: (value: RedactedEvent) => void): Subscription {
+    return runtime.watch('WizardClient.watchRedactions', this, [listener], Subscription);
   }
 
   setPusher(config: PusherConfig): Promise<void> {

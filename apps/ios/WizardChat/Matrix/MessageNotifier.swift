@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import WizardChatCore
 import UserNotifications
 
@@ -11,6 +12,7 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     private weak var prefs: AppPreferences?
     private weak var roomList: RoomListModel?
     private var subscription: Subscription?
+    private var redactions: Subscription?
 
     static let messageCategory = NotificationContent.messageCategory
 
@@ -38,21 +40,33 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
                 Task { await self.notify(notification) }
             }
         }
+        redactions?.cancel()
+        if let userId = roomList.client.userId {
+            redactions = roomList.client.watchRedactions { redaction in
+                Task { @MainActor in
+                    await Self.remove(userId: userId) {
+                        $0.request.content.userInfo["eventId"] as? String == redaction.eventId
+                    }
+                }
+            }
+        }
         if prefs.notificationBanners || prefs.notificationSounds {
             Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) }
         }
     }
 
     func stop() {
-        updateBadge(0)
         subscription?.cancel()
         subscription = nil
+        redactions?.cancel()
+        redactions = nil
         roomList = nil
     }
 
     private func notify(_ notification: WizardChatCore.Notification) async {
         guard let prefs, prefs.notificationBanners || prefs.notificationSounds,
-              notification.roomId != activeRoomId else { return }
+              notification.roomId != activeRoomId,
+              UIApplication.shared.applicationState != .background else { return }
         let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
         guard !delivered.contains(where: { $0.request.content.userInfo["eventId"] as? String == notification.eventId })
         else { return }
@@ -110,23 +124,59 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
             defer { done.value() }
             guard let roomId = info["roomId"] as? String else { return }
             let current = roomList?.client.userId ?? SessionStore.active()?.session.userId
-            if let userId = info["userId"] as? String, userId != current { accountToOpen = userId }
+            let userId = info["userId"] as? String
+            let otherAccount = userId.flatMap { $0 != current ? $0 : nil }
             switch action {
             case "reply":
                 guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return }
-                await reply(text, in: roomId)
-                if let userId = info["userId"] as? String { await Self.remove(userId: userId, roomId: roomId) }
+                if let otherAccount {
+                    await Self.withClient(otherAccount) { client in
+                        let timeline = try await client.timeline(roomId: roomId)
+                        try await timeline.sendText(body: text)
+                        try? await timeline.markAsRead(_private: self.prefs?.sendReadReceipts == false)
+                        try? await Task.sleep(for: .seconds(2))
+                    }
+                } else {
+                    await reply(text, in: roomId)
+                }
+                if let userId { await Self.remove(userId: userId, roomId: roomId) }
             case "markRead":
-                if let room = await room(roomId) { await roomList?.setRead(room, read: true) }
-                if let userId = info["userId"] as? String {
+                if let otherAccount {
+                    await Self.withClient(otherAccount) { client in
+                        try? await client.timeline(roomId: roomId).markAsRead(_private: self.prefs?.sendReadReceipts == false)
+                        try? await client.setMarkedUnread(roomId: roomId, unread: false)
+                    }
+                } else if let room = await room(roomId) {
+                    await roomList?.setRead(room, read: true)
+                }
+                if let userId {
                     await Self.remove(userId: userId, roomId: roomId)
                 } else {
                     center.removeDeliveredNotifications(withIdentifiers: [identifier])
                 }
             default:
+                if let otherAccount { accountToOpen = otherAccount }
                 if let eventId = info["eventId"] as? String { eventToFocus = (roomId, eventId) }
                 roomToOpen = roomId
             }
+        }
+    }
+
+    private static func withClient(_ userId: String, _ body: (WizardClient) async throws -> Void) async {
+        guard let stored = SessionStore.all().first(where: { $0.session.userId == userId }) else { return }
+        do {
+            let client = try await WizardClient.restore(session: stored.session,
+                                                        store: stored.store(process: SessionStore.pushProcess))
+            let saving = client.watchSession { event in
+                guard case .refreshed(let refreshed) = event,
+                      var latest = SessionStore.all().first(where: { $0.session.userId == userId }) else { return }
+                latest.session = refreshed.session
+                SessionStore.save(latest)
+            }
+            defer { saving.cancel() }
+            try await body(client)
+        } catch {
+            Push.log.error("couldn't act on the notification for \(userId, privacy: .private): \(error)")
         }
     }
 
@@ -153,6 +203,7 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
                 .map(\.request.identifier)
             center.removeDeliveredNotifications(withIdentifiers: ids)
         }
+        center.setBadgeCount(Badge.forget(userId))
     }
 
     func clear(roomId: String) {
@@ -189,7 +240,8 @@ final class MessageNotifier: NSObject, ObservableObject, UNUserNotificationCente
     }
 
     func updateBadge(_ count: Int) {
-        UNUserNotificationCenter.current().setBadgeCount(count)
+        guard let userId = roomList?.client.userId ?? SessionStore.active()?.session.userId else { return }
+        UNUserNotificationCenter.current().setBadgeCount(Badge.set(count, for: userId))
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,

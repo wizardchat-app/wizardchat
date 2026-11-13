@@ -5,21 +5,27 @@ use matrix_sdk::ruma::{
         push::{PusherIds, PusherInit, PusherKind},
         sync::sync_events,
     },
-    events::AnySyncTimelineEvent,
+    events::{
+        room::member::{MembershipState, StrippedRoomMemberEvent},
+        AnySyncTimelineEvent,
+    },
     presence::PresenceState,
     push::{HttpPusherData, PushFormat},
     serde::Raw,
-    UserId,
+    EventId, MilliSecondsSinceUnixEpoch, RoomId, UserId,
 };
 use matrix_sdk_ui::notification_client::{
-    NotificationClient, NotificationProcessSetup, NotificationStatus, RawNotificationEvent,
+    NotificationClient, NotificationItem, NotificationProcessSetup, NotificationStatus,
+    RawNotificationEvent,
 };
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    features::notification_for, rooms::parse_room_id, timeline::parse_event_id, Error,
-    Notification, Result, WizardClient,
+    features::{notification_for, NotificationKind},
+    rooms::parse_room_id,
+    timeline::parse_event_id,
+    Error, Notification, Result, WizardClient,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -69,6 +75,21 @@ impl WizardClient {
             .delete(PusherIds::new(pushkey, app_id))
             .await?;
         Ok(())
+    }
+
+    async fn filtered_sticker(
+        &self,
+        room_id: &RoomId,
+        event_id: &EventId,
+        own_user: &UserId,
+    ) -> Option<Notification> {
+        let room = self.sdk().get_room(room_id)?;
+        let event = room.load_or_fetch_event(event_id, None).await.ok()?;
+        let raw = event.raw();
+        if raw.get_field::<String>("type").ok().flatten().as_deref() != Some("m.sticker") {
+            return None;
+        }
+        notification_for(&room, raw, None, own_user, 0).await
     }
 
     pub async fn read_rooms(&self, room_ids: Vec<String>) -> Result<Vec<String>> {
@@ -130,10 +151,22 @@ impl WizardClient {
             .map_err(|e| Error::Sdk(e.to_string()))?
         {
             NotificationStatus::Event(item) => item,
+            NotificationStatus::EventFilteredOut => {
+                return Ok(self.filtered_sticker(room_id, &event_id, &own_user).await);
+            }
             _ => return Ok(None),
         };
-        let RawNotificationEvent::Timeline(raw) = &item.raw_event else {
-            return Ok(None);
+        let raw = match &item.raw_event {
+            RawNotificationEvent::Timeline(raw) => raw,
+            RawNotificationEvent::Invite(invite) => {
+                return Ok(invite_notification(
+                    &item,
+                    invite,
+                    &own_user,
+                    room_id.as_str(),
+                    event_id.as_str(),
+                ));
+            }
         };
         let Some(room) = self
             .sdk()
@@ -159,6 +192,35 @@ impl WizardClient {
     }
 }
 
+fn invite_notification(
+    item: &NotificationItem,
+    invite: &Raw<StrippedRoomMemberEvent>,
+    own_user: &UserId,
+    room_id: &str,
+    event_id: &str,
+) -> Option<Notification> {
+    let event = invite.deserialize().ok()?;
+    if event.state_key != own_user || event.content.membership != MembershipState::Invite {
+        return None;
+    }
+    Some(Notification {
+        room_id: room_id.to_owned(),
+        room_name: Some(item.room_computed_display_name.clone()),
+        room_avatar_url: item.room_avatar_url.clone(),
+        event_id: event_id.to_owned(),
+        sender: event.sender.to_string(),
+        sender_name: item.sender_display_name.clone(),
+        body: String::new(),
+        spoiler: false,
+        encrypted: false,
+        highlight: true,
+        sound: true,
+        is_direct: item.is_direct_message_room || event.content.is_direct == Some(true),
+        ts: u64::from(MilliSecondsSinceUnixEpoch::now().get()),
+        kind: NotificationKind::Invite,
+    })
+}
+
 fn undecrypted_notification(
     room_id: &str,
     raw: &Raw<AnySyncTimelineEvent>,
@@ -181,6 +243,7 @@ fn undecrypted_notification(
         highlight: false,
         sound: true,
         is_direct: false,
+        kind: NotificationKind::Message,
         ts: raw
             .get_field("origin_server_ts")
             .ok()

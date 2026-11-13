@@ -134,6 +134,7 @@ targets:
       - WizardChatNotifications
       - path: WizardChat/Matrix/SessionStore.swift
       - path: WizardChat/Matrix/NotificationContent.swift
+      - path: Shared/L10n.swift
       - ../../packages/i18n/dist/apple/Localizable.xcstrings
     dependencies:
       - package: WizardChatCore

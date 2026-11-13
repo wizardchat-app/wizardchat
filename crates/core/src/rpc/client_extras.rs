@@ -5,8 +5,9 @@ use serde_json::Value;
 use super::{Bytes, Handle, Listener, Obj, Subscription};
 use crate::{
     CallMember, CallSession, IncomingCallEvent, Notification, PusherConfig, QrLoginControl,
-    QrLoginStatus, ResolvedAlias, RoomSection, RoomSoundPacks, RoomTag, ServerFeatures, SfuConfig,
-    SoundCredit, SoundPack, SoundboardSound, SpaceNode, StateChange, WizardClient,
+    QrLoginStatus, RedactedEvent, ResolvedAlias, RoomSection, RoomSoundPacks, RoomTag,
+    ServerFeatures, SfuConfig, SoundCredit, SoundPack, SoundboardSound, SpaceNode, StateChange,
+    WizardClient,
 };
 
 rpc_methods! {
@@ -234,6 +235,12 @@ rpc_methods! {
         watch fn watchNotifications(listener: Listener<Notification>) -> Subscription {
             Ok(listener.clone().watch(async move {
                 this.watch_notifications(|n| listener.emit(&n)).await
+            }))
+        }
+
+        watch fn watchRedactions(listener: Listener<RedactedEvent>) -> Subscription {
+            Ok(listener.clone().watch(async move {
+                this.watch_redactions(|r| listener.emit(&r)).await
             }))
         }
 

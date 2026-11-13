@@ -28,7 +28,7 @@ final class NotificationService: UNNotificationServiceExtension {
         }
         if let eventId { info["eventId"] = eventId }
         fallback.userInfo = info
-        if let unread { fallback.badge = NSNumber(value: unread) }
+        if let unread { fallback.badge = NSNumber(value: userId.map { Badge.set(unread, for: $0) } ?? unread) }
 
         lock.withLock {
             self.contentHandler = contentHandler
@@ -82,7 +82,7 @@ final class NotificationService: UNNotificationServiceExtension {
         let content = UNMutableNotificationContent()
         NotificationContent.fill(content, with: notification, userId: userId)
         if notification.sound { content.sound = .default }
-        if let unread { content.badge = NSNumber(value: unread) }
+        if let unread { content.badge = NSNumber(value: Badge.set(unread, for: userId)) }
         async let senderAvatar = avatar(try? await client.userProfile(userId: notification.sender).avatarUrl,
                                         client: client)
         async let roomAvatar = avatar(notification.roomAvatarUrl, client: client)

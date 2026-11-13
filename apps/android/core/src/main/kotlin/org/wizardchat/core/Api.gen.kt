@@ -742,7 +742,22 @@ data class Notification(
     val sound: Boolean,
     val isDirect: Boolean,
     val ts: Long,
+    val kind: NotificationKind,
 )
+
+@Serializable
+enum class NotificationKind {
+    @SerialName("message") message,
+    @SerialName("image") image,
+    @SerialName("video") video,
+    @SerialName("audio") audio,
+    @SerialName("voice") voice,
+    @SerialName("file") file,
+    @SerialName("location") location,
+    @SerialName("sticker") sticker,
+    @SerialName("poll") poll,
+    @SerialName("invite") invite,
+}
 
 /** How much a room notifies */
 @Serializable
@@ -905,6 +920,12 @@ data class Reaction(
 data class ReadReceiptView(
     val userId: String,
     val timestamp: Long? = null,
+)
+
+@Serializable
+data class RedactedEvent(
+    val roomId: String,
+    val eventId: String,
 )
 
 /** What the server asks for when registering */
@@ -2553,6 +2574,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
      */
     fun watchNotifications(listener: (Notification) -> Unit): Subscription =
         Runtime.watch("WizardClient.watchNotifications", handle, listOf(Arg.listener<Notification>(listener)), ::Subscription)
+
+    fun watchRedactions(listener: (RedactedEvent) -> Unit): Subscription =
+        Runtime.watch("WizardClient.watchRedactions", handle, listOf(Arg.listener<RedactedEvent>(listener)), ::Subscription)
 
     suspend fun setPusher(config: PusherConfig) {
         Runtime.callUnit("WizardClient.setPusher", handle, listOf(Arg.value<PusherConfig>(config)))

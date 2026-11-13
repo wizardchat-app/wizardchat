@@ -1146,8 +1146,9 @@ public struct Notification: Codable, Hashable, Sendable {
     public var sound: Bool
     public var isDirect: Bool
     public var ts: Int
+    public var kind: NotificationKind
 
-    public init(roomId: String, roomName: String? = nil, roomAvatarUrl: String? = nil, eventId: String, sender: String, senderName: String? = nil, body: String, spoiler: Bool, encrypted: Bool, highlight: Bool, sound: Bool, isDirect: Bool, ts: Int) {
+    public init(roomId: String, roomName: String? = nil, roomAvatarUrl: String? = nil, eventId: String, sender: String, senderName: String? = nil, body: String, spoiler: Bool, encrypted: Bool, highlight: Bool, sound: Bool, isDirect: Bool, ts: Int, kind: NotificationKind) {
         self.roomId = roomId
         self.roomName = roomName
         self.roomAvatarUrl = roomAvatarUrl
@@ -1161,7 +1162,21 @@ public struct Notification: Codable, Hashable, Sendable {
         self.sound = sound
         self.isDirect = isDirect
         self.ts = ts
+        self.kind = kind
     }
+}
+
+public enum NotificationKind: String, Codable, Hashable, Sendable, CaseIterable {
+    case message = "message"
+    case image = "image"
+    case video = "video"
+    case audio = "audio"
+    case voice = "voice"
+    case file = "file"
+    case location = "location"
+    case sticker = "sticker"
+    case poll = "poll"
+    case invite = "invite"
 }
 
 /// How much a room notifies
@@ -1422,6 +1437,16 @@ public struct ReadReceiptView: Codable, Hashable, Sendable {
     public init(userId: String, timestamp: Int? = nil) {
         self.userId = userId
         self.timestamp = timestamp
+    }
+}
+
+public struct RedactedEvent: Codable, Hashable, Sendable {
+    public var roomId: String
+    public var eventId: String
+
+    public init(roomId: String, eventId: String) {
+        self.roomId = roomId
+        self.eventId = eventId
     }
 }
 
@@ -3661,6 +3686,11 @@ public final class WizardClient: Remote, @unchecked Sendable {
     @discardableResult
     public func watchNotifications(listener: @escaping @Sendable (Notification) -> Void) -> Subscription {
         watch("WizardClient.watchNotifications", [.listener(Notification.self, listener)])
+    }
+
+    @discardableResult
+    public func watchRedactions(listener: @escaping @Sendable (RedactedEvent) -> Void) -> Subscription {
+        watch("WizardClient.watchRedactions", [.listener(RedactedEvent.self, listener)])
     }
 
     public func setPusher(config: PusherConfig) async throws {

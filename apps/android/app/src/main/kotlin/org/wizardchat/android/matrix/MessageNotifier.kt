@@ -37,6 +37,7 @@ import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcons
 import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.core.Notification
+import org.wizardchat.core.NotificationKind
 import org.wizardchat.core.NotificationMode
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.Subscription
@@ -57,6 +58,7 @@ class MessageNotifier {
     private var prefs: AppPreferences? = null
     private var roomList: RoomListModel? = null
     private var subscription: Subscription? = null
+    private var redactions: Subscription? = null
     private var badge = 0
     private val scope = MainScope()
     private val context: Context get() = WizardApplication.instance
@@ -68,6 +70,10 @@ class MessageNotifier {
         createChannels()
         subscription?.cancel()
         subscription = roomList.client.watchNotifications { notify(it) }
+        redactions?.cancel()
+        redactions = roomList.client.userId?.let { userId ->
+            roomList.client.watchRedactions { manager.cancel("$userId|${it.roomId}", it.eventId.hashCode()) }
+        }
         if (prefs.notificationBanners || prefs.notificationSounds) requestPermission()
     }
 
@@ -75,6 +81,8 @@ class MessageNotifier {
         badge = 0
         subscription?.cancel()
         subscription = null
+        redactions?.cancel()
+        redactions = null
         roomList = null
     }
 
@@ -131,8 +139,7 @@ class MessageNotifier {
         createChannels()
         val sender = notification.senderName ?: notification.sender
         val title = notification.roomName ?: sender
-        val text = notification.body.ifEmpty { L10n.format("common.newMessage") }
-        val body = if (notification.isDirect || notification.roomName == null) text else "$sender: $text"
+        val body = bodyOf(notification)
         val sound = prefs.notificationSounds && notification.sound
         val userId = client.userId ?: return
         val tag = "$userId|${notification.roomId}"
@@ -177,6 +184,22 @@ class MessageNotifier {
             manager.notify(tag, id, builder.build())
         } catch (_: SecurityException) {
         }
+    }
+
+    private fun bodyOf(notification: Notification): String {
+        val sender = notification.senderName ?: notification.sender
+        val text = when (notification.kind) {
+            NotificationKind.invite -> return L10n.format("common.inviteNotification", sender)
+            NotificationKind.poll -> L10n.format("common.pollNotification", notification.body)
+            NotificationKind.image, NotificationKind.video, NotificationKind.audio, NotificationKind.voice,
+            NotificationKind.file, NotificationKind.location, NotificationKind.sticker ->
+                L10n.format("common.${notification.kind.name}Notification")
+            NotificationKind.message -> when {
+                notification.spoiler -> L10n.format("common.spoilerNotification")
+                else -> notification.body.ifEmpty { L10n.format("common.newMessage") }
+            }
+        }
+        return if (notification.isDirect || notification.roomName == null) text else "$sender: $text"
     }
 
     fun showPlaceholder(userId: String, roomId: String, eventId: String) {
@@ -298,13 +321,20 @@ class MessageNotifier {
         val id = intent.getIntExtra(EXTRA_ID, 0)
         scope.launch {
             try {
-                if (userId != null) openAccount(userId)
+                val other = otherAccountClient(userId)
                 when (intent.action) {
                     ACTION_REPLY -> {
                         val text = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(KEY_REPLY)?.toString()?.trim()
-                        if (!text.isNullOrEmpty()) reply(text, roomId)
+                        if (!text.isNullOrEmpty()) {
+                            if (other != null) reply(text, roomId, other) else reply(text, roomId)
+                        }
                     }
-                    ACTION_MARK_READ -> room(roomId)?.let { currentRoomList()?.setRead(it, read = true) }
+                    ACTION_MARK_READ -> if (other != null) {
+                        runCatching { other.timeline(roomId).markAsRead(!WizardApplication.instance.prefs.sendReadReceipts) }
+                        runCatching { other.setMarkedUnread(roomId, false) }
+                    } else {
+                        room(roomId)?.let { currentRoomList()?.setRead(it, read = true) }
+                    }
                 }
             } finally {
                 if (userId != null) clear(userId, roomId) else manager.cancel(tag, id)
@@ -313,10 +343,12 @@ class MessageNotifier {
         }
     }
 
-    private suspend fun openAccount(userId: String) {
+    private suspend fun otherAccountClient(userId: String?): WizardClient? {
         val session = WizardApplication.instance.session
         if (session.state == MatrixSession.State.Restoring) runCatching { session.restore() }
-        if (session.userId != userId) session.switchAccount(userId)
+        if (userId == null || userId == session.userId) return null
+        val stored = SessionStore.all().firstOrNull { it.session.userId == userId } ?: return null
+        return runCatching { SessionClients.restore(stored) }.getOrNull()
     }
 
     private fun currentRoomList() = roomList ?: WizardApplication.instance.session.roomList
@@ -333,7 +365,10 @@ class MessageNotifier {
 
     private suspend fun reply(text: String, roomId: String) {
         if (room(roomId) == null) return
-        val client = currentRoomList()?.client ?: return
+        reply(text, roomId, currentRoomList()?.client ?: return)
+    }
+
+    private suspend fun reply(text: String, roomId: String, client: WizardClient) {
         val timeline = runCatching { client.timeline(roomId) }.getOrNull() ?: return
         runCatching { timeline.sendText(text) }
         runCatching { timeline.markAsRead(!WizardApplication.instance.prefs.sendReadReceipts) }

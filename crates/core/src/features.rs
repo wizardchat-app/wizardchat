@@ -10,9 +10,15 @@ use matrix_sdk::{
             state::get_state_events,
         },
         events::{
+            poll::{
+                start::OriginalSyncPollStartEvent,
+                unstable_start::OriginalSyncUnstablePollStartEvent,
+            },
             room::{
                 encrypted::OriginalSyncRoomEncryptedEvent, message::OriginalSyncRoomMessageEvent,
+                redaction::OriginalSyncRoomRedactionEvent,
             },
+            sticker::OriginalSyncStickerEvent,
             AnySyncTimelineEvent,
         },
         push::{Action, HighlightTweakValue, RuleKind, Tweak},
@@ -63,6 +69,30 @@ pub struct PackImage {
     pub sticker: bool,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationKind {
+    Message,
+    Image,
+    Video,
+    Audio,
+    Voice,
+    File,
+    Location,
+    Sticker,
+    Poll,
+    Invite,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct RedactedEvent {
+    pub room_id: String,
+    pub event_id: String,
+}
+
 /// Something that should notify the user, decided by their push rules
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -85,6 +115,7 @@ pub struct Notification {
     pub sound: bool,
     pub is_direct: bool,
     pub ts: u64,
+    pub kind: NotificationKind,
 }
 
 const ROOM_PACK_TYPES: [&str; 2] = ["im.ponies.room_emotes", "m.room.image_pack"];
@@ -279,6 +310,32 @@ impl WizardClient {
         Ok(packs)
     }
 
+    pub async fn watch_redactions(&self, mut on_redaction: impl FnMut(RedactedEvent)) {
+        let (sender, mut receiver) = futures_channel::mpsc::unbounded::<RedactedEvent>();
+        let handle = self.sdk().add_event_handler(
+            move |_: OriginalSyncRoomRedactionEvent, room: Room, raw: RawEvent| {
+                let sender = sender.clone();
+                async move {
+                    let event: Value = serde_json::from_str(raw.0.get()).unwrap_or_default();
+                    let redacts = event
+                        .pointer("/content/redacts")
+                        .or_else(|| event.get("redacts"))
+                        .and_then(Value::as_str);
+                    if let Some(event_id) = redacts {
+                        let _ = sender.unbounded_send(RedactedEvent {
+                            room_id: room.room_id().to_string(),
+                            event_id: event_id.to_owned(),
+                        });
+                    }
+                }
+            },
+        );
+        let _guard = self.sdk().event_handler_drop_guard(handle);
+        while let Some(redaction) = receiver.next().await {
+            on_redaction(redaction);
+        }
+    }
+
     /// Hands every new message that should notify to `on_notification`: those the push rules
     /// say notify, and replies to the user's own messages in rooms that aren't muted. Encrypted
     /// messages whose keys arrive later notify once they can be decrypted.
@@ -290,6 +347,42 @@ impl WizardClient {
                 let messages = messages.clone();
                 async move {
                     let _ = messages.unbounded_send(Incoming::Message(
+                        room,
+                        Raw::from_json(raw.0),
+                        None,
+                    ));
+                }
+            },
+        );
+        let stickers = sender.clone();
+        let sticker_handle = self.sdk().add_event_handler(
+            move |_: OriginalSyncStickerEvent, room: Room, raw: RawEvent| {
+                let stickers = stickers.clone();
+                async move {
+                    let _ = stickers.unbounded_send(Incoming::Message(
+                        room,
+                        Raw::from_json(raw.0),
+                        None,
+                    ));
+                }
+            },
+        );
+        let polls = sender.clone();
+        let poll_handle = self.sdk().add_event_handler(
+            move |_: OriginalSyncPollStartEvent, room: Room, raw: RawEvent| {
+                let polls = polls.clone();
+                async move {
+                    let _ =
+                        polls.unbounded_send(Incoming::Message(room, Raw::from_json(raw.0), None));
+                }
+            },
+        );
+        let unstable_polls = sender.clone();
+        let unstable_poll_handle = self.sdk().add_event_handler(
+            move |_: OriginalSyncUnstablePollStartEvent, room: Room, raw: RawEvent| {
+                let unstable_polls = unstable_polls.clone();
+                async move {
+                    let _ = unstable_polls.unbounded_send(Incoming::Message(
                         room,
                         Raw::from_json(raw.0),
                         None,
@@ -309,6 +402,9 @@ impl WizardClient {
         let _guards = (
             self.sdk().event_handler_drop_guard(message_handle),
             self.sdk().event_handler_drop_guard(encrypted_handle),
+            self.sdk().event_handler_drop_guard(sticker_handle),
+            self.sdk().event_handler_drop_guard(poll_handle),
+            self.sdk().event_handler_drop_guard(unstable_poll_handle),
         );
         let keys = match self.sdk().encryption().room_keys_received_stream().await {
             Some(stream) => Box::pin(stream)
@@ -443,9 +539,12 @@ pub(crate) async fn notification_for(
     since: u64,
 ) -> Option<Notification> {
     let event: Value = raw.deserialize_as_unchecked().ok()?;
-    if event.get("type").and_then(Value::as_str) != Some("m.room.message") {
-        return None;
-    }
+    let kind = match event.get("type").and_then(Value::as_str)? {
+        "m.room.message" => message_kind(event.get("content")?),
+        "m.sticker" => NotificationKind::Sticker,
+        "m.poll.start" | "org.matrix.msc3381.poll.start" => NotificationKind::Poll,
+        _ => return None,
+    };
     let sender = event.get("sender")?.as_str()?;
     if sender == own_user.as_str() || sent_at(&event) < since {
         return None;
@@ -465,15 +564,22 @@ pub(crate) async fn notification_for(
             tweak(&|t| matches!(t, Tweak::Highlight(HighlightTweakValue::Yes))),
             tweak(&|t| matches!(t, Tweak::Sound(_))),
         )
+    } else if kind == NotificationKind::Sticker
+        && as_message_actions(room, &event)
+            .await
+            .is_some_and(|actions| actions.iter().any(Action::should_notify))
+    {
+        (false, true)
     } else if is_reply_to(room, content, own_user).await && !is_muted(room).await {
         (true, true)
     } else {
         return None;
     };
-    let spoiler = content
-        .get("formatted_body")
-        .and_then(Value::as_str)
-        .is_some_and(|html| html.contains("data-mx-spoiler"));
+    let spoiler = kind == NotificationKind::Message
+        && content
+            .get("formatted_body")
+            .and_then(Value::as_str)
+            .is_some_and(|html| html.contains("data-mx-spoiler"));
     let sender_id = OwnedUserId::try_from(sender).ok()?;
     let sender_name = room
         .get_member_no_sync(&sender_id)
@@ -488,14 +594,15 @@ pub(crate) async fn notification_for(
         event_id: event.get("event_id")?.as_str()?.to_owned(),
         sender: sender.to_owned(),
         sender_name,
-        body: if spoiler {
-            String::new()
-        } else {
-            content
+        body: match kind {
+            _ if spoiler => String::new(),
+            NotificationKind::Message => content
                 .get("body")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
-                .to_owned()
+                .to_owned(),
+            NotificationKind::Poll => poll_question(content).unwrap_or_default(),
+            _ => String::new(),
         },
         spoiler,
         encrypted: false,
@@ -503,7 +610,45 @@ pub(crate) async fn notification_for(
         sound,
         is_direct: room.direct_targets_length() > 0,
         ts: sent_at(&event),
+        kind,
     })
+}
+
+fn message_kind(content: &Value) -> NotificationKind {
+    match content.get("msgtype").and_then(Value::as_str) {
+        Some("m.image") => NotificationKind::Image,
+        Some("m.video") => NotificationKind::Video,
+        Some("m.audio")
+            if content.get("org.matrix.msc3245.voice").is_some()
+                || content.get("m.voice").is_some() =>
+        {
+            NotificationKind::Voice
+        }
+        Some("m.audio") => NotificationKind::Audio,
+        Some("m.file") => NotificationKind::File,
+        Some("m.location") => NotificationKind::Location,
+        _ => NotificationKind::Message,
+    }
+}
+
+async fn as_message_actions(room: &Room, event: &Value) -> Option<Vec<Action>> {
+    let mut message = event.clone();
+    message["type"] = "m.room.message".into();
+    message["content"]["msgtype"] = "m.text".into();
+    let raw: Raw<AnySyncTimelineEvent> =
+        Raw::from_json(serde_json::value::to_raw_value(&message).ok()?);
+    room.event_push_actions(&raw).await.ok().flatten()
+}
+
+fn poll_question(content: &Value) -> Option<String> {
+    let question = content
+        .pointer("/m.poll/question/m.text/0/body")
+        .or_else(|| {
+            content.pointer("/org.matrix.msc3381.poll.start/question/org.matrix.msc1767.text")
+        })
+        .or_else(|| content.pointer("/org.matrix.msc3381.poll.start/question/body"))
+        .or_else(|| content.get("org.matrix.msc1767.text"))?;
+    question.as_str().map(ToOwned::to_owned)
 }
 
 impl From<serde_json::Error> for Error {

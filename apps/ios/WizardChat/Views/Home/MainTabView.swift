@@ -155,7 +155,7 @@ struct MainTabView: View {
     /// coloured fallback avatars show everywhere else
     @MainActor
     private var totalUnread: Int {
-        roomList.joinedRooms.reduce(0) { $0 + Int($1.unreadCount) }
+        roomList.joinedRooms.filter { $0.unreadCount > 0 || $0.mentionCount > 0 }.count
     }
 
     @MainActor
