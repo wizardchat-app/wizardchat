@@ -525,25 +525,88 @@ struct PollMessageView: View {
 
 struct ReplyQuoteView: View {
     let quote: ChatEntry.ReplyQuote
+    var isPrivateRoom = true
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
+    @Environment(\.mediaLoader) private var mediaLoader
+    @State private var thumb: UIImage?
+
+    private var mediaHidden: Bool {
+        if quote.spoiler { return true }
+        switch prefs.mediaVisibility {
+        case .always: return false
+        case .private: return !isPrivateRoom
+        case .never: return true
+        }
+    }
+
+    private var text: String {
+        if quote.undecryptable { return String(localized: "timeline.couldNotDecrypt") }
+        if let media = quote.media, let kind = quote.mediaKind {
+            switch kind {
+            case .image, .video: return media.caption ?? quote.text
+            case .sticker: return media.body
+            case .audio, .file: return media.filename
+            }
+        }
+        return quote.text.isEmpty ? String(localized: "timeline.originalMessage") : quote.text
+    }
+
+    private var thumbSource: MediaSource? {
+        guard let media = quote.media, !mediaHidden else { return nil }
+        switch quote.mediaKind {
+        case .image, .sticker: return media.source
+        case .video: return media.thumbnail
+        default: return nil
+        }
+    }
 
     var body: some View {
         HStack(spacing: WZ.Space.space4) {
             Capsule().fill(theme.accent).frame(width: WZ.Space.space1)
+            if quote.mediaKind != nil { mediaTile }
             VStack(alignment: .leading, spacing: WZ.Space.space0) {
                 Text(quote.senderName)
                     .font(.wizard(WZ.FontSize.sm, .semibold))
                     .foregroundStyle(theme.nameColor(quote.sender, colored: prefs.colorUsernames))
-                EmojiText(text: quote.text.isEmpty ? String(localized: "timeline.originalMessage") : quote.text,
-                          emotes: quote.emotes, size: WZ.FontSize.sm * 1.2)
+                EmojiText(text: text, emotes: quote.emotes, size: WZ.FontSize.sm * 1.2)
                     .font(.wizard(WZ.FontSize.sm))
                     .foregroundStyle(theme.textMuted)
+                    .italic(quote.undecryptable)
             }
             .lineLimit(1)
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(.bottom, WZ.Space.space2)
+        .task(id: quote.eventId) {
+            guard let thumbSource, let mediaLoader else { return }
+            thumb = await mediaLoader.image(for: thumbSource, thumbnailSize: 96, animated: false)
+        }
+    }
+
+    private var mediaTile: some View {
+        ZStack {
+            if let thumb {
+                Image(uiImage: thumb)
+                    .resizable()
+                    .aspectRatio(contentMode: quote.mediaKind == .sticker ? .fit : .fill)
+            } else {
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(theme.fill)
+                Icon(mediaHidden ? "eye-slash" : icon, size: WZ.SizeIcon.sm)
+                    .foregroundStyle(theme.textMuted)
+            }
+        }
+        .frame(width: 36, height: 36)
+        .clipShape(RoundedRectangle(cornerRadius: quote.mediaKind == .sticker ? 0 : 4, style: .continuous))
+    }
+
+    private var icon: String {
+        switch quote.mediaKind {
+        case .video: return "video-camera"
+        case .audio: return "music-note"
+        case .file: return "file-text"
+        default: return "image"
+        }
     }
 }
 

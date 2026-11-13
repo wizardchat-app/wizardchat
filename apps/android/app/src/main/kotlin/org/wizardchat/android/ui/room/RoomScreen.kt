@@ -1027,7 +1027,14 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                             }
                         }
                     }
-                    entry.replyTo?.let { ReplyQuoteView(it) }
+                    entry.replyTo?.let { quote ->
+                        val jump = if (actions != null && quote.eventId.isNotEmpty()) {
+                            Modifier.messageTap { MessageNotifier.shared.eventToFocus = actions.roomId to quote.eventId }
+                        } else {
+                            Modifier
+                        }
+                        ReplyQuoteView(quote, isPrivateRoom, jump)
+                    }
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
                         val sending = entry.isSending && !entry.sendFailed
                         Box(Modifier.weight(1f, fill = false).alpha(if (sending && isText) 0.5f else 1f), contentAlignment = Alignment.Center) {

@@ -781,6 +781,7 @@ struct MessageRow: View {
     var actions: MessageActions?
     var isPrivateRoom = true
     @EnvironmentObject private var prefs: AppPreferences
+    @EnvironmentObject private var notifier: MessageNotifier
     @Environment(\.theme) private var theme
     @Environment(\.mediaLoader) private var mediaLoader
     @State private var spoilersRevealed = false
@@ -859,7 +860,12 @@ struct MessageRow: View {
                     .padding(.bottom, WZ.Space.space0)
                 }
                 if let quote = entry.replyTo {
-                    ReplyQuoteView(quote: quote)
+                    ReplyQuoteView(quote: quote, isPrivateRoom: isPrivateRoom)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            guard let actions, !quote.eventId.isEmpty else { return }
+                            notifier.eventToFocus = (actions.roomId, quote.eventId)
+                        }
                 }
                 HStack(alignment: .bottom, spacing: WZ.Space.space3) {
                     messageContent

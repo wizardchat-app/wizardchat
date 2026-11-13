@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -809,15 +810,66 @@ fun PollMessageView(poll: ChatEntry.PollContent, isOwn: Boolean, onVote: (String
 }
 
 @Composable
-fun ReplyQuoteView(quote: ChatEntry.ReplyQuote) {
+fun ReplyQuoteView(quote: ChatEntry.ReplyQuote, isPrivateRoom: Boolean = true, modifier: Modifier = Modifier) {
+    val kind = quote.mediaKind
+    val media = quote.media
+    val hidden = mediaHidden(false, if (quote.spoiler) "" else null, isPrivateRoom)
+    val text = when {
+        quote.undecryptable -> tr("timeline.couldNotDecrypt")
+        media != null && (kind == ChatEntry.ReplyQuote.MediaKind.image || kind == ChatEntry.ReplyQuote.MediaKind.video) -> media.caption ?: quote.text
+        media != null && kind == ChatEntry.ReplyQuote.MediaKind.sticker -> media.body
+        media != null && kind != null -> media.filename
+        else -> quote.text.ifEmpty { tr("timeline.originalMessage") }
+    }
     Row(
-        Modifier.height(IntrinsicSize.Min).padding(bottom = WZ.Space.space2),
+        modifier.height(IntrinsicSize.Min).padding(bottom = WZ.Space.space2),
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(WZ.Space.space1).fillMaxHeight().background(theme.accent, CircleShape))
+        if (kind != null && media != null) ReplyMediaTile(kind, media, hidden)
         Column {
             Text(quote.senderName, style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = nameColor(quote.sender), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            EmojiText(quote.text.ifEmpty { tr("timeline.originalMessage") }, quote.emotes, wizardFont(WZ.FontSize.sm), theme.textMuted, maxLines = 1)
+            EmojiText(
+                text,
+                quote.emotes,
+                wizardFont(WZ.FontSize.sm).copy(fontStyle = if (quote.undecryptable) FontStyle.Italic else FontStyle.Normal),
+                theme.textMuted,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplyMediaTile(kind: ChatEntry.ReplyQuote.MediaKind, media: ChatEntry.MediaContent, hidden: Boolean) {
+    val loader = LocalMedia.current
+    val sticker = kind == ChatEntry.ReplyQuote.MediaKind.sticker
+    val source = when {
+        hidden -> null
+        kind == ChatEntry.ReplyQuote.MediaKind.image || sticker -> media.source
+        kind == ChatEntry.ReplyQuote.MediaKind.video -> media.thumbnail
+        else -> null
+    }
+    var thumb by remember(source) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(source, loader) {
+        if (source != null && loader != null) thumb = runCatching { loader.image(source, 96) }.getOrNull()
+    }
+    val shape = RoundedCornerShape(if (sticker) 0.dp else 4.dp)
+    Box(Modifier.size(36.dp).clip(shape), contentAlignment = Alignment.Center) {
+        val bitmap = thumb
+        if (bitmap != null) {
+            Image(bitmap.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = if (sticker) ContentScale.Fit else ContentScale.Crop)
+        } else {
+            Box(Modifier.fillMaxSize().background(theme.fill, shape))
+            val icon = when {
+                hidden -> "eye-slash"
+                kind == ChatEntry.ReplyQuote.MediaKind.video -> "video-camera"
+                kind == ChatEntry.ReplyQuote.MediaKind.audio -> "music-note"
+                kind == ChatEntry.ReplyQuote.MediaKind.file -> "file-text"
+                else -> "image"
+            }
+            PhIcon(icon, tint = theme.textMuted, size = WZ.SizeIcon.sm)
         }
     }
 }

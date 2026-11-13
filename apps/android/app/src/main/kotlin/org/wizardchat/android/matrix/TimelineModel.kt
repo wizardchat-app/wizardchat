@@ -170,7 +170,19 @@ data class ChatEntry(
         val id: String get() = key
     }
 
-    data class ReplyQuote(val eventId: String, val senderName: String, val text: String, val sender: String = "", val emotes: Map<String, String> = emptyMap())
+    data class ReplyQuote(
+        val eventId: String,
+        val senderName: String,
+        val text: String,
+        val sender: String = "",
+        val emotes: Map<String, String> = emptyMap(),
+        val media: MediaContent? = null,
+        val mediaKind: MediaKind? = null,
+        val spoiler: Boolean = false,
+        val undecryptable: Boolean = false,
+    ) {
+        enum class MediaKind { image, sticker, video, audio, file }
+    }
 
     val allowsActions: Boolean get() = kind !is Kind.Redacted && kind !is Kind.Undecryptable
     val canBeRepliedTo: Boolean get() = eventId != null && allowsActions
@@ -918,7 +930,16 @@ class TimelineModel(
                     is EntryContent.Emote -> content.rich
                     else -> null
                 }
-                ChatEntry.ReplyQuote(reply.eventId, reply.senderName ?: reply.sender, reply.summary, reply.sender, rich?.emoticons().orEmpty())
+                val quote = ChatEntry.ReplyQuote(reply.eventId, reply.senderName ?: reply.sender, reply.summary, reply.sender, rich?.emoticons().orEmpty())
+                when (val content = reply.content) {
+                    is EntryContent.Image -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.image, spoiler = content.media.spoiler)
+                    is EntryContent.Sticker -> quote.copy(media = ChatEntry.MediaContent(content.media, content.body), mediaKind = ChatEntry.ReplyQuote.MediaKind.sticker)
+                    is EntryContent.Video -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.video, spoiler = content.media.spoiler)
+                    is EntryContent.Audio -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.audio)
+                    is EntryContent.File -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.file)
+                    is EntryContent.UnableToDecrypt -> quote.copy(undecryptable = true)
+                    else -> quote
+                }
             }
             is ReplyPreview.Unavailable -> ChatEntry.ReplyQuote(reply.eventId, "", "")
             is ReplyPreview.Pending -> ChatEntry.ReplyQuote(reply.eventId, "", "")

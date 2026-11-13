@@ -106,11 +106,17 @@ struct ChatEntry: Identifiable {
     }
 
     struct ReplyQuote {
+        enum MediaKind { case image, sticker, video, audio, file }
+
         let eventId: String
         let senderName: String
         let text: String
         var sender = ""
         var emotes: [String: String] = [:]
+        var media: MediaContent?
+        var mediaKind: MediaKind?
+        var spoiler = false
+        var undecryptable = false
     }
 
     let id: String
@@ -835,8 +841,25 @@ final class TimelineModel: ObservableObject {
             case .emote(let emote): emote.rich
             default: nil
             }
-            return .init(eventId: ready.eventId, senderName: ready.senderName ?? ready.sender, text: ready.summary,
-                         sender: ready.sender, emotes: rich?.emoticons ?? [:])
+            var quote = ChatEntry.ReplyQuote(eventId: ready.eventId, senderName: ready.senderName ?? ready.sender,
+                                             text: ready.summary, sender: ready.sender, emotes: rich?.emoticons ?? [:])
+            switch ready.content {
+            case .image(let image):
+                quote.media = .init(image.media); quote.mediaKind = .image; quote.spoiler = image.media.spoiler
+            case .sticker(let sticker):
+                quote.media = .init(sticker.media, body: sticker.body); quote.mediaKind = .sticker
+            case .video(let video):
+                quote.media = .init(video.media); quote.mediaKind = .video; quote.spoiler = video.media.spoiler
+            case .audio(let audio):
+                quote.media = .init(audio.media); quote.mediaKind = .audio
+            case .file(let file):
+                quote.media = .init(file.media); quote.mediaKind = .file
+            case .unableToDecrypt:
+                quote.undecryptable = true
+            default:
+                break
+            }
+            return quote
         case .unavailable(let reply):
             return .init(eventId: reply.eventId, senderName: "", text: "")
         case .pending(let reply):
