@@ -2,8 +2,9 @@ import type { SettingsIndexEntry } from '@/app/components/Settings/SettingsSearc
 import { PERMISSION_GROUPS } from './permissionMatrix';
 
 export type RoomSettingsTab =
-  'general' | 'members' | 'permissions' | 'widgets' | 'emojis' | 'sounds' | 'developer';
-export type SpaceSettingsTab = 'general' | 'members' | 'permissions' | 'emojis' | 'sounds';
+  'general' | 'members' | 'permissions' | 'audit' | 'widgets' | 'emojis' | 'sounds' | 'developer';
+export type SpaceSettingsTab =
+  'general' | 'members' | 'permissions' | 'audit' | 'emojis' | 'sounds';
 
 function permissions(space: boolean): SettingsIndexEntry<'permissions'>[] {
   return PERMISSION_GROUPS.flatMap((group) => {

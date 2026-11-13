@@ -5,6 +5,7 @@ import {
   SlidersIcon,
   UsersIcon,
   ShieldIcon,
+  ScrollIcon,
   SmileyStickerIcon,
   VinylRecordIcon,
   XIcon,
@@ -12,13 +13,20 @@ import {
 } from '@phosphor-icons/react';
 import { spaceSettingsRoomIdAtom, emojiPickerAtom } from '@/app/store/atoms';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
-import { useRoomDetails, useSpaceGraph } from '@/app/data';
+import {
+  canViewAuditLog,
+  useRoomDetails,
+  useRoomSettings,
+  useSpaceGraph,
+  useUserId,
+} from '@/app/data';
 import { Dialog } from '@/app/components/Dialog/Dialog';
 import { GeneralPanel } from './General';
 import { PermissionsPanel } from '@/app/features/room/roomsettings/Permissions';
 import { RoomPermissionsMatrix } from '@/app/features/room/roomsettings/RoomPermissionsMatrix';
 import { EmojiStickerPanel } from '@/app/features/room/roomsettings/EmojiStickerPanel';
 import { SoundsPanel } from '@/app/features/room/roomsettings/SoundsPanel';
+import { AuditLogPanel } from '@/app/features/room/roomsettings/AuditLog';
 import { NarrowSettingsList, NarrowSettingsPage } from '@/app/components/Settings/NarrowSettings';
 import {
   SettingsSearchInput,
@@ -44,6 +52,7 @@ const NAV: { tab: Tab; labelKey: string; Icon: PhosphorIcon }[] = [
     labelKey: 'room.settings.permissions.title',
     Icon: ShieldIcon,
   },
+  { tab: 'audit', labelKey: 'room.settings.audit.title', Icon: ScrollIcon },
   {
     tab: 'emojis',
     labelKey: 'room.settings.emojis.title',
@@ -66,7 +75,16 @@ export function SpaceSettings() {
   const pageRef = useRef<HTMLDivElement>(null);
   const clearHighlight = useCallback(() => setHighlight(null), []);
   useHighlightSetting(pageRef, highlight, clearHighlight);
-  const pages = NAV.map((item) => ({ key: item.tab, label: t(item.labelKey), Icon: item.Icon }));
+  const userId = useUserId();
+  const { data: settings } = useRoomSettings(spaceId);
+  const canAudit = canViewAuditLog(settings, userId);
+  const navItems = canAudit ? NAV : NAV.filter((item) => item.tab !== 'audit');
+  const shownTab = !canAudit && activeTab === 'audit' ? 'general' : activeTab;
+  const pages = navItems.map((item) => ({
+    key: item.tab,
+    label: t(item.labelKey),
+    Icon: item.Icon,
+  }));
   const results = useSettingsSearch(pages, SPACE_SETTINGS_INDEX, query);
 
   const graph = useSpaceGraph();
@@ -104,13 +122,16 @@ export function SpaceSettings() {
   );
   const panel = (
     <div ref={pageRef}>
-      {activeTab === 'general' && <GeneralPanel spaceId={spaceId!} />}
-      {activeTab === 'members' && <PermissionsPanel roomId={spaceId!} />}
-      {activeTab === 'permissions' && space && <RoomPermissionsMatrix roomId={spaceId!} />}
-      {activeTab === 'emojis' && space && client && (
+      {shownTab === 'general' && <GeneralPanel spaceId={spaceId!} />}
+      {shownTab === 'members' && <PermissionsPanel roomId={spaceId!} />}
+      {shownTab === 'permissions' && space && <RoomPermissionsMatrix roomId={spaceId!} />}
+      {shownTab === 'audit' && space && client && (
+        <AuditLogPanel roomId={spaceId!} client={client} isSpace />
+      )}
+      {shownTab === 'emojis' && space && client && (
         <EmojiStickerPanel roomId={spaceId!} client={client} />
       )}
-      {activeTab === 'sounds' && space && client && (
+      {shownTab === 'sounds' && space && client && (
         <SoundsPanel roomId={spaceId!} client={client} />
       )}
     </div>
@@ -133,7 +154,7 @@ export function SpaceSettings() {
       {!valid ? null : isNarrow ? (
         showPage ? (
           <NarrowSettingsPage
-            title={t(NAV.find((item) => item.tab === activeTab)?.labelKey ?? '')}
+            title={t(NAV.find((item) => item.tab === shownTab)?.labelKey ?? '')}
             onBack={backToList}
             onClose={close}
           >
@@ -159,8 +180,8 @@ export function SpaceSettings() {
             {results ? (
               <SettingsSearchResults results={results} onSelect={openResult} />
             ) : (
-              NAV.map((item) => {
-                const isActive = activeTab === item.tab;
+              navItems.map((item) => {
+                const isActive = shownTab === item.tab;
                 return (
                   <button
                     key={item.tab}

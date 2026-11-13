@@ -74,6 +74,29 @@ public struct AttachmentThumbnail: Codable, Hashable, Sendable {
     }
 }
 
+public struct AuditLogEntry: Codable, Hashable, Sendable {
+    /// The event as the server sent it, `unsigned.prev_content` included
+    public var event: JSONValue
+    /// For a removed message: who had sent it, when the server still knows
+    public var redactedSender: String?
+
+    public init(event: JSONValue, redactedSender: String? = nil) {
+        self.event = event
+        self.redactedSender = redactedSender
+    }
+}
+
+public struct AuditLogPage: Codable, Hashable, Sendable {
+    public var entries: [AuditLogEntry]
+    /// Token for the next (older) page; none once the start of the visible history is reached
+    public var next: String?
+
+    public init(entries: [AuditLogEntry], next: String? = nil) {
+        self.entries = entries
+        self.next = next
+    }
+}
+
 public enum CallErrorKind: String, Codable, Hashable, Sendable, CaseIterable {
     case membership = "membership"
     case timeout = "timeout"
@@ -3423,6 +3446,12 @@ public final class WizardClient: Remote, @unchecked Sendable {
     /// to the server at most.
     public func stateEventsOfTypes(roomId: String, eventTypes: [String]) async throws -> [[JSONValue]] {
         try await call("WizardClient.stateEventsOfTypes", [.value(roomId), .value(eventTypes)])
+    }
+
+    /// One page of the room's audit log (moderation, membership and settings changes),
+    /// newest first; pass the previous page's `next` for older entries.
+    public func auditLog(roomId: String, from: String? = nil) async throws -> AuditLogPage {
+        try await call("WizardClient.auditLog", [.value(roomId), .value(from)])
     }
 
     /// Every current state event of the room in full, for exploring it.

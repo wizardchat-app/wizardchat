@@ -79,10 +79,3 @@ CI reads it from the masked variables `FDROID_KEYSTORE_BASE64` (`base64 -i wizar
 `FDROID_KEYSTORE_PASSWORD`. It's published on the project's GitLab Pages, at `fdroid.wizardchat.org` once that domain
 is added in **Deploy -> Pages**; set `FDROID_REPO_URL` to `https://fdroid.wizardchat.org/repo` then, since the
 address is part of the signed index.
-
-## GIF search
-
-The GIF pickers search Giphy through a small Cloudflare Worker (`packaging/gif-proxy/worker.js`) at
-`https://gifs.wizardchat.org`, which adds the API key from its secret `GIPHY_API_KEY`, so the key isn't in any app.
-The web and desktop builds take another address from `GIF_API_URL` (e.g. `GIF_API_URL=https://gifs.example.org npm run
-build`); the iOS and Android apps have it in their `GifPicker`.

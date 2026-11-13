@@ -291,6 +291,18 @@ export function powerLevelOf(
   return users[userId] ?? (levels?.users_default as number | undefined) ?? 0;
 }
 
+/** Whether a user can moderate (kick, ban or remove others' messages), which shows the audit log */
+export function canViewAuditLog(settings: RoomSettings | undefined, userId: string): boolean {
+  if (!settings) return false;
+  const levels = settings.powerLevels as Record<string, unknown> | undefined;
+  const level = (key: string) => {
+    const value = levels?.[key];
+    return typeof value === 'number' ? value : 50;
+  };
+  const needed = Math.min(level('kick'), level('ban'), level('redact'));
+  return powerLevelOf(levels, userId, settings.creators) >= needed;
+}
+
 /** Whether a user may send a state event of `type` */
 export function canSendState(
   settings: RoomSettings | undefined,

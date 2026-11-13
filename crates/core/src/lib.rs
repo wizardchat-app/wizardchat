@@ -11,6 +11,7 @@
 #![cfg_attr(target_arch = "wasm32", allow(clippy::arc_with_non_send_sync))]
 
 mod account;
+mod audit_log;
 mod auth;
 mod call_history;
 mod call_log;
@@ -45,6 +46,7 @@ mod widgets;
 
 pub use account::{RegistrationInfo, ServerFeatures, ThirdPartyId};
 pub use account::{UiaAuth, UiaOutcome};
+pub use audit_log::{AuditLogEntry, AuditLogPage};
 pub use auth::{AppInfo, IdentityProvider, PendingLogin, ServerInfo, SessionEvent};
 pub use call_history::{CallHistoryView, CallOutcome, CallParticipantView};
 pub use calls::CallTimings;

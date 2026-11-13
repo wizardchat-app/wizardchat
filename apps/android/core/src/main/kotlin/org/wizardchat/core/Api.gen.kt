@@ -58,6 +58,21 @@ data class AttachmentThumbnail(
 )
 
 @Serializable
+data class AuditLogEntry(
+    /** The event as the server sent it, `unsigned.prev_content` included */
+    val event: JsonElement,
+    /** For a removed message: who had sent it, when the server still knows */
+    val redactedSender: String? = null,
+)
+
+@Serializable
+data class AuditLogPage(
+    val entries: List<AuditLogEntry>,
+    /** Token for the next (older) page; none once the start of the visible history is reached */
+    val next: String? = null,
+)
+
+@Serializable
 enum class CallErrorKind {
     @SerialName("membership") membership,
     @SerialName("timeout") timeout,
@@ -2347,6 +2362,13 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
      */
     suspend fun stateEventsOfTypes(roomId: String, eventTypes: List<String>): List<List<JsonElement>> =
         Runtime.call("WizardClient.stateEventsOfTypes", handle, listOf(Arg.value<String>(roomId), Arg.value<List<String>>(eventTypes)))
+
+    /**
+     * One page of the room's audit log (moderation, membership and settings changes),
+     * newest first; pass the previous page's `next` for older entries.
+     */
+    suspend fun auditLog(roomId: String, from: String? = null): AuditLogPage =
+        Runtime.call("WizardClient.auditLog", handle, listOf(Arg.value<String>(roomId), Arg.value<String?>(from)))
 
     /** Every current state event of the room in full, for exploring it. */
     suspend fun roomState(roomId: String): List<JsonElement> =

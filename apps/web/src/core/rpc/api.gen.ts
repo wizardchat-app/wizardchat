@@ -54,6 +54,25 @@ export type AttachmentThumbnail = {
   height: number;
 };
 
+export type AuditLogEntry = {
+  /**
+   * The event as the server sent it, `unsigned.prev_content` included
+   */
+  event: JsonValue;
+  /**
+   * For a removed message: who had sent it, when the server still knows
+   */
+  redactedSender: string | null;
+};
+
+export type AuditLogPage = {
+  entries: Array<AuditLogEntry>;
+  /**
+   * Token for the next (older) page; none once the start of the visible history is reached
+   */
+  next: string | null;
+};
+
 export type CallErrorKind = 'membership' | 'timeout' | 'disconnected' | 'replaced' | 'removed';
 
 export type CallEvent =
@@ -2128,6 +2147,14 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.stateEventsOfTypes', this, [roomId, eventTypes]) as Promise<
       Array<[string, string, JsonValue]>
     >;
+  }
+
+  /**
+   * One page of the room's audit log (moderation, membership and settings changes),
+   * newest first; pass the previous page's `next` for older entries.
+   */
+  auditLog(roomId: string, from?: string | null): Promise<AuditLogPage> {
+    return runtime.call('WizardClient.auditLog', this, [roomId, from]) as Promise<AuditLogPage>;
   }
 
   /** Every current state event of the room in full, for exploring it. */

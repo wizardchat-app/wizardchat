@@ -6,6 +6,7 @@ import {
   PuzzlePieceIcon,
   UsersIcon,
   ShieldIcon,
+  ScrollIcon,
   SmileyStickerIcon,
   VinylRecordIcon,
   WrenchIcon,
@@ -19,7 +20,7 @@ import {
   emojiPickerAtom,
 } from '@/app/store/atoms';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
-import { useRoom } from '@/app/data';
+import { canViewAuditLog, useRoom, useRoomSettings, useUserId } from '@/app/data';
 import { Dialog } from '@/app/components/Dialog/Dialog';
 import { GeneralPanel } from './General';
 import { PermissionsPanel } from './Permissions';
@@ -28,6 +29,7 @@ import { Widgets } from './Widgets';
 import { EmojiStickerPanel } from './EmojiStickerPanel';
 import { SoundsPanel } from './SoundsPanel';
 import { DeveloperPanel } from './Developer';
+import { AuditLogPanel } from './AuditLog';
 import { NarrowSettingsList, NarrowSettingsPage } from '@/app/components/Settings/NarrowSettings';
 import {
   SettingsSearchInput,
@@ -50,6 +52,7 @@ const NAV: { tab: Tab; labelKey: string; Icon: PhosphorIcon }[] = [
     labelKey: 'room.settings.permissions.title',
     Icon: ShieldIcon,
   },
+  { tab: 'audit', labelKey: 'room.settings.audit.title', Icon: ScrollIcon },
   {
     tab: 'widgets',
     labelKey: 'room.settings.widgets.title',
@@ -85,8 +88,13 @@ export function RoomSettings() {
 
   const room = useRoom(roomId);
 
-  const navItems = developerMode ? NAV : NAV.filter((item) => !DEV_TABS.includes(item.tab));
-  const shownTab = !developerMode && DEV_TABS.includes(activeTab) ? 'general' : activeTab;
+  const userId = useUserId();
+  const { data: settings } = useRoomSettings(roomId);
+  const canAudit = canViewAuditLog(settings, userId);
+  const hidden = (tab: Tab) =>
+    (!developerMode && DEV_TABS.includes(tab)) || (!canAudit && tab === 'audit');
+  const navItems = NAV.filter((item) => !hidden(item.tab));
+  const shownTab = hidden(activeTab) ? 'general' : activeTab;
   const pages = navItems.map((item) => ({
     key: item.tab,
     label: t(item.labelKey),
@@ -129,6 +137,7 @@ export function RoomSettings() {
       {shownTab === 'general' && <GeneralPanel roomId={roomId!} onClose={close} />}
       {shownTab === 'members' && <PermissionsPanel roomId={roomId!} />}
       {shownTab === 'permissions' && room && <RoomPermissionsMatrix roomId={roomId!} />}
+      {shownTab === 'audit' && <AuditLogPanel roomId={roomId!} client={client!} isSpace={false} />}
       {shownTab === 'widgets' && <Widgets roomId={roomId!} client={client!} />}
       {shownTab === 'emojis' && <EmojiStickerPanel roomId={roomId!} client={client!} />}
       {shownTab === 'sounds' && <SoundsPanel roomId={roomId!} client={client!} />}

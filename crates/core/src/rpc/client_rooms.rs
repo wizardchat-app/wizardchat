@@ -4,8 +4,9 @@ use serde_json::Value;
 
 use super::{Bytes, Listener, Subscription};
 use crate::{
-    EventSource, ListDiff, MemberEntry, MessageVersion, RoomSettings, ServerCapabilities,
-    SpaceHierarchy, SpaceSummary, ThirdPartyId, UnreadMention, UnreadThread, WizardClient,
+    AuditLogPage, EventSource, ListDiff, MemberEntry, MessageVersion, RoomSettings,
+    ServerCapabilities, SpaceHierarchy, SpaceSummary, ThirdPartyId, UnreadMention, UnreadThread,
+    WizardClient,
 };
 
 rpc_methods! {
@@ -170,6 +171,10 @@ rpc_methods! {
         /// to the server at most.
         call fn stateEventsOfTypes(room_id: String, event_types: Vec<String>) -> Vec<(String, String, Value)> {
             this.state_events_of_types(&room_id, &event_types).await
+        }
+
+        call fn auditLog(room_id: String, from: Option<String>) -> AuditLogPage {
+            this.audit_log(&room_id, from).await
         }
 
         /// Every current state event of the room in full, for exploring it.
