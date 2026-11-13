@@ -169,7 +169,7 @@ internal fun ActionRow(
 /** A row that opens a page: icon, title, an optional value and a chevron */
 @Composable
 internal fun NavRow(title: String, icon: String, onClick: () -> Unit, value: String? = null) {
-    GroupedRow(title, icon = icon, iconTint = theme.accent, onClick = onClick) {
+    GroupedRow(title, icon = icon, iconTint = theme.control, onClick = onClick) {
         if (value != null) Text(value, style = wizardFont(WZ.FontSize.lg), color = theme.textMuted)
         PhIcon("caret-right", PhWeight.bold, size = WZ.SizeIcon.xs, tint = theme.textMuted)
     }
@@ -178,7 +178,7 @@ internal fun NavRow(title: String, icon: String, onClick: () -> Unit, value: Str
 /** A row with a switch */
 @Composable
 internal fun ToggleRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, icon: String? = null, subtitle: String? = null) {
-    GroupedRow(title, icon = icon, iconTint = theme.accent, subtitle = subtitle, onClick = { onChange(!checked) }) {
+    GroupedRow(title, icon = icon, iconTint = theme.control, subtitle = subtitle, onClick = { onChange(!checked) }) {
         WizardSwitch(checked, onChange)
     }
 }

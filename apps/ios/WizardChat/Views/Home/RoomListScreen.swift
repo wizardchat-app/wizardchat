@@ -14,9 +14,11 @@ struct RoomListScreen: View {
     var onOpenInbox: (() -> Void)?
 
     @EnvironmentObject private var prefs: AppPreferences
+    @EnvironmentObject private var notifier: MessageNotifier
     @Environment(\.theme) private var theme
     @State private var search = ""
     @State private var leaving: RoomSummary?
+    @State private var infoRoom: RoomSummary?
     @State private var showNewRoom = false
     @State private var showNewMessage = false
     @State private var showSpaceSettings = false
@@ -171,6 +173,13 @@ struct RoomListScreen: View {
         .alert(sectionError ?? "", isPresented: Binding(get: { sectionError != nil }, set: { if !$0 { sectionError = nil } })) {
             Button(String(localized: "common.close"), role: .cancel) {}
         }
+        .sheet(item: $infoRoom) { room in
+            RoomInfoView(room: room, client: roomList.client) { eventId in
+                infoRoom = nil
+                notifier.eventToFocus = (room.id, eventId)
+                openRoom(room.id, notifier: notifier)
+            }
+        }
         .confirmationDialog(
             L10n.format("room.info.leaveConfirm", leaving?.displayName ?? ""),
             isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }),
@@ -210,6 +219,9 @@ struct RoomListScreen: View {
         .contextMenu {
             Button { Task { await roomList.setRead(room, read: true) } } label: {
                 Label(menu: String(localized: "common.markRead"), icon: "ph-envelope-open-regular")
+            }
+            Button { infoRoom = room } label: {
+                Label(menu: String(localized: "room.info.title"), icon: "ph-info-regular")
             }
             Menu {
                 Picker(selection: Binding(get: { roomList.notificationMode(of: room) },
