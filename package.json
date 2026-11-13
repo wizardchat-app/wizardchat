@@ -1,6 +1,6 @@
 {
   "name": "wizardchat",
-  "version": "26.12.3-next.2",
+  "version": "26.12.3-next.3",
   "description": "simple, secure, magical [matrix] client",
   "type": "module",
   "license": "AGPL-3.0",
