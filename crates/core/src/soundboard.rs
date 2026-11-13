@@ -26,11 +26,7 @@ macro_rules! built_in {
             body: $body,
             duration_ms: $duration_ms,
             source: $source,
-            data: include_bytes!(concat!(
-                "../../../packages/sounds/soundboard/",
-                $shortcode,
-                ".mp3"
-            )),
+            data: include_bytes!(concat!("../sounds/", $shortcode, ".mp3")),
         }
     };
 }
