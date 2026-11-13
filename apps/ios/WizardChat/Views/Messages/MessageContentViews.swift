@@ -17,10 +17,8 @@ struct ImageMessageView: View {
     @Environment(\.animatesMedia) private var animatesMedia
     @State private var image: UIImage?
     @State private var revealed = false
-    @State private var playing = false
     @State private var holding = false
     @State private var showViewer = false
-    private static let tapPlays = 2
 
     private var hidden: Bool {
         guard !revealed else { return false }
@@ -36,8 +34,7 @@ struct ImageMessageView: View {
         media.isAnimated || isSticker || ["image/gif", "image/webp", "image/apng"].contains(media.mimetype ?? "")
     }
 
-    private var animate: Bool { canAnimate && (prefs.autoplayGifs || playing || holding || animatesMedia) }
-    private var playsFromTap: Bool { playing && !(prefs.autoplayGifs || holding || animatesMedia) }
+    private var animate: Bool { canAnimate && (prefs.autoplayGifs || holding || animatesMedia) }
 
     private var displaySize: CGSize {
         let maxWidth: CGFloat = isSticker ? 160 : 260
@@ -51,8 +48,7 @@ struct ImageMessageView: View {
         ZStack {
             if let image {
                 if image.images != nil {
-                    AnimatedImageView(image: image, contentMode: isSticker ? .scaleAspectFit : .scaleAspectFill,
-                                      loops: playsFromTap ? Self.tapPlays : 0)
+                    AnimatedImageView(image: image, contentMode: isSticker ? .scaleAspectFit : .scaleAspectFill)
                 } else {
                     Image(uiImage: image)
                         .resizable()
@@ -83,20 +79,16 @@ struct ImageMessageView: View {
         .clipShape(RoundedRectangle(cornerRadius: isSticker ? 0 : 14, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture {
-            if hidden { revealed = true }
-            else if canAnimate && !animate { playing = true }
-            else if !isSticker { showViewer = true }
+            if hidden { revealed = true } else { showViewer = true }
         }
         .gesture(HoldGesture { holding = $0 })
-        .task(id: "\(animate)-\(hidden)-\(playing)") {
+        .task(id: "\(animate)-\(hidden)") {
             guard !hidden, let mediaLoader else { return }
             image = await mediaLoader.image(for: media.source, thumbnailSize: animate ? nil : 800, animated: animate)
-            guard playing, !prefs.autoplayGifs, !animatesMedia, let image, image.images != nil else { return }
-            try? await Task.sleep(for: .seconds(image.duration * Double(Self.tapPlays)))
-            if !Task.isCancelled { playing = false }
         }
         .fullScreenCover(isPresented: $showViewer) {
-            ImageViewer(image: image, title: media.caption ?? media.filename)
+            ImageViewer(image: image, title: media.caption ?? media.filename,
+                        animatedSource: canAnimate ? media.source : nil, loader: mediaLoader)
         }
         .accessibilityLabel(media.body)
     }
@@ -106,20 +98,35 @@ struct ImageViewer: View {
     @Environment(\.theme) private var theme
     let image: UIImage?
     let title: String
+    var animatedSource: MediaSource?
+    var loader: MediaLoader?
     @Environment(\.dismiss) private var dismiss
     @State private var scale: CGFloat = 1
+    @State private var animated: UIImage?
 
     var body: some View {
         NavigationStack {
             ZStack {
                 theme.overlay.ignoresSafeArea()
-                if let image {
+                if let animated {
+                    AnimatedImageView(image: animated, contentMode: .scaleAspectFit)
+                        .scaleEffect(scale)
+                        .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }
+                            .onEnded { _ in withAnimation { scale = 1 } })
+                } else if let image {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
                         .scaleEffect(scale)
                         .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }
                             .onEnded { _ in withAnimation { scale = 1 } })
+                }
+            }
+            .task {
+                guard let animatedSource, let loader else { return }
+                if let full = await loader.image(for: animatedSource, thumbnailSize: nil, animated: true),
+                   full.images != nil {
+                    animated = full
                 }
             }
             .navigationTitle(title)

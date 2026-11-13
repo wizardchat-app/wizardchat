@@ -240,19 +240,18 @@ fun ImageMessageView(
     val loader = LocalMedia.current
     val animatesMedia = LocalAnimatesMedia.current
     var revealed by remember { mutableStateOf(false) }
-    var playing by remember { mutableStateOf(false) }
     var showViewer by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val holding by interaction.collectIsPressedAsState()
     val hidden = mediaHidden(revealed, spoiler, isPrivateRoom)
     val canAnimate = media.isAnimated || isSticker || media.mimetype in listOf("image/gif", "image/webp", "image/apng")
-    val animate = canAnimate && (prefs.autoplayGifs || playing || holding || animatesMedia)
+    val animate = canAnimate && (prefs.autoplayGifs || holding || animatesMedia)
 
     var image by remember(media.source) { mutableStateOf<Bitmap?>(null) }
     var animated by remember(media.source) { mutableStateOf<Drawable?>(null) }
-    LaunchedEffect(animate, hidden, loader) {
+    LaunchedEffect(animate, showViewer, hidden, loader) {
         if (hidden || loader == null) return@LaunchedEffect
-        if (animate) animated = loader.animated(media.source)
+        if ((animate || showViewer && canAnimate) && animated == null) animated = loader.animated(media.source)
         if (image == null) image = loader.image(media.source, if (animate) null else 800)
     }
 
@@ -268,11 +267,7 @@ fun ImageMessageView(
             .size(maxOf(width * scale, 60f).dp, maxOf(height * scale, 60f).dp)
             .clip(shape)
             .messageTap(interaction) {
-                when {
-                    hidden -> revealed = true
-                    canAnimate && !animate && !isSticker -> playing = true
-                    !isSticker -> showViewer = true
-                }
+                if (hidden) revealed = true else showViewer = true
             }
             .semantics { contentDescription = media.body },
         contentAlignment = Alignment.Center,
