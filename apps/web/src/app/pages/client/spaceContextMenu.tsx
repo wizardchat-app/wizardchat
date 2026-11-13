@@ -1,7 +1,7 @@
 import type { RoomSummary, SpaceNode, WizardClient } from '@wizardchat/core';
 import { markRoomAsRead } from './markAsRead';
 import {
-  ChecksIcon,
+  EnvelopeSimpleOpenIcon,
   StackIcon,
   PushPinIcon,
   UserPlusIcon,
@@ -57,7 +57,7 @@ export function buildHomeMenu(deps: ViewMenuDeps): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
   items.push({
     label: t('common.markRead'),
-    icon: <ChecksIcon size={14} />,
+    icon: <EnvelopeSimpleOpenIcon size={14} />,
     disabled: !hasJoinedUnreadRooms(rooms, homeIds),
     onClick: () => markRoomsAsRead(client, sendReadReceipts, unreadRoomIds(rooms, homeIds)),
   });
@@ -85,7 +85,7 @@ export function buildDmsMenu(deps: ViewMenuDeps): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
   items.push({
     label: t('common.markRead'),
-    icon: <ChecksIcon size={14} />,
+    icon: <EnvelopeSimpleOpenIcon size={14} />,
     disabled: !hasJoinedUnreadRooms(rooms, dmIds),
     onClick: () => markRoomsAsRead(client, sendReadReceipts, unreadRoomIds(rooms, dmIds)),
   });
@@ -138,7 +138,7 @@ export function buildSpaceMenu(space: SpaceEntry, deps: SpaceMenuDeps): ContextM
   const items: ContextMenuItem[] = [];
   items.push({
     label: t('common.markRead'),
-    icon: <ChecksIcon size={14} />,
+    icon: <EnvelopeSimpleOpenIcon size={14} />,
     disabled: !spaceHasJoinedUnread(rooms, graph, space.roomId),
     onClick: () => markSpaceAsRead(space.roomId),
   });

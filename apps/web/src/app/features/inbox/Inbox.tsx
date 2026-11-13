@@ -2,7 +2,12 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { TrayIcon, HashStraightIcon, StackIcon, ChecksIcon } from '@phosphor-icons/react';
+import {
+  TrayIcon,
+  HashStraightIcon,
+  StackIcon,
+  EnvelopeSimpleOpenIcon,
+} from '@phosphor-icons/react';
 import { Tooltip } from '@/app/components/Tooltip';
 import { Avatar } from '@/app/components/Avatar';
 import { Popover } from '@/app/components/Popover/Popover';
@@ -109,7 +114,7 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
         onClick={handleMarkAllRead}
         aria-label={t('common.markAllRead')}
       >
-        <ChecksIcon size={16} />
+        <EnvelopeSimpleOpenIcon size={16} />
       </button>
     </Tooltip>
   );
@@ -313,7 +318,7 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
                       handleMarkRead(mention.roomId);
                     }}
                   >
-                    <ChecksIcon size={14} />
+                    <EnvelopeSimpleOpenIcon size={14} />
                   </button>
                 </Tooltip>
               </span>

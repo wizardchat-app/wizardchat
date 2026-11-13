@@ -198,7 +198,7 @@ class MessageNotifier {
         ).addRemoteInput(replyInput).setAllowGeneratedReplies(false)
             .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY).build()
         val markRead = NotificationCompat.Action.Builder(
-            PhIcons.id("envelope-open"),
+            PhIcons.id("envelope-simple-open"),
             L10n.format("common.markRead"),
             actionIntent(ACTION_MARK_READ, roomId, userId, tag, ROOM_ID, mutable = false),
         ).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build()

@@ -372,7 +372,7 @@ private fun SwipeableRoomRow(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PhIcon(
-                    if (!leading) "sign-out" else if (unread) "envelope-open" else "envelope-simple",
+                    if (!leading) "sign-out" else if (unread) "envelope-simple-open" else "envelope-simple",
                     tint = if (leading) theme.bgPrimary else theme.textOnAccent,
                     size = WZ.SizeIcon.lg,
                 )
@@ -400,7 +400,7 @@ private fun SwipeableRoomRow(
                 menuOpen,
                 { menuOpen = false },
                 listOfNotNull(
-                    MenuItem(tr("common.markRead"), "envelope-open") { onToggleRead(true) },
+                    MenuItem(tr("common.markRead"), "envelope-simple-open") { onToggleRead(true) },
                     MenuItem(tr("room.info.title"), "info", onClick = onOpenInfo),
                     MenuItem(tr("room.notifications.title"), "bell") { notificationsOpen = true },
                     MenuItem(tr(if (room.isFavourite) "room.removeFavourite" else "room.addFavourite"), "star", onClick = onToggleFavourite),

@@ -7,7 +7,7 @@ import {
   ChatDotsIcon,
   XIcon,
   LockIcon,
-  ChecksIcon,
+  EnvelopeSimpleOpenIcon,
   ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
 } from '@phosphor-icons/react';
@@ -203,7 +203,7 @@ export function ThreadListPanel({
               onClick={markAllRead}
               aria-label={t('common.markAllRead')}
             >
-              <ChecksIcon size={16} />
+              <EnvelopeSimpleOpenIcon size={16} />
             </button>
           </Tooltip>
         )}
@@ -344,7 +344,7 @@ export function ThreadListPanel({
                             markThreadRead(thread);
                           }}
                         >
-                          <ChecksIcon size={14} />
+                          <EnvelopeSimpleOpenIcon size={14} />
                         </button>
                       </Tooltip>
                     )}

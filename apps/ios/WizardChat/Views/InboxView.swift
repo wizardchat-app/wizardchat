@@ -213,7 +213,7 @@ struct InboxView: View {
         }
         .swipeActions(edge: .trailing) {
             Button { Task { await roomList.markAsRead([room]) } } label: {
-                Label(String(localized: "common.markRead"), image: "ph-envelope-open-regular")
+                Label(String(localized: "common.markRead"), image: "ph-envelope-simple-open-regular")
             }
             .tint(theme.textMuted)
         }

@@ -5,7 +5,8 @@ import {
   GearIcon,
   UserPlusIcon,
   SignOutIcon,
-  ChecksIcon,
+  EnvelopeSimpleOpenIcon,
+  EnvelopeSimpleIcon,
   ChatTextIcon,
   BellIcon,
   BellSimpleIcon,
@@ -174,6 +175,10 @@ export const RoomListItem = memo(function RoomListItem({
     void markRoomAsRead(client, entry.roomId, sendReadReceipts);
   }, [client, entry.roomId, sendReadReceipts]);
 
+  const handleMarkAsUnread = useCallback(() => {
+    client?.setMarkedUnread(entry.roomId, true).catch(() => {});
+  }, [client, entry.roomId]);
+
   const handleCopyLink = useCallback(() => {
     if (!room) return;
     navigator.clipboard.writeText(makeRoomPermalink(room)).catch(() => {});
@@ -201,12 +206,17 @@ export const RoomListItem = memo(function RoomListItem({
               },
             ]
           : []),
-        {
-          label: t('common.markRead'),
-          icon: <ChecksIcon size={14} />,
-          disabled: entry.unreadCount === 0 && !entry.hasNotif,
-          onClick: handleMarkAsRead,
-        },
+        entry.unreadCount === 0 && !entry.hasNotif
+          ? {
+              label: t('nav.markAsUnread'),
+              icon: <EnvelopeSimpleIcon size={14} />,
+              onClick: handleMarkAsUnread,
+            }
+          : {
+              label: t('common.markRead'),
+              icon: <EnvelopeSimpleOpenIcon size={14} />,
+              onClick: handleMarkAsRead,
+            },
         {
           divider: true,
           label: '',
@@ -265,6 +275,7 @@ export const RoomListItem = memo(function RoomListItem({
       entry.roomId,
       entry.name,
       handleMarkAsRead,
+      handleMarkAsUnread,
       handleCopyLink,
       handleToggleFavourite,
       sectionMenu,
@@ -335,15 +346,24 @@ export const DmListItem = memo(function DmListItem({
     void markRoomAsRead(client, entry.roomId, sendReadReceipts);
   }, [client, entry.roomId, sendReadReceipts]);
 
+  const handleMarkAsUnread = useCallback(() => {
+    client?.setMarkedUnread(entry.roomId, true).catch(() => {});
+  }, [client, entry.roomId]);
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       openContextMenu(e, [
-        {
-          label: t('common.markRead'),
-          icon: <ChecksIcon size={14} />,
-          disabled: entry.unreadCount === 0 && !entry.hasNotif,
-          onClick: handleMarkAsRead,
-        },
+        entry.unreadCount === 0 && !entry.hasNotif
+          ? {
+              label: t('nav.markAsUnread'),
+              icon: <EnvelopeSimpleIcon size={14} />,
+              onClick: handleMarkAsUnread,
+            }
+          : {
+              label: t('common.markRead'),
+              icon: <EnvelopeSimpleOpenIcon size={14} />,
+              onClick: handleMarkAsRead,
+            },
         {
           divider: true,
           label: '',
@@ -382,6 +402,7 @@ export const DmListItem = memo(function DmListItem({
       entry.unreadCount,
       entry.hasNotif,
       handleMarkAsRead,
+      handleMarkAsUnread,
       t,
       level,
       setLevel,

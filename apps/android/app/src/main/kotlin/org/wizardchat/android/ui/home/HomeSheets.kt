@@ -123,7 +123,7 @@ private fun SpaceGridItem(space: SpaceSummary, unread: UnreadState, onMarkRead: 
             menuOpen,
             { menuOpen = false },
             listOfNotNull(
-                if (unread.unread) MenuItem(tr("common.markRead"), "envelope-open") { onMarkRead() } else null,
+                if (unread.unread) MenuItem(tr("common.markRead"), "envelope-simple-open") { onMarkRead() } else null,
                 MenuItem(tr("common.copyLink"), "link-simple") {
                     copyToClipboard("https://matrix.to/#/${space.id}", L10n.format("timeline.linkCopied"))
                 },

@@ -205,7 +205,7 @@ struct RoomListScreen: View {
                 Task { await roomList.setRead(room, read: unread) }
             } label: {
                 Label(unread ? String(localized: "common.markRead") : String(localized: "nav.markAsUnread"),
-                      image: unread ? "ph-envelope-open-regular" : "ph-envelope-simple-regular")
+                      image: unread ? "ph-envelope-simple-open-regular" : "ph-envelope-simple-regular")
             }
             // Swipe actions always draw their icon white, so this needs a darker neutral
             .tint(theme.textMuted)
@@ -218,7 +218,7 @@ struct RoomListScreen: View {
         }
         .contextMenu {
             Button { Task { await roomList.setRead(room, read: true) } } label: {
-                Label(menu: String(localized: "common.markRead"), icon: "ph-envelope-open-regular")
+                Label(menu: String(localized: "common.markRead"), icon: "ph-envelope-simple-open-regular")
             }
             Button { infoRoom = room } label: {
                 Label(menu: String(localized: "room.info.title"), icon: "ph-info-regular")
