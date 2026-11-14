@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +38,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +58,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -68,9 +71,11 @@ import org.wizardchat.android.ui.BarTextButton
 import org.wizardchat.android.ui.ConfirmDialog
 import org.wizardchat.android.ui.GroupedRow
 import org.wizardchat.android.ui.GroupedSection
+import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.android.ui.RowDivider
+import org.wizardchat.android.ui.Spinner
 import org.wizardchat.android.ui.WizardSheet
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
@@ -235,9 +240,10 @@ private class YouTubeCoordinator(private val watch: WatchTogether) {
             }
             "state" -> {
                 val newState = YT.of((message["state"] as? JsonPrimitive)?.intOrNull) ?: YT.unstarted
-                message.number("time")?.let { time = it }
+                val eventVideoId = message.text("videoId")
+                if (eventVideoId == null || eventVideoId == state?.videoId) message.number("time")?.let { time = it }
                 playerState = newState
-                handle(newState)
+                handle(newState, eventVideoId)
             }
             "rate" -> message.number("rate")?.let { rateChanged(it) }
             "error" -> onFailed?.invoke()
@@ -245,10 +251,11 @@ private class YouTubeCoordinator(private val watch: WatchTogether) {
     }
 
     /** Your own play/pause in the player becomes the shared state (unless it's us applying someone else's change) */
-    private fun handle(newState: YT) {
+    private fun handle(newState: YT, eventVideoId: String?) {
         val previous = lastState
         lastState = newState
         val s = state ?: return
+        if (eventVideoId != null && eventVideoId != s.videoId) return
         if (newState == YT.buffering) {
             if (bufferingSince == null) bufferingSince = System.currentTimeMillis()
             return
@@ -271,7 +278,10 @@ private class YouTubeCoordinator(private val watch: WatchTogether) {
                 if (pending != null && !pending.playing) command = null
                 if (s.playing && pending == null) watch.update(false, time)
             }
-            YT.ended -> if (s.playing) watch.update(false, duration)
+            YT.ended -> {
+                if (watch.advance(s.videoId)) return
+                if (s.playing) watch.update(false, duration)
+            }
             else -> {}
         }
     }
@@ -389,7 +399,7 @@ private class YouTubeCoordinator(private val watch: WatchTogether) {
                   playerVars:{autoplay:${if (autoplay) 1 else 0},start:${start.toInt()},playsinline:1,rel:0,cc_load_policy:0},
                   events:{
                     onReady:function(){ ready=true; status(); post({type:'ready'}); },
-                    onStateChange:function(e){ if(e.data===1) captionsOff(); post({type:'state',state:e.data,time:player.getCurrentTime()}); status(); },
+                    onStateChange:function(e){ if(e.data===1) captionsOff(); var d=player.getVideoData?player.getVideoData():null; post({type:'state',state:e.data,time:player.getCurrentTime(),videoId:d&&d.video_id}); status(); },
                     onPlaybackRateChange:function(e){ status(); post({type:'rate',rate:e.data}); },
                     onError:function(e){ post({type:'error',code:e.data}); }
                   }});
@@ -428,6 +438,7 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolea
     val uriHandler = LocalUriHandler.current
     var failed by remember(state.videoId) { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
+    var showQueue by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         YouTubeSyncPlayer(
             watch,
@@ -488,6 +499,26 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolea
                     )
                     WatchViewers(watch, roomId)
                 }
+                if (state.queue.isNotEmpty()) {
+                    SmallButton("skip-forward", tr("call.watchTogether.queue.skip"), weight = PhWeight.fill) { watch.skip() }
+                }
+                Box {
+                    SmallButton("queue", tr("call.watchTogether.queue.title")) { showQueue = true }
+                    if (state.queue.isNotEmpty()) {
+                        Text(
+                            "${state.queue.size}",
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = WZ.Space.space2, y = -WZ.Space.space2)
+                                .clip(CircleShape)
+                                .background(theme.accent)
+                                .padding(horizontal = WZ.Space.space2)
+                                .clearAndSetSemantics {},
+                            style = wizardFont(WZ.FontSize.xs, FontWeight.Bold),
+                            color = theme.textOnAccent,
+                        )
+                    }
+                }
                 SmallButton("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
                     runCatching { uriHandler.openUri(WatchTogether.watchUrl(state.videoId, state.expectedPosition())) }
                 }
@@ -503,6 +534,9 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolea
             onConfirm = { watch.stop() },
             onDismiss = { confirmStop = false },
         )
+    }
+    if (showQueue && !compact) {
+        WatchQueueSheet(watch, roomId, onDismiss = { showQueue = false })
     }
 }
 
@@ -588,7 +622,7 @@ private fun WatchViewers(watch: WatchTogether, roomId: String, modifier: Modifie
 }
 
 @Composable
-private fun SmallButton(icon: String, label: String, tint: Color = Color.White, onClick: () -> Unit) {
+private fun SmallButton(icon: String, label: String, tint: Color = Color.White, weight: PhWeight = PhWeight.regular, onClick: () -> Unit) {
     Box(
         Modifier
             .size(WZ.Space.space9)
@@ -598,7 +632,7 @@ private fun SmallButton(icon: String, label: String, tint: Color = Color.White, 
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        PhIcon(icon, PhWeight.regular, size = WZ.SizeIcon.sm, tint = tint)
+        PhIcon(icon, weight, size = WZ.SizeIcon.sm, tint = tint)
     }
 }
 
@@ -606,19 +640,41 @@ private fun SmallButton(icon: String, label: String, tint: Color = Color.White, 
 @Composable
 internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var link by remember { mutableStateOf("") }
-    var invalid by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
     val clipboard = remember { context.getSystemService(ClipboardManager::class.java) }
     val canPaste = clipboard?.hasPrimaryClip() == true
 
+    fun begin(videoIds: List<String>) {
+        if (videoIds.isEmpty()) return
+        watch.start(videoIds.take(WatchTogether.QUEUE_LIMIT + 1))
+        onDismiss()
+    }
+
     fun start() {
-        val id = WatchTogether.parseVideoId(link)
-        if (id == null) {
-            invalid = true
+        if (loading) return
+        val parsed = WatchTogether.parseLink(link)
+        if (parsed == null) {
+            error = L10n.format("call.watchTogether.invalidLink")
             return
         }
-        watch.start(id)
-        onDismiss()
+        val videoId = parsed.videoId
+        if (parsed.listId == null) {
+            if (videoId != null) begin(listOf(videoId))
+            return
+        }
+        loading = true
+        scope.launch {
+            try {
+                begin(loadYouTubePlaylist(context, parsed))
+            } catch (_: PlaylistUnavailable) {
+                if (videoId != null) begin(listOf(videoId)) else error = L10n.format("call.watchTogether.queue.playlistFailed")
+            } finally {
+                loading = false
+            }
+        }
     }
 
     WizardSheet(onDismiss) {
@@ -631,7 +687,11 @@ internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit
                 color = theme.textPrimary,
             )
             Box(Modifier.align(Alignment.CenterEnd)) {
-                BarTextButton(tr("call.watchTogether.start"), ::start, enabled = link.isNotBlank(), bold = true)
+                if (loading) {
+                    Spinner(Modifier.padding(horizontal = WZ.Space.space6), size = WZ.SizeIcon.md)
+                } else {
+                    BarTextButton(tr("call.watchTogether.start"), ::start, enabled = link.isNotBlank(), bold = true)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().background(theme.groupedBackground).imePadding().navigationBarsPadding().padding(bottom = WZ.Space.space8)) {
@@ -640,7 +700,7 @@ internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit
                     value = link,
                     onValueChange = {
                         link = it
-                        invalid = false
+                        error = null
                     },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("https://www.youtube.com/watch?v=...", color = theme.textMuted, style = wizardFont(WZ.FontSize.lg)) },
@@ -666,17 +726,17 @@ internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit
                         onClick = {
                             clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()?.let {
                                 link = it
-                                invalid = false
+                                error = null
                             }
                         },
                     )
                 }
             }
             Text(
-                if (invalid) tr("call.watchTogether.invalidLink") else tr("call.watchTogether.joinNote"),
+                error ?: tr("call.watchTogether.joinNote"),
                 Modifier.padding(start = WZ.Space.space6 + WZ.Space.space5, end = WZ.Space.space6 + WZ.Space.space5, top = WZ.Space.space3),
                 style = wizardFont(WZ.FontSize.sm),
-                color = if (invalid) theme.error else theme.textMuted,
+                color = if (error != null) theme.error else theme.textMuted,
             )
         }
     }

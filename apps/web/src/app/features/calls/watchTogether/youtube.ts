@@ -38,7 +38,7 @@ interface PlayerOptions {
   autoplay: boolean;
   start: number;
   onReady: () => void;
-  onStateChange: (state: number) => void;
+  onStateChange: (state: number, videoId?: string) => void;
   onRateChange?: (rate: number) => void;
   onError: (kind: 'video' | 'bridge') => void;
 }
@@ -94,7 +94,10 @@ export function createYouTubePlayer(host: HTMLElement, options: PlayerOptions): 
       options.onRateChange?.(data.rate);
     } else if (data.type === 'state' && typeof data.state === 'number') {
       status.state = data.state;
-      options.onStateChange(data.state);
+      options.onStateChange(
+        data.state,
+        typeof data.videoId === 'string' ? data.videoId : undefined
+      );
     } else if (data.type === 'error') {
       options.onError('video');
     }
@@ -132,5 +135,75 @@ export function createYouTubePlayer(host: HTMLElement, options: PlayerOptions): 
       window.removeEventListener('message', onMessage);
       iframe.remove();
     },
+  };
+}
+
+const PLAYLIST_TIMEOUT_MS = 20_000;
+
+export function fetchPlaylistIds(listId: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const url = bridgeUrl();
+    const iframe = document.createElement('iframe');
+    iframe.src = url.href;
+    iframe.setAttribute('aria-hidden', 'true');
+    Object.assign(iframe.style, {
+      position: 'fixed',
+      width: '320px',
+      height: '180px',
+      left: '-10000px',
+      top: '0',
+      visibility: 'hidden',
+    });
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      iframe.remove();
+    };
+    const timer = setTimeout(() => {
+      done();
+      reject(new Error('timeout'));
+    }, PLAYLIST_TIMEOUT_MS);
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== iframe.contentWindow || event.origin !== url.origin) return;
+      const data = event.data as Record<string, unknown> | null;
+      if (!data || data.source !== SOURCE) return;
+      if (data.type === 'loaded') {
+        iframe.contentWindow?.postMessage(
+          { type: 'init', playlist: listId, target: SOURCE },
+          url.origin
+        );
+      } else if (data.type === 'playlist') {
+        done();
+        const ids = Array.isArray(data.ids)
+          ? data.ids.filter((id): id is string => typeof id === 'string' && /^[\w-]{11}$/.test(id))
+          : [];
+        if (ids.length > 0) resolve(ids);
+        else reject(new Error('empty'));
+      } else if (data.type === 'error') {
+        done();
+        reject(new Error('error'));
+      }
+    };
+    window.addEventListener('message', onMessage);
+    document.body.appendChild(iframe);
+  });
+}
+
+export interface VideoInfo {
+  title: string;
+  author: string;
+}
+
+export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
+  const watch = encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`);
+  const response = await fetch(`https://www.youtube.com/oembed?url=${watch}&format=json`, {
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+  });
+  if (!response.ok) throw new Error(String(response.status));
+  const data = (await response.json()) as { title?: unknown; author_name?: unknown };
+  return {
+    title: typeof data.title === 'string' ? data.title : videoId,
+    author: typeof data.author_name === 'string' ? data.author_name : '',
   };
 }

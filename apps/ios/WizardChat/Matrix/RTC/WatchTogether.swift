@@ -11,9 +11,18 @@ struct WatchClock: Equatable {
     }
 }
 
+struct WatchQueueItem: Equatable, Hashable, Identifiable {
+    var id: String
+    var videoId: String
+    var addedBy: String
+
+    var json: [String: Any] { ["id": id, "videoId": videoId, "addedBy": addedBy] }
+}
+
 struct WatchState: Equatable {
     var videoId: String
     var startedBy: String
+    var addedBy: String
     var playing: Bool
     var position: Double
     var at: Double
@@ -21,6 +30,8 @@ struct WatchState: Equatable {
     var version: Int = 0
     var by: String
     var waitingFor: String?
+    var queue: [WatchQueueItem] = []
+    var history: [WatchQueueItem] = []
 
     var clock: WatchClock { WatchClock(version: version, by: by) }
 
@@ -30,13 +41,17 @@ struct WatchState: Equatable {
 
     var json: [String: Any] {
         ["videoId": videoId, "startedBy": startedBy, "playing": playing, "position": position, "at": at,
-         "rate": rate, "version": version, "by": by, "waitingFor": waitingFor.map { $0 as Any } ?? NSNull()]
+         "rate": rate, "version": version, "by": by, "waitingFor": waitingFor.map { $0 as Any } ?? NSNull(),
+         "addedBy": addedBy, "queue": queue.map(\.json), "history": history.map(\.json)]
     }
 }
 
 @MainActor
 final class WatchTogether: ObservableObject {
     static let topic = "org.wizardchat.watch"
+    static let queueLimit = 100
+    static let historyLimit = 20
+    private static let advanceGuard = 5000.0
     private static let heartbeatSeconds = 10.0
     private static let lateJoinRequestDelay = 1.5
     private static let offsetSamples = 10
@@ -95,12 +110,100 @@ final class WatchTogether: ObservableObject {
         WatchClock(version: (clock?.version ?? 0) + 1, by: ownUserId)
     }
 
-    func start(videoId: String) {
+    func start(videoIds: [String]) {
+        guard let first = videoIds.first else { return }
         consent = true
-        watchingVideoId = videoId
+        watchingVideoId = first
         let next = nextClock()
-        publish(WatchState(videoId: videoId, startedBy: ownUserId, playing: true, position: 0, at: Self.now,
-                           version: next.version, by: next.by))
+        publish(WatchState(videoId: first, startedBy: ownUserId, addedBy: ownUserId, playing: true, position: 0,
+                           at: Self.now, version: next.version, by: next.by,
+                           queue: videoIds.dropFirst().prefix(Self.queueLimit).map(item)))
+    }
+
+    @discardableResult
+    func enqueue(_ videoIds: [String]) -> Int {
+        guard let current = state else { return videoIds.count }
+        let room = max(0, Self.queueLimit - current.queue.count)
+        if room > 0 { change { $0.queue += videoIds.prefix(room).map(self.item) } }
+        return max(0, videoIds.count - room)
+    }
+
+    func remove(_ id: String) {
+        change { $0.queue.removeAll { $0.id == id } }
+    }
+
+    func reorder(_ ids: [String]) {
+        change { state in
+            let ordered = ids.compactMap { id in state.queue.first { $0.id == id } }
+            state.queue = ordered + state.queue.filter { !ids.contains($0.id) }
+        }
+    }
+
+    func playNext(_ id: String) {
+        guard let entry = state?.queue.first(where: { $0.id == id }) else { return }
+        change { $0.queue = [entry] + $0.queue.filter { $0.id != id } }
+    }
+
+    func playNow(_ entry: WatchQueueItem) {
+        guard let current = state else { return }
+        play(entry, queue: current.queue.filter { $0.id != entry.id })
+    }
+
+    func shuffle() {
+        change { $0.queue.shuffle() }
+    }
+
+    func clear() {
+        change { $0.queue = [] }
+    }
+
+    func skip() {
+        guard let current = state else { return }
+        if let next = current.queue.first {
+            play(next, queue: Array(current.queue.dropFirst()))
+        } else {
+            change { $0.playing = false }
+        }
+    }
+
+    func advance(fromVideoId: String) -> Bool {
+        guard let current = state, current.videoId == fromVideoId, let next = current.queue.first else { return false }
+        if current.playing && current.position < 1 && Self.now - current.at < Self.advanceGuard { return true }
+        play(next, queue: Array(current.queue.dropFirst()))
+        return true
+    }
+
+    private func item(_ videoId: String) -> WatchQueueItem {
+        WatchQueueItem(id: Self.newQueueId(), videoId: videoId, addedBy: ownUserId)
+    }
+
+    private func change(_ modify: (inout WatchState) -> Void) {
+        guard let current = state else { return }
+        var next = fresh(current)
+        modify(&next)
+        stamp(&next)
+        publish(next)
+    }
+
+    private func play(_ entry: WatchQueueItem, queue: [WatchQueueItem]) {
+        guard let current = state else { return }
+        var next = current
+        next.videoId = entry.videoId
+        next.addedBy = entry.addedBy
+        next.playing = true
+        next.position = 0
+        next.at = Self.now
+        next.waitingFor = nil
+        next.queue = queue
+        let played = WatchQueueItem(id: Self.newQueueId(), videoId: current.videoId, addedBy: current.addedBy)
+        next.history = Array(([played] + current.history).prefix(Self.historyLimit)).filter { $0.id != entry.id }
+        stamp(&next)
+        publish(next)
+    }
+
+    static func newQueueId() -> String {
+        let chars = Array("abcdefghijklmnopqrstuvwxyz0123456789")
+        return String((0..<8).map { _ in chars.randomElement()! })
     }
 
     /// Play or pause at a position; leaving waitingFor out clears any buffering hold
@@ -146,7 +249,10 @@ final class WatchTogether: ObservableObject {
     private func apply(_ next: WatchState?) {
         let previous = state
         state = next
-        if let next, next.videoId != previous?.videoId, next.expectedPosition() < Self.startSoundWindow {
+        if let next, let previous, next.videoId != previous.videoId, watchingVideoId == previous.videoId {
+            watchingVideoId = next.videoId
+        }
+        if let next, previous == nil, next.expectedPosition() < Self.startSoundWindow {
             CallSounds.play("watch_together_start")
         }
     }
@@ -218,12 +324,18 @@ final class WatchTogether: ObservableObject {
             samples = Array(samples.suffix(Self.offsetSamples))
             offsets[identity] = samples
             let rate = (raw["rate"] as? NSNumber)?.doubleValue ?? 1
-            var incoming = WatchState(videoId: videoId, startedBy: startedBy, playing: playing,
+            let current = state
+            let addedBy = raw["addedBy"] as? String
+                ?? (current?.videoId == videoId ? current?.addedBy : nil) ?? startedBy
+            var incoming = WatchState(videoId: videoId, startedBy: startedBy, addedBy: addedBy, playing: playing,
                                       position: max(0, position), at: at + (samples.min() ?? 0),
                                       rate: (0.25...2).contains(rate) ? rate : 1,
                                       version: (raw["version"] as? NSNumber)?.intValue ?? 0,
                                       by: raw["by"] as? String ?? startedBy,
-                                      waitingFor: raw["waitingFor"] as? String)
+                                      waitingFor: raw["waitingFor"] as? String,
+                                      queue: Self.parseQueue(raw["queue"]) ?? current?.queue ?? [],
+                                      history: Self.parseQueue(raw["history"]).map { Array($0.prefix(Self.historyLimit)) }
+                                          ?? current?.history ?? [])
             if incoming.version == 0 {
                 incoming.version = nextClock().version
             } else if !incoming.clock.isNewer(than: clock) && incoming.clock != clock {
@@ -238,6 +350,32 @@ final class WatchTogether: ObservableObject {
 
     static func isVideoId(_ text: String) -> Bool {
         text.range(of: #"^[\w-]{11}$"#, options: .regularExpression) != nil
+    }
+
+    private static func parseQueue(_ value: Any?) -> [WatchQueueItem]? {
+        guard let list = value as? [Any] else { return nil }
+        return list.prefix(queueLimit).compactMap { raw in
+            guard let entry = raw as? [String: Any], let id = entry["id"] as? String,
+                  let videoId = entry["videoId"] as? String, isVideoId(videoId),
+                  let addedBy = entry["addedBy"] as? String else { return nil }
+            return WatchQueueItem(id: id, videoId: videoId, addedBy: addedBy)
+        }
+    }
+
+    static func parseLink(_ input: String) -> (videoId: String?, listId: String?)? {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isVideoId(text) { return (text, nil) }
+        guard let url = URL(string: text.hasPrefix("http") ? text : "https://\(text)"),
+              let rawHost = url.host?.lowercased() else { return nil }
+        let host = rawHost.replacingOccurrences(of: #"^(www\.|m\.|music\.)"#, with: "", options: .regularExpression)
+        var listId: String?
+        if ["youtu.be", "youtube.com", "youtube-nocookie.com"].contains(host),
+           let list = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "list" })?.value,
+           list.range(of: #"^[\w-]{10,64}$"#, options: .regularExpression) != nil {
+            listId = list
+        }
+        let videoId = parseVideoId(text)
+        return videoId != nil || listId != nil ? (videoId, listId) : nil
     }
 
     static func parseVideoId(_ input: String) -> String? {
@@ -258,6 +396,10 @@ final class WatchTogether: ObservableObject {
         }
         guard let id, isVideoId(id) else { return nil }
         return id
+    }
+
+    static func thumbnailURL(_ videoId: String) -> URL {
+        URL(string: "https://i.ytimg.com/vi/\(videoId)/mqdefault.jpg")!
     }
 
     static func watchURL(_ videoId: String, seconds: Double = 0) -> URL {

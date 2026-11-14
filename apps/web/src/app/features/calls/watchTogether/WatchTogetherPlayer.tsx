@@ -4,6 +4,8 @@ import {
   ArrowSquareOutIcon,
   ArrowsOutSimpleIcon,
   EyeSlashIcon,
+  QueueIcon,
+  SkipForwardIcon,
   XIcon,
   YoutubeLogoIcon,
 } from '@phosphor-icons/react';
@@ -16,9 +18,9 @@ import {
   type WatchPatch,
   type WatchState,
 } from './watchTogether';
+import { WatchViewers } from './WatchViewers';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useProfile } from '@/app/data';
-import { WatchViewers } from './WatchViewers';
 import { YT_STATE, createYouTubePlayer, type YTPlayer } from './youtube';
 import * as css from './WatchTogether.css';
 
@@ -49,11 +51,23 @@ interface Props {
   state: WatchState;
   compact?: boolean;
   onUpdate: (patch: WatchPatch) => void;
+  onAdvance: (fromVideoId: string) => boolean;
   onStop: () => void;
+  onQueue?: () => void;
+  onSkip?: () => void;
   onFocus?: () => void;
 }
 
-export function WatchTogetherPlayer({ state, compact, onUpdate, onStop, onFocus }: Props) {
+export function WatchTogetherPlayer({
+  state,
+  compact,
+  onUpdate,
+  onAdvance,
+  onStop,
+  onQueue,
+  onSkip,
+  onFocus,
+}: Props) {
   const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -69,8 +83,10 @@ export function WatchTogetherPlayer({ state, compact, onUpdate, onStop, onFocus 
   const holdCooldownUntilRef = useRef(0);
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
-  const [failed, setFailed] = useState<'video' | 'bridge' | null>(null);
+  const onAdvanceRef = useRef(onAdvance);
+  onAdvanceRef.current = onAdvance;
   const setWatching = useSetAtom(watchingVideoIdAtom);
+  const [failed, setFailed] = useState<'video' | 'bridge' | null>(null);
   const client = getMatrixClientOrNull();
   const myId = client?.userId() ?? '';
 
@@ -106,12 +122,13 @@ export function WatchTogetherPlayer({ state, compact, onUpdate, onStop, onFocus 
     setRate(player, s.rate);
   }, []);
 
-  const handlePlayerState = useCallback((playerState: number) => {
+  const handlePlayerState = useCallback((playerState: number, eventVideoId?: string) => {
     const player = playerRef.current;
     const s = stateRef.current;
     const previous = lastPlayerStateRef.current;
     lastPlayerStateRef.current = playerState;
     if (!player || !s) return;
+    if (eventVideoId && eventVideoId !== s.videoId) return;
     if (playerState === YT_STATE.BUFFERING) {
       bufferingSinceRef.current ??= Date.now();
       return;
@@ -135,6 +152,7 @@ export function WatchTogetherPlayer({ state, compact, onUpdate, onStop, onFocus 
       if (pending && !pending.playing) commandRef.current = null;
       if (s.playing && !pending) onUpdateRef.current({ playing: false, position: current });
     } else if (playerState === YT_STATE.ENDED) {
+      if (onAdvanceRef.current(s.videoId)) return;
       if (s.playing) onUpdateRef.current({ playing: false, position: player.getDuration() });
     }
   }, []);
@@ -293,6 +311,34 @@ export function WatchTogetherPlayer({ state, compact, onUpdate, onStop, onFocus 
           </span>
           <div className={css.playerBar}>
             <span className={css.playerButtons}>
+              {onQueue && (
+                <Tooltip content={t('call.watchTogether.queue.title')}>
+                  <button
+                    type="button"
+                    className={css.playerButton}
+                    onClick={onQueue}
+                    aria-label={t('call.watchTogether.queue.title')}
+                    data-call-panel-toggle
+                  >
+                    <QueueIcon size={14} />
+                    {state.queue.length > 0 && (
+                      <span className={css.playerButtonCount}>{state.queue.length}</span>
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+              {onSkip && state.queue.length > 0 && (
+                <Tooltip content={t('call.watchTogether.queue.skip')}>
+                  <button
+                    type="button"
+                    className={css.playerButton}
+                    onClick={onSkip}
+                    aria-label={t('call.watchTogether.queue.skip')}
+                  >
+                    <SkipForwardIcon size={14} weight="fill" />
+                  </button>
+                </Tooltip>
+              )}
               {onFocus && (
                 <Tooltip content={t('call.watchTogether.focus')}>
                   <button

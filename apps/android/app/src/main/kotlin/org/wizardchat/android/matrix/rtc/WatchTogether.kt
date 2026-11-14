@@ -16,6 +16,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -31,6 +33,17 @@ data class WatchClock(val version: Int, val by: String) {
         other == null || version > other.version || (version == other.version && by > other.by)
 }
 
+data class QueueItem(val id: String, val videoId: String, val addedBy: String) {
+    val json: JsonObject
+        get() = buildJsonObject {
+            put("id", id)
+            put("videoId", videoId)
+            put("addedBy", addedBy)
+        }
+}
+
+data class YouTubeLink(val videoId: String?, val listId: String?)
+
 /** What everyone in the call is watching, and where in the video they are */
 data class WatchState(
     val videoId: String,
@@ -42,6 +55,9 @@ data class WatchState(
     val version: Int = 0,
     val by: String = startedBy,
     val waitingFor: String? = null,
+    val addedBy: String = startedBy,
+    val queue: List<QueueItem> = emptyList(),
+    val history: List<QueueItem> = emptyList(),
 ) {
     val clock: WatchClock get() = WatchClock(version, by)
 
@@ -59,6 +75,9 @@ data class WatchState(
             put("version", version)
             put("by", by)
             put("waitingFor", waitingFor)
+            put("addedBy", addedBy)
+            put("queue", JsonArray(queue.map { it.json }))
+            put("history", JsonArray(history.map { it.json }))
         }
 }
 
@@ -135,11 +154,101 @@ class WatchTogether(
 
     private fun nextClock() = WatchClock((clock?.version ?: 0) + 1, ownUserId)
 
-    fun start(videoId: String) {
+    fun start(videoIds: List<String>) {
+        val first = videoIds.firstOrNull() ?: return
         consent = true
-        watchingVideoId = videoId
+        watchingVideoId = first
         val next = nextClock()
-        publish(WatchState(videoId, ownUserId, playing = true, position = 0.0, at = now, version = next.version, by = next.by))
+        publish(
+            WatchState(
+                videoId = first,
+                startedBy = ownUserId,
+                playing = true,
+                position = 0.0,
+                at = now,
+                version = next.version,
+                by = next.by,
+                addedBy = ownUserId,
+                queue = videoIds.drop(1).take(QUEUE_LIMIT).map(::item),
+                history = emptyList(),
+            ),
+        )
+    }
+
+    private fun item(videoId: String) = QueueItem(newQueueId(), videoId, ownUserId)
+
+    private fun change(transform: (WatchState) -> WatchState) {
+        val current = state ?: return
+        val next = nextClock()
+        publish(transform(current.copy(position = current.expectedPosition(), at = now)).copy(version = next.version, by = next.by))
+    }
+
+    private fun playItem(item: QueueItem, queue: List<QueueItem>) {
+        val current = state ?: return
+        val next = nextClock()
+        val played = (listOf(QueueItem(newQueueId(), current.videoId, current.addedBy)) + current.history).take(HISTORY_LIMIT)
+        publish(
+            current.copy(
+                videoId = item.videoId,
+                addedBy = item.addedBy,
+                playing = true,
+                position = 0.0,
+                at = now,
+                waitingFor = null,
+                queue = queue,
+                history = played.filter { it.id != item.id },
+                version = next.version,
+                by = next.by,
+            ),
+        )
+    }
+
+    fun enqueue(videoIds: List<String>): Int {
+        val current = state ?: return videoIds.size
+        val room = max(0, QUEUE_LIMIT - current.queue.size)
+        if (room > 0) change { it.copy(queue = it.queue + videoIds.take(room).map(::item)) }
+        return max(0, videoIds.size - room)
+    }
+
+    fun remove(id: String) = change { s -> s.copy(queue = s.queue.filter { it.id != id }) }
+
+    fun reorder(ids: List<String>) {
+        val current = state ?: return
+        val byId = current.queue.associateBy { it.id }
+        val ordered = ids.mapNotNull { byId[it] }
+        val rest = current.queue.filter { it.id !in ids }
+        change { it.copy(queue = ordered + rest) }
+    }
+
+    fun playNext(id: String) {
+        val current = state ?: return
+        val entry = current.queue.firstOrNull { it.id == id } ?: return
+        change { s -> s.copy(queue = listOf(entry) + s.queue.filter { it.id != id }) }
+    }
+
+    fun playNow(item: QueueItem) {
+        val current = state ?: return
+        playItem(item, current.queue.filter { it.id != item.id })
+    }
+
+    fun shuffle() = change { it.copy(queue = it.queue.shuffled()) }
+
+    fun clear() = change { it.copy(queue = emptyList()) }
+
+    fun skip() {
+        val current = state ?: return
+        val next = current.queue.firstOrNull()
+        if (next != null) playItem(next, current.queue.drop(1)) else change { it.copy(playing = false) }
+    }
+
+    fun advance(fromVideoId: String): Boolean {
+        val current = state ?: return false
+        if (current.videoId != fromVideoId) return false
+        val next = current.queue.firstOrNull() ?: return false
+        val justStarted = current.playing && current.position < 1 && now - current.at < ADVANCE_GUARD_MS
+        if (justStarted) return true
+        playItem(next, current.queue.drop(1))
+        return true
     }
 
     /** Play or pause at a position; leaving waitingFor out clears any buffering hold */
@@ -177,7 +286,10 @@ class WatchTogether(
     private fun apply(next: WatchState?) {
         val previous = state
         state = next
-        if (next != null && next.videoId != previous?.videoId && next.expectedPosition() < START_SOUND_WINDOW) {
+        if (next != null && previous != null && next.videoId != previous.videoId && watchingState == previous.videoId) {
+            watchingVideoId = next.videoId
+        }
+        if (next != null && previous == null && next.expectedPosition() < START_SOUND_WINDOW) {
             CallSounds.play("watch_together_start")
         }
     }
@@ -236,6 +348,8 @@ class WatchTogether(
                 val playing = (raw["playing"] as? JsonPrimitive)?.booleanOrNull ?: return
                 val position = raw.number("position")?.takeIf { it.isFinite() } ?: return
                 val at = raw.number("at") ?: return
+                val current = state
+                val incomingAddedBy = raw.string("addedBy")
                 val samples = ((offsets[from] ?: emptyList()) + (now - sentAt)).takeLast(OFFSET_SAMPLES)
                 offsets[from] = samples
                 var incoming = WatchState(
@@ -248,6 +362,9 @@ class WatchTogether(
                     version = raw.number("version")?.toInt() ?: 0,
                     by = raw.string("by") ?: startedBy,
                     waitingFor = raw.string("waitingFor"),
+                    addedBy = incomingAddedBy ?: current?.takeIf { it.videoId == videoId }?.addedBy ?: startedBy,
+                    queue = parseQueue(raw["queue"]) ?: current?.queue ?: emptyList(),
+                    history = parseQueue(raw["history"])?.take(HISTORY_LIMIT) ?: current?.history ?: emptyList(),
                 )
                 if (incoming.version == 0) {
                     incoming = incoming.copy(version = nextClock().version)
@@ -266,7 +383,47 @@ class WatchTogether(
         private const val LATE_JOIN_REQUEST_DELAY = 1.5
         private const val OFFSET_SAMPLES = 10
         private const val START_SOUND_WINDOW = 5.0
+        private const val ADVANCE_GUARD_MS = 5000.0
+        const val QUEUE_LIMIT = 100
+        const val HISTORY_LIMIT = 20
         private val videoIdPattern = Regex("^[A-Za-z0-9_-]{11}$")
+        private val listIdPattern = Regex("^[A-Za-z0-9_-]{10,64}$")
+        private val youtubeHosts = listOf("youtu.be", "youtube.com", "youtube-nocookie.com")
+
+        fun newQueueId(): String {
+            val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+            return (1..8).map { chars.random() }.joinToString("")
+        }
+
+        fun thumbnailUrl(videoId: String) = "https://i.ytimg.com/vi/$videoId/mqdefault.jpg"
+
+        private fun parseQueue(value: JsonElement?): List<QueueItem>? {
+            val array = value as? JsonArray ?: return null
+            return array.take(QUEUE_LIMIT).mapNotNull { raw ->
+                val item = raw as? JsonObject ?: return@mapNotNull null
+                val id = item.string("id") ?: return@mapNotNull null
+                val videoId = item.string("videoId")?.takeIf(::isVideoId) ?: return@mapNotNull null
+                val addedBy = item.string("addedBy") ?: return@mapNotNull null
+                QueueItem(id, videoId, addedBy)
+            }
+        }
+
+        private fun queryParam(uri: URI, name: String): String? =
+            uri.rawQuery?.split('&')
+                ?.map { it.split('=', limit = 2) }
+                ?.firstOrNull { it[0] == name }
+                ?.getOrNull(1)
+                ?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() }
+
+        fun parseLink(input: String): YouTubeLink? {
+            val text = input.trim()
+            if (isVideoId(text)) return YouTubeLink(text, null)
+            val uri = runCatching { URI(if (text.startsWith("http")) text else "https://$text") }.getOrNull() ?: return null
+            val host = uri.host?.lowercase()?.replace(Regex("^(www\\.|m\\.|music\\.)"), "") ?: return null
+            val listId = if (host in youtubeHosts) queryParam(uri, "list")?.takeIf { listIdPattern.matches(it) } else null
+            val videoId = parseVideoId(text)
+            return if (videoId != null || listId != null) YouTubeLink(videoId, listId) else null
+        }
 
         val now: Double get() = System.currentTimeMillis().toDouble()
 
@@ -282,11 +439,7 @@ class WatchTogether(
             if (host == "youtu.be") {
                 id = parts.firstOrNull()
             } else if (host == "youtube.com" || host == "youtube-nocookie.com") {
-                id = uri.rawQuery?.split('&')
-                    ?.map { it.split('=', limit = 2) }
-                    ?.firstOrNull { it[0] == "v" }
-                    ?.getOrNull(1)
-                    ?.let { URLDecoder.decode(it, "UTF-8") }
+                id = queryParam(uri, "v")
                 if (id == null && parts.size >= 2 && parts[0] in listOf("embed", "shorts", "live", "v")) id = parts[1]
             }
             return id?.takeIf(::isVideoId)

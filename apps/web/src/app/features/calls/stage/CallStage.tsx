@@ -39,8 +39,10 @@ import {
   watchActionsAtom,
   watchStateAtom,
   watchingVideoIdAtom,
+  watchQueueOpenAtom,
 } from '../watchTogether/watchTogether';
 import { WATCH_TILE_KEY, WatchPlayerLayer, WatchSlot } from '../watchTogether/WatchStage';
+import { WatchQueuePanel } from '../watchTogether/WatchQueuePanel';
 import * as css from './CallStage.css';
 
 function VideoTrack({
@@ -555,6 +557,7 @@ export function CallStage() {
   const watch = useAtomValue(watchStateAtom);
   const watchActions = useAtomValue(watchActionsAtom);
   const watchingVideoId = useAtomValue(watchingVideoIdAtom);
+  const queueOpen = useAtomValue(watchQueueOpenAtom);
   const watchActive = !!watch && !!watchActions;
   const watchingNow = watchActive && watchingVideoId === watch.videoId;
   const stageRef = useRef<HTMLDivElement>(null);
@@ -761,6 +764,9 @@ export function CallStage() {
         {content}
       </div>
       {watchActive && <WatchPlayerLayer rootRef={stageRef} startedByName={watchStartedBy} />}
+      {!compact && watchingNow && queueOpen && (
+        <WatchQueuePanel nameOf={(userId) => lookup(userId).member?.displayName ?? userId} />
+      )}
       {!compact && panel === 'reactions' && (
         <ReactionsPanel session={session} handRaised={!!own?.handRaised} onClose={closePanel} />
       )}

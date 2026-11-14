@@ -64,6 +64,39 @@ export const playerBar = style({
   pointerEvents: 'none',
 });
 
+export const playerButtons = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+  pointerEvents: 'auto',
+});
+
+const playerButtonBase = {
+  pointerEvents: 'auto',
+  position: 'relative',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  flexShrink: 0,
+  border: 'none',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  color: '#fff',
+  cursor: 'pointer',
+} as const;
+
+export const playerButton = style({
+  ...playerButtonBase,
+  ':hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+});
+
+export const playerStop = style({
+  ...playerButtonBase,
+  ':hover': { backgroundColor: vars.color.error },
+});
+
 export const playerTop = style({
   position: 'absolute',
   top: '8px',
@@ -110,29 +143,21 @@ export const playerLabel = style({
   pointerEvents: 'none',
 });
 
-const playerButtonBase = {
-  pointerEvents: 'auto',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '28px',
-  height: '28px',
-  flexShrink: 0,
-  border: 'none',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+export const playerButtonCount = style({
+  position: 'absolute',
+  top: '-4px',
+  right: '-4px',
+  minWidth: '16px',
+  height: '16px',
+  padding: '0 4px',
+  borderRadius: '999px',
+  background: vars.color.accent,
   color: '#fff',
-  cursor: 'pointer',
-} as const;
-
-export const playerButton = style({
-  ...playerButtonBase,
-  ':hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
-});
-
-export const playerStop = style({
-  ...playerButtonBase,
-  ':hover': { backgroundColor: vars.color.error },
+  fontSize: '0.62rem',
+  fontWeight: 700,
+  lineHeight: '16px',
+  textAlign: 'center',
+  fontVariantNumeric: 'tabular-nums',
 });
 
 export const dialogBody = style({
@@ -214,13 +239,6 @@ export const inviteLink = style({
   color: 'rgba(255, 255, 255, 0.72)',
   textDecoration: 'none',
   ':hover': { color: '#fff', textDecoration: 'underline' },
-});
-
-export const playerButtons = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '6px',
-  pointerEvents: 'auto',
 });
 
 export const slot = style({
