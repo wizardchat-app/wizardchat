@@ -62,6 +62,18 @@
           status();
         }
 
+        var captionsOffFor = null;
+        function captionsOff() {
+          var data = player.getVideoData ? player.getVideoData() : null;
+          var id = data && data.video_id;
+          if (!id || id === captionsOffFor) return;
+          captionsOffFor = id;
+          try {
+            player.unloadModule('captions');
+            player.unloadModule('cc');
+          } catch (e) {}
+        }
+
         function create(options) {
           if (player) return;
           window.onYouTubeIframeAPIReady = function () {
@@ -75,6 +87,7 @@
                 start: Math.floor(options.start || 0),
                 playsinline: 1,
                 rel: 0,
+                cc_load_policy: 0,
               },
               events: {
                 onReady: function () {
@@ -84,6 +97,7 @@
                   status();
                 },
                 onStateChange: function (event) {
+                  if (event.data === 1) captionsOff();
                   status();
                   post({ type: 'state', state: event.data });
                 },

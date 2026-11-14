@@ -287,13 +287,14 @@ private class YouTubeCoordinator {
                 load:function(id,s){ player.loadVideoById({videoId:id,startSeconds:s}); },
                 cue:function(id,s){ player.cueVideoById({videoId:id,startSeconds:s}); }
               };
+              var ccOff=null; function captionsOff(){ var d=player.getVideoData?player.getVideoData():null, id=d&&d.video_id; if(!id||id===ccOff) return; ccOff=id; try{ player.unloadModule('captions'); player.unloadModule('cc'); }catch(e){} }
               window.onYouTubeIframeAPIReady=function(){
                 player=new YT.Player('player',{host:'https://www.youtube-nocookie.com',width:'100%',height:'100%',
                   videoId:'$videoId',
-                  playerVars:{autoplay:${if (autoplay) 1 else 0},start:${start.toInt()},playsinline:1,rel:0},
+                  playerVars:{autoplay:${if (autoplay) 1 else 0},start:${start.toInt()},playsinline:1,rel:0,cc_load_policy:0},
                   events:{
                     onReady:function(){ ready=true; status(); post({type:'ready'}); },
-                    onStateChange:function(e){ post({type:'state',state:e.data,time:player.getCurrentTime()}); status(); },
+                    onStateChange:function(e){ if(e.data===1) captionsOff(); post({type:'state',state:e.data,time:player.getCurrentTime()}); status(); },
                     onError:function(e){ post({type:'error',code:e.data}); }
                   }});
               };
