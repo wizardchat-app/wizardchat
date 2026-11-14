@@ -9,6 +9,8 @@ import { handleAuthCallbackPopup, loadCore } from '@/core/client';
 import { registerNotificationServiceWorker } from '@/app/hooks/useNotifications';
 import { installNativeAppHooks } from '@/util/nativeApp';
 import { installDesktopHooks } from '@/bridge/desktop';
+import { installContextMenuGuard } from '@/util/contextMenuGuard';
+import { printConsoleWelcome } from '@/util/consoleWelcome';
 
 // Fonts (must be in .tsx, not in .css.ts - VE esbuild can't handle woff2)
 import '@fontsource/roboto/400.css';
@@ -61,6 +63,8 @@ if (sharePicker) {
   void registerNotificationServiceWorker();
   installNativeAppHooks();
   installDesktopHooks();
+  installContextMenuGuard();
+  printConsoleWelcome();
 
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
