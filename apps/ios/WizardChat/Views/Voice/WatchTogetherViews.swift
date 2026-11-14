@@ -161,7 +161,7 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
                 let newState = YT(rawValue: (message["state"] as? NSNumber)?.intValue ?? -1) ?? .unstarted
                 if let time = (message["time"] as? NSNumber)?.doubleValue { self.time = time }
                 playerState = newState
-                handle(newState)
+                handle(newState, videoId: message["videoId"] as? String)
             case "rate":
                 if let rate = (message["rate"] as? NSNumber)?.doubleValue { rateChanged(rate) }
             case "error":
@@ -173,10 +173,11 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
 
         /// Your own play/pause in the player becomes the shared state (unless it's us
         /// applying someone else's change).
-        private func handle(_ newState: YT) {
+        private func handle(_ newState: YT, videoId eventVideoId: String?) {
             let previous = lastState
             lastState = newState
             guard let s = state else { return }
+            if let eventVideoId, eventVideoId != s.videoId { return }
             if newState == .buffering {
                 if bufferingSince == nil { bufferingSince = Date() }
                 return
@@ -198,6 +199,7 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
                 if let pending, !pending.playing { command = nil }
                 if s.playing && pending == nil { watch.update(playing: false, position: time) }
             case .ended:
+                if watch.advance(fromVideoId: s.videoId) { return }
                 if s.playing { watch.update(playing: false, position: duration) }
             default:
                 break
@@ -303,7 +305,7 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
                   playerVars:{autoplay:\(autoplay ? 1 : 0),start:\(Int(start)),playsinline:1,rel:0,cc_load_policy:0},
                   events:{
                     onReady:function(){ ready=true; status(); post({type:'ready'}); },
-                    onStateChange:function(e){ if(e.data===1) captionsOff(); post({type:'state',state:e.data,time:player.getCurrentTime()}); status(); },
+                    onStateChange:function(e){ if(e.data===1) captionsOff(); var d=player.getVideoData?player.getVideoData():null; post({type:'state',state:e.data,time:player.getCurrentTime(),videoId:d&&d.video_id}); status(); },
                     onPlaybackRateChange:function(e){ status(); post({type:'rate',rate:e.data}); },
                     onError:function(e){ post({type:'error',code:e.data}); }
                   }});
@@ -341,6 +343,7 @@ struct WatchTogetherTile: View {
     @State private var waitingName: String?
     @State private var failed = false
     @State private var confirmStop = false
+    @State private var showQueue = false
 
     var body: some View {
         if let state = watch.state {
@@ -359,6 +362,7 @@ struct WatchTogetherTile: View {
                 guard let waitingFor = state.waitingFor else { return }
                 waitingName = await session.memberProfile(waitingFor, in: room.id).name
             }
+            .sheet(isPresented: $showQueue) { WatchQueueSheet(watch: watch, roomId: room.id) }
         }
     }
 
@@ -403,6 +407,22 @@ struct WatchTogetherTile: View {
                         .background(.black.opacity(0.45), in: Capsule())
                     WatchViewersChip(viewers: watch.viewers, roomId: room.id)
                     Spacer(minLength: 0)
+                    smallButton(Image("ph-queue-regular"), label: "call.watchTogether.queue.title") { showQueue = true }
+                        .overlay(alignment: .topTrailing) {
+                            if !state.queue.isEmpty {
+                                Text(verbatim: "\(state.queue.count)")
+                                    .font(.wizard(WZ.FontSize.xs, .bold))
+                                    .foregroundStyle(theme.textOnAccent)
+                                    .padding(.horizontal, WZ.Space.space2)
+                                    .frame(minWidth: WZ.SizeIcon.sm, minHeight: WZ.SizeIcon.sm)
+                                    .background(theme.accent, in: Capsule())
+                                    .offset(x: WZ.Space.space2, y: -WZ.Space.space2)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                    if !state.queue.isEmpty {
+                        smallButton(Image("ph-skip-forward-fill"), label: "call.watchTogether.queue.skip") { watch.skip() }
+                    }
                     smallButton("ph-arrow-square-out-regular", label: "call.watchTogether.openOnYouTube") {
                         openURL(WatchTogether.watchURL(state.videoId, seconds: state.expectedPosition()))
                     }
@@ -462,8 +482,13 @@ struct WatchTogetherTile: View {
 
     private func smallButton(_ icon: String, label: LocalizedStringKey, tint: Color = .white,
                              action: @escaping () -> Void) -> some View {
+        smallButton(Image(icon), label: label, tint: tint, action: action)
+    }
+
+    private func smallButton(_ image: Image, label: LocalizedStringKey, tint: Color = .white,
+                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(icon)
+            image
                 .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: WZ.Space.space9, height: WZ.Space.space9)
@@ -514,7 +539,8 @@ struct WatchTogetherStartSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @State private var link = ""
-    @State private var invalid = false
+    @State private var error: String?
+    @State private var loading = false
 
     var body: some View {
         NavigationStack {
@@ -524,7 +550,8 @@ struct WatchTogetherStartSheet: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .onSubmit(start)
+                        .onSubmit { Task { await start() } }
+                        .onChange(of: link) { _, _ in error = nil }
                     if UIPasteboard.general.hasURLs || UIPasteboard.general.hasStrings {
                         Button { link = UIPasteboard.general.string ?? link } label: {
                             Label(String(localized: "call.watchTogether.pasteLink"), image: "ph-clipboard-text-regular")
@@ -533,8 +560,8 @@ struct WatchTogetherStartSheet: View {
                 } header: {
                     Text(String(localized: "call.watchTogether.linkLabel"))
                 } footer: {
-                    if invalid {
-                        Text(String(localized: "call.watchTogether.invalidLink")).foregroundStyle(theme.error)
+                    if let error {
+                        Text(error).foregroundStyle(theme.error)
                     } else {
                         Text(String(localized: "call.watchTogether.joinNote"))
                     }
@@ -546,16 +573,44 @@ struct WatchTogetherStartSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(String(localized: "common.cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "call.watchTogether.start"), action: start).disabled(link.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if loading {
+                        ProgressView()
+                    } else {
+                        Button(String(localized: "call.watchTogether.start")) { Task { await start() } }
+                            .disabled(link.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
                 }
             }
         }
         .presentationDetents([.medium])
     }
 
-    private func start() {
-        guard let id = WatchTogether.parseVideoId(link) else { invalid = true; return }
-        watch.start(videoId: id)
+    private func start() async {
+        guard !loading else { return }
+        guard let parsed = WatchTogether.parseLink(link) else {
+            error = String(localized: "call.watchTogether.invalidLink")
+            return
+        }
+        guard let listId = parsed.listId else {
+            if let videoId = parsed.videoId { begin([videoId]) }
+            return
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            begin(try await YouTubePlaylistLoader.videoIds(listId: listId, startingAt: parsed.videoId))
+        } catch {
+            if let videoId = parsed.videoId {
+                begin([videoId])
+            } else {
+                self.error = String(localized: "call.watchTogether.queue.playlistFailed")
+            }
+        }
+    }
+
+    private func begin(_ videoIds: [String]) {
+        guard !videoIds.isEmpty else { return }
+        watch.start(videoIds: Array(videoIds.prefix(WatchTogether.queueLimit + 1)))
         dismiss()
     }
 }

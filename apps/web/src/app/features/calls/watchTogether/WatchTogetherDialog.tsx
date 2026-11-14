@@ -5,12 +5,14 @@ import { Modal } from '@/app/components/Modal/Modal';
 import { Button } from '@/app/components/Button/Button';
 import { Input } from '@/app/components/Input/Input';
 import {
-  parseYouTubeId,
+  QUEUE_LIMIT,
+  parseYouTubeLink,
   watchActionsAtom,
   watchDialogOpenAtom,
   watchingVideoIdAtom,
   youtubeConsentAtom,
 } from './watchTogether';
+import { fetchPlaylistIds } from './youtube';
 import * as css from './WatchTogether.css';
 
 export function WatchTogetherDialog() {
@@ -21,24 +23,47 @@ export function WatchTogetherDialog() {
   const setConsent = useSetAtom(youtubeConsentAtom);
   const [link, setLink] = useState('');
   const [error, setError] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setLink('');
     setError(undefined);
+    setLoading(false);
   }, [open]);
 
   const close = () => setOpen(false);
-  const start = () => {
-    const videoId = parseYouTubeId(link);
-    if (!videoId) {
+  const begin = (videoIds: string[]) => {
+    const [first] = videoIds;
+    if (!first) return;
+    setConsent(true);
+    setWatching(first);
+    actions?.start(videoIds.slice(0, QUEUE_LIMIT + 1));
+    close();
+  };
+
+  const start = async () => {
+    if (loading) return;
+    const parsed = parseYouTubeLink(link);
+    if (!parsed) {
       setError(t('call.watchTogether.invalidLink'));
       return;
     }
-    setConsent(true);
-    setWatching(videoId);
-    actions?.start(videoId);
-    close();
+    if (!parsed.listId) {
+      begin([parsed.videoId!]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const ids = await fetchPlaylistIds(parsed.listId);
+      const from = parsed.videoId ? ids.indexOf(parsed.videoId) : -1;
+      begin(from > 0 ? [...ids.slice(from), ...ids.slice(0, from)] : ids);
+    } catch {
+      if (parsed.videoId) begin([parsed.videoId]);
+      else setError(t('call.watchTogether.queue.playlistFailed'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,7 +77,13 @@ export function WatchTogetherDialog() {
           <Button variant="secondary" size="md" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" size="md" onClick={start} disabled={!link.trim()}>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => void start()}
+            disabled={!link.trim()}
+            loading={loading}
+          >
             {t('call.watchTogether.start')}
           </Button>
         </>
@@ -67,7 +98,7 @@ export function WatchTogetherDialog() {
             setLink(e.target.value);
             setError(undefined);
           }}
-          onKeyDown={(e) => e.key === 'Enter' && start()}
+          onKeyDown={(e) => e.key === 'Enter' && void start()}
           error={error}
           data-dialog-autofocus
         />

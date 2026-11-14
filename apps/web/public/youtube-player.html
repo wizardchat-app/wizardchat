@@ -74,8 +74,49 @@
           } catch (e) {}
         }
 
+        function loadApi() {
+          var script = document.createElement('script');
+          script.src = 'https://www.youtube.com/iframe_api';
+          script.onerror = function () {
+            post({ type: 'error', code: -1 });
+          };
+          document.head.appendChild(script);
+        }
+
+        function listPlaylist(listId) {
+          window.onYouTubeIframeAPIReady = function () {
+            var tries = 0;
+            var lister = new YT.Player('player', {
+              host: 'https://www.youtube-nocookie.com',
+              width: '100%',
+              height: '100%',
+              playerVars: { listType: 'playlist', list: listId, autoplay: 0 },
+              events: {
+                onReady: function () {
+                  var poll = setInterval(function () {
+                    var ids = lister.getPlaylist ? lister.getPlaylist() : null;
+                    tries++;
+                    if ((ids && ids.length) || tries > 40) {
+                      clearInterval(poll);
+                      post({ type: 'playlist', ids: ids || [] });
+                    }
+                  }, 250);
+                },
+                onError: function (event) {
+                  post({ type: 'error', code: event.data });
+                },
+              },
+            });
+          };
+          loadApi();
+        }
+
         function create(options) {
           if (player) return;
+          if (options.playlist) {
+            listPlaylist(options.playlist);
+            return;
+          }
           window.onYouTubeIframeAPIReady = function () {
             player = new YT.Player('player', {
               host: 'https://www.youtube-nocookie.com',
@@ -99,7 +140,8 @@
                 onStateChange: function (event) {
                   if (event.data === 1) captionsOff();
                   status();
-                  post({ type: 'state', state: event.data });
+                  var data = player.getVideoData ? player.getVideoData() : null;
+                  post({ type: 'state', state: event.data, videoId: data && data.video_id });
                 },
                 onPlaybackRateChange: function (event) {
                   status();
@@ -111,12 +153,7 @@
               },
             });
           };
-          var script = document.createElement('script');
-          script.src = 'https://www.youtube.com/iframe_api';
-          script.onerror = function () {
-            post({ type: 'error', code: -1 });
-          };
-          document.head.appendChild(script);
+          loadApi();
           setInterval(status, 250);
         }
 

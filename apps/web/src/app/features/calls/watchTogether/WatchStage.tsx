@@ -2,7 +2,12 @@ import { atom, useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { WatchTogetherInvite } from './WatchTogetherInvite';
 import { WatchTogetherPlayer } from './WatchTogetherPlayer';
-import { watchActionsAtom, watchStateAtom, watchingVideoIdAtom } from './watchTogether';
+import {
+  watchActionsAtom,
+  watchQueueOpenAtom,
+  watchStateAtom,
+  watchingVideoIdAtom,
+} from './watchTogether';
 import * as css from './WatchTogether.css';
 
 export const WATCH_TILE_KEY = 'watch-together';
@@ -71,6 +76,7 @@ export function WatchPlayerLayer({ rootRef, startedByName }: LayerProps) {
   const state = useAtomValue(watchStateAtom);
   const actions = useAtomValue(watchActionsAtom);
   const watchingVideoId = useAtomValue(watchingVideoIdAtom);
+  const setQueueOpen = useSetAtom(watchQueueOpenAtom);
   const slot = useAtomValue(slotAtom);
   const slotRef = useRef(slot);
   slotRef.current = slot;
@@ -141,7 +147,10 @@ export function WatchPlayerLayer({ rootRef, startedByName }: LayerProps) {
         state={state}
         compact={small}
         onUpdate={actions.update}
+        onAdvance={actions.advance}
         onStop={actions.stop}
+        onQueue={() => setQueueOpen((open) => !open)}
+        onSkip={actions.skip}
         onFocus={slot?.onSelect && !slot.focused ? slot.onSelect : undefined}
       />
       {small && slot?.onSelect && (
