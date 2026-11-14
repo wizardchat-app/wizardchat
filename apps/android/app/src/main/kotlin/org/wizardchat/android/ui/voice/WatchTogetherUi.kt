@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.compose.foundation.background
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -138,6 +138,7 @@ private class YouTubeCoordinator {
 
     @SuppressLint("SetJavaScriptEnabled")
     fun makeView(context: Context, state: WatchState): WebView = WebView(context).apply {
+        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         settings.javaScriptEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.domStorageEnabled = true
@@ -354,21 +355,26 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: St
                 horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconLabel(
-                    tr("call.watchTogether.startedBy", starterName),
-                    "youtube-logo",
-                    color = Color.White,
-                    size = WZ.FontSize.sm,
-                    weight = FontWeight.SemiBold,
-                    iconWeight = PhWeight.fill,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
-                )
-                WatchViewers(watch, roomId)
-                Spacer(Modifier.weight(1f))
+                Row(
+                    Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconLabel(
+                        tr("call.watchTogether.startedBy", starterName),
+                        "youtube-logo",
+                        color = Color.White,
+                        size = WZ.FontSize.sm,
+                        weight = FontWeight.SemiBold,
+                        iconWeight = PhWeight.fill,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.45f))
+                            .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
+                    )
+                    WatchViewers(watch, roomId)
+                }
                 SmallButton("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
                     runCatching { uriHandler.openUri(WatchTogether.watchUrl(state.videoId, state.expectedPosition())) }
                 }
