@@ -18,6 +18,7 @@ import {
 } from './watchTogether';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useProfile } from '@/app/data';
+import { WatchViewers } from './WatchViewers';
 import { YT_STATE, createYouTubePlayer, type YTPlayer } from './youtube';
 import * as css from './WatchTogether.css';
 
@@ -291,9 +292,12 @@ export function WatchTogetherPlayer({
       )}
       {!compact && (
         <>
-          <span className={css.playerLabel}>
-            <YoutubeLogoIcon size={14} weight="fill" />
-            {t('call.watchTogether.startedBy', { name: startedByName })}
+          <span className={css.playerTop}>
+            <span className={css.playerLabel}>
+              <YoutubeLogoIcon size={14} weight="fill" />
+              {t('call.watchTogether.startedBy', { name: startedByName })}
+            </span>
+            <WatchViewers />
           </span>
           <div className={css.playerBar}>
             <span className={css.playerButtons}>

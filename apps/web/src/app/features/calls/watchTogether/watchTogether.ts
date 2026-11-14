@@ -24,7 +24,9 @@ export interface WatchClock {
 export type WatchMessage =
   | { t: 'state'; state: WatchState; sentAt: number }
   | { t: 'stop'; sentAt: number; version: number; by: string }
-  | { t: 'request' };
+  | { t: 'request' }
+  | { t: 'viewer'; videoId: string | null }
+  | { t: 'who' };
 
 export type WatchPatch = Partial<Pick<WatchState, 'playing' | 'position' | 'rate' | 'waitingFor'>>;
 
@@ -39,6 +41,7 @@ export const watchActionsAtom = atom<WatchActions | null>(null);
 export const watchDialogOpenAtom = atom(false);
 
 export const watchingVideoIdAtom = atom<string | null>(null);
+export const watchViewersAtom = atom<string[]>([]);
 
 export const youtubeConsentAtom = atomWithStorage(STORAGE_KEY_YOUTUBE_CONSENT, false);
 
@@ -88,6 +91,13 @@ export function parseWatchMessage(payload: unknown): WatchMessage | null {
   if (!payload || typeof payload !== 'object') return null;
   const msg = payload as Record<string, unknown>;
   if (msg.t === 'request') return { t: 'request' };
+  if (msg.t === 'who') return { t: 'who' };
+  if (msg.t === 'viewer') {
+    return {
+      t: 'viewer',
+      videoId: typeof msg.videoId === 'string' && ID_RE.test(msg.videoId) ? msg.videoId : null,
+    };
+  }
   if (msg.t === 'stop' && typeof msg.sentAt === 'number') {
     return {
       t: 'stop',

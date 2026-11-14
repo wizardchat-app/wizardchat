@@ -25,7 +25,20 @@ final class WatchTogether: ObservableObject {
 
     @Published private(set) var state: WatchState?
     /// The video you agreed to load. YouTube only sees you once you choose to watch.
-    @Published var watchingVideoId: String?
+    @Published var watchingVideoId: String? {
+        didSet { if watchingVideoId != oldValue { send(viewerMessage(watchingVideoId)) } }
+    }
+    @Published private var viewerVideos: [String: String] = [:]
+
+    /// Who in the call watches the current video (user IDs), you included
+    var viewers: [String] {
+        guard let videoId = state?.videoId else { return [] }
+        var ids: [String] = []
+        for p in participants() where (p.isLocal ? watchingVideoId : viewerVideos[p.identity]) == videoId {
+            if !ids.contains(p.userId) { ids.append(p.userId) }
+        }
+        return ids
+    }
     @Published var consent: Bool { didSet { UserDefaults.standard.set(consent, forKey: "youtubeConsent") } }
 
     private let ownUserId: String
@@ -48,8 +61,9 @@ final class WatchTogether: ObservableObject {
         }
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.lateJoinRequestDelay))
-            guard let self, self.state == nil else { return }
-            self.send(["t": "request"])
+            guard let self else { return }
+            if self.state == nil { self.send(["t": "request"]) }
+            self.send(["t": "who"])
         }
     }
 
@@ -85,6 +99,10 @@ final class WatchTogether: ObservableObject {
         send(["t": "state", "state": next.json, "sentAt": Self.now])
     }
 
+    private func viewerMessage(_ videoId: String?) -> [String: Any] {
+        ["t": "viewer", "videoId": videoId.map { $0 as Any } ?? NSNull()]
+    }
+
     private func beat() {
         guard let current = state else { return }
         let present = participants().sorted { $0.identity < $1.identity }
@@ -101,6 +119,14 @@ final class WatchTogether: ObservableObject {
         switch message["t"] as? String {
         case "request":
             if let state { send(["t": "state", "state": state.json, "sentAt": Self.now]) }
+        case "who":
+            if let watchingVideoId { send(viewerMessage(watchingVideoId)) }
+        case "viewer":
+            if let videoId = message["videoId"] as? String, Self.isVideoId(videoId) {
+                viewerVideos[identity] = videoId
+            } else {
+                viewerVideos[identity] = nil
+            }
         case "stop":
             guard message["sentAt"] is NSNumber else { return }
             stoppedAt = Self.now

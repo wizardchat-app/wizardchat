@@ -2,6 +2,7 @@ package org.wizardchat.android.matrix.rtc
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.net.URI
@@ -56,8 +57,28 @@ class WatchTogether(
     var state by mutableStateOf<WatchState?>(null)
         private set
 
+    private var watchingState by mutableStateOf<String?>(null)
+
     /** The video you agreed to load. YouTube only sees you once you choose to watch. */
-    var watchingVideoId by mutableStateOf<String?>(null)
+    var watchingVideoId: String?
+        get() = watchingState
+        set(value) {
+            if (value == watchingState) return
+            watchingState = value
+            send(viewerMessage(value))
+        }
+
+    private val viewerVideos = mutableStateMapOf<String, String>()
+
+    /** Who in the call watches the current video (user IDs), you included */
+    val viewers: List<String>
+        get() {
+            val videoId = state?.videoId ?: return emptyList()
+            return participants()
+                .filter { (if (it.isLocal) watchingState else viewerVideos[it.identity]) == videoId }
+                .map { it.userId }
+                .distinct()
+        }
 
     private val defaults = WizardApplication.instance.getSharedPreferences("calls", Context.MODE_PRIVATE)
     private var consentState by mutableStateOf(defaults.getBoolean("youtubeConsent", false))
@@ -83,6 +104,7 @@ class WatchTogether(
         scope.launch {
             delay((LATE_JOIN_REQUEST_DELAY * 1000).toLong())
             if (state == null) send(buildJsonObject { put("t", "request") })
+            send(buildJsonObject { put("t", "who") })
         }
     }
 
@@ -125,6 +147,11 @@ class WatchTogether(
         put("sentAt", now)
     }
 
+    private fun viewerMessage(videoId: String?) = buildJsonObject {
+        put("t", "viewer")
+        put("videoId", videoId)
+    }
+
     private fun beat() {
         val current = state ?: return
         val present = participants().sortedBy { it.identity }
@@ -137,6 +164,11 @@ class WatchTogether(
         val message = runCatching { Json.parseToJsonElement(data.decodeToString()).jsonObject }.getOrNull() ?: return
         when (message.string("t")) {
             "request" -> state?.let { send(stateMessage(it)) }
+            "who" -> watchingState?.let { send(viewerMessage(it)) }
+            "viewer" -> {
+                val videoId = message.string("videoId")?.takeIf(::isVideoId)
+                if (videoId != null) viewerVideos[from] = videoId else viewerVideos.remove(from)
+            }
             "stop" -> {
                 if (message.number("sentAt") == null) return
                 stoppedAt = now

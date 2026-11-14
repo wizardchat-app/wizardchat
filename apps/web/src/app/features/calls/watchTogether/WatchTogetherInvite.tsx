@@ -9,6 +9,7 @@ import {
   youtubeWatchUrl,
   type WatchState,
 } from './watchTogether';
+import { WatchViewers } from './WatchViewers';
 import * as css from './WatchTogether.css';
 
 interface Props {
@@ -54,6 +55,11 @@ export function WatchTogetherInvite({ state, startedByName, compact }: Props) {
 
   return (
     <div className={compact ? css.inviteCompact : css.invite}>
+      {!compact && (
+        <span className={css.playerTop}>
+          <WatchViewers />
+        </span>
+      )}
       <YoutubeLogoIcon size={compact ? 28 : 44} weight="fill" className={css.inviteIcon} />
       {!compact && (
         <p className={css.inviteTitle}>

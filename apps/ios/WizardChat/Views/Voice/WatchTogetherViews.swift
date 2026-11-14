@@ -279,6 +279,7 @@ struct WatchTogetherTile: View {
                         .padding(.horizontal, WZ.Space.space4)
                         .padding(.vertical, WZ.Space.space2)
                         .background(.black.opacity(0.45), in: Capsule())
+                    WatchViewersChip(viewers: watch.viewers, roomId: room.id)
                     Spacer(minLength: 0)
                     smallButton("ph-arrow-square-out-regular", label: "call.watchTogether.openOnYouTube") {
                         openURL(WatchTogether.watchURL(state.videoId, seconds: state.expectedPosition()))
@@ -329,6 +330,12 @@ struct WatchTogetherTile: View {
             }
             .padding(compact ? WZ.Space.space3 : WZ.Space.space6)
         }
+        .overlay(alignment: .topLeading) {
+            if !compact {
+                WatchViewersChip(viewers: watch.viewers, roomId: room.id)
+                    .padding(WZ.Space.space4)
+            }
+        }
     }
 
     private func smallButton(_ icon: String, label: LocalizedStringKey, tint: Color = .white,
@@ -342,6 +349,41 @@ struct WatchTogetherTile: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+}
+
+private struct WatchViewersChip: View {
+    let viewers: [String]
+    let roomId: String
+
+    @EnvironmentObject private var session: MatrixSession
+    @State private var names: [String: String] = [:]
+
+    var body: some View {
+        if !viewers.isEmpty {
+            Menu {
+                ForEach(viewers, id: \.self) { userId in
+                    Label(names[userId] ?? userId, image: "ph-eye-regular")
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image("ph-eye-regular").font(.system(size: 14, weight: .bold))
+                    Text(verbatim: "\(viewers.count)")
+                }
+                .font(.wizard(WZ.FontSize.sm, .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, WZ.Space.space4)
+                .frame(height: 28)
+                .background(.black.opacity(0.6), in: Capsule())
+            }
+            .id(viewers.map { names[$0] ?? $0 })
+            .accessibilityLabel(L10n.format("call.streamViewers", viewers.count))
+            .task(id: viewers) {
+                for userId in viewers where names[userId] == nil {
+                    names[userId] = await session.memberProfile(userId, in: roomId).name
+                }
+            }
+        }
     }
 }
 

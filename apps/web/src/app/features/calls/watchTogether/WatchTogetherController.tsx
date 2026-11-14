@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { callSessionAtom } from '@/app/store/atoms/call';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
@@ -9,6 +9,7 @@ import {
   parseWatchMessage,
   watchActionsAtom,
   watchStateAtom,
+  watchViewersAtom,
   watchingVideoIdAtom,
   isNewer,
   sameClock,
@@ -32,13 +33,20 @@ export function WatchTogetherController() {
   participantsRef.current = snapshot?.participants ?? [];
   const [state, setState] = useAtom(watchStateAtom);
   const setActions = useSetAtom(watchActionsAtom);
-  const setWatching = useSetAtom(watchingVideoIdAtom);
+  const [watchingVideoId, setWatching] = useAtom(watchingVideoIdAtom);
+  const watchingRef = useRef(watchingVideoId);
+  watchingRef.current = watchingVideoId;
+  const setViewers = useSetAtom(watchViewersAtom);
+  const viewerVideosRef = useRef(new Map<string, string>());
+  const [viewerTick, bumpViewers] = useReducer((n: number) => n + 1, 0);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   useEffect(() => {
     setState(null);
     setWatching(null);
+    viewerVideosRef.current.clear();
+    bumpViewers();
     if (!session) {
       setActions(null);
       return;
@@ -71,6 +79,17 @@ export function WatchTogetherController() {
       if (topic !== WATCH_TOPIC) return;
       const msg = parseWatchMessage(payload);
       if (!msg) return;
+      if (msg.t === 'viewer') {
+        if (msg.videoId) viewerVideosRef.current.set(from, msg.videoId);
+        else viewerVideosRef.current.delete(from);
+        bumpViewers();
+        return;
+      }
+      if (msg.t === 'who') {
+        const videoId = watchingRef.current;
+        if (videoId) send({ t: 'viewer', videoId });
+        return;
+      }
       if (msg.t === 'request') {
         const current = stateRef.current;
         if (current) broadcast({ ...current, position: expectedPosition(current), at: Date.now() });
@@ -152,6 +171,25 @@ export function WatchTogetherController() {
     };
   }, [session, setState, setActions, setWatching]);
 
+  useEffect(() => {
+    if (!session) return;
+    void session.sendData(WATCH_TOPIC, { t: 'viewer', videoId: watchingVideoId }).catch(() => {});
+  }, [session, watchingVideoId]);
+
+  const participants = snapshot?.participants;
+  const videoId = state?.videoId ?? null;
+  useEffect(() => {
+    const ids: string[] = [];
+    if (videoId) {
+      for (const p of participants ?? []) {
+        if (!p.connected || ids.includes(p.userId)) continue;
+        const watched = p.isLocal ? watchingVideoId : viewerVideosRef.current.get(p.identity);
+        if (watched === videoId) ids.push(p.userId);
+      }
+    }
+    setViewers((prev) => (prev.join('\n') === ids.join('\n') ? prev : ids));
+  }, [participants, videoId, watchingVideoId, viewerTick, setViewers]);
+
   const lastVideoRef = useRef<string | null>(null);
   useEffect(() => {
     const videoId = state?.videoId ?? null;
@@ -169,6 +207,7 @@ export function WatchTogetherController() {
     if (!session || phase !== 'joined') return;
     const timer = setTimeout(() => {
       if (!stateRef.current) void session.sendData(WATCH_TOPIC, { t: 'request' }).catch(() => {});
+      void session.sendData(WATCH_TOPIC, { t: 'who' }).catch(() => {});
     }, LATE_JOIN_REQUEST_DELAY_MS);
     return () => clearTimeout(timer);
   }, [session, phase]);

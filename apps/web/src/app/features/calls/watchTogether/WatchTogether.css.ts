@@ -64,14 +64,38 @@ export const playerBar = style({
   pointerEvents: 'none',
 });
 
-export const playerLabel = style({
+export const playerTop = style({
   position: 'absolute',
   top: '8px',
   left: '8px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  maxWidth: 'calc(100% - 60px)',
+});
+
+export const viewersChip = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  gap: '4px',
+  padding: '0 7px',
+  borderRadius: '999px',
+  background: 'rgba(0, 0, 0, 0.6)',
+  color: '#ffffff',
+  fontSize: '0.68rem',
+  fontWeight: 700,
+  lineHeight: '20px',
+  fontVariantNumeric: 'tabular-nums',
+  userSelect: 'none',
+  pointerEvents: 'auto',
+});
+
+export const playerLabel = style({
   display: 'inline-flex',
   alignItems: 'center',
   gap: '5px',
-  maxWidth: 'calc(100% - 60px)',
+  minWidth: 0,
   padding: '0 8px',
   borderRadius: '999px',
   background: '#593695',

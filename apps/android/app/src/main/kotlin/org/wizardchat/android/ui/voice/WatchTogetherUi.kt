@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -42,12 +44,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -71,6 +75,7 @@ import org.wizardchat.android.ui.WizardSheet
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.android.ui.trPlural
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.tokens.WZ
 
@@ -312,15 +317,16 @@ internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact:
     val starterName = rememberMemberProfile(state.startedBy, room.id).name ?: state.startedBy
     Box(modifier.clip(RoundedCornerShape(WZ.Radius.xl))) {
         if (watch.watchingVideoId == state.videoId) {
-            WatchPlayer(watch, state, starterName, compact, onFocus)
+            WatchPlayer(watch, state, starterName, compact, onFocus, room.id)
         } else {
             WatchInvite(watch, state, starterName, compact)
+            if (!compact) WatchViewers(watch, room.id, Modifier.align(Alignment.TopStart).padding(WZ.Space.space4))
         }
     }
 }
 
 @Composable
-private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: String, compact: Boolean, onFocus: () -> Unit) {
+private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: String, compact: Boolean, onFocus: () -> Unit, roomId: String) {
     val uriHandler = LocalUriHandler.current
     var failed by remember(state.videoId) { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
@@ -361,6 +367,7 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: St
                         .background(Color.Black.copy(alpha = 0.45f))
                         .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
                 )
+                WatchViewers(watch, roomId)
                 Spacer(Modifier.weight(1f))
                 SmallButton("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
                     runCatching { uriHandler.openUri(WatchTogether.watchUrl(state.videoId, state.expectedPosition())) }
@@ -423,6 +430,40 @@ private fun WatchInvite(watch: WatchTogether, state: WatchState, starterName: St
                 style = wizardFont(if (compact) WZ.FontSize.xs else WZ.FontSize.md, FontWeight.SemiBold),
                 color = theme.textOnAccent,
             )
+        }
+    }
+}
+
+@Composable
+private fun WatchViewers(watch: WatchTogether, roomId: String, modifier: Modifier = Modifier) {
+    val viewers = watch.viewers
+    if (viewers.isEmpty()) return
+    var open by remember { mutableStateOf(false) }
+    val label = trPlural("call.streamViewers", viewers.size, viewers.size)
+    Box(modifier) {
+        Row(
+            Modifier
+                .height(28.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.6f))
+                .clickable { open = true }
+                .padding(horizontal = WZ.Space.space4)
+                .clearAndSetSemantics { contentDescription = label },
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PhIcon("eye", size = 14.dp, tint = Color.White)
+            Text("${viewers.size}", style = wizardFont(WZ.FontSize.sm, FontWeight.Bold), color = Color.White)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = theme.bgTertiary) {
+            viewers.forEach { userId ->
+                val name = rememberMemberProfile(userId, roomId).name ?: userId
+                DropdownMenuItem(
+                    text = { Text(name, style = wizardFont(WZ.FontSize.lg), color = theme.textPrimary) },
+                    leadingIcon = { PhIcon("eye", tint = theme.textMuted) },
+                    onClick = { open = false },
+                )
+            }
         }
     }
 }
