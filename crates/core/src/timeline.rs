@@ -945,6 +945,7 @@ impl RoomTimeline {
             .unwedge()
             .await
             .map_err(|e| Error::Sdk(e.to_string()))?;
+        self.timeline.room().send_queue().set_enabled(true);
         Ok(())
     }
 

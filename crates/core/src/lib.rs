@@ -33,6 +33,7 @@ mod room_details;
 mod rooms;
 pub mod rpc;
 mod sections;
+mod send_recovery;
 mod session;
 mod settings;
 mod sound_packs;

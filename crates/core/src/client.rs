@@ -298,6 +298,9 @@ impl WizardClient {
                 .await?,
         );
         let mut sync = self.sync.lock().unwrap();
+        if sync.is_none() {
+            crate::send_recovery::watch_send_errors(self.client.clone());
+        }
         Ok(sync.get_or_insert(service).clone())
     }
 
