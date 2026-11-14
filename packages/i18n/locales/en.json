@@ -1138,7 +1138,7 @@
       "start": "Start",
       "stop": "Stop video",
       "privacyNote": "Everyone in the call can join in and pause, play or skip. The video is played by YouTube: watching sends your IP address, device and browser details, and what you watch to YouTube (Google).",
-      "startedBy": "Started by {{name}}",
+      "badge": "Watch together",
       "unavailable": "This video can't be played here. It may not allow embedding.",
       "watch": "Watch together",
       "startedVideo": "{{name}} started a YouTube video",

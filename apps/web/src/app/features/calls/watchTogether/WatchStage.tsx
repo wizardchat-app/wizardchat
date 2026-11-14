@@ -139,7 +139,6 @@ export function WatchPlayerLayer({ rootRef, startedByName }: LayerProps) {
     <div ref={layerRef} className={css.layer} style={{ visibility: 'hidden' }}>
       <WatchTogetherPlayer
         state={state}
-        startedByName={startedByName}
         compact={small}
         onUpdate={actions.update}
         onStop={actions.stop}

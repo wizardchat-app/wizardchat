@@ -47,21 +47,13 @@ interface Command {
 
 interface Props {
   state: WatchState;
-  startedByName: string;
   compact?: boolean;
   onUpdate: (patch: WatchPatch) => void;
   onStop: () => void;
   onFocus?: () => void;
 }
 
-export function WatchTogetherPlayer({
-  state,
-  startedByName,
-  compact,
-  onUpdate,
-  onStop,
-  onFocus,
-}: Props) {
+export function WatchTogetherPlayer({ state, compact, onUpdate, onStop, onFocus }: Props) {
   const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -295,7 +287,7 @@ export function WatchTogetherPlayer({
           <span className={css.playerTop}>
             <span className={css.playerLabel}>
               <YoutubeLogoIcon size={14} weight="fill" />
-              {t('call.watchTogether.startedBy', { name: startedByName })}
+              {t('call.watchTogether.badge')}
             </span>
             <WatchViewers />
           </span>

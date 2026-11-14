@@ -81,10 +81,9 @@ import org.wizardchat.tokens.WZ
 
 /** The YouTube IFrame player in a WebView, kept in sync with the shared state */
 @Composable
-private fun YouTubeSyncPlayer(state: WatchState, onUpdate: (Boolean, Double) -> Unit, onFailed: () -> Unit, modifier: Modifier = Modifier) {
-    val coordinator = remember { YouTubeCoordinator() }
+private fun YouTubeSyncPlayer(watch: WatchTogether, state: WatchState, onFailed: () -> Unit, modifier: Modifier = Modifier) {
+    val coordinator = remember { YouTubeCoordinator(watch) }
     SideEffect {
-        coordinator.onUpdate = onUpdate
         coordinator.onFailed = onFailed
         if (coordinator.state != null && coordinator.state != state) {
             coordinator.state = state
@@ -93,7 +92,7 @@ private fun YouTubeSyncPlayer(state: WatchState, onUpdate: (Boolean, Double) -> 
     }
     LaunchedEffect(coordinator) {
         while (isActive) {
-            delay(500)
+            delay(TICK_MS)
             coordinator.tick()
         }
     }
@@ -111,7 +110,10 @@ private fun YouTubeSyncPlayer(state: WatchState, onUpdate: (Boolean, Double) -> 
     )
 }
 
-private class YouTubeCoordinator {
+private const val TICK_MS = 500L
+
+/** Mirrors the web player: holds everyone while you buffer, nudges the speed to catch up, seeks only when far off */
+private class YouTubeCoordinator(private val watch: WatchTogether) {
     private enum class YT(val raw: Int) {
         unstarted(-1), ended(0), playing(1), paused(2), buffering(3), cued(5);
 
@@ -120,20 +122,27 @@ private class YouTubeCoordinator {
         }
     }
 
-    private data class Steady(val time: Double, val at: Long, val playing: Boolean)
+    private data class Sample(val time: Double, val at: Long, val playing: Boolean)
+    private data class Command(val playing: Boolean, val seekTo: Double?, val until: Long)
 
     var webView: WebView? = null
     var state: WatchState? = null
-    var onUpdate: ((Boolean, Double) -> Unit)? = null
     var onFailed: (() -> Unit)? = null
     private var ready = false
-    private var echoUntil = 0L
     private var lastState = YT.unstarted
     private var time = 0.0
     private var duration = 0.0
+    private var rate = 1.0
+    private var reportsRate = false
+    private var loaded: Double? = null
     private var playerState = YT.unstarted
     private var videoId: String? = null
-    private var steady: Steady? = null
+    private var command: Command? = null
+    private var steady: Sample? = null
+    private var inSync = false
+    private var requestedRate = 1.0
+    private var bufferingSince: Long? = null
+    private var holdCooldownUntil = 0L
     private val main = Handler(Looper.getMainLooper())
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -168,24 +177,43 @@ private class YouTubeCoordinator {
         webView?.evaluateJavascript("window.wz && wz.$command", null)
     }
 
+    private fun command(playing: Boolean, seekTo: Double?) {
+        command = Command(playing, seekTo, System.currentTimeMillis() + COMMAND_TIMEOUT_MS)
+        steady = null
+    }
+
+    private fun pending(now: Long = System.currentTimeMillis()): Command? = command?.takeIf { now < it.until }
+
+    private fun setRate(next: Double) {
+        if (requestedRate == next) return
+        requestedRate = next
+        run("rate($next)")
+    }
+
+    private fun seek(seconds: Double) {
+        time = seconds
+        run("seek($seconds)")
+    }
+
     fun apply() {
-        val state = state ?: return
+        val s = state ?: return
         if (!ready) return
-        echoUntil = System.currentTimeMillis() + ECHO_WINDOW
-        val target = state.expectedPosition()
+        val target = s.expectedPosition()
         val current = videoId
-        if (current != null && current != state.videoId) {
-            steady = null
-            run(if (state.playing) "load('${state.videoId}', $target)" else "cue('${state.videoId}', $target)")
+        if (current != null && current != s.videoId) {
+            command(s.playing, target)
+            videoId = s.videoId
+            time = target
+            run(if (s.playing) "load('${s.videoId}', $target)" else "cue('${s.videoId}', $target)")
             return
         }
-        if (abs(time - target) > DRIFT_TOLERANCE) {
-            steady = null
-            run("seek($target)")
-        }
         val running = playerState == YT.playing || playerState == YT.buffering
-        if (state.playing && !running) run("play()")
-        if (!state.playing && running) run("pause()")
+        val seekTo = if (abs(time - target) > SEEK_FALLBACK) target else null
+        if (seekTo != null || s.playing != running) command(s.playing, seekTo)
+        if (seekTo != null) seek(seekTo)
+        if (s.playing && !running) run("play()")
+        if (!s.playing && running) run("pause()")
+        setRate(s.rate)
     }
 
     private fun received(message: JsonObject) {
@@ -199,6 +227,11 @@ private class YouTubeCoordinator {
                 duration = message.number("duration") ?: duration
                 playerState = YT.of(message.number("state")?.toInt()) ?: playerState
                 videoId = message.text("videoId") ?: videoId
+                message.number("rate")?.let {
+                    rate = it
+                    reportsRate = true
+                }
+                loaded = message.number("loaded") ?: loaded
             }
             "state" -> {
                 val newState = YT.of((message["state"] as? JsonPrimitive)?.intOrNull) ?: YT.unstarted
@@ -206,6 +239,7 @@ private class YouTubeCoordinator {
                 playerState = newState
                 handle(newState)
             }
+            "rate" -> message.number("rate")?.let { rateChanged(it) }
             "error" -> onFailed?.invoke()
         }
     }
@@ -214,59 +248,117 @@ private class YouTubeCoordinator {
     private fun handle(newState: YT) {
         val previous = lastState
         lastState = newState
-        val state = state ?: return
-        val isEcho = System.currentTimeMillis() < echoUntil
+        val s = state ?: return
+        if (newState == YT.buffering) {
+            if (bufferingSince == null) bufferingSince = System.currentTimeMillis()
+            return
+        }
+        bufferingSince = null
+        val pending = pending()
         when (newState) {
             YT.playing -> {
+                if (pending?.playing == true) command = null
                 val firstStart = previous == YT.unstarted || previous == YT.cued
-                if (firstStart && abs(time - state.expectedPosition()) > DRIFT_TOLERANCE) {
-                    echoUntil = System.currentTimeMillis() + ECHO_WINDOW
-                    steady = null
-                    run("seek(${state.expectedPosition()})")
-                    if (!state.playing) run("pause()")
+                if (firstStart && abs(time - s.expectedPosition()) > SEEK_FALLBACK) {
+                    command(s.playing, s.expectedPosition())
+                    seek(s.expectedPosition())
+                    if (!s.playing) run("pause()")
                     return
                 }
-                if (!isEcho && !state.playing) onUpdate?.invoke(true, time)
+                if (!s.playing && pending == null) watch.update(true, time)
             }
-            YT.paused -> if (!isEcho && state.playing) onUpdate?.invoke(false, time)
-            YT.ended -> if (state.playing) onUpdate?.invoke(false, duration)
+            YT.paused -> {
+                if (pending != null && !pending.playing) command = null
+                if (s.playing && pending == null) watch.update(false, time)
+            }
+            YT.ended -> if (s.playing) watch.update(false, duration)
             else -> {}
         }
     }
 
+    private fun rateChanged(next: Double) {
+        rate = next
+        val s = state ?: return
+        if (next == requestedRate || requestedRate != s.rate) return
+        requestedRate = next
+        watch.updateRate(next, time)
+    }
+
     fun tick() {
-        val state = state ?: return
+        val s = state ?: return
         if (!ready) return
         val now = System.currentTimeMillis()
+        val myId = watch.ownId
+        val pending = pending(now)
+
+        val bufferingFor = bufferingSince?.let { now - it } ?: 0L
+        if (s.playing && s.waitingFor == null && bufferingFor > BUFFER_WAIT_MS && now > holdCooldownUntil) {
+            holdCooldownUntil = now + HOLD_COOLDOWN_MS
+            watch.update(false, time, waitingFor = myId)
+            return
+        }
+        if (!s.playing && s.waitingFor == myId && playerState != YT.buffering) {
+            val fraction = loaded
+            val isReady = fraction == null || duration <= 0 || fraction >= 0.99 || fraction * duration >= s.position + BUFFER_AHEAD
+            if (isReady) {
+                holdCooldownUntil = now + HOLD_COOLDOWN_MS
+                watch.update(true, s.position)
+            }
+            return
+        }
+
         val isSteady = playerState == YT.playing || playerState == YT.paused
-        if (now < echoUntil) {
+        if (pending != null && isSteady && pending.playing == (playerState == YT.playing) &&
+            (pending.seekTo == null || abs(time - pending.seekTo) <= SEEK_FALLBACK)
+        ) {
+            command = null
+        }
+        if (command != null || !isSteady) {
             steady = null
             return
         }
+
+        val target = s.expectedPosition()
+        val offBy = time - target
         val base = steady
-        if (isSteady) steady = Steady(time, now, playerState == YT.playing)
-        if (base != null && isSteady) {
-            val maxAdvance = if (base.playing) (now - base.at) / 1000.0 else 0.0
+        steady = Sample(time, now, playerState == YT.playing)
+        if (base != null && inSync) {
+            val maxAdvance = if (base.playing) (now - base.at) / 1000.0 * rate else 0.0
             if (time < base.time - SEEK_JUMP || time > base.time + maxAdvance + SEEK_JUMP) {
-                onUpdate?.invoke(playerState == YT.playing, time)
+                inSync = true
+                watch.update(playerState == YT.playing, time)
                 return
             }
         }
-        val target = state.expectedPosition()
-        val offBy = abs(time - target)
-        val drifted = (state.playing && playerState == YT.playing && offBy > DRIFT_TOLERANCE) ||
-            (!state.playing && playerState == YT.paused && offBy > DRIFT_TOLERANCE)
-        if (drifted) {
-            echoUntil = now + ECHO_WINDOW
-            steady = null
-            run("seek($target)")
+        inSync = abs(offBy) <= SEEK_FALLBACK
+
+        if (s.playing && playerState == YT.playing) {
+            val canNudge = reportsRate && s.rate == 1.0
+            when {
+                abs(offBy) <= IN_SYNC -> setRate(s.rate)
+                canNudge && abs(offBy) <= NUDGE_MAX -> setRate(if (offBy < 0) 1 + NUDGE_FACTOR else 1 - NUDGE_FACTOR)
+                abs(offBy) > (if (canNudge) NUDGE_MAX else SEEK_FALLBACK) -> {
+                    setRate(s.rate)
+                    command(true, target)
+                    seek(target)
+                }
+            }
+        } else if (!s.playing && playerState == YT.paused && abs(offBy) > IN_SYNC) {
+            command(false, target)
+            seek(target)
         }
     }
 
     companion object {
-        private const val DRIFT_TOLERANCE = 1.5
+        private const val IN_SYNC = 0.3
+        private const val NUDGE_MAX = 3.0
+        private const val SEEK_FALLBACK = 1.5
+        private const val NUDGE_FACTOR = 0.25
         private const val SEEK_JUMP = 1.5
-        private const val ECHO_WINDOW = 1500L
+        private const val COMMAND_TIMEOUT_MS = 8000L
+        private const val BUFFER_WAIT_MS = 2000L
+        private const val BUFFER_AHEAD = 4.0
+        private const val HOLD_COOLDOWN_MS = 8000L
 
         fun html(videoId: String, autoplay: Boolean, start: Double): String = """
             <!doctype html><html><head><meta charset="utf-8">
@@ -279,11 +371,14 @@ private class YouTubeCoordinator {
               function post(m){ try{ window.ytAndroid.postMessage(JSON.stringify(m)); }catch(e){} }
               function status(){ if(!ready) return; var d=player.getVideoData?player.getVideoData():{};
                 post({type:'status',time:player.getCurrentTime(),state:player.getPlayerState(),
-                      duration:player.getDuration(),videoId:d&&d.video_id}); }
+                      duration:player.getDuration(),videoId:d&&d.video_id,
+                      rate:player.getPlaybackRate?player.getPlaybackRate():1,
+                      loaded:player.getVideoLoadedFraction?player.getVideoLoadedFraction():null}); }
               window.wz={
                 play:function(){ player.playVideo(); },
                 pause:function(){ player.pauseVideo(); },
                 seek:function(s){ player.seekTo(s,true); },
+                rate:function(r){ player.setPlaybackRate(r); },
                 load:function(id,s){ player.loadVideoById({videoId:id,startSeconds:s}); },
                 cue:function(id,s){ player.cueVideoById({videoId:id,startSeconds:s}); }
               };
@@ -295,6 +390,7 @@ private class YouTubeCoordinator {
                   events:{
                     onReady:function(){ ready=true; status(); post({type:'ready'}); },
                     onStateChange:function(e){ if(e.data===1) captionsOff(); post({type:'state',state:e.data,time:player.getCurrentTime()}); status(); },
+                    onPlaybackRateChange:function(e){ status(); post({type:'rate',rate:e.data}); },
                     onError:function(e){ post({type:'error',code:e.data}); }
                   }});
               };
@@ -319,7 +415,7 @@ internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact:
     val starterName = rememberMemberProfile(state.startedBy, room.id).name ?: state.startedBy
     Box(modifier.clip(RoundedCornerShape(WZ.Radius.xl))) {
         if (watch.watchingVideoId == state.videoId) {
-            WatchPlayer(watch, state, starterName, compact, onFocus, room.id)
+            WatchPlayer(watch, state, compact, onFocus, room.id)
         } else {
             WatchInvite(watch, state, starterName, compact)
             if (!compact) WatchViewers(watch, room.id, Modifier.align(Alignment.TopStart).padding(WZ.Space.space4))
@@ -328,14 +424,14 @@ internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact:
 }
 
 @Composable
-private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: String, compact: Boolean, onFocus: () -> Unit, roomId: String) {
+private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolean, onFocus: () -> Unit, roomId: String) {
     val uriHandler = LocalUriHandler.current
     var failed by remember(state.videoId) { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         YouTubeSyncPlayer(
+            watch,
             state,
-            onUpdate = { playing, position -> watch.update(playing, position) },
             onFailed = { failed = true },
             modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
         )
@@ -346,6 +442,22 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: St
                 style = wizardFont(if (compact) WZ.FontSize.xs else WZ.FontSize.md, FontWeight.SemiBold),
                 color = Color.White,
                 textAlign = TextAlign.Center,
+            )
+        }
+        val waitingFor = state.waitingFor?.takeIf { it != watch.ownId }
+        val waitingName = rememberMemberProfile(waitingFor, roomId).name ?: waitingFor
+        if (waitingName != null && !failed) {
+            Text(
+                tr("call.watchTogether.waitingFor", waitingName),
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(WZ.Space.space6)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space3),
+                style = wizardFont(if (compact) WZ.FontSize.xs else WZ.FontSize.sm),
+                color = Color.White,
+                maxLines = 1,
             )
         }
         if (compact) {
@@ -362,7 +474,7 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, starterName: St
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconLabel(
-                        tr("call.watchTogether.startedBy", starterName),
+                        tr("call.watchTogether.badge"),
                         "youtube-logo",
                         color = Color.White,
                         size = WZ.FontSize.sm,

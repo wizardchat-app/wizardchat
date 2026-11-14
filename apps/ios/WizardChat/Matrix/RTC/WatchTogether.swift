@@ -1,18 +1,36 @@
 import Foundation
 
+/// Orders changes to the shared state: a higher version wins, ties go to the larger user ID
+struct WatchClock: Equatable {
+    var version: Int
+    var by: String
+
+    func isNewer(than other: WatchClock?) -> Bool {
+        guard let other else { return true }
+        return version > other.version || (version == other.version && by > other.by)
+    }
+}
+
 struct WatchState: Equatable {
     var videoId: String
     var startedBy: String
     var playing: Bool
     var position: Double
     var at: Double
+    var rate: Double = 1
+    var version: Int = 0
+    var by: String
+    var waitingFor: String?
+
+    var clock: WatchClock { WatchClock(version: version, by: by) }
 
     func expectedPosition(now: Double = WatchTogether.now) -> Double {
-        playing ? position + (now - at) / 1000 : position
+        playing ? position + (now - at) / 1000 * rate : position
     }
 
     var json: [String: Any] {
-        ["videoId": videoId, "startedBy": startedBy, "playing": playing, "position": position, "at": at]
+        ["videoId": videoId, "startedBy": startedBy, "playing": playing, "position": position, "at": at,
+         "rate": rate, "version": version, "by": by, "waitingFor": waitingFor.map { $0 as Any } ?? NSNull()]
     }
 }
 
@@ -22,6 +40,7 @@ final class WatchTogether: ObservableObject {
     private static let heartbeatSeconds = 10.0
     private static let lateJoinRequestDelay = 1.5
     private static let offsetSamples = 10
+    private static let startSoundWindow = 5.0
 
     @Published private(set) var state: WatchState?
     /// The video you agreed to load. YouTube only sees you once you choose to watch.
@@ -29,6 +48,7 @@ final class WatchTogether: ObservableObject {
         didSet { if watchingVideoId != oldValue { send(viewerMessage(watchingVideoId)) } }
     }
     @Published private var viewerVideos: [String: String] = [:]
+    @Published var consent: Bool { didSet { UserDefaults.standard.set(consent, forKey: "youtubeConsent") } }
 
     /// Who in the call watches the current video (user IDs), you included
     var viewers: [String] {
@@ -39,13 +59,12 @@ final class WatchTogether: ObservableObject {
         }
         return ids
     }
-    @Published var consent: Bool { didSet { UserDefaults.standard.set(consent, forKey: "youtubeConsent") } }
 
-    private let ownUserId: String
+    let ownUserId: String
     private let send: ([String: Any]) -> Void
     private let participants: () -> [(identity: String, userId: String, isLocal: Bool)]
     private var offsets: [String: [Double]] = [:]
-    private var stoppedAt: Double = 0
+    private var clock: WatchClock?
     private var heartbeat: Timer?
 
     nonisolated static var now: Double { Date().timeIntervalSince1970 * 1000 }
@@ -72,53 +91,104 @@ final class WatchTogether: ObservableObject {
         heartbeat = nil
     }
 
+    private func nextClock() -> WatchClock {
+        WatchClock(version: (clock?.version ?? 0) + 1, by: ownUserId)
+    }
+
     func start(videoId: String) {
         consent = true
         watchingVideoId = videoId
-        CallSounds.play("watch_together_start")
-        publish(WatchState(videoId: videoId, startedBy: ownUserId, playing: true, position: 0, at: Self.now))
+        let next = nextClock()
+        publish(WatchState(videoId: videoId, startedBy: ownUserId, playing: true, position: 0, at: Self.now,
+                           version: next.version, by: next.by))
     }
 
-    func update(playing: Bool, position: Double) {
-        guard var current = state else { return }
-        current.playing = playing
-        current.position = max(0, position)
-        current.at = Self.now
-        publish(current)
+    /// Play or pause at a position; leaving waitingFor out clears any buffering hold
+    func update(playing: Bool, position: Double, waitingFor: String? = nil) {
+        guard var next = state else { return }
+        next.playing = playing
+        next.position = max(0, position)
+        next.at = Self.now
+        next.waitingFor = waitingFor
+        stamp(&next)
+        publish(next)
+    }
+
+    func updateRate(_ rate: Double, position: Double) {
+        guard var next = state else { return }
+        next.rate = rate
+        next.position = max(0, position)
+        next.at = Self.now
+        stamp(&next)
+        publish(next)
     }
 
     func stop() {
-        stoppedAt = Self.now
+        let next = nextClock()
+        clock = next
         state = nil
         watchingVideoId = nil
-        send(["t": "stop", "sentAt": Self.now])
+        send(["t": "stop", "sentAt": Self.now, "version": next.version, "by": next.by])
+    }
+
+    private func stamp(_ state: inout WatchState) {
+        let next = nextClock()
+        state.version = next.version
+        state.by = next.by
     }
 
     private func publish(_ next: WatchState) {
+        clock = next.clock
+        apply(next)
+        broadcast(next)
+    }
+
+    private func apply(_ next: WatchState?) {
+        let previous = state
         state = next
-        send(["t": "state", "state": next.json, "sentAt": Self.now])
+        if let next, next.videoId != previous?.videoId, next.expectedPosition() < Self.startSoundWindow {
+            CallSounds.play("watch_together_start")
+        }
+    }
+
+    private func broadcast(_ state: WatchState) {
+        send(["t": "state", "state": state.json, "sentAt": Self.now])
+    }
+
+    private func fresh(_ state: WatchState) -> WatchState {
+        var copy = state
+        copy.position = state.expectedPosition()
+        copy.at = Self.now
+        return copy
     }
 
     private func viewerMessage(_ videoId: String?) -> [String: Any] {
         ["t": "viewer", "videoId": videoId.map { $0 as Any } ?? NSNull()]
     }
 
+    /// The starter (or else the first person by identity) keeps everyone's clock fresh and lifts stale holds
     private func beat() {
         guard let current = state else { return }
         let present = participants().sorted { $0.identity < $1.identity }
         let leader = present.first { $0.userId == current.startedBy } ?? present.first
         guard leader?.isLocal == true else { return }
-        var next = current
-        next.position = current.expectedPosition()
-        next.at = Self.now
-        publish(next)
+        if let waitingFor = current.waitingFor, !present.contains(where: { $0.userId == waitingFor }) {
+            var next = current
+            next.playing = true
+            next.waitingFor = nil
+            next.at = Self.now
+            stamp(&next)
+            publish(next)
+            return
+        }
+        broadcast(fresh(current))
     }
 
     func receive(_ data: Data, from identity: String) {
         guard let message = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
         switch message["t"] as? String {
         case "request":
-            if let state { send(["t": "state", "state": state.json, "sentAt": Self.now]) }
+            if let state { broadcast(fresh(state)) }
         case "who":
             if let watchingVideoId { send(viewerMessage(watchingVideoId)) }
         case "viewer":
@@ -129,8 +199,11 @@ final class WatchTogether: ObservableObject {
             }
         case "stop":
             guard message["sentAt"] is NSNumber else { return }
-            stoppedAt = Self.now
-            state = nil
+            let version = (message["version"] as? NSNumber)?.intValue ?? 0
+            let incoming = WatchClock(version: version, by: message["by"] as? String ?? "")
+            if version > 0 && !incoming.isNewer(than: clock) { return }
+            clock = version > 0 ? incoming : nextClock()
+            apply(nil)
             watchingVideoId = nil
         case "state":
             guard let sentAt = (message["sentAt"] as? NSNumber)?.doubleValue,
@@ -144,14 +217,20 @@ final class WatchTogether: ObservableObject {
             samples.append(Self.now - sentAt)
             samples = Array(samples.suffix(Self.offsetSamples))
             offsets[identity] = samples
-            let incoming = WatchState(videoId: videoId, startedBy: startedBy, playing: playing,
-                                      position: max(0, position), at: at + (samples.min() ?? 0))
-            guard incoming.at > stoppedAt else { return }
-            if let current = state, incoming.at < current.at { return }
-            if state?.videoId != incoming.videoId {
-                CallSounds.play("watch_together_start")
+            let rate = (raw["rate"] as? NSNumber)?.doubleValue ?? 1
+            var incoming = WatchState(videoId: videoId, startedBy: startedBy, playing: playing,
+                                      position: max(0, position), at: at + (samples.min() ?? 0),
+                                      rate: (0.25...2).contains(rate) ? rate : 1,
+                                      version: (raw["version"] as? NSNumber)?.intValue ?? 0,
+                                      by: raw["by"] as? String ?? startedBy,
+                                      waitingFor: raw["waitingFor"] as? String)
+            if incoming.version == 0 {
+                incoming.version = nextClock().version
+            } else if !incoming.clock.isNewer(than: clock) && incoming.clock != clock {
+                return
             }
-            state = incoming
+            clock = incoming.clock
+            apply(incoming)
         default:
             return
         }

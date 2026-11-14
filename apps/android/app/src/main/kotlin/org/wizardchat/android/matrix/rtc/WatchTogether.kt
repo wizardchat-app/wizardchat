@@ -25,6 +25,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.wizardchat.android.WizardApplication
 
+/** Orders changes to the shared state: a higher version wins, ties go to the larger user ID */
+data class WatchClock(val version: Int, val by: String) {
+    fun isNewerThan(other: WatchClock?): Boolean =
+        other == null || version > other.version || (version == other.version && by > other.by)
+}
+
 /** What everyone in the call is watching, and where in the video they are */
 data class WatchState(
     val videoId: String,
@@ -32,8 +38,15 @@ data class WatchState(
     val playing: Boolean,
     val position: Double,
     val at: Double,
+    val rate: Double = 1.0,
+    val version: Int = 0,
+    val by: String = startedBy,
+    val waitingFor: String? = null,
 ) {
-    fun expectedPosition(now: Double = WatchTogether.now): Double = if (playing) position + (now - at) / 1000 else position
+    val clock: WatchClock get() = WatchClock(version, by)
+
+    fun expectedPosition(now: Double = WatchTogether.now): Double =
+        if (playing) position + (now - at) / 1000 * rate else position
 
     val json: JsonObject
         get() = buildJsonObject {
@@ -42,6 +55,10 @@ data class WatchState(
             put("playing", playing)
             put("position", position)
             put("at", at)
+            put("rate", rate)
+            put("version", version)
+            put("by", by)
+            put("waitingFor", waitingFor)
         }
 }
 
@@ -80,6 +97,8 @@ class WatchTogether(
                 .distinct()
         }
 
+    val ownId: String get() = ownUserId
+
     private val defaults = WizardApplication.instance.getSharedPreferences("calls", Context.MODE_PRIVATE)
     private var consentState by mutableStateOf(defaults.getBoolean("youtubeConsent", false))
     var consent: Boolean
@@ -91,7 +110,7 @@ class WatchTogether(
 
     private val scope: CoroutineScope = MainScope()
     private val offsets = mutableMapOf<String, List<Double>>()
-    private var stoppedAt = 0.0
+    private var clock: WatchClock? = null
     private var heartbeat: Job? = null
 
     init {
@@ -114,32 +133,56 @@ class WatchTogether(
         scope.cancel()
     }
 
+    private fun nextClock() = WatchClock((clock?.version ?: 0) + 1, ownUserId)
+
     fun start(videoId: String) {
         consent = true
         watchingVideoId = videoId
-        CallSounds.play("watch_together_start")
-        publish(WatchState(videoId, ownUserId, playing = true, position = 0.0, at = now))
+        val next = nextClock()
+        publish(WatchState(videoId, ownUserId, playing = true, position = 0.0, at = now, version = next.version, by = next.by))
     }
 
-    fun update(playing: Boolean, position: Double) {
+    /** Play or pause at a position; leaving waitingFor out clears any buffering hold */
+    fun update(playing: Boolean, position: Double, waitingFor: String? = null) {
         val current = state ?: return
-        publish(current.copy(playing = playing, position = max(0.0, position), at = now))
+        val next = nextClock()
+        publish(current.copy(playing = playing, position = max(0.0, position), at = now, waitingFor = waitingFor, version = next.version, by = next.by))
+    }
+
+    fun updateRate(rate: Double, position: Double) {
+        val current = state ?: return
+        val next = nextClock()
+        publish(current.copy(rate = rate, position = max(0.0, position), at = now, version = next.version, by = next.by))
     }
 
     fun stop() {
-        stoppedAt = now
+        val next = nextClock()
+        clock = next
         state = null
         watchingVideoId = null
         send(buildJsonObject {
             put("t", "stop")
             put("sentAt", now)
+            put("version", next.version)
+            put("by", next.by)
         })
     }
 
     private fun publish(next: WatchState) {
-        state = next
-        send(stateMessage(next))
+        clock = next.clock
+        apply(next)
+        broadcast(next)
     }
+
+    private fun apply(next: WatchState?) {
+        val previous = state
+        state = next
+        if (next != null && next.videoId != previous?.videoId && next.expectedPosition() < START_SOUND_WINDOW) {
+            CallSounds.play("watch_together_start")
+        }
+    }
+
+    private fun broadcast(state: WatchState) = send(stateMessage(state))
 
     private fun stateMessage(state: WatchState) = buildJsonObject {
         put("t", "state")
@@ -152,18 +195,25 @@ class WatchTogether(
         put("videoId", videoId)
     }
 
+    /** The starter (or else the first person by identity) keeps everyone's clock fresh and lifts stale holds */
     private fun beat() {
         val current = state ?: return
         val present = participants().sortedBy { it.identity }
         val leader = present.firstOrNull { it.userId == current.startedBy } ?: present.firstOrNull()
         if (leader?.isLocal != true) return
-        publish(current.copy(position = current.expectedPosition(), at = now))
+        val waitingFor = current.waitingFor
+        if (waitingFor != null && present.none { it.userId == waitingFor }) {
+            val next = nextClock()
+            publish(current.copy(playing = true, waitingFor = null, at = now, version = next.version, by = next.by))
+            return
+        }
+        broadcast(current.copy(position = current.expectedPosition(), at = now))
     }
 
     fun receive(data: ByteArray, from: String) {
         val message = runCatching { Json.parseToJsonElement(data.decodeToString()).jsonObject }.getOrNull() ?: return
         when (message.string("t")) {
-            "request" -> state?.let { send(stateMessage(it)) }
+            "request" -> state?.let { broadcast(it.copy(position = it.expectedPosition(), at = now)) }
             "who" -> watchingState?.let { send(viewerMessage(it)) }
             "viewer" -> {
                 val videoId = message.string("videoId")?.takeIf(::isVideoId)
@@ -171,8 +221,11 @@ class WatchTogether(
             }
             "stop" -> {
                 if (message.number("sentAt") == null) return
-                stoppedAt = now
-                state = null
+                val version = message.number("version")?.toInt() ?: 0
+                val incoming = WatchClock(version, message.string("by") ?: "")
+                if (version > 0 && !incoming.isNewerThan(clock)) return
+                clock = if (version > 0) incoming else nextClock()
+                apply(null)
                 watchingVideoId = null
             }
             "state" -> {
@@ -185,14 +238,24 @@ class WatchTogether(
                 val at = raw.number("at") ?: return
                 val samples = ((offsets[from] ?: emptyList()) + (now - sentAt)).takeLast(OFFSET_SAMPLES)
                 offsets[from] = samples
-                val incoming = WatchState(videoId, startedBy, playing, max(0.0, position), at + (samples.minOrNull() ?: 0.0))
-                if (incoming.at <= stoppedAt) return
-                val current = state
-                if (current != null && incoming.at < current.at) return
-                if (current?.videoId != incoming.videoId) {
-                    CallSounds.play("watch_together_start")
+                var incoming = WatchState(
+                    videoId = videoId,
+                    startedBy = startedBy,
+                    playing = playing,
+                    position = max(0.0, position),
+                    at = at + (samples.minOrNull() ?: 0.0),
+                    rate = raw.number("rate")?.takeIf { it in 0.25..2.0 } ?: 1.0,
+                    version = raw.number("version")?.toInt() ?: 0,
+                    by = raw.string("by") ?: startedBy,
+                    waitingFor = raw.string("waitingFor"),
+                )
+                if (incoming.version == 0) {
+                    incoming = incoming.copy(version = nextClock().version)
+                } else if (!incoming.clock.isNewerThan(clock) && incoming.clock != clock) {
+                    return
                 }
-                state = incoming
+                clock = incoming.clock
+                apply(incoming)
             }
         }
     }
@@ -202,6 +265,7 @@ class WatchTogether(
         private const val HEARTBEAT_SECONDS = 10.0
         private const val LATE_JOIN_REQUEST_DELAY = 1.5
         private const val OFFSET_SAMPLES = 10
+        private const val START_SOUND_WINDOW = 5.0
         private val videoIdPattern = Regex("^[A-Za-z0-9_-]{11}$")
 
         val now: Double get() = System.currentTimeMillis().toDouble()

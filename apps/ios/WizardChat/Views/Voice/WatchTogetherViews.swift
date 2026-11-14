@@ -3,11 +3,11 @@ import SwiftUI
 import WebKit
 
 struct YouTubeSyncPlayer: UIViewRepresentable {
+    let watch: WatchTogether
     let state: WatchState
-    let onUpdate: (Bool, Double) -> Void
     var onFailed: (() -> Void)?
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(watch: watch) }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -20,7 +20,6 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
         webView.scrollView.isScrollEnabled = false
         context.coordinator.webView = webView
         context.coordinator.state = state
-        context.coordinator.onUpdate = onUpdate
         context.coordinator.onFailed = onFailed
         webView.loadHTMLString(Coordinator.html(videoId: state.videoId, autoplay: state.playing,
                                                 start: state.expectedPosition()),
@@ -30,7 +29,6 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.onUpdate = onUpdate
         context.coordinator.onFailed = onFailed
         if context.coordinator.state != state {
             context.coordinator.state = state
@@ -43,26 +41,51 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "yt")
     }
 
+    /// Mirrors the web player: holds everyone while you buffer, nudges the speed to catch up,
+    /// seeks only when far off.
     @MainActor
     final class Coordinator: NSObject {
         enum YT: Int { case unstarted = -1, ended = 0, playing = 1, paused = 2, buffering = 3, cued = 5 }
-        private static let driftTolerance = 1.5
+        private static let inSync = 0.3
+        private static let nudgeMax = 3.0
+        private static let seekFallback = 1.5
+        private static let nudgeFactor = 0.25
         private static let seekJump = 1.5
-        private static let echoWindow = 1.5
+        private static let commandTimeout = 8.0
+        private static let bufferWait = 2.0
+        private static let bufferAhead = 4.0
+        private static let holdCooldown = 8.0
 
+        private struct Command {
+            let playing: Bool
+            let seekTo: Double?
+            let until: Date
+        }
+
+        private let watch: WatchTogether
         weak var webView: WKWebView?
         var state: WatchState?
-        var onUpdate: ((Bool, Double) -> Void)?
         var onFailed: (() -> Void)?
         private var ready = false
-        private var echoUntil: Date = .distantPast
         private var lastState = YT.unstarted
         private var time: Double = 0
         private var duration: Double = 0
+        private var rate: Double = 1
+        private var reportsRate = false
+        private var loaded: Double?
         private var playerState = YT.unstarted
         private var videoId: String?
+        private var command: Command?
         private var steady: (time: Double, at: Date, playing: Bool)?
+        private var inSync = false
+        private var requestedRate: Double = 1
+        private var bufferingSince: Date?
+        private var holdCooldownUntil: Date = .distantPast
         private var timer: Timer?
+
+        init(watch: WatchTogether) {
+            self.watch = watch
+        }
 
         func startTicking() {
             timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -79,22 +102,44 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
             webView?.evaluateJavaScript("window.wz && wz.\(command)")
         }
 
+        private func command(playing: Bool, seekTo: Double?) {
+            command = Command(playing: playing, seekTo: seekTo, until: Date().addingTimeInterval(Self.commandTimeout))
+            steady = nil
+        }
+
+        private func pending(_ now: Date = Date()) -> Command? {
+            guard let command, now < command.until else { return nil }
+            return command
+        }
+
+        private func setRate(_ next: Double) {
+            guard requestedRate != next else { return }
+            requestedRate = next
+            run("rate(\(next))")
+        }
+
+        private func seek(_ seconds: Double) {
+            time = seconds
+            run("seek(\(seconds))")
+        }
+
         func apply() {
-            guard ready, let state else { return }
-            echoUntil = Date().addingTimeInterval(Self.echoWindow)
-            let target = state.expectedPosition()
-            if let videoId, videoId != state.videoId {
-                steady = nil
-                run(state.playing ? "load('\(state.videoId)', \(target))" : "cue('\(state.videoId)', \(target))")
+            guard ready, let s = state else { return }
+            let target = s.expectedPosition()
+            if let videoId, videoId != s.videoId {
+                command(playing: s.playing, seekTo: target)
+                self.videoId = s.videoId
+                time = target
+                run(s.playing ? "load('\(s.videoId)', \(target))" : "cue('\(s.videoId)', \(target))")
                 return
             }
-            if abs(time - target) > Self.driftTolerance {
-                steady = nil
-                run("seek(\(target))")
-            }
             let running = playerState == .playing || playerState == .buffering
-            if state.playing && !running { run("play()") }
-            if !state.playing && running { run("pause()") }
+            let seekTo: Double? = abs(time - target) > Self.seekFallback ? target : nil
+            if seekTo != nil || s.playing != running { command(playing: s.playing, seekTo: seekTo) }
+            if let seekTo { seek(seekTo) }
+            if s.playing && !running { run("play()") }
+            if !s.playing && running { run("pause()") }
+            setRate(s.rate)
         }
 
         fileprivate func received(_ message: [String: Any]) {
@@ -107,11 +152,18 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
                 duration = (message["duration"] as? NSNumber)?.doubleValue ?? duration
                 playerState = YT(rawValue: (message["state"] as? NSNumber)?.intValue ?? -1) ?? playerState
                 videoId = message["videoId"] as? String ?? videoId
+                if let rate = (message["rate"] as? NSNumber)?.doubleValue {
+                    self.rate = rate
+                    reportsRate = true
+                }
+                loaded = (message["loaded"] as? NSNumber)?.doubleValue ?? loaded
             case "state":
                 let newState = YT(rawValue: (message["state"] as? NSNumber)?.intValue ?? -1) ?? .unstarted
                 if let time = (message["time"] as? NSNumber)?.doubleValue { self.time = time }
                 playerState = newState
                 handle(newState)
+            case "rate":
+                if let rate = (message["rate"] as? NSNumber)?.doubleValue { rateChanged(rate) }
             case "error":
                 onFailed?()
             default:
@@ -124,50 +176,100 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
         private func handle(_ newState: YT) {
             let previous = lastState
             lastState = newState
-            guard let state else { return }
-            let isEcho = Date() < echoUntil
+            guard let s = state else { return }
+            if newState == .buffering {
+                if bufferingSince == nil { bufferingSince = Date() }
+                return
+            }
+            bufferingSince = nil
+            let pending = pending()
             switch newState {
             case .playing:
+                if pending?.playing == true { command = nil }
                 let firstStart = previous == .unstarted || previous == .cued
-                if firstStart && abs(time - state.expectedPosition()) > Self.driftTolerance {
-                    echoUntil = Date().addingTimeInterval(Self.echoWindow)
-                    steady = nil
-                    run("seek(\(state.expectedPosition()))")
-                    if !state.playing { run("pause()") }
+                if firstStart && abs(time - s.expectedPosition()) > Self.seekFallback {
+                    command(playing: s.playing, seekTo: s.expectedPosition())
+                    seek(s.expectedPosition())
+                    if !s.playing { run("pause()") }
                     return
                 }
-                if !isEcho && !state.playing { onUpdate?(true, time) }
+                if !s.playing && pending == nil { watch.update(playing: true, position: time) }
             case .paused:
-                if !isEcho && state.playing { onUpdate?(false, time) }
+                if let pending, !pending.playing { command = nil }
+                if s.playing && pending == nil { watch.update(playing: false, position: time) }
             case .ended:
-                if state.playing { onUpdate?(false, duration) }
+                if s.playing { watch.update(playing: false, position: duration) }
             default:
                 break
             }
         }
 
+        private func rateChanged(_ next: Double) {
+            rate = next
+            guard let s = state, next != requestedRate, requestedRate == s.rate else { return }
+            requestedRate = next
+            watch.updateRate(next, position: time)
+        }
+
         private func tick() {
-            guard ready, let state else { return }
+            guard ready, let s = state else { return }
             let now = Date()
+            let myId = watch.ownUserId
+            let pending = pending(now)
+
+            let bufferingFor = bufferingSince.map { now.timeIntervalSince($0) } ?? 0
+            if s.playing && s.waitingFor == nil && bufferingFor > Self.bufferWait && now > holdCooldownUntil {
+                holdCooldownUntil = now.addingTimeInterval(Self.holdCooldown)
+                watch.update(playing: false, position: time, waitingFor: myId)
+                return
+            }
+            if !s.playing && s.waitingFor == myId && playerState != .buffering {
+                let isReady = loaded.map { $0 >= 0.99 || duration <= 0 || $0 * duration >= s.position + Self.bufferAhead } ?? true
+                if isReady {
+                    holdCooldownUntil = now.addingTimeInterval(Self.holdCooldown)
+                    watch.update(playing: true, position: s.position)
+                }
+                return
+            }
+
             let isSteady = playerState == .playing || playerState == .paused
-            if now < echoUntil { steady = nil; return }
+            if let pending, isSteady, pending.playing == (playerState == .playing),
+               pending.seekTo.map({ abs(time - $0) <= Self.seekFallback }) ?? true {
+                command = nil
+            }
+            if command != nil || !isSteady {
+                steady = nil
+                return
+            }
+
+            let target = s.expectedPosition()
+            let offBy = time - target
             let base = steady
-            if isSteady { steady = (time, now, playerState == .playing) }
-            if let base, isSteady {
-                let maxAdvance = base.playing ? now.timeIntervalSince(base.at) : 0
+            steady = (time, now, playerState == .playing)
+            if let base, inSync {
+                let maxAdvance = base.playing ? now.timeIntervalSince(base.at) * rate : 0
                 if time < base.time - Self.seekJump || time > base.time + maxAdvance + Self.seekJump {
-                    onUpdate?(playerState == .playing, time)
+                    inSync = true
+                    watch.update(playing: playerState == .playing, position: time)
                     return
                 }
             }
-            let target = state.expectedPosition()
-            let offBy = abs(time - target)
-            let drifted = (state.playing && playerState == .playing && offBy > Self.driftTolerance)
-                || (!state.playing && playerState == .paused && offBy > Self.driftTolerance)
-            if drifted {
-                echoUntil = now.addingTimeInterval(Self.echoWindow)
-                steady = nil
-                run("seek(\(target))")
+            inSync = abs(offBy) <= Self.seekFallback
+
+            if s.playing && playerState == .playing {
+                let canNudge = reportsRate && s.rate == 1
+                if abs(offBy) <= Self.inSync {
+                    setRate(s.rate)
+                } else if canNudge && abs(offBy) <= Self.nudgeMax {
+                    setRate(offBy < 0 ? 1 + Self.nudgeFactor : 1 - Self.nudgeFactor)
+                } else if abs(offBy) > (canNudge ? Self.nudgeMax : Self.seekFallback) {
+                    setRate(s.rate)
+                    command(playing: true, seekTo: target)
+                    seek(target)
+                }
+            } else if !s.playing && playerState == .paused && abs(offBy) > Self.inSync {
+                command(playing: false, seekTo: target)
+                seek(target)
             }
         }
 
@@ -183,11 +285,14 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
               function post(m){ try{ window.webkit.messageHandlers.yt.postMessage(m); }catch(e){} }
               function status(){ if(!ready) return; var d=player.getVideoData?player.getVideoData():{};
                 post({type:'status',time:player.getCurrentTime(),state:player.getPlayerState(),
-                      duration:player.getDuration(),videoId:d&&d.video_id}); }
+                      duration:player.getDuration(),videoId:d&&d.video_id,
+                      rate:player.getPlaybackRate?player.getPlaybackRate():1,
+                      loaded:player.getVideoLoadedFraction?player.getVideoLoadedFraction():null}); }
               window.wz={
                 play:function(){ player.playVideo(); },
                 pause:function(){ player.pauseVideo(); },
                 seek:function(s){ player.seekTo(s,true); },
+                rate:function(r){ player.setPlaybackRate(r); },
                 load:function(id,s){ player.loadVideoById({videoId:id,startSeconds:s}); },
                 cue:function(id,s){ player.cueVideoById({videoId:id,startSeconds:s}); }
               };
@@ -199,6 +304,7 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
                   events:{
                     onReady:function(){ ready=true; status(); post({type:'ready'}); },
                     onStateChange:function(e){ if(e.data===1) captionsOff(); post({type:'state',state:e.data,time:player.getCurrentTime()}); status(); },
+                    onPlaybackRateChange:function(e){ status(); post({type:'rate',rate:e.data}); },
                     onError:function(e){ post({type:'error',code:e.data}); }
                   }});
               };
@@ -232,6 +338,7 @@ struct WatchTogetherTile: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     @State private var starterName: String?
+    @State private var waitingName: String?
     @State private var failed = false
     @State private var confirmStop = false
 
@@ -248,15 +355,17 @@ struct WatchTogetherTile: View {
             .task(id: state.startedBy) {
                 starterName = await session.memberProfile(state.startedBy, in: room.id).name
             }
+            .task(id: state.waitingFor) {
+                guard let waitingFor = state.waitingFor else { return }
+                waitingName = await session.memberProfile(waitingFor, in: room.id).name
+            }
         }
     }
 
     private func player(_ state: WatchState) -> some View {
         ZStack {
             Color.black
-            YouTubeSyncPlayer(state: state,
-                              onUpdate: { playing, position in watch.update(playing: playing, position: position) },
-                              onFailed: { failed = true })
+            YouTubeSyncPlayer(watch: watch, state: state, onFailed: { failed = true })
                 .aspectRatio(16 / 9, contentMode: .fit)
                 .allowsHitTesting(!compact)
             if failed {
@@ -266,6 +375,18 @@ struct WatchTogetherTile: View {
                     .multilineTextAlignment(.center)
                     .padding()
             }
+            if let waitingFor = state.waitingFor, waitingFor != watch.ownUserId, !failed {
+                Text(L10n.format("call.watchTogether.waitingFor", waitingName ?? waitingFor))
+                    .font(.wizard(compact ? WZ.FontSize.xs : WZ.FontSize.sm))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, WZ.Space.space5)
+                    .padding(.vertical, WZ.Space.space3)
+                    .background(.black.opacity(0.7), in: Capsule())
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(WZ.Space.space6)
+                    .allowsHitTesting(false)
+            }
             if compact {
                 Color.clear.contentShape(Rectangle()).onTapGesture(perform: onFocus)
             }
@@ -273,7 +394,7 @@ struct WatchTogetherTile: View {
         .overlay(alignment: .top) {
             if !compact {
                 HStack(spacing: WZ.Space.space3) {
-                    Label(L10n.format("call.watchTogether.startedBy", "\(starterName ?? state.startedBy)"), image: "ph-youtube-logo-fill")
+                    Label(String(localized: "call.watchTogether.badge"), image: "ph-youtube-logo-fill")
                         .font(.wizard(WZ.FontSize.sm, .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)

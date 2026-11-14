@@ -1138,7 +1138,7 @@
       "start": "Starten",
       "stop": "Video beenden",
       "privacyNote": "Alle im Anruf können einsteigen und pausieren, abspielen oder spulen. Das Video wird von YouTube abgespielt: Beim Ansehen werden deine IP-Adresse, Geräte- und Browserdaten sowie das, was du ansiehst, an YouTube (Google) übertragen.",
-      "startedBy": "Gestartet von {{name}}",
+      "badge": "Gemeinsam ansehen",
       "unavailable": "Dieses Video kann hier nicht abgespielt werden. Eventuell ist das Einbetten nicht erlaubt.",
       "watch": "Gemeinsam ansehen",
       "startedVideo": "{{name}} hat ein YouTube-Video gestartet",
