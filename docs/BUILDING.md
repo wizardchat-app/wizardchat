@@ -56,6 +56,13 @@ CI needs `GITLAB_RELEASE_TOKEN` (pushes the branch and tag, opens the merge requ
 `npx -w @wizardchat/desktop tauri signer generate -w wizardchat-updater.key` and keep it safe: without it, installed
 apps can't verify updates any more.
 
+The macOS app is signed with a Developer ID certificate and notarized by Apple, so Gatekeeper opens it without asking.
+CI reads the certificate from `APPLE_CERTIFICATE` (the `.p12`, base64) and `APPLE_CERTIFICATE_PASSWORD`, its name from
+`APPLE_SIGNING_IDENTITY` (`Developer ID Application: <name> (<team ID>)`, not masked since it can't contain spaces), and
+an App Store Connect API key for notarization from `APPLE_API_KEY` (key ID), `APPLE_API_ISSUER` and `APPLE_API_KEY_P8`
+(the `.p8`, base64). They're protected variables, so only pipelines of protected tags get them. Without them, the app
+is signed ad hoc and macOS asks people to allow it in **System Settings -> Privacy & Security**.
+
 Android release builds are signed with the key in `apps/android/keystore.properties` (`storeFile`, `storePassword`,
 `keyAlias`, `keyPassword`; not committed), and are debug-signed without it. `npm run android:bundle` builds the bundle for
 Google Play. In CI, the APK is signed with the same key, from the masked variables `ANDROID_KEYSTORE_BASE64` (the

@@ -1,5 +1,7 @@
 # Signing the desktop updates needs the CI variables TAURI_SIGNING_PRIVATE_KEY,
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD and TAURI_UPDATER_PUBKEY (docs/BUILDING.md)
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD and TAURI_UPDATER_PUBKEY, signing and notarizing the macOS app
+# APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_API_KEY,
+# APPLE_API_ISSUER and APPLE_API_KEY_P8 (docs/BUILDING.md)
 .desktop-build:
   stage: build
   extends: [.release-rules, .rust-cache]
@@ -30,9 +32,17 @@ build-desktop-mac:
     - !reference [.install-sccache-mac, script]
     - npm ci --ignore-scripts
     - node apps/desktop/scripts/release-config.mjs
+    - |
+      if [ -n "$APPLE_API_KEY_P8" ]; then
+        export APPLE_API_KEY_PATH="$CI_PROJECT_DIR/.apple/AuthKey.p8"
+        mkdir -p "$CI_PROJECT_DIR/.apple"
+        printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$APPLE_API_KEY_PATH"
+      fi
     - npm run tokens
     - npm run build:release -w @wizardchat/desktop -- --target "$TARGET"
     - sccache --show-stats
+  after_script:
+    - rm -rf "$CI_PROJECT_DIR/.apple"
 
 build-desktop-linux:
   extends: .desktop-build

@@ -46,9 +46,6 @@ from the AUR:
 yay -S wizardchat-bin
 ```
 
-> **macOS:** the app isn't signed yet, so macOS may block it the first time. Open **System Settings -> Privacy & Security**,
-> scroll down to **Security** and click **Allow WizardChat**.
-
 ### Android
 
 Not in the Play Store yet. Install it with one of these, and it stays up to date:
