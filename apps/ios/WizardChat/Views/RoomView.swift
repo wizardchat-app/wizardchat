@@ -802,6 +802,12 @@ struct MessageRow: View {
     }
     private var senderColor: Color { theme.nameColor(entry.sender, colored: prefs.colorUsernames) }
 
+    private var receiptsWidth: CGFloat {
+        guard !entry.readBy.isEmpty, actions != nil else { return 0 }
+        let shown = CGFloat(min(entry.readBy.count, 4))
+        return 16 + 12 * (shown - 1) + (entry.readBy.count > 4 ? 28 : 0) + WZ.Space.space3
+    }
+
     private var isMessageText: Bool {
         if case .message = entry.kind { true } else { false }
     }
@@ -857,7 +863,7 @@ struct MessageRow: View {
                                 .accessibilityLabel(String(localized: "timeline.pinned"))
                         }
                     }
-                    .padding(.bottom, WZ.Space.space0)
+                    .padding(.bottom, WZ.Space.space2)
                 }
                 if let quote = entry.replyTo {
                     ReplyQuoteView(quote: quote, isPrivateRoom: isPrivateRoom)
@@ -899,12 +905,14 @@ struct MessageRow: View {
                 if let thread = entry.thread, thread.replies > 0, let actions, let openThread = actions.openThread {
                     ThreadSummaryBadge(thread: thread, roomId: actions.roomId) { openThread(entry) }
                 }
-                if !entry.readBy.isEmpty, let roomId = actions?.roomId {
-                    ReadReceiptsView(roomId: roomId, userIds: entry.readBy, readAt: entry.readAt)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, receiptsWidth)
+            .overlay(alignment: .bottomTrailing) {
+                if !entry.readBy.isEmpty, let roomId = actions?.roomId {
+                    ReadReceiptsView(roomId: roomId, userIds: entry.readBy, readAt: entry.readAt)
+                }
+            }
             .padding(.trailing, WZ.Space.space5)
         }
         .padding(.horizontal, WZ.Space.space6)
@@ -1100,7 +1108,9 @@ private struct MenuPressGesture: UIGestureRecognizerRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         func gestureRecognizer(_ recognizer: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            other is UIPanGestureRecognizer
+        }
     }
 }
 
@@ -1146,6 +1156,8 @@ private struct MessageContextMenu: ViewModifier {
     func body(content: Content) -> some View {
         if entry.isContent && entry.allowsActions {
             content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { [frame] in frame.value = $0 }
                 .gesture(MenuPressGesture { [frame] in actions.openMenu(entry, frame.value) })
         } else {

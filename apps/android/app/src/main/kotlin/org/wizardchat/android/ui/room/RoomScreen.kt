@@ -990,93 +990,100 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                         modifier = Modifier.padding(top = WZ.Space.space1).clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
                     )
                 }
-                Column(Modifier.weight(1f).padding(end = WZ.Space.space5)) {
-                    if (isCompact) {
-                        if (entry.kind !is ChatEntry.Kind.Message) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
-                                Text(Formats.time(entry.timestamp), style = wizardFont(WZ.FontSize.xs * scale), color = theme.textMuted)
+                val receiptRoomId = actions?.roomId?.takeIf { entry.readBy.isNotEmpty() }
+                val receiptsWidth = if (receiptRoomId == null) 0.dp else {
+                    16.dp * minOf(entry.readBy.size, 4) + (if (entry.readBy.size > 4) 28.dp else 0.dp) + WZ.Space.space3
+                }
+                Box(Modifier.weight(1f).padding(end = WZ.Space.space5)) {
+                    Column(Modifier.fillMaxWidth().padding(end = receiptsWidth)) {
+                        if (isCompact) {
+                            if (entry.kind !is ChatEntry.Kind.Message) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
+                                    Text(Formats.time(entry.timestamp), style = wizardFont(WZ.FontSize.xs * scale), color = theme.textMuted)
+                                    Text(
+                                        entry.senderName,
+                                        Modifier.clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
+                                        style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
+                                        color = nameColor(entry.sender),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        } else if (!entry.isGrouped) {
+                            Row(
+                                Modifier.padding(bottom = WZ.Space.space1),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+                            ) {
                                 Text(
                                     entry.senderName,
-                                    Modifier.clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
+                                    Modifier.weight(1f, fill = false).clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
                                     style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
                                     color = nameColor(entry.sender),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                            }
-                        }
-                    } else if (!entry.isGrouped) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-                            Text(
-                                entry.senderName,
-                                Modifier.weight(1f, fill = false).clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
-                                style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
-                                color = nameColor(entry.sender),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(Formats.time(entry.timestamp), style = wizardFont(WZ.FontSize.sm * scale), color = theme.textMuted)
-                            val eventId = entry.eventId
-                            if (eventId != null && actions?.pinnedIds?.contains(eventId) == true) {
-                                PhIcon(
-                                    "push-pin",
-                                    size = WZ.SizeIcon.xs * scale,
-                                    tint = theme.textMuted,
-                                    contentDescription = tr("timeline.pinned"),
-                                )
-                            }
-                        }
-                    }
-                    entry.replyTo?.let { quote ->
-                        val jump = if (actions != null && quote.eventId.isNotEmpty()) {
-                            Modifier.messageTap { MessageNotifier.shared.eventToFocus = actions.roomId to quote.eventId }
-                        } else {
-                            Modifier
-                        }
-                        ReplyQuoteView(quote, isPrivateRoom, jump)
-                    }
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
-                        val sending = entry.isSending && !entry.sendFailed
-                        Box(Modifier.weight(1f, fill = false).alpha(if (sending && isText) 0.5f else 1f), contentAlignment = Alignment.Center) {
-                            MessageContent(entry, actions, isPrivateRoom, isText)
-                            if (sending && !isText) UploadProgressRing(null)
-                        }
-                        if (entry.sendFailed) {
-                            Box {
-                                Box(Modifier.clip(CircleShape).clickable { showFailed = true }) {
-                                    PhIcon("warning-circle", size = WZ.SizeIcon.md, tint = theme.danger, contentDescription = tr("timeline.notSent"))
-                                }
-                                if (showFailed) {
-                                    MenuDialog(
-                                        title = tr("timeline.notSentTitle"),
-                                        onDismiss = { showFailed = false },
-                                        options = listOf(
-                                            tr("composer.voice.retry") to { actions?.retry?.invoke(); Unit },
-                                        ),
-                                        destructive = tr("common.delete") to { actions?.delete?.invoke(entry); Unit },
+                                Text(Formats.time(entry.timestamp), style = wizardFont(WZ.FontSize.sm * scale), color = theme.textMuted)
+                                val eventId = entry.eventId
+                                if (eventId != null && actions?.pinnedIds?.contains(eventId) == true) {
+                                    PhIcon(
+                                        "push-pin",
+                                        size = WZ.SizeIcon.xs * scale,
+                                        tint = theme.textMuted,
+                                        contentDescription = tr("timeline.pinned"),
                                     )
                                 }
                             }
                         }
-                    }
-                    val loader = actions?.linkPreviews
-                    val body = (entry.kind as? ChatEntry.Kind.Message)?.body
-                    if (loader != null && body != null) {
-                        MessageText.firstPreviewURL(body)?.let { LinkPreviewCard(it, loader) }
-                    }
-                    if (entry.reactions.isNotEmpty() && entry.allowsActions) {
-                        ReactionsBar(entry.reactions) { key -> actions?.react?.invoke(key, entry) }
-                    }
-                    val thread = entry.thread
-                    val openThread = actions?.openThread
-                    if (thread != null && thread.replies > 0 && actions != null && openThread != null) {
-                        ThreadSummaryBadge(thread, actions.roomId) { openThread(entry) }
-                    }
-                    val roomId = actions?.roomId
-                    if (entry.readBy.isNotEmpty() && roomId != null) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                            ReadReceiptsView(roomId, entry.readBy, entry.readAt)
+                        entry.replyTo?.let { quote ->
+                            val jump = if (actions != null && quote.eventId.isNotEmpty()) {
+                                Modifier.messageTap { MessageNotifier.shared.eventToFocus = actions.roomId to quote.eventId }
+                            } else {
+                                Modifier
+                            }
+                            ReplyQuoteView(quote, isPrivateRoom, jump)
                         }
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
+                            val sending = entry.isSending && !entry.sendFailed
+                            Box(Modifier.weight(1f, fill = false).alpha(if (sending && isText) 0.5f else 1f), contentAlignment = Alignment.Center) {
+                                MessageContent(entry, actions, isPrivateRoom, isText)
+                                if (sending && !isText) UploadProgressRing(null)
+                            }
+                            if (entry.sendFailed) {
+                                Box {
+                                    Box(Modifier.clip(CircleShape).clickable { showFailed = true }) {
+                                        PhIcon("warning-circle", size = WZ.SizeIcon.md, tint = theme.danger, contentDescription = tr("timeline.notSent"))
+                                    }
+                                    if (showFailed) {
+                                        MenuDialog(
+                                            title = tr("timeline.notSentTitle"),
+                                            onDismiss = { showFailed = false },
+                                            options = listOf(
+                                                tr("composer.voice.retry") to { actions?.retry?.invoke(); Unit },
+                                            ),
+                                            destructive = tr("common.delete") to { actions?.delete?.invoke(entry); Unit },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        val loader = actions?.linkPreviews
+                        val body = (entry.kind as? ChatEntry.Kind.Message)?.body
+                        if (loader != null && body != null) {
+                            MessageText.firstPreviewURL(body)?.let { LinkPreviewCard(it, loader) }
+                        }
+                        if (entry.reactions.isNotEmpty() && entry.allowsActions) {
+                            ReactionsBar(entry.reactions) { key -> actions?.react?.invoke(key, entry) }
+                        }
+                        val thread = entry.thread
+                        val openThread = actions?.openThread
+                        if (thread != null && thread.replies > 0 && actions != null && openThread != null) {
+                            ThreadSummaryBadge(thread, actions.roomId) { openThread(entry) }
+                        }
+                    }
+                    if (receiptRoomId != null) {
+                        ReadReceiptsView(receiptRoomId, entry.readBy, entry.readAt, Modifier.align(Alignment.BottomEnd))
                     }
                 }
             }
