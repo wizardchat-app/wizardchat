@@ -226,12 +226,15 @@ final class TimelineModel: ObservableObject {
         self.onlyTypes = onlyTypes
     }
 
+    private var started = false
+
     deinit {
         subscriptions.forEach { $0.cancel() }
     }
 
     func start() async {
-        guard timeline == nil else { return }
+        guard !started else { return }
+        started = true
         await loadPinned()
         do {
             let timeline = kind == .main
@@ -250,6 +253,7 @@ final class TimelineModel: ObservableObject {
                 })
             }
         } catch {
+            started = false
             sendError = readableError(error)
         }
     }
