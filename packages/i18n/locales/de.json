@@ -236,7 +236,17 @@
     "dms": "Nachrichten",
     "spaces": "Spaces",
     "you": "Du",
-    "newRoom": "Neuer Raum"
+    "newRoom": "Neuer Raum",
+    "preview": {
+      "image": "Foto",
+      "video": "Video",
+      "audio": "Audio",
+      "voice": "Sprachnachricht",
+      "file": "Datei",
+      "sticker": "Sticker",
+      "poll": "Umfrage: {{question}}",
+      "location": "Standort"
+    }
   },
   "room": {
     "addFavourite": "Zu Favoriten hinzufügen",
@@ -1478,7 +1488,8 @@
       "showJoinLeave": "Beitritte und Austritte anzeigen",
       "showProfileChanges": "Namens- und Avataränderungen anzeigen",
       "chat": "Chat",
-      "interface": "Oberfläche"
+      "interface": "Oberfläche",
+      "showLastMessage": "Nachrichtenvorschau anzeigen"
     },
     "accessibility": {
       "title": "Barrierefreiheit",

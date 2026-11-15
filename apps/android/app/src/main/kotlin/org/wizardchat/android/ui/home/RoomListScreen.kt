@@ -2,8 +2,8 @@ package org.wizardchat.android.ui.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -21,8 +22,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -33,22 +35,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalPrefs
+import org.wizardchat.android.LocalSession
+import org.wizardchat.android.matrix.MessageNotifier
 import org.wizardchat.android.matrix.RoomGroup
 import org.wizardchat.android.matrix.RoomListModel
 import org.wizardchat.android.matrix.SidebarSelection
@@ -74,7 +76,6 @@ import org.wizardchat.android.ui.WizardMenu
 import org.wizardchat.android.ui.WizardTextField
 import org.wizardchat.android.ui.WizardTopBar
 import org.wizardchat.android.ui.copyToClipboard
-import org.wizardchat.android.matrix.MessageNotifier
 import org.wizardchat.android.ui.people.CreateRoomSheet
 import org.wizardchat.android.ui.people.RoomInfoSheet
 import org.wizardchat.android.ui.people.SpaceSettingsSheet
@@ -479,6 +480,16 @@ fun RoomRow(room: RoomSummary, showsHashIcon: Boolean, modifier: Modifier = Modi
                 overflow = TextOverflow.Ellipsis,
             )
             if (inCall && room.isVoice) ParticipantStack(room.id, room.callParticipants)
+            val preview = if (prefs.showLastMessage && !room.isVoice) lastMessagePreview(room, LocalSession.current.userId) else null
+            if (preview != null) {
+                Text(
+                    preview,
+                    style = wizardFont(WZ.FontSize.md),
+                    color = theme.textMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Spacer(Modifier.width(6.dp))
         if (muted) {
@@ -594,4 +605,20 @@ private fun SectionNameDialog(title: String, initial: String, onDismiss: () -> U
         confirmButton = { BarTextButton(tr("common.save"), { onSave(name) }, bold = true) },
         dismissButton = { BarTextButton(tr("common.cancel"), onDismiss) },
     )
+}
+
+@Composable
+private fun lastMessagePreview(room: RoomSummary, ownUserId: String?): String? {
+    val last = room.lastMessage ?: return null
+    val text = when (last.kind) {
+        "text" -> last.body
+        "emote" -> "* ${last.body}"
+        "poll" -> tr("nav.preview.poll", last.body)
+        "image", "video", "audio", "voice", "file", "sticker", "location" -> tr("nav.preview.${last.kind}")
+        else -> last.body
+    }
+    if (text.isEmpty()) return null
+    if (last.sender == ownUserId || room.isDirect) return text
+    val name = last.senderName ?: last.sender.removePrefix("@").substringBefore(":")
+    return "$name: $text"
 }

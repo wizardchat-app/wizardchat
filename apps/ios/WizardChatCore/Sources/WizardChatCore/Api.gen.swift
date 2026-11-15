@@ -75,9 +75,7 @@ public struct AttachmentThumbnail: Codable, Hashable, Sendable {
 }
 
 public struct AuditLogEntry: Codable, Hashable, Sendable {
-    /// The event as the server sent it, `unsigned.prev_content` included
     public var event: JSONValue
-    /// For a removed message: who had sent it, when the server still knows
     public var redactedSender: String?
 
     public init(event: JSONValue, redactedSender: String? = nil) {
@@ -88,7 +86,6 @@ public struct AuditLogEntry: Codable, Hashable, Sendable {
 
 public struct AuditLogPage: Codable, Hashable, Sendable {
     public var entries: [AuditLogEntry]
-    /// Token for the next (older) page; none once the start of the visible history is reached
     public var next: String?
 
     public init(entries: [AuditLogEntry], next: String? = nil) {
@@ -859,6 +856,22 @@ public struct InviteInfo: Codable, Hashable, Sendable {
 
 /// Who may join a room
 public typealias JoinRule = String
+
+public struct LastMessage: Codable, Hashable, Sendable {
+    public var sender: String
+    public var senderName: String?
+    public var kind: String
+    public var body: String
+    public var timestamp: Int
+
+    public init(sender: String, senderName: String? = nil, kind: String, body: String, timestamp: Int) {
+        self.sender = sender
+        self.senderName = senderName
+        self.kind = kind
+        self.body = body
+        self.timestamp = timestamp
+    }
+}
 
 /// A change to an ordered list (room list, timeline), mirroring `eyeball_im::VectorDiff` with
 /// plain values so apps can apply it to their own list type.
@@ -1902,8 +1915,9 @@ public struct RoomSummary: Codable, Hashable, Sendable {
     /// The other person's name in a direct chat (or the inviter's for a DM invite)
     public var dmUserName: String?
     public var dmUserAvatar: String?
+    public var lastMessage: LastMessage?
 
-    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, latestEventTs: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil) {
+    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, latestEventTs: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil, lastMessage: LastMessage? = nil) {
         self.id = id
         self.name = name
         self.avatarUrl = avatarUrl
@@ -1933,6 +1947,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
         self.isKnocked = isKnocked
         self.dmUserName = dmUserName
         self.dmUserAvatar = dmUserAvatar
+        self.lastMessage = lastMessage
     }
 }
 
@@ -3448,8 +3463,6 @@ public final class WizardClient: Remote, @unchecked Sendable {
         try await call("WizardClient.stateEventsOfTypes", [.value(roomId), .value(eventTypes)])
     }
 
-    /// One page of the room's audit log (moderation, membership and settings changes),
-    /// newest first; pass the previous page's `next` for older entries.
     public func auditLog(roomId: String, from: String? = nil) async throws -> AuditLogPage {
         try await call("WizardClient.auditLog", [.value(roomId), .value(from)])
     }

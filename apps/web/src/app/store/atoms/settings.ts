@@ -57,6 +57,7 @@ export interface Preferences {
   prettifyLinks: boolean;
   markdown: boolean;
   showRoomAvatars: boolean;
+  showLastMessage: boolean;
   showPresenceDots: boolean;
   colorUsernames: boolean;
   groupImages: boolean;
@@ -101,6 +102,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   prettifyLinks: false,
   markdown: true,
   showRoomAvatars: true,
+  showLastMessage: false,
   showPresenceDots: true,
   colorUsernames: true,
   groupImages: true,
@@ -148,6 +150,7 @@ export const sendReadReceiptsAtom = preferenceFieldAtom('sendReadReceipts');
 export const prettifyLinksAtom = preferenceFieldAtom('prettifyLinks');
 export const markdownAtom = preferenceFieldAtom('markdown');
 export const showRoomAvatarsAtom = preferenceFieldAtom('showRoomAvatars');
+export const showLastMessageAtom = preferenceFieldAtom('showLastMessage');
 export const showPresenceDotsAtom = preferenceFieldAtom('showPresenceDots');
 export const colorUsernamesAtom = preferenceFieldAtom('colorUsernames');
 export const groupImagesAtom = preferenceFieldAtom('groupImages');

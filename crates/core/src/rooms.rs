@@ -79,6 +79,18 @@ pub struct RoomSummary {
     /// The other person's name in a direct chat (or the inviter's for a DM invite)
     pub dm_user_name: Option<String>,
     pub dm_user_avatar: Option<String>,
+    pub last_message: Option<LastMessage>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct LastMessage {
+    pub sender: String,
+    pub sender_name: Option<String>,
+    pub kind: String,
+    pub body: String,
+    pub timestamp: u64,
 }
 
 /// A DM without its own picture shows the other person's, from the room's heroes
@@ -104,6 +116,7 @@ pub(crate) struct RoomExtras {
     unread_threads: u64,
     last_activity: Option<u64>,
     latest_event_ts: Option<u64>,
+    last_message: Option<LastMessage>,
     call: crate::calls::RoomCallState,
 }
 
@@ -163,6 +176,7 @@ impl RoomSummary {
             is_knocked: room.state() == RoomState::Knocked,
             dm_user_name: extras.and_then(|e| e.dm_user_name.clone()),
             dm_user_avatar: extras.and_then(|e| e.dm_user_avatar.clone()),
+            last_message: extras.and_then(|e| e.last_message.clone()),
         }
     }
 }
@@ -1145,8 +1159,132 @@ pub(crate) async fn room_extras(room: &Room) -> RoomExtras {
             .await
             .ok()
             .flatten();
+        let tracked = tracked_last_message(room).await;
+        let latest = match tracked {
+            Some(latest) => Some(latest),
+            None => cache
+                .rfind_map_event_in_memory_by(|event| {
+                    let value = event.raw().deserialize_as_unchecked::<Value>().ok()?;
+                    last_message_of(&value)
+                })
+                .await
+                .ok()
+                .flatten(),
+        };
+        if let Some(mut latest) = latest {
+            if let Ok(id) = parse_user_id(&latest.sender) {
+                latest.sender_name = room
+                    .get_member_no_sync(id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|m| member_name(&m));
+            }
+            extras.last_message = Some(latest);
+        }
     }
     extras
+}
+
+async fn tracked_last_message(room: &Room) -> Option<LastMessage> {
+    use matrix_sdk::latest_events::LatestEventValue;
+    let _ = room
+        .client()
+        .latest_events()
+        .await
+        .listen_to_room(room.room_id())
+        .await;
+    let event = match room.latest_event() {
+        LatestEventValue::Remote(event) => event.raw().deserialize_as_unchecked::<Value>().ok()?,
+        LatestEventValue::LocalIsSending(local)
+        | LatestEventValue::LocalCannotBeSent(local)
+        | LatestEventValue::LocalHasBeenSent { value: local, .. } => {
+            let (content, event_type) = local.content.raw();
+            serde_json::json!({
+                "type": event_type,
+                "content": content.deserialize_as_unchecked::<Value>().ok()?,
+                "sender": room.own_user_id().to_string(),
+                "origin_server_ts": u64::from(local.timestamp.0),
+            })
+        }
+        _ => return None,
+    };
+    last_message_of(&event)
+}
+
+const PREVIEW_CHARS: usize = 200;
+
+fn last_message_of(event: &Value) -> Option<LastMessage> {
+    if event.pointer("/unsigned/redacted_because").is_some() {
+        return None;
+    }
+    let content = event.get("content")?;
+    if content
+        .pointer("/m.relates_to/rel_type")
+        .and_then(Value::as_str)
+        == Some("m.replace")
+    {
+        return None;
+    }
+    if content
+        .pointer("/m.relates_to/rel_type")
+        .and_then(Value::as_str)
+        == Some("m.thread")
+    {
+        return None;
+    }
+    let event_type = str_at(event, "/type")?;
+    let kind = match event_type {
+        "m.room.message" => match str_at(content, "/msgtype")? {
+            "m.text" | "m.notice" => "text",
+            "m.emote" => "emote",
+            "m.image" => "image",
+            "m.video" => "video",
+            "m.audio" if content.get("org.matrix.msc3245.voice").is_some() => "voice",
+            "m.audio" => "audio",
+            "m.file" => "file",
+            "m.location" => "location",
+            _ => return None,
+        },
+        "m.sticker" => "sticker",
+        "m.poll.start" | "org.matrix.msc3381.poll.start" => "poll",
+        _ => return None,
+    };
+    let body = match kind {
+        "poll" => content
+            .pointer("/m.poll/question/m.text/0/body")
+            .or_else(|| {
+                content.pointer("/org.matrix.msc3381.poll.start/question/org.matrix.msc1767.text")
+            })
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        _ => str_at(content, "/body").unwrap_or_default(),
+    };
+    let body = strip_reply_fallback(body);
+    let mut preview: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    if preview.chars().count() > PREVIEW_CHARS {
+        preview = preview.chars().take(PREVIEW_CHARS).collect();
+    }
+    Some(LastMessage {
+        sender: str_at(event, "/sender")?.to_owned(),
+        sender_name: None,
+        kind: kind.to_owned(),
+        body: preview,
+        timestamp: event
+            .get("origin_server_ts")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
+    })
+}
+
+fn strip_reply_fallback(body: &str) -> &str {
+    if !body.starts_with("> ") {
+        return body;
+    }
+    match body.find("\n\n") {
+        Some(end) => &body[end + 2..],
+        None => body,
+    }
 }
 
 impl WizardClient {

@@ -54,24 +54,9 @@ export type AttachmentThumbnail = {
   height: number;
 };
 
-export type AuditLogEntry = {
-  /**
-   * The event as the server sent it, `unsigned.prev_content` included
-   */
-  event: JsonValue;
-  /**
-   * For a removed message: who had sent it, when the server still knows
-   */
-  redactedSender: string | null;
-};
+export type AuditLogEntry = { event: JsonValue; redactedSender: string | null };
 
-export type AuditLogPage = {
-  entries: Array<AuditLogEntry>;
-  /**
-   * Token for the next (older) page; none once the start of the visible history is reached
-   */
-  next: string | null;
-};
+export type AuditLogPage = { entries: Array<AuditLogEntry>; next: string | null };
 
 export type CallErrorKind = 'membership' | 'timeout' | 'disconnected' | 'replaced' | 'removed';
 
@@ -430,6 +415,14 @@ export type InviteInfo = {
 export type JoinRule = 'invite' | 'public' | 'knock' | 'restricted' | 'knock_restricted';
 
 export type JsonValue = any;
+
+export type LastMessage = {
+  sender: string;
+  senderName: string | null;
+  kind: string;
+  body: string;
+  timestamp: number;
+};
 
 /**
  * A change to an ordered list (room list, timeline), mirroring `eyeball_im::VectorDiff` with
@@ -977,6 +970,7 @@ export type RoomSummary = {
    */
   dmUserName: string | null;
   dmUserAvatar: string | null;
+  lastMessage: LastMessage | null;
 };
 
 /**
@@ -2149,10 +2143,6 @@ export class WizardClient extends Remote {
     >;
   }
 
-  /**
-   * One page of the room's audit log (moderation, membership and settings changes),
-   * newest first; pass the previous page's `next` for older entries.
-   */
   auditLog(roomId: string, from?: string | null): Promise<AuditLogPage> {
     return runtime.call('WizardClient.auditLog', this, [roomId, from]) as Promise<AuditLogPage>;
   }

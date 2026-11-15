@@ -59,16 +59,13 @@ data class AttachmentThumbnail(
 
 @Serializable
 data class AuditLogEntry(
-    /** The event as the server sent it, `unsigned.prev_content` included */
     val event: JsonElement,
-    /** For a removed message: who had sent it, when the server still knows */
     val redactedSender: String? = null,
 )
 
 @Serializable
 data class AuditLogPage(
     val entries: List<AuditLogEntry>,
-    /** Token for the next (older) page; none once the start of the visible history is reached */
     val next: String? = null,
 )
 
@@ -545,6 +542,15 @@ data class InviteInfo(
 
 /** Who may join a room */
 typealias JoinRule = String
+
+@Serializable
+data class LastMessage(
+    val sender: String,
+    val senderName: String? = null,
+    val kind: String,
+    val body: String,
+    val timestamp: Long,
+)
 
 /**
  * A change to an ordered list (room list, timeline), mirroring `eyeball_im::VectorDiff` with
@@ -1229,6 +1235,7 @@ data class RoomSummary(
     /** The other person's name in a direct chat (or the inviter's for a DM invite) */
     val dmUserName: String? = null,
     val dmUserAvatar: String? = null,
+    val lastMessage: LastMessage? = null,
 )
 
 /** A room tag with its sort order (favourites, low priority, custom `u.*` tags) */
@@ -2363,10 +2370,6 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     suspend fun stateEventsOfTypes(roomId: String, eventTypes: List<String>): List<List<JsonElement>> =
         Runtime.call("WizardClient.stateEventsOfTypes", handle, listOf(Arg.value<String>(roomId), Arg.value<List<String>>(eventTypes)))
 
-    /**
-     * One page of the room's audit log (moderation, membership and settings changes),
-     * newest first; pass the previous page's `next` for older entries.
-     */
     suspend fun auditLog(roomId: String, from: String? = null): AuditLogPage =
         Runtime.call("WizardClient.auditLog", handle, listOf(Arg.value<String>(roomId), Arg.value<String?>(from)))
 

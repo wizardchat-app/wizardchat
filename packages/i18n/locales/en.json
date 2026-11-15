@@ -236,7 +236,17 @@
     "dms": "DMs",
     "spaces": "Spaces",
     "you": "You",
-    "newRoom": "New room"
+    "newRoom": "New room",
+    "preview": {
+      "image": "Photo",
+      "video": "Video",
+      "audio": "Audio",
+      "voice": "Voice message",
+      "file": "File",
+      "sticker": "Sticker",
+      "poll": "Poll: {{question}}",
+      "location": "Location"
+    }
   },
   "room": {
     "addFavourite": "Add to Favourites",
@@ -1478,7 +1488,8 @@
       "showJoinLeave": "Show joins and leaves",
       "showProfileChanges": "Show name and avatar changes",
       "chat": "Chat",
-      "interface": "Interface"
+      "interface": "Interface",
+      "showLastMessage": "Show message previews"
     },
     "accessibility": {
       "title": "Accessibility",

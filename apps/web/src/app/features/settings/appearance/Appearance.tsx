@@ -7,6 +7,7 @@ import {
   prettifyLinksAtom,
   markdownAtom,
   showRoomAvatarsAtom,
+  showLastMessageAtom,
   showPresenceDotsAtom,
   colorUsernamesAtom,
   groupImagesAtom,
@@ -206,6 +207,7 @@ export function Appearance() {
   const [prettifyLinks, setPrettifyLinks] = useAtom(prettifyLinksAtom);
   const [markdown, setMarkdown] = useAtom(markdownAtom);
   const [showRoomAvatars, setShowRoomAvatars] = useAtom(showRoomAvatarsAtom);
+  const [showLastMessage, setShowLastMessage] = useAtom(showLastMessageAtom);
   const [showPresenceDots, setShowPresenceDots] = useAtom(showPresenceDotsAtom);
   const [colorUsernames, setColorUsernames] = useAtom(colorUsernamesAtom);
   const [groupImages, setGroupImages] = useAtom(groupImagesAtom);
@@ -406,6 +408,11 @@ export function Appearance() {
           label={t('settings.appearance.showRoomAvatars')}
           checked={showRoomAvatars}
           onChange={setShowRoomAvatars}
+        />
+        <ToggleRow
+          label={t('settings.appearance.showLastMessage')}
+          checked={showLastMessage}
+          onChange={setShowLastMessage}
         />
         <ToggleRow
           label={t('settings.appearance.showPresenceDots')}

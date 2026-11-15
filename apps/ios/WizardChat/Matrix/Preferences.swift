@@ -31,6 +31,7 @@ final class AppPreferences: ObservableObject {
     @Published var showProfileChanges: Bool { didSet { save("showProfileChanges", showProfileChanges); syncIfNeeded() } }
     @Published var themedAppIcon: Bool { didSet { save("themedAppIcon", themedAppIcon) } }
     @Published var showRoomAvatars: Bool { didSet { save("showRoomAvatars", showRoomAvatars) } }
+    @Published var showLastMessage: Bool { didSet { save("showLastMessage", showLastMessage) } }
     @Published var reducedMotion: ReducedMotion { didSet { save("reducedMotion", reducedMotion.rawValue) } }
     @Published var autoplayGifs: Bool { didSet { save("autoplayGifs", autoplayGifs) } }
     @Published var typingIndicators: Bool { didSet { save("typingIndicators", typingIndicators); syncIfNeeded() } }
@@ -62,6 +63,7 @@ final class AppPreferences: ObservableObject {
         showProfileChanges = d.object(forKey: "showProfileChanges") as? Bool ?? false
         themedAppIcon = d.bool(forKey: "themedAppIcon")
         showRoomAvatars = d.object(forKey: "showRoomAvatars") as? Bool ?? true
+        showLastMessage = d.bool(forKey: "showLastMessage")
         reducedMotion = ReducedMotion(rawValue: d.string(forKey: "reducedMotion") ?? "") ?? .system
         autoplayGifs = d.object(forKey: "autoplayGifs") as? Bool ?? true
         typingIndicators = d.object(forKey: "typingIndicators") as? Bool ?? true

@@ -38,6 +38,7 @@ class AppPreferences(context: Context) {
     var prettifyLinks by pref(defaults.getBoolean("prettifyLinks", true)) { putBoolean("prettifyLinks", it) }
     var themedAppIcon by pref(defaults.getBoolean("themedAppIcon", false)) { putBoolean("themedAppIcon", it) }
     var showRoomAvatars by pref(defaults.getBoolean("showRoomAvatars", true)) { putBoolean("showRoomAvatars", it) }
+    var showLastMessage by pref(defaults.getBoolean("showLastMessage", false)) { putBoolean("showLastMessage", it) }
     var reducedMotion by pref(enumPref("reducedMotion", ReducedMotion.system)) { putString("reducedMotion", it.name) }
     var autoplayGifs by pref(defaults.getBoolean("autoplayGifs", true)) { putBoolean("autoplayGifs", it) }
     var typingIndicators by pref(defaults.getBoolean("typingIndicators", true), synced = true) { putBoolean("typingIndicators", it) }

@@ -468,9 +468,27 @@ struct RoomRow: View {
     let showsHashIcon: Bool
     var muted = false
     @EnvironmentObject private var prefs: AppPreferences
+    @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
 
     private var avatarSize: CGFloat { prefs.roomAvatarSize }
+
+    private var preview: String? {
+        guard prefs.showLastMessage, !room.isVoice, let last = room.lastMessage else { return nil }
+        let text: String
+        switch last.kind {
+        case "text": text = last.body
+        case "emote": text = "* \(last.body)"
+        case "poll": text = L10n.format("nav.preview.poll", last.body)
+        case "image", "video", "audio", "voice", "file", "sticker", "location":
+            text = L10n.format("nav.preview.\(last.kind)")
+        default: text = last.body
+        }
+        guard !text.isEmpty else { return nil }
+        if last.sender == session.userId || room.isDirect { return text }
+        let name = last.senderName ?? String(last.sender.dropFirst().split(separator: ":").first ?? "")
+        return "\(name): \(text)"
+    }
     private var inCall: Bool { !room.callParticipants.isEmpty }
 
     private func typeIcon(size: CGFloat) -> some View {
@@ -505,6 +523,12 @@ struct RoomRow: View {
                     .lineLimit(1)
                 if room.isVoice && inCall {
                     ParticipantStack(roomId: room.id, userIds: room.callParticipants)
+                }
+                if let preview {
+                    Text(preview)
+                        .font(.wizard(WZ.FontSize.md))
+                        .foregroundStyle(theme.textMuted)
+                        .lineLimit(1)
                 }
             }
             Spacer(minLength: 6)

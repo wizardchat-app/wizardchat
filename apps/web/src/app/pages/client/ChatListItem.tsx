@@ -33,6 +33,7 @@ interface ChatListItemProps {
   hideAvatar?: boolean;
   voiceMembers?: string[];
   compactVoice?: boolean;
+  preview?: string | null;
   onClick: () => void;
   onDoubleClick?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -56,6 +57,7 @@ export function ChatListItem({
   hideAvatar,
   voiceMembers,
   compactVoice,
+  preview,
   onClick,
   onDoubleClick,
   onContextMenu,
@@ -170,7 +172,14 @@ export function ChatListItem({
           </span>
         )}
 
-        <span className={css.chatTextContent}>{name}</span>
+        {preview ? (
+          <span className={css.chatTextStack}>
+            <span className={css.chatTextContent}>{name}</span>
+            <span className={css.chatPreview}>{preview}</span>
+          </span>
+        ) : (
+          <span className={css.chatTextContent}>{name}</span>
+        )}
 
         <span className={css.itemBadges}>
           {hasActiveCall && (

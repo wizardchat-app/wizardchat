@@ -49,6 +49,24 @@ export const chatTextContent = style({
   whiteSpace: 'nowrap',
 });
 
+export const chatTextStack = style({
+  flex: 1,
+  minWidth: 0,
+  height: uiSize('roomAvatar'),
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  lineHeight: 1.15,
+});
+
+export const chatPreview = style({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: '0.78em',
+  color: vars.color.textMuted,
+});
+
 export const itemBadges = style({
   display: 'inline-flex',
   alignItems: 'center',

@@ -29,7 +29,12 @@ import { usePrompt } from '@/app/hooks/usePrompt';
 import type { ContextMenuItem } from '@/app/features/contextMenu/contextMenuAtom';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { markRoomAsRead } from './markAsRead';
-import { sendReadReceiptsAtom, showRoomAvatarsAtom } from '@/app/store/atoms/settings';
+import {
+  sendReadReceiptsAtom,
+  showLastMessageAtom,
+  showRoomAvatarsAtom,
+} from '@/app/store/atoms/settings';
+import { lastMessagePreview } from '@/util/lastMessage';
 import { useToast } from '@/app/hooks/useToast';
 import { useContextMenu } from '@/app/hooks/useContextMenu';
 import { useRoomActions } from './hooks/useRoomActions';
@@ -108,6 +113,7 @@ export const RoomListItem = memo(function RoomListItem({
   const [, setRoomSettings] = useAtom(roomSettingsRoomIdAtom);
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
   const showRoomAvatars = useAtomValue(showRoomAvatarsAtom);
+  const showLastMessage = useAtomValue(showLastMessageAtom);
   const { level, setLevel } = useRoomNotifLevel(entry.roomId);
   const favourite = useAtomValue(favouriteRoomsAtom).has(entry.roomId);
   const sidebarView = useAtomValue(sidebarViewAtom);
@@ -306,6 +312,11 @@ export const RoomListItem = memo(function RoomListItem({
       isMuted={level === 'mute'}
       showTypeBadge={true}
       hideAvatar={!showRoomAvatars}
+      preview={
+        showLastMessage && !entry.hasVoiceRoom
+          ? lastMessagePreview(entry.room, getMatrixClientOrNull()?.userId(), t)
+          : null
+      }
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
@@ -335,6 +346,7 @@ export const DmListItem = memo(function DmListItem({
   const { level, setLevel } = useRoomNotifLevel(entry.roomId);
   const client = getMatrixClientOrNull();
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
+  const showLastMessage = useAtomValue(showLastMessageAtom);
   const [, setRoomSettings] = useAtom(roomSettingsRoomIdAtom);
 
   const handleClick = useCallback(() => {
@@ -421,6 +433,7 @@ export const DmListItem = memo(function DmListItem({
       hasActiveCall={hasActiveCall}
       isInCall={isInCall}
       isMuted={level === 'mute'}
+      preview={showLastMessage ? lastMessagePreview(entry.room, client?.userId(), t) : null}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMenuClick={handleContextMenu}

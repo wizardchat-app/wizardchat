@@ -124,6 +124,8 @@ struct AppearanceSettings: View {
                           options: [(.compact, "settings.appearance.densityCompact"), (.default, "settings.appearance.densityDefault"), (.spacious, "settings.appearance.densitySpacious")])
                 SettingsDivider()
                 ToggleRow(label: "settings.appearance.showRoomAvatars", isOn: $prefs.showRoomAvatars)
+                SettingsDivider()
+                ToggleRow(label: "settings.appearance.showLastMessage", isOn: $prefs.showLastMessage)
             }
         }
     }

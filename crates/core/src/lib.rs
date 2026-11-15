@@ -79,7 +79,7 @@ pub use room_admin::{
     ServerCapabilities, StateChange, Tombstone,
 };
 pub use room_details::{Member, RoomDetails, RoomPermissions};
-pub use rooms::{CreateRoomOptions, InviteInfo, RoomFilter, RoomKind, RoomSummary};
+pub use rooms::{CreateRoomOptions, InviteInfo, LastMessage, RoomFilter, RoomKind, RoomSummary};
 pub use rooms::{UnreadMention, UnreadThread};
 pub use sections::RoomSection;
 pub use session::{Session, StoreConfig};
