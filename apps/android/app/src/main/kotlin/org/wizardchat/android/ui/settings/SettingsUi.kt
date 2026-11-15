@@ -59,6 +59,7 @@ import org.wizardchat.tokens.WZ
 
 /** The settings pages */
 internal enum class SettingsPageId(val titleKey: String, val icon: String) {
+    profile("settings.profile.title", "user-circle"),
     account("settings.account.title", "user"),
     privacy("settings.privacy.title", "shield"),
     emojis("room.settings.emojis.title", "smiley-sticker"),
@@ -104,6 +105,7 @@ fun SettingsScreen(isTab: Boolean, onDismiss: (() -> Unit)? = null) {
     ) { path ->
         when (path.lastOrNull()) {
             null -> SettingsRoot(isTab, onDismiss) { stack = stack + it }
+            SettingsPageId.profile -> ProfileSettings(pop)
             SettingsPageId.account -> AccountSettings(pop)
             SettingsPageId.privacy -> PrivacySettings(pop)
             SettingsPageId.emojis -> EmojisSettings(pop)
@@ -150,7 +152,7 @@ private fun SettingsRoot(isTab: Boolean, onDismiss: (() -> Unit)?, open: (Settin
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clickable { open(SettingsPageId.account) }
+                        .clickable { open(SettingsPageId.profile) }
                         .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4 + WZ.Space.space2),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
@@ -173,7 +175,7 @@ private fun SettingsRoot(isTab: Boolean, onDismiss: (() -> Unit)?, open: (Settin
                 SettingsDivider()
                 AccountSwitcher(onLogout = { if (!isTab) onDismiss?.invoke() })
             }
-            PageRows(listOf(SettingsPageId.privacy, SettingsPageId.notifications, SettingsPageId.emojis, SettingsPageId.soundboard), open)
+            PageRows(listOf(SettingsPageId.account, SettingsPageId.privacy, SettingsPageId.notifications, SettingsPageId.emojis, SettingsPageId.soundboard), open)
             PageRows(listOf(SettingsPageId.voiceVideo, SettingsPageId.appearance, SettingsPageId.accessibility, SettingsPageId.language), open)
             PageRows(listOf(SettingsPageId.sessions, SettingsPageId.encryption, SettingsPageId.developer, SettingsPageId.about), open)
             }

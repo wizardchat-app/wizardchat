@@ -2,10 +2,9 @@ import WizardChatCore
 import PhotosUI
 import SwiftUI
 
-struct AccountSettings: View {
+struct ProfileSettings: View {
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
-    @Environment(\.openURL) private var openURL
 
     @State private var displayName = ""
     @State private var savingName = false
@@ -13,32 +12,32 @@ struct AccountSettings: View {
     @State private var savedPronouns = ""
     @State private var pronouns = ""
     @State private var savingPronouns = false
-    @State private var photo: PhotosPickerItem?
+    @State private var banner: String?
+    @State private var pickingAvatar = false
+    @State private var pickingBanner = false
+    @State private var avatarPhoto: PhotosPickerItem?
+    @State private var bannerPhoto: PhotosPickerItem?
+    @State private var confirmRemoveAvatar = false
+    @State private var confirmRemoveBanner = false
     @State private var status: (String, Bool)?
-    @State private var showDeactivate = false
     @State private var editingStatus = false
 
     var body: some View {
-        SettingsPage(title: "settings.account.title") {
+        SettingsPage(title: "settings.profile.title") {
+            Section {
+                ProfileCard(
+                    banner: banner,
+                    pronouns: savedPronouns,
+                    onAvatar: { pickingAvatar = true },
+                    onRemoveAvatar: session.avatarUrl == nil ? nil : { confirmRemoveAvatar = true },
+                    onBanner: { pickingBanner = true },
+                    onRemoveBanner: banner == nil ? nil : { confirmRemoveBanner = true },
+                    onStatus: { editingStatus = true }
+                )
+                .listRowInsets(EdgeInsets())
+            }
+
             SettingsSection {
-                HStack(spacing: WZ.Space.space5) {
-                    let name = session.displayName ?? session.userId ?? ""
-                    AvatarView(name: name, url: session.avatarUrl, size: WZ.SizeAvatar.lg)
-                    VStack(alignment: .leading, spacing: WZ.Space.space4) {
-                        PhotosPicker(selection: $photo, matching: .images) {
-                            Text(String(localized: "settings.emojisStickers.upload")).font(.wizard(WZ.FontSize.md, .semibold))
-                        }
-                        if session.avatarUrl != nil {
-                            Button(String(localized: "common.remove"), role: .destructive) {
-                                Task { await run { try await session.removeAvatar() } }
-                            }
-                            .font(.wizard(WZ.FontSize.md, .semibold))
-                            .foregroundStyle(theme.error)
-                        }
-                    }
-                    Spacer()
-                }
-                SettingsDivider()
                 VStack(alignment: .leading, spacing: WZ.Space.space4) {
                     Text(String(localized: "settings.account.displayName"))
                         .font(.wizard(WZ.FontSize.sm, .semibold))
@@ -90,42 +89,265 @@ struct AccountSettings: View {
                         }
                     }
                 }
-                SettingsDivider()
-                CopyRow(label: "auth.username", value: session.userId ?? "")
             }
-
-            SettingsSection(title: "status.title") {
-                HStack(spacing: WZ.Space.space4) {
-                    VStack(alignment: .leading, spacing: WZ.Space.space1) {
-                        Text(String(localized: "status.customStatus")).font(.wizard(WZ.FontSize.md))
-                        Text(session.customStatus?.text ?? String(localized: "status.none"))
-                            .font(.wizard(WZ.FontSize.sm))
-                            .foregroundStyle(theme.textMuted)
-                    }
-                    Spacer()
-                    Button(String(localized: session.customStatus == nil ? "status.setCustomStatus" : "status.editCustomStatus")) {
-                        editingStatus = true
-                    }
-                    .font(.wizard(WZ.FontSize.md, .semibold))
-                }
-                if session.customStatus != nil {
-                    SettingsDivider()
-                    actionRow("status.clearStatus", icon: "ph-x-regular", destructive: true) {
-                        await run { try await session.setCustomStatus("", expiresAt: nil) }
-                    }
-                }
-            }
-            .sheet(isPresented: $editingStatus) { CustomStatusSheet() }
 
             if let status { StatusText(text: status.0, isError: status.1) }
-
-            if session.isOAuthAccount {
-                SettingsSection(note: "settings.account.externalManagement") {
-                    actionRow("settings.account.manageAccount", icon: "ph-arrow-square-out-regular") {
-                        await open()
+        }
+        .sheet(isPresented: $editingStatus) { CustomStatusSheet() }
+        .photosPicker(isPresented: $pickingAvatar, selection: $avatarPhoto, matching: .images)
+        .photosPicker(isPresented: $pickingBanner, selection: $bannerPhoto, matching: .images)
+        .confirmationDialog(String(localized: "common.removeAvatarConfirm"), isPresented: $confirmRemoveAvatar, titleVisibility: .visible) {
+            Button(String(localized: "common.removeAvatar"), role: .destructive) {
+                Task { await run { try await session.removeAvatar() } }
+            }
+        }
+        .confirmationDialog(String(localized: "profile.removeBannerConfirm"), isPresented: $confirmRemoveBanner, titleVisibility: .visible) {
+            Button(String(localized: "profile.removeBanner"), role: .destructive) {
+                Task {
+                    await run {
+                        try await session.client?.setBanner()
+                        banner = nil
                     }
-                    SettingsDivider()
-                    actionRow("settings.account.deactivateAccount", icon: "ph-user-minus-regular", destructive: true) {
+                }
+            }
+        }
+        .onAppear { displayName = session.displayName ?? "" }
+        .task {
+            guard let userId = session.userId else { return }
+            banner = (try? await session.client?.banner(userId: userId)) ?? nil
+            canSetPronouns = await session.canSetPronouns()
+            savedPronouns = await session.pronouns(of: userId) ?? ""
+            pronouns = savedPronouns
+        }
+        .onChange(of: avatarPhoto) { _, item in
+            guard let item else { return }
+            Task {
+                await run {
+                    guard let jpeg = try await Self.jpeg(item) else { return }
+                    try await session.setAvatar(jpeg, mimeType: "image/jpeg")
+                }
+                avatarPhoto = nil
+            }
+        }
+        .onChange(of: bannerPhoto) { _, item in
+            guard let item, let client = session.client, let userId = session.userId else { return }
+            Task {
+                await run {
+                    guard let jpeg = try await Self.jpeg(item) else { return }
+                    try await client.setBanner(data: jpeg, mimetype: "image/jpeg")
+                    banner = try await client.banner(userId: userId)
+                }
+                bannerPhoto = nil
+            }
+        }
+    }
+
+    private static func jpeg(_ item: PhotosPickerItem) async throws -> Data? {
+        guard let data = try await item.loadTransferable(type: Data.self) else { return nil }
+        return UIImage(data: data)?.jpegData(compressionQuality: 0.85)
+    }
+
+    private func run(_ work: () async throws -> Void) async {
+        status = nil
+        do {
+            try await work()
+        } catch {
+            status = ("\(error.localizedDescription)", true)
+        }
+    }
+}
+
+private struct ProfileCard: View {
+    let banner: String?
+    let pronouns: String
+    let onAvatar: () -> Void
+    let onRemoveAvatar: (() -> Void)?
+    let onBanner: () -> Void
+    let onRemoveBanner: (() -> Void)?
+    let onStatus: () -> Void
+
+    @EnvironmentObject private var session: MatrixSession
+    @Environment(\.mediaLoader) private var mediaLoader
+    @Environment(\.theme) private var theme
+    @State private var bannerImage: UIImage?
+
+    private let bannerHeight: CGFloat = 112
+    private let avatarSize = WZ.SizeAvatar.xxl
+    private let ring: CGFloat = 5
+
+    var body: some View {
+        let name = session.displayName ?? session.userId ?? ""
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                bannerView
+                Menu {
+                    Button(action: onBanner) { Label(menu: String(localized: "settings.profile.changeBanner"), icon: "ph-image-regular") }
+                    if let onRemoveBanner {
+                        Button(role: .destructive, action: onRemoveBanner) { Label(menu: String(localized: "profile.removeBanner"), icon: "ph-trash-regular", destructive: true) }
+                    }
+                } label: {
+                    editBadge
+                }
+                .accessibilityLabel(String(localized: "settings.profile.editBanner"))
+                .padding(WZ.Space.space4)
+            }
+            .frame(height: bannerHeight)
+            .clipped()
+
+            HStack(alignment: .top, spacing: WZ.Space.space3) {
+                Menu {
+                    Button(action: onAvatar) { Label(menu: String(localized: "settings.profile.changeAvatar"), icon: "ph-image-regular") }
+                    if let onRemoveAvatar {
+                        Button(role: .destructive, action: onRemoveAvatar) { Label(menu: String(localized: "common.removeAvatar"), icon: "ph-trash-regular", destructive: true) }
+                    }
+                } label: {
+                    AvatarView(name: name, url: session.avatarUrl, size: avatarSize)
+                        .padding(ring)
+                        .background(theme.groupedRow, in: Circle())
+                        .overlay(alignment: .bottomTrailing) { editBadge.scaleEffect(0.8).offset(x: -ring, y: -ring) }
+                }
+                .accessibilityLabel(String(localized: "settings.profile.editAvatar"))
+                .padding(.top, -(avatarSize / 2 + ring))
+                statusBubble
+                    .padding(.top, WZ.Space.space3)
+            }
+            .padding(.horizontal, WZ.Space.space6 - ring)
+            .padding(.top, WZ.Space.space0)
+
+            VStack(alignment: .leading, spacing: WZ.Space.space1) {
+                Text(name)
+                    .font(.wizard(WZ.FontSize.xxl, .semibold))
+                    .foregroundStyle(theme.textPrimary)
+                if !pronouns.isEmpty {
+                    Text(pronouns).font(.wizard(WZ.FontSize.md)).foregroundStyle(theme.textSecondary)
+                }
+                HStack(spacing: WZ.Space.space3) {
+                    Text(session.userId ?? "")
+                        .font(.wizard(WZ.FontSize.sm))
+                        .foregroundStyle(theme.textMuted)
+                        .truncationMode(.middle)
+                    Button {
+                        UIPasteboard.general.string = session.userId
+                    } label: {
+                        Image("ph-copy-regular").font(.system(size: WZ.SizeIcon.xs))
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(theme.control)
+                    .accessibilityLabel(String(localized: "common.copy"))
+                }
+            }
+            .lineLimit(1)
+            .padding(.horizontal, WZ.Space.space6)
+            .padding(.top, WZ.Space.space4)
+            .padding(.bottom, WZ.Space.space6)
+        }
+        .task(id: banner) {
+            guard let banner, let mediaLoader else {
+                bannerImage = nil
+                return
+            }
+            bannerImage = await mediaLoader.thumbnail(banner, size: 1200)
+        }
+    }
+
+    @ViewBuilder
+    private var bannerView: some View {
+        if let bannerImage {
+            Image(uiImage: bannerImage)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: bannerHeight)
+        } else {
+            LinearGradient(colors: [theme.accent, theme.accent.opacity(0.45)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+    }
+
+    private var editBadge: some View {
+        Image("ph-pencil-simple-fill")
+            .font(.system(size: WZ.SizeIcon.xs))
+            .foregroundStyle(.white)
+            .frame(width: WZ.Space.space9, height: WZ.Space.space9)
+            .background(Color.black.opacity(0.55), in: Circle())
+    }
+
+    private var statusBubble: some View {
+        let text = session.customStatus?.text
+        let parts = StatusEmoji.split(text ?? "")
+        let emojiOnly = !parts.emoji.isEmpty && parts.rest.isEmpty
+        return Button(action: onStatus) {
+            Group {
+                if let text {
+                    Text(text)
+                        .font(emojiOnly ? .system(size: 26) : .wizard(WZ.FontSize.sm))
+                        .foregroundStyle(theme.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                } else {
+                    HStack(spacing: WZ.Space.space2) {
+                        Image("ph-plus-circle-fill").font(.system(size: WZ.SizeIcon.xs))
+                        Text(String(localized: "status.addStatus")).italic()
+                    }
+                    .font(.wizard(WZ.FontSize.sm))
+                    .foregroundStyle(theme.textMuted)
+                }
+            }
+            .padding(.leading, StatusBubble.tail + WZ.Space.space4)
+            .padding(.trailing, WZ.Space.space5)
+            .padding(.vertical, emojiOnly ? WZ.Space.space1 : WZ.Space.space3)
+            .background {
+                StatusBubble().fill(theme.bgSecondary)
+                StatusBubble().stroke(theme.border, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct StatusBubble: Shape {
+    static let tail: CGFloat = 5
+
+    func path(in rect: CGRect) -> Path {
+        let tail = Self.tail
+        let body = CGRect(x: rect.minX + tail, y: rect.minY, width: rect.width - tail, height: rect.height)
+        let left = min(10, body.height / 2)
+        let right = min(16, body.height / 2)
+        let half: CGFloat = 4.5
+        var path = Path()
+        path.move(to: CGPoint(x: body.minX + left, y: body.minY))
+        path.addLine(to: CGPoint(x: body.maxX - right, y: body.minY))
+        path.addArc(tangent1End: CGPoint(x: body.maxX, y: body.minY), tangent2End: CGPoint(x: body.maxX, y: body.minY + right), radius: right)
+        path.addLine(to: CGPoint(x: body.maxX, y: body.maxY - right))
+        path.addArc(tangent1End: CGPoint(x: body.maxX, y: body.maxY), tangent2End: CGPoint(x: body.maxX - right, y: body.maxY), radius: right)
+        path.addLine(to: CGPoint(x: body.minX + left, y: body.maxY))
+        path.addArc(tangent1End: CGPoint(x: body.minX, y: body.maxY), tangent2End: CGPoint(x: body.minX, y: body.maxY - left), radius: left)
+        path.addLine(to: CGPoint(x: body.minX, y: body.midY + half))
+        path.addLine(to: CGPoint(x: rect.minX, y: body.midY))
+        path.addLine(to: CGPoint(x: body.minX, y: body.midY - half))
+        path.addLine(to: CGPoint(x: body.minX, y: body.minY + left))
+        path.addArc(tangent1End: CGPoint(x: body.minX, y: body.minY), tangent2End: CGPoint(x: body.minX + left, y: body.minY), radius: left)
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct AccountSettings: View {
+    @EnvironmentObject private var session: MatrixSession
+    @Environment(\.theme) private var theme
+    @Environment(\.openURL) private var openURL
+
+    @State private var status: (String, Bool)?
+    @State private var showDeactivate = false
+
+    var body: some View {
+        SettingsPage(title: "settings.account.title") {
+            if session.isOAuthAccount {
+                SettingsSection {
+                    Text(String(localized: "settings.account.externalManagement"))
+                        .font(.wizard(WZ.FontSize.sm))
+                        .foregroundStyle(theme.textMuted)
+                        .padding(.vertical, WZ.Space.space2)
+                    actionRow("settings.account.manageAccount", icon: "ph-arrow-square-out-regular") {
                         await open()
                     }
                 }
@@ -138,24 +360,7 @@ struct AccountSettings: View {
                     }
                 }
             }
-        }
-        .onAppear { displayName = session.displayName ?? "" }
-        .task {
-            guard let userId = session.userId else { return }
-            canSetPronouns = await session.canSetPronouns()
-            savedPronouns = await session.pronouns(of: userId) ?? ""
-            pronouns = savedPronouns
-        }
-        .onChange(of: photo) { _, item in
-            guard let item else { return }
-            Task {
-                await run {
-                    guard let data = try await item.loadTransferable(type: Data.self),
-                          let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.85) else { return }
-                    try await session.setAvatar(jpeg, mimeType: "image/jpeg")
-                }
-                photo = nil
-            }
+            if let status { StatusText(text: status.0, isError: status.1) }
         }
         .sheet(isPresented: $showDeactivate) { DeactivateSheet() }
     }
@@ -182,15 +387,6 @@ struct AccountSettings: View {
             openURL(url)
         } else {
             status = (String(localized: "settings.account.authMethodUnsupported"), true)
-        }
-    }
-
-    private func run(_ work: () async throws -> Void) async {
-        status = nil
-        do {
-            try await work()
-        } catch {
-            status = ("\(error.localizedDescription)", true)
         }
     }
 }
@@ -466,6 +662,15 @@ struct CustomStatusSheet: View {
                     .tint(theme.textMuted)
                 }
                 .listRowBackground(theme.groupedRow)
+                if session.customStatus != nil {
+                    Section {
+                        Button(String(localized: "status.clearStatus"), role: .destructive) { clear() }
+                            .foregroundStyle(theme.error)
+                            .frame(maxWidth: .infinity)
+                            .disabled(saving)
+                    }
+                    .listRowBackground(theme.groupedRow)
+                }
                 if let error {
                     StatusText(text: error).listRowBackground(Color.clear)
                 }
@@ -502,6 +707,19 @@ struct CustomStatusSheet: View {
             emoji = parts.emoji
             text = parts.rest
             clearAfter = session.customStatus == nil || session.customStatus?.expiresAt != nil ? .today : .never
+        }
+    }
+
+    private func clear() {
+        saving = true
+        Task {
+            defer { saving = false }
+            do {
+                try await session.setCustomStatus("", expiresAt: nil)
+                dismiss()
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 

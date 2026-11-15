@@ -11,13 +11,14 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     enum Page: Hashable, CaseIterable {
-        case account, privacy, emojis, soundboard, notifications, voiceVideo, appearance, accessibility, language, sessions, encryption, developer, about
+        case profile, account, privacy, emojis, soundboard, notifications, voiceVideo, appearance, accessibility, language, sessions, encryption, developer, about
 
         var title: LocalizedStringKey { LocalizedStringKey(titleKey) }
         var name: String { NSLocalizedString(titleKey, comment: "") }
 
         var titleKey: String {
             switch self {
+            case .profile: return "settings.profile.title"
             case .account: return "settings.account.title"
             case .privacy: return "settings.privacy.title"
             case .emojis: return "room.settings.emojis.title"
@@ -36,6 +37,7 @@ struct SettingsView: View {
 
         var icon: String {
             switch self {
+            case .profile: return "ph-user-circle-regular"
             case .account: return "ph-user-regular"
             case .privacy: return "ph-shield-regular"
             case .emojis: return "ph-smiley-sticker-regular"
@@ -67,7 +69,7 @@ struct SettingsView: View {
                     .listRowBackground(theme.groupedRow)
                 } else {
                 Section {
-                    NavigationLink(value: Page.account) {
+                    NavigationLink(value: Page.profile) {
                         HStack(spacing: WZ.Space.space5) {
                             let name = session.displayName ?? session.userId ?? ""
                             AvatarView(name: name, url: session.avatarUrl, size: WZ.SizeAvatar.lg)
@@ -90,7 +92,7 @@ struct SettingsView: View {
                 .listRowBackground(theme.groupedRow)
 
                 Section {
-                    ForEach([Page.privacy, .notifications, .emojis, .soundboard]) { pageRow($0) }
+                    ForEach([Page.account, .privacy, .notifications, .emojis, .soundboard]) { pageRow($0) }
                 }
                 Section {
                     ForEach([Page.voiceVideo, .appearance, .accessibility, .language]) { pageRow($0) }
@@ -118,6 +120,7 @@ struct SettingsView: View {
             }
             .navigationDestination(for: Page.self) { page in
                 switch page {
+                case .profile: ProfileSettings()
                 case .account: AccountSettings()
                 case .privacy: PrivacySettings()
                 case .emojis: EmojisSettings()

@@ -77,6 +77,31 @@ import org.wizardchat.android.ui.composer.EmojiGrid
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
+import org.wizardchat.android.LocalMedia
+import org.wizardchat.android.ui.ConfirmDialog
+import org.wizardchat.android.ui.MenuItem
+import org.wizardchat.android.ui.PhWeight
+import org.wizardchat.android.ui.WizardMenu
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.border
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import org.wizardchat.tokens.WZ
 
 /** Reads a picked image as bytes (off the main thread) */
@@ -94,10 +119,9 @@ internal suspend fun reencode(data: ByteArray, format: Bitmap.CompressFormat, qu
 }
 
 @Composable
-internal fun AccountSettings(onBack: () -> Unit) {
+internal fun ProfileSettings(onBack: () -> Unit) {
     val session = LocalSession.current
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
 
     var displayName by remember { mutableStateOf(session.displayName ?: "") }
@@ -106,9 +130,11 @@ internal fun AccountSettings(onBack: () -> Unit) {
     var savedPronouns by remember { mutableStateOf("") }
     var pronouns by remember { mutableStateOf("") }
     var savingPronouns by remember { mutableStateOf(false) }
+    var banner by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    var showDeactivate by remember { mutableStateOf(false) }
     var editingStatus by remember { mutableStateOf(false) }
+    var confirmRemoveAvatar by remember { mutableStateOf(false) }
+    var confirmRemoveBanner by remember { mutableStateOf(false) }
 
     fun run(work: suspend () -> Unit) = scope.launch {
         status = null
@@ -121,12 +147,13 @@ internal fun AccountSettings(onBack: () -> Unit) {
 
     LaunchedEffect(session.userId) {
         val id = session.userId ?: return@LaunchedEffect
+        banner = runCatching { session.client?.banner(id) }.getOrNull()
         canSetPronouns = session.canSetPronouns()
         savedPronouns = session.pronouns(id) ?: ""
         pronouns = savedPronouns
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         run {
             val data = readBytes(context, uri) ?: return@run
@@ -134,43 +161,33 @@ internal fun AccountSettings(onBack: () -> Unit) {
             session.setAvatar(jpeg, "image/jpeg")
         }
     }
-
-    fun open() = scope.launch {
-        val url = session.accountManagementUrl()
-        if (url != null) {
-            uriHandler.openUri(url)
-        } else {
-            status = L10n.format("settings.account.authMethodUnsupported") to true
+    val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        run {
+            val client = session.client ?: return@run
+            val id = session.userId ?: return@run
+            val data = readBytes(context, uri) ?: return@run
+            val jpeg = reencode(data, Bitmap.CompressFormat.JPEG, 85) ?: return@run
+            client.setBanner(jpeg, "image/jpeg")
+            banner = client.banner(id)
         }
     }
+    val imageOnly = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
-    SettingsPage(tr("settings.account.title"), onBack) {
+    SettingsPage(tr("settings.profile.title"), onBack) {
         SettingsSection {
-            SettingsItem {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5)) {
-                    val name = session.displayName ?: session.userId ?: ""
-                    Avatar(name, session.avatarUrl, size = WZ.SizeAvatar.lg)
-                    Column(verticalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-                        Text(
-                            tr("settings.emojisStickers.upload"),
-                            Modifier.clickable {
-                                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            },
-                            style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
-                            color = theme.accent,
-                        )
-                        if (session.avatarUrl != null) {
-                            Text(
-                                tr("common.remove"),
-                                Modifier.clickable { run { session.removeAvatar() } },
-                                style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
-                                color = theme.error,
-                            )
-                        }
-                    }
-                }
-            }
-            SettingsDivider()
+            ProfileCard(
+                banner = banner,
+                pronouns = savedPronouns,
+                onAvatar = { avatarPicker.launch(imageOnly) },
+                onRemoveAvatar = if (session.avatarUrl != null) ({ confirmRemoveAvatar = true }) else null,
+                onBanner = { bannerPicker.launch(imageOnly) },
+                onRemoveBanner = if (banner != null) ({ confirmRemoveBanner = true }) else null,
+                onStatus = { editingStatus = true },
+            )
+        }
+
+        SettingsSection {
             SettingsItem {
                 Text(tr("settings.account.displayName"), style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold), color = theme.textMuted)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
@@ -228,39 +245,239 @@ internal fun AccountSettings(onBack: () -> Unit) {
                     }
                 }
             }
-            SettingsDivider()
-            CopyRow(tr("auth.username"), session.userId ?: "")
         }
 
-        SettingsSection(title = tr("status.title")) {
-            SettingsItem {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(WZ.Space.space1)) {
-                        Text(tr("status.customStatus"), style = wizardFont(WZ.FontSize.md), color = theme.textPrimary)
-                        Text(session.customStatus?.text ?: tr("status.none"), style = wizardFont(WZ.FontSize.sm), color = theme.textMuted)
-                    }
-                    Text(
-                        tr(if (session.customStatus == null) "status.setCustomStatus" else "status.editCustomStatus"),
-                        Modifier.clickable { editingStatus = true },
-                        style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
-                        color = theme.accent,
+        status?.let { StatusText(it.first, it.second) }
+    }
+
+    if (editingStatus) CustomStatusSheet(onDismiss = { editingStatus = false })
+    if (confirmRemoveAvatar) {
+        ConfirmDialog(
+            tr("common.removeAvatar"),
+            tr("common.remove"),
+            onConfirm = { run { session.removeAvatar() } },
+            onDismiss = { confirmRemoveAvatar = false },
+            message = tr("common.removeAvatarConfirm"),
+        )
+    }
+    if (confirmRemoveBanner) {
+        ConfirmDialog(
+            tr("profile.removeBanner"),
+            tr("common.remove"),
+            onConfirm = {
+                run {
+                    session.client?.setBanner()
+                    banner = null
+                }
+            },
+            onDismiss = { confirmRemoveBanner = false },
+            message = tr("profile.removeBannerConfirm"),
+        )
+    }
+}
+
+@Composable
+private fun ProfileCard(
+    banner: String?,
+    pronouns: String,
+    onAvatar: () -> Unit,
+    onRemoveAvatar: (() -> Unit)?,
+    onBanner: () -> Unit,
+    onRemoveBanner: (() -> Unit)?,
+    onStatus: () -> Unit,
+) {
+    val session = LocalSession.current
+    val media = LocalMedia.current
+    val clipboard = LocalClipboardManager.current
+    val name = session.displayName ?: session.userId ?: ""
+    var bannerImage by remember(banner) { mutableStateOf<Bitmap?>(null) }
+    var bannerMenu by remember { mutableStateOf(false) }
+    var avatarMenu by remember { mutableStateOf(false) }
+    LaunchedEffect(banner, media) {
+        bannerImage = if (banner != null && media != null) media.thumbnail(banner, 1200) else null
+    }
+    val bannerHeight = 112.dp
+    val avatarSize = WZ.SizeAvatar.xxl
+    val ring = 5.dp
+
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(bannerHeight)
+                    .background(Brush.linearGradient(listOf(theme.accent, theme.accent.copy(alpha = 0.45f)))),
+            ) {
+                bannerImage?.let {
+                    Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
+                Box(Modifier.align(Alignment.TopEnd).padding(WZ.Space.space4)) {
+                    EditBadge(Modifier.clickable { bannerMenu = true })
+                    WizardMenu(
+                        bannerMenu,
+                        { bannerMenu = false },
+                        listOfNotNull(
+                            MenuItem(L10n.format("settings.profile.changeBanner"), "image", onClick = onBanner),
+                            onRemoveBanner?.let { MenuItem(L10n.format("profile.removeBanner"), "trash", destructive = true, onClick = it) },
+                        ),
                     )
                 }
             }
-            if (session.customStatus != null) {
-                SettingsDivider()
-                ActionRow(tr("status.clearStatus"), "x", destructive = true) { run { session.setCustomStatus("", null) } }
+            Row(
+                Modifier.fillMaxWidth().padding(start = WZ.Space.space6 - ring, end = WZ.Space.space6, top = bannerHeight - avatarSize / 2 - ring),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
+            ) {
+                Box {
+                    Box(
+                        Modifier
+                            .clip(CircleShape)
+                            .background(theme.groupedRow)
+                            .padding(ring)
+                            .clickable { avatarMenu = true },
+                    ) {
+                        Avatar(name, session.avatarUrl, size = avatarSize)
+                    }
+                    EditBadge(Modifier.align(Alignment.BottomEnd).padding(ring))
+                    WizardMenu(
+                        avatarMenu,
+                        { avatarMenu = false },
+                        listOfNotNull(
+                            MenuItem(L10n.format("settings.profile.changeAvatar"), "image", onClick = onAvatar),
+                            onRemoveAvatar?.let { MenuItem(L10n.format("common.removeAvatar"), "trash", destructive = true, onClick = it) },
+                        ),
+                    )
+                }
+                StatusBubble(session.customStatus?.text, onStatus, Modifier.weight(1f).padding(top = avatarSize / 2 + ring + WZ.Space.space3))
             }
         }
-        if (editingStatus) CustomStatusSheet(onDismiss = { editingStatus = false })
+        Column(
+            Modifier.padding(start = WZ.Space.space6, end = WZ.Space.space6, top = WZ.Space.space4, bottom = WZ.Space.space6),
+            verticalArrangement = Arrangement.spacedBy(WZ.Space.space1),
+        ) {
+            Text(name, style = wizardFont(WZ.FontSize.xxl, FontWeight.SemiBold), color = theme.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (pronouns.isNotEmpty()) {
+                Text(pronouns, style = wizardFont(WZ.FontSize.md), color = theme.textSecondary, maxLines = 1)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
+                Text(session.userId ?: "", Modifier.weight(1f, fill = false), style = wizardFont(WZ.FontSize.sm), color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                PhIcon(
+                    "copy",
+                    size = WZ.SizeIcon.xs,
+                    tint = theme.control,
+                    modifier = Modifier.clickable { clipboard.setText(AnnotatedString(session.userId ?: "")) },
+                )
+            }
+        }
+    }
+}
 
-        status?.let { StatusText(it.first, it.second) }
+@Composable
+private fun EditBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(WZ.Space.space9).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        PhIcon("pencil-simple", PhWeight.fill, size = WZ.SizeIcon.xs, tint = Color.White)
+    }
+}
 
+private val bubbleTail = 5.dp
+
+private object StatusBubbleShape : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+        Outline.Generic(Path().apply { bubble(size, density.density) })
+}
+
+private fun Path.bubble(size: Size, density: Float) {
+    val tail = bubbleTail.value * density
+    val left = minOf(10f * density, size.height / 2)
+    val right = minOf(16f * density, size.height / 2)
+    val half = 4.5f * density
+    val x0 = tail
+    val mid = size.height / 2
+    moveTo(x0 + left, 0f)
+    lineTo(size.width - right, 0f)
+    arcTo(Rect(size.width - 2 * right, 0f, size.width, 2 * right), -90f, 90f, false)
+    lineTo(size.width, size.height - right)
+    arcTo(Rect(size.width - 2 * right, size.height - 2 * right, size.width, size.height), 0f, 90f, false)
+    lineTo(x0 + left, size.height)
+    arcTo(Rect(x0, size.height - 2 * left, x0 + 2 * left, size.height), 90f, 90f, false)
+    lineTo(x0, mid + half)
+    lineTo(0f, mid)
+    lineTo(x0, mid - half)
+    lineTo(x0, left)
+    arcTo(Rect(x0, 0f, x0 + 2 * left, 2 * left), 180f, 90f, false)
+    close()
+}
+
+@Composable
+private fun StatusBubble(text: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val emojiOnly = text != null && StatusEmoji.split(text).let { it.first.isNotEmpty() && it.second.isEmpty() }
+    Box(modifier, contentAlignment = Alignment.CenterStart) {
+        Row(
+            Modifier
+                .clip(StatusBubbleShape)
+                .background(theme.bgSecondary)
+                .border(1.dp, theme.border, StatusBubbleShape)
+                .clickable(onClick = onClick)
+                .padding(
+                    start = bubbleTail + WZ.Space.space4,
+                    end = WZ.Space.space5,
+                    top = if (emojiOnly) WZ.Space.space1 else WZ.Space.space3,
+                    bottom = if (emojiOnly) WZ.Space.space1 else WZ.Space.space3,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space2),
+        ) {
+            if (text != null) {
+                Text(
+                    text,
+                    style = if (emojiOnly) wizardFont(WZ.FontSize.sm).copy(fontSize = 26.sp) else wizardFont(WZ.FontSize.sm),
+                    color = theme.textPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                PhIcon("plus-circle", PhWeight.fill, size = WZ.SizeIcon.xs, tint = theme.textMuted)
+                Text(
+                    tr("status.addStatus"),
+                    style = wizardFont(WZ.FontSize.sm).copy(fontStyle = FontStyle.Italic),
+                    color = theme.textMuted,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun AccountSettings(onBack: () -> Unit) {
+    val session = LocalSession.current
+    val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var showDeactivate by remember { mutableStateOf(false) }
+
+    fun open() = scope.launch {
+        val url = session.accountManagementUrl()
+        if (url != null) {
+            uriHandler.openUri(url)
+        } else {
+            status = L10n.format("settings.account.authMethodUnsupported") to true
+        }
+    }
+
+    SettingsPage(tr("settings.account.title"), onBack) {
         if (session.isOAuthAccount) {
-            SettingsSection(note = tr("settings.account.externalManagement")) {
+            SettingsSection {
+                Text(
+                    tr("settings.account.externalManagement"),
+                    Modifier.padding(start = WZ.Space.space5, end = WZ.Space.space5, top = WZ.Space.space5),
+                    style = wizardFont(WZ.FontSize.sm),
+                    color = theme.textMuted,
+                )
                 ActionRow(tr("settings.account.manageAccount"), "arrow-square-out") { open() }
-                SettingsDivider()
-                ActionRow(tr("settings.account.deactivateAccount"), "user-minus", destructive = true) { open() }
             }
         } else {
             PasswordSection()
@@ -269,6 +486,7 @@ internal fun AccountSettings(onBack: () -> Unit) {
                 ActionRow(tr("settings.account.deactivateAccount"), "user-minus", destructive = true) { showDeactivate = true }
             }
         }
+        status?.let { StatusText(it.first, it.second) }
     }
 
     if (showDeactivate) DeactivateSheet { showDeactivate = false }
@@ -610,6 +828,30 @@ private fun CustomStatusSheet(onDismiss: () -> Unit) {
                     saving = false
                 }
             }, enabled = !saving)
+            if (session.customStatus != null) {
+                Text(
+                    tr("status.clearStatus"),
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(WZ.Radius.md))
+                        .clickable(enabled = !saving) {
+                            saving = true
+                            scope.launch {
+                                try {
+                                    session.setCustomStatus("", null)
+                                    onDismiss()
+                                } catch (e: Exception) {
+                                    error = e.text
+                                }
+                                saving = false
+                            }
+                        }
+                        .padding(vertical = WZ.Space.space4),
+                    style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold),
+                    color = theme.error,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
