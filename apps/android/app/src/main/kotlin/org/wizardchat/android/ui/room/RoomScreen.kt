@@ -561,7 +561,6 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
 private const val BOTTOM_ID = "timeline-bottom"
 private const val TOP_ID = "timeline-top"
 
-/** The room's title capsule (opens the room info) and, in DMs, the call buttons */
 @Composable
 private fun RoomTopBar(
     room: RoomSummary,
@@ -576,7 +575,6 @@ private fun RoomTopBar(
         room,
         onBack,
         onShowInfo = if (inThread) null else onShowInfo,
-        buttons = if (inThread) 0 else 2,
         title = { if (inThread) ThreadTitle(room) else RoomTitle(room) },
     ) {
         if (!inThread) {
@@ -597,43 +595,38 @@ private fun RoomTopBar(
     }
 }
 
-/** Back, the room's title capsule (opens the room info when `onShowInfo` is set) and `buttons` bar buttons on the right */
 @Composable
 internal fun RoomHeader(
     room: RoomSummary,
     onBack: () -> Unit,
     onShowInfo: (() -> Unit)?,
-    buttons: Int,
     title: @Composable () -> Unit = { RoomTitle(room) },
     actions: @Composable RowScope.() -> Unit,
 ) {
     val hint = tr("timeline.showsRoomInfoMembers")
-    Box(Modifier.fillMaxWidth().background(theme.bgSecondary).statusBarsPadding().height(WZ.Space.space11).padding(horizontal = WZ.Space.space3)) {
-        Box(Modifier.align(Alignment.CenterStart)) {
-            BarButton("caret-left", tr("common.back"), onBack, weight = PhWeight.bold)
-        }
+    Row(
+        Modifier.fillMaxWidth().background(theme.bgSecondary).statusBarsPadding().height(WZ.Space.space12).padding(horizontal = WZ.Space.space2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BarButton("arrow-left", tr("common.back"), onBack, tint = theme.textPrimary)
         Box(
             Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = WZ.Space.space11 + WZ.Space.space2, end = WZ.Space.space11 * buttons)
-                .defaultMinSize(minHeight = WZ.Space.space10)
-                .shadow(2.dp, CircleShape)
-                .clip(CircleShape)
-                .background(theme.bgTertiary)
+                .weight(1f)
+                .fillMaxHeight()
                 .clickable(enabled = onShowInfo != null, onClick = { onShowInfo?.invoke() })
                 .semantics { contentDescription = "${room.displayName}. $hint" }
-                .padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space2),
-            contentAlignment = Alignment.Center,
+                .padding(horizontal = WZ.Space.space4),
+            contentAlignment = Alignment.CenterStart,
         ) {
             title()
         }
-        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, content = actions)
+        Row(verticalAlignment = Alignment.CenterVertically, content = actions)
     }
 }
 
 @Composable
 private fun ThreadTitle(room: RoomSummary) {
-    Column(Modifier.widthIn(max = WZ.Size.sidebar), horizontalAlignment = Alignment.Start) {
+    Column(horizontalAlignment = Alignment.Start) {
         Text(tr("timeline.threadPanel"), style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold), color = theme.textPrimary, maxLines = 1)
         Text(
             room.displayName,
@@ -648,13 +641,13 @@ private fun ThreadTitle(room: RoomSummary) {
 @Composable
 internal fun RoomTitle(room: RoomSummary) {
     val prefs = LocalPrefs.current
-    Column(Modifier.widthIn(max = WZ.Size.sidebar), horizontalAlignment = Alignment.Start) {
+    Column(horizontalAlignment = Alignment.Start) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (prefs.showRoomAvatars) WZ.Space.space3 else WZ.Space.space1),
         ) {
             if (prefs.showRoomAvatars) {
-                Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.xs)
+                Avatar(room.displayName, room.avatarUrl, WZ.SizeIcon.xl)
             } else if (!room.isDirect) {
                 PhIcon(if (room.isVoice) "speaker-high" else "hash-straight", size = WZ.SizeIcon.xs, tint = theme.textMuted)
             }

@@ -94,6 +94,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -500,7 +501,7 @@ fun ComposerView(
         Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-            .padding(horizontal = WZ.Space.space4)
+            .padding(horizontal = WZ.Space.space5)
             .padding(top = WZ.Space.space2, bottom = WZ.Space.space4)
             .animateContentSize(tween(WZ.MotionDuration.slow)),
         verticalArrangement = Arrangement.spacedBy(WZ.Space.space3),
@@ -561,7 +562,7 @@ fun ComposerView(
                         )
                     }
                 }
-                Column(Modifier.weight(1f).floatingGlass(RoundedCornerShape(WZ.Radius.xl), theme.bgTertiary)) {
+                Column(Modifier.weight(1f).floatingGlass(RoundedCornerShape(COMPOSER_HEIGHT / 2), theme.bgTertiary)) {
                     replyTo?.let { entry ->
                         ContextBar("arrow-bend-up-left", L10n.format("composer.replyingToName", entry.senderName), entry.summary, entry.rich?.emoticons().orEmpty(), entry.senderName to nameColor(entry.sender)) {
                             onReplyToChange(null)
@@ -615,7 +616,7 @@ fun ComposerView(
                         val label = if (editing == null) tr("composer.send") else tr("composer.saveEdit")
                         Box(
                             Modifier
-                                .size(WZ.Space.space10)
+                                .size(COMPOSER_HEIGHT)
                                 .alpha(if (canSend) 1f else 0.5f)
                                 .clip(CircleShape)
                                 .background(theme.accent)
@@ -715,11 +716,13 @@ private suspend fun thumbnail(data: ByteArray): Bitmap? = withContext(Dispatcher
     BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
 }
 
+private val COMPOSER_HEIGHT = 48.dp
+
 @Composable
 private fun Bubble(icon: String, label: String, iconSize: Dp = WZ.SizeIcon.md, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(WZ.Space.space10)
+            .size(COMPOSER_HEIGHT)
             .floatingGlass(CircleShape, theme.bgTertiary)
             .clickable(onClick = onClick)
             .semantics { contentDescription = label },
@@ -757,7 +760,7 @@ private fun InputField(state: TextFieldState, emotes: Map<String, PackImage>, pl
         state,
         modifier
             .fillMaxWidth()
-            .heightIn(min = WZ.Space.space10)
+            .heightIn(min = COMPOSER_HEIGHT)
             .padding(vertical = WZ.Space.space5, horizontal = WZ.Space.space6),
         textStyle = wizardFont(WZ.FontSize.lg).copy(color = theme.textPrimary),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
@@ -765,7 +768,7 @@ private fun InputField(state: TextFieldState, emotes: Map<String, PackImage>, pl
         onTextLayout = { result -> layout = result() },
         cursorBrush = SolidColor(theme.accent),
         decorator = { inner ->
-            Box {
+            Box(Modifier.heightIn(min = COMPOSER_HEIGHT - WZ.Space.space5 * 2), contentAlignment = Alignment.CenterStart) {
                 if (state.text.isEmpty()) {
                     Text(placeholder, style = wizardFont(WZ.FontSize.lg), color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

@@ -60,7 +60,7 @@ fun WizardTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (onBack != null) {
-                BarButton("caret-left", tr("common.back"), onBack, weight = PhWeight.bold)
+                BarButton("arrow-left", tr("common.back"), onBack, tint = theme.textPrimary)
             }
             if (large && titleInRow) {
                 Text(

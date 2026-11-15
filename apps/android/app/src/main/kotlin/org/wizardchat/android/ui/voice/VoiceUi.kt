@@ -97,7 +97,7 @@ fun VoiceRoomScreen(room: RoomSummary, onBack: () -> Unit, onOpenChat: () -> Uni
     var showInfo by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(theme.bgSecondary)) {
-        RoomHeader(live, onBack, onShowInfo = { showInfo = true }, buttons = 1) {
+        RoomHeader(live, onBack, onShowInfo = { showInfo = true }) {
             BarButton("chat-text", tr("room.openChat"), onOpenChat)
         }
         if (inThisCall) {

@@ -44,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -86,7 +85,7 @@ internal val composerDefaults
 
 /** The floating "liquid glass" background of the composer's bubbles */
 internal fun Modifier.floatingGlass(shape: Shape, color: androidx.compose.ui.graphics.Color) =
-    shadow(4.dp, shape).clip(shape).background(color)
+    clip(shape).background(color)
 
 /**
  * The emoji/sticker/GIF sheet. With [emojiOnly] (reactions) only the emoji tab is shown and picking
