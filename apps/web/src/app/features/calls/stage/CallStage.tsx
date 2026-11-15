@@ -41,7 +41,7 @@ import {
   watchingVideoIdAtom,
   watchQueueOpenAtom,
 } from '../watchTogether/watchTogether';
-import { WATCH_TILE_KEY, WatchPlayerLayer, WatchSlot } from '../watchTogether/WatchStage';
+import { WATCH_TILE_KEY, WatchSlot } from '../watchTogether/WatchStage';
 import { WatchQueuePanel } from '../watchTogether/WatchQueuePanel';
 import * as css from './CallStage.css';
 
@@ -560,7 +560,6 @@ export function CallStage() {
   const queueOpen = useAtomValue(watchQueueOpenAtom);
   const watchActive = !!watch && !!watchActions;
   const watchingNow = watchActive && watchingVideoId === watch.videoId;
-  const stageRef = useRef<HTMLDivElement>(null);
   const [showNonVideo, setShowNonVideo] = useAtom(showNonVideoParticipantsAtom);
   const hasVideo = watchActive || !!snapshot?.participants.some((p) => p.camera || p.screenShared);
   useEffect(() => {
@@ -759,11 +758,10 @@ export function CallStage() {
   }
 
   return (
-    <div ref={stageRef} className={compact ? css.stageCompact : css.stage} style={style}>
+    <div className={compact ? css.stageCompact : css.stage} style={style}>
       <div ref={grid.ref} className={css.area}>
         {content}
       </div>
-      {watchActive && <WatchPlayerLayer rootRef={stageRef} startedByName={watchStartedBy} />}
       {!compact && watchingNow && queueOpen && (
         <WatchQueuePanel nameOf={(userId) => lookup(userId).member?.displayName ?? userId} />
       )}

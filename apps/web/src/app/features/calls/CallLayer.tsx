@@ -17,6 +17,7 @@ import { useIncomingCall } from './useIncomingCall';
 import { IncomingCallOverlay } from './IncomingCallOverlay';
 import { CallControlBar } from './CallControlBar';
 import { CallStage } from './stage/CallStage';
+import { WatchPlayerHost } from './watchTogether/WatchStage';
 import * as css from './CallLayer.css';
 import { DOCKED_HEADER_HEIGHT } from './CallLayer.css';
 
@@ -351,6 +352,14 @@ export function CallLayer({ client }: Props) {
         !isHidden &&
         containerEl &&
         createPortal(<CallStage />, containerEl)}
+
+      {inCall &&
+        callSession &&
+        containerEl &&
+        createPortal(
+          <WatchPlayerHost roomId={callSession.roomId} rootRef={containerRef} />,
+          containerEl
+        )}
 
       {inCall &&
         joined &&

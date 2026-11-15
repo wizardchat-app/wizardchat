@@ -1,5 +1,6 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useMemberLookup } from '../useMemberLookup';
 import { WatchTogetherInvite } from './WatchTogetherInvite';
 import { WatchTogetherPlayer } from './WatchTogetherPlayer';
 import {
@@ -67,12 +68,26 @@ export function WatchSlot({
   return <div ref={ref} className={css.slot} />;
 }
 
+interface HostProps {
+  roomId: string;
+  rootRef: React.RefObject<HTMLElement | null>;
+}
+
+export function WatchPlayerHost({ roomId, rootRef }: HostProps) {
+  const state = useAtomValue(watchStateAtom);
+  const actions = useAtomValue(watchActionsAtom);
+  const lookup = useMemberLookup(roomId);
+  if (!state || !actions) return null;
+  const startedByName = lookup(state.startedBy).member?.displayName ?? state.startedBy;
+  return <WatchPlayerLayer rootRef={rootRef} startedByName={startedByName} />;
+}
+
 interface LayerProps {
   rootRef: React.RefObject<HTMLElement | null>;
   startedByName: string;
 }
 
-export function WatchPlayerLayer({ rootRef, startedByName }: LayerProps) {
+function WatchPlayerLayer({ rootRef, startedByName }: LayerProps) {
   const state = useAtomValue(watchStateAtom);
   const actions = useAtomValue(watchActionsAtom);
   const watchingVideoId = useAtomValue(watchingVideoIdAtom);

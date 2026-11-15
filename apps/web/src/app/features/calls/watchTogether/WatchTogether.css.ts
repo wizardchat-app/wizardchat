@@ -251,6 +251,7 @@ export const slot = style({
 
 export const layer = style({
   position: 'absolute',
+  zIndex: 1,
   overflow: 'hidden',
   borderRadius: vars.radius.md,
 });
