@@ -32,7 +32,7 @@ use matrix_sdk::{
                 },
                 state::send_state_event,
             },
-            error::{ErrorKind, RetryAfter},
+            error::{ErrorKind, FromHttpResponseError, RetryAfter},
         },
         events::{
             AnySyncStateEvent, AnySyncTimelineEvent, AnyToDeviceEvent, AnyToDeviceEventContent,
@@ -504,13 +504,28 @@ fn classify(error: &HttpError) -> Failure {
     }
 }
 
-/// Servers that turned delayed events off (matrix.org) answer with M_FORBIDDEN
+/// Servers that turned delayed events off (matrix.org) answer with M_FORBIDDEN. Servers that
+/// don't know them answer with a plain 400 or 404, or ignore the delay and send the state event
+/// right away, so the reply has no `delay_id`.
 fn classify_delayed(error: &HttpError) -> Failure {
+    if let HttpError::Api(api) = error {
+        if matches!(api.as_ref(), FromHttpResponseError::Deserialization(_)) {
+            return Failure::Unsupported;
+        }
+    }
+    if let Some(api) = error.as_client_api_error() {
+        let plain = api.error_kind().is_none() && matches!(api.status_code.as_u16(), 400 | 404);
+        if plain {
+            return Failure::Unsupported;
+        }
+    }
     match error.client_api_error_kind() {
         Some(ErrorKind::Forbidden) => Failure::Unsupported,
         _ => classify(error),
     }
 }
+
+const DELAYED_EVENTS_FEATURE: &str = "org.matrix.msc4140";
 
 /// No automatic retries: failures are handled (and counted) here
 fn once() -> RequestConfig {
@@ -1476,9 +1491,25 @@ impl CallSession {
     async fn join(&self) -> Result<()> {
         let started = now_ms();
         let known_unsupported = NO_DELAYED_EVENTS.lock().unwrap().contains(&self.user_id);
+        let advertised = match self.client.unstable_features().await {
+            Ok(features) => Some(
+                features
+                    .iter()
+                    .any(|f| f.as_ref() == DELAYED_EVENTS_FEATURE),
+            ),
+            Err(_) => None,
+        };
         let delayed = if known_unsupported {
             self.state.lock().unwrap().no_delayed_events = true;
             "unsupported (known)".to_owned()
+        } else if advertised != Some(true) {
+            self.state.lock().unwrap().no_delayed_events = true;
+            if advertised == Some(false) {
+                NO_DELAYED_EVENTS.lock().unwrap().push(self.user_id.clone());
+                format!("unsupported, {DELAYED_EVENTS_FEATURE} isn't advertised")
+            } else {
+                "unknown, /versions failed, the membership expires instead".to_owned()
+            }
         } else {
             let mut retries = Retries::default();
             loop {
@@ -2516,6 +2547,40 @@ fn call_timeline_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use matrix_sdk::ruma::{api::IncomingResponseExt, exports::http};
+
+    fn delayed_reply(status: u16, body: &str) -> HttpError {
+        let response = http::Response::builder()
+            .status(status)
+            .body(body.as_bytes())
+            .unwrap();
+        delayed_state_event::unstable::Response::try_from_http_response(response)
+            .unwrap_err()
+            .into()
+    }
+
+    #[test]
+    fn servers_without_delayed_events_count_as_unsupported() {
+        let ignored_delay = delayed_reply(200, r#"{"event_id":"$sent"}"#);
+        assert!(matches!(
+            classify_delayed(&ignored_delay),
+            Failure::Unsupported
+        ));
+        assert!(matches!(
+            classify_delayed(&delayed_reply(400, "")),
+            Failure::Unsupported
+        ));
+        assert!(matches!(
+            classify_delayed(&delayed_reply(404, "{}")),
+            Failure::Unsupported
+        ));
+        let forbidden = delayed_reply(403, r#"{"errcode":"M_FORBIDDEN","error":"off"}"#);
+        assert!(matches!(classify_delayed(&forbidden), Failure::Unsupported));
+        let lost = delayed_reply(404, r#"{"errcode":"M_NOT_FOUND","error":"gone"}"#);
+        assert!(matches!(classify_delayed(&lost), Failure::NotFound));
+        let busy = delayed_reply(502, "");
+        assert!(matches!(classify_delayed(&busy), Failure::Network));
+    }
 
     #[test]
     fn parses_session_memberships() {
