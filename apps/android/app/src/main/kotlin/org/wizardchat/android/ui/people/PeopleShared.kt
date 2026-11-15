@@ -392,6 +392,8 @@ internal fun PersonRow(
     avatarUrl: String?,
     onClick: (() -> Unit)?,
     enabled: Boolean = true,
+    subtitle: String? = null,
+    showUserId: Boolean = true,
     trailing: @Composable () -> Unit = {},
 ) {
     Row(
@@ -411,8 +413,8 @@ internal fun PersonRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (name != null) {
-                Text(userId, style = wizardFont(WZ.FontSize.sm), color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null || (showUserId && name != null)) {
+                Text(subtitle ?: userId, style = wizardFont(WZ.FontSize.sm), color = theme.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         trailing()

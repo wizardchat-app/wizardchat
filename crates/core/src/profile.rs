@@ -205,6 +205,12 @@ impl WizardClient {
             .await?)
     }
 
+    /// Someone's custom status from their profile; `None` when unset, expired or unavailable
+    pub async fn custom_status(&self, user_id: &str) -> Option<CustomStatus> {
+        let value = self.profile_field(user_id, STATUS_FIELD).await.ok()??;
+        parse_status(Some(&value))
+    }
+
     /// Our display name in one room, when it differs from the global one
     pub async fn room_nickname(&self, room_id: &str) -> Result<Option<String>> {
         let room = self.room(room_id)?;

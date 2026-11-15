@@ -1,5 +1,6 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { ownCustomStatusAtom, statusMsgMapAtom, userIdAtom } from '@/app/store/atoms';
@@ -8,6 +9,7 @@ import { useSyncReady } from '@/app/hooks/useSync';
 
 export const PROFILE_STATUS_KEY = 'org.wizardchat.status';
 export const MAX_STATUS_LENGTH = 128;
+const PROFILE_STATUS_STALE_MS = 5 * 60 * 1000;
 
 export const customStatusDialogOpenAtom = atom(false);
 
@@ -190,23 +192,17 @@ export function useUserStatusText(
   const ownId = useAtomValue(userIdAtom);
   const own = useAtomValue(ownCustomStatusAtom);
   const statusMap = useAtomValue(statusMsgMapAtom);
-  const [profileStatus, setProfileStatus] = useState<CustomStatus | null | undefined>(undefined);
   const isOwn = !!userId && userId === ownId;
-
-  useEffect(() => {
-    setProfileStatus(undefined);
-    if (!fetchProfile || !client || !userId || isOwn) return;
-    let cancelled = false;
-    void fetchCustomStatus(client, userId).then((status) => {
-      if (!cancelled) setProfileStatus(status);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, userId, isOwn, fetchProfile]);
+  const { data: profileStatus } = useQuery({
+    queryKey: ['customStatus', userId],
+    queryFn: async () => (await fetchCustomStatus(client!, userId!)) ?? null,
+    enabled: fetchProfile && !!client && !!userId && !isOwn,
+    staleTime: PROFILE_STATUS_STALE_MS,
+    gcTime: PROFILE_STATUS_STALE_MS * 2,
+  });
 
   if (!userId) return null;
   if (isOwn) return own && !isExpired(own) ? own.text : null;
-  if (profileStatus) return profileStatus.text;
+  if (profileStatus && !isExpired(profileStatus)) return profileStatus.text;
   return statusMap[userId] || null;
 }

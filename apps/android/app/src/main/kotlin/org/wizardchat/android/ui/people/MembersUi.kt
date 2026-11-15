@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalSession
+import org.wizardchat.android.matrix.StatusDirectory
 import org.wizardchat.android.matrix.StatusEmoji
 import org.wizardchat.android.matrix.ignore
 import org.wizardchat.android.matrix.profile
@@ -128,7 +129,15 @@ internal fun MembersScreen(roomId: String, onBack: () -> Unit) {
 
 @Composable
 private fun MemberRow(member: Member, onClick: () -> Unit) {
-    PersonRow(member.displayName, member.userId, member.avatarUrl, onClick) {
+    val session = LocalSession.current
+    val own = member.userId == session.userId
+    var fetched by remember(member.userId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(member.userId) {
+        val client = session.client ?: return@LaunchedEffect
+        if (!own && !member.isInvite) fetched = StatusDirectory.status(member.userId, client)?.text
+    }
+    val status = if (own) session.customStatus?.text else fetched
+    PersonRow(member.displayName, member.userId, member.avatarUrl, onClick, subtitle = status, showUserId = false) {
         RoleBadge(member.level)
     }
 }

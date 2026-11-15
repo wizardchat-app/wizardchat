@@ -4,8 +4,8 @@ use serde_json::Value;
 
 use super::{Bytes, Listener, Subscription};
 use crate::{
-    EmojiPack, MentionRule, MutualRoom, NotificationMode, NotificationPrefs, Presence,
-    PresenceInfo, SearchHit, UiaAuth, UiaOutcome, UserProfile, Widget, WizardClient,
+    CustomStatus, EmojiPack, MentionRule, MutualRoom, NotificationMode, NotificationPrefs,
+    Presence, PresenceInfo, SearchHit, UiaAuth, UiaOutcome, UserProfile, Widget, WizardClient,
 };
 
 rpc_methods! {
@@ -28,6 +28,11 @@ rpc_methods! {
 
         call fn setDisplayName(name: String) -> () {
             this.set_display_name(&name).await
+        }
+
+        /// Someone's custom status from their profile, or null
+        call fn customStatus(user_id: String) -> Option<CustomStatus> {
+            Ok(this.custom_status(&user_id).await)
         }
 
         /// Our display name in a room when it differs from the global one

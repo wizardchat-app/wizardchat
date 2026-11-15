@@ -48,3 +48,30 @@ extension MatrixSession {
         return await MemberDirectory.shared.profile(userId, in: roomId, client: client)
     }
 }
+
+@MainActor
+final class StatusDirectory {
+    static let shared = StatusDirectory()
+    private static let maxAge: TimeInterval = 5 * 60
+
+    private var entries: [String: (status: CustomStatus?, at: Date)] = [:]
+    private var pending: [String: Task<CustomStatus?, Never>] = [:]
+
+    func status(of userId: String, client: WizardClient) async -> CustomStatus? {
+        if let entry = entries[userId], Date.now.timeIntervalSince(entry.at) < Self.maxAge {
+            return entry.status.flatMap(Self.live)
+        }
+        let task = pending[userId] ?? Task { (try? await client.customStatus(userId: userId)) ?? nil }
+        pending[userId] = task
+        let status = await task.value
+        pending[userId] = nil
+        entries[userId] = (status, .now)
+        return Self.live(status)
+    }
+
+    private static func live(_ status: CustomStatus?) -> CustomStatus? {
+        guard let status else { return nil }
+        if let expiresAt = status.expiresAt, Double(expiresAt) / 1000 <= Date.now.timeIntervalSince1970 { return nil }
+        return status
+    }
+}

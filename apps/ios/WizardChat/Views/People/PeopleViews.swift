@@ -87,7 +87,13 @@ struct IdentifiedString: Identifiable, Hashable { let id: String }
 
 private struct MemberRow: View {
     let member: Member
+    @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
+    @State private var fetchedStatus: String?
+
+    private var status: String? {
+        member.userId == session.userId ? session.customStatus?.text : fetchedStatus
+    }
 
     var body: some View {
         HStack(spacing: WZ.Space.space5) {
@@ -96,8 +102,8 @@ private struct MemberRow: View {
                 Text(member.displayName ?? member.userId)
                     .font(.wizard(WZ.FontSize.lg, .medium))
                     .foregroundStyle(theme.textPrimary)
-                if member.displayName != nil {
-                    Text(member.userId).font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.textMuted)
+                if let status {
+                    Text(status).font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.textMuted)
                 }
             }
             .lineLimit(1)
@@ -105,6 +111,10 @@ private struct MemberRow: View {
             RoleBadge(level: member.level)
         }
         .contentShape(Rectangle())
+        .task(id: member.userId) {
+            guard let client = session.client, member.userId != session.userId, !member.isInvite else { return }
+            fetchedStatus = await StatusDirectory.shared.status(of: member.userId, client: client)?.text
+        }
     }
 }
 

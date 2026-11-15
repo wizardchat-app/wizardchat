@@ -58,7 +58,7 @@ const MemberRow = memo(function MemberRow({
     [member.userId, roomId, setProfile]
   );
 
-  const statusText = useUserStatusText(client, member.userId);
+  const statusText = useUserStatusText(client, member.userId, true);
   const presence = showPresence
     ? member.userId === localUserId
       ? ownPresence

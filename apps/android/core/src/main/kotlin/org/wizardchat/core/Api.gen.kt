@@ -2093,6 +2093,10 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
         Runtime.callUnit("WizardClient.setDisplayName", handle, listOf(Arg.value<String>(name)))
     }
 
+    /** Someone's custom status from their profile, or null */
+    suspend fun customStatus(userId: String): CustomStatus? =
+        Runtime.call("WizardClient.customStatus", handle, listOf(Arg.value<String>(userId)))
+
     /** Our display name in a room when it differs from the global one */
     suspend fun roomNickname(roomId: String): String? =
         Runtime.call("WizardClient.roomNickname", handle, listOf(Arg.value<String>(roomId)))

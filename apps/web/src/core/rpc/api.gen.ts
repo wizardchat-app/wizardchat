@@ -1711,6 +1711,13 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.setDisplayName', this, [name]) as Promise<void>;
   }
 
+  /** Someone's custom status from their profile, or null */
+  customStatus(userId: string): Promise<CustomStatus | null> {
+    return runtime.call('WizardClient.customStatus', this, [
+      userId,
+    ]) as Promise<CustomStatus | null>;
+  }
+
   /** Our display name in a room when it differs from the global one */
   roomNickname(roomId: string): Promise<string | null> {
     return runtime.call('WizardClient.roomNickname', this, [roomId]) as Promise<string | null>;

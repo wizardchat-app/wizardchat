@@ -3156,6 +3156,11 @@ public final class WizardClient: Remote, @unchecked Sendable {
         _ = try await call("WizardClient.setDisplayName", [.value(name)]) as Empty
     }
 
+    /// Someone's custom status from their profile, or null
+    public func customStatus(userId: String) async throws -> CustomStatus? {
+        try await call("WizardClient.customStatus", [.value(userId)])
+    }
+
     /// Our display name in a room when it differs from the global one
     public func roomNickname(roomId: String) async throws -> String? {
         try await call("WizardClient.roomNickname", [.value(roomId)])
