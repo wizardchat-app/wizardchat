@@ -159,7 +159,7 @@ impl WizardClient {
                     let member = member.ok().flatten()?;
                     (*member.membership() == MembershipState::Join).then(|| MutualRoom {
                         room_id: room.room_id().to_string(),
-                        name: room.cached_display_name().map(|name| name.to_string()),
+                        name: crate::rooms::room_name(&room),
                         avatar_url: room
                             .avatar_url()
                             .or_else(|| {

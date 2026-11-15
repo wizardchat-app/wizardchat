@@ -119,10 +119,7 @@ impl WizardClient {
             .filter(|(room, _)| !top_level_only || !nested.contains(&room.room_id().to_string()))
             .map(|(room, children)| SpaceSummary {
                 id: room.room_id().to_string(),
-                name: room
-                    .cached_display_name()
-                    .map(|n| n.to_string())
-                    .unwrap_or_else(|| room.room_id().to_string()),
+                name: crate::rooms::room_name(room).unwrap_or_else(|| room.room_id().to_string()),
                 avatar_url: room.avatar_url().map(|u| u.to_string()),
                 children_count: children.len() as u64,
                 member_count: room.joined_members_count(),
@@ -258,12 +255,7 @@ impl WizardClient {
                     .name
                     .clone()
                     .filter(|n| !n.is_empty())
-                    .or_else(|| {
-                        local
-                            .as_ref()
-                            .and_then(|r| r.cached_display_name())
-                            .map(|n| n.to_string())
-                    })
+                    .or_else(|| local.as_ref().and_then(crate::rooms::room_name))
                     .unwrap_or_default(),
                 topic: summary.topic.clone(),
                 avatar_url: summary.avatar_url.as_ref().map(ToString::to_string),

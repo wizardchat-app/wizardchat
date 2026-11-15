@@ -698,7 +698,8 @@ struct RoomTitle: View {
                         .font(.system(size: WZ.SizeIcon.xs, weight: .semibold))
                         .foregroundStyle(theme.textMuted)
                 }
-                Text(room.displayName)
+                Text(room.title)
+                    .italic(room.isEmpty)
                     .font(.wizard(WZ.FontSize.lg, .semibold))
                     .foregroundStyle(theme.textPrimary)
             }
@@ -722,7 +723,8 @@ private struct TimelineStart: View {
         VStack(spacing: WZ.Space.space4) {
             AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.xl)
                 .padding(.bottom, WZ.Space.space2)
-            Text(room.displayName)
+            Text(room.title)
+                .italic(room.isEmpty)
                 .font(.wizard(WZ.FontSize.xxl, .bold))
                 .foregroundStyle(theme.textPrimary)
             Text(String(localized: "timeline.thisIsTheStart"))

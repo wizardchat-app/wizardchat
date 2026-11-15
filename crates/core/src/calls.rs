@@ -1129,7 +1129,7 @@ async fn incoming_call(event: &Value, room: &Room, own: &(String, String)) -> Op
     };
     Some(IncomingCall {
         room_id: room.room_id().to_string(),
-        room_name: room.cached_display_name().map(|n| n.to_string()),
+        room_name: crate::rooms::room_name(room),
         event_id: event.get("event_id")?.as_str()?.to_owned(),
         sender: from.to_owned(),
         sender_name,

@@ -3,6 +3,8 @@ import WizardChatCore
 
 extension RoomSummary: @retroactive Identifiable {
     var displayName: String { name ?? canonicalAlias ?? id }
+    /// "(was Alice)" once everyone else left, shown in italics
+    var title: String { isEmpty ? L10n.format("room.emptyWas", displayName) : displayName }
     /// Messages that notify under the room's notification setting (as on the web), or 1 when marked unread
     var unreadCount: Int { unreadNotifications > 0 ? unreadNotifications : markedUnread ? 1 : 0 }
     var mentionCount: Int { unreadMentions }

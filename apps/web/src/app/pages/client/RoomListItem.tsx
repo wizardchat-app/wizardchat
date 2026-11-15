@@ -299,6 +299,7 @@ export const RoomListItem = memo(function RoomListItem({
   return (
     <ChatListItem
       name={entry.name}
+      formerName={entry.room.isEmpty}
       roomId={entry.roomId}
       avatarMxc={entry.avatarMxc}
       isActive={isActive}
@@ -424,6 +425,7 @@ export const DmListItem = memo(function DmListItem({
   return (
     <ChatListItem
       name={entry.partnerName}
+      formerName={entry.room.isEmpty}
       roomId={entry.roomId}
       avatarMxc={entry.avatarMxc}
       avatarPlaceholder="logo"

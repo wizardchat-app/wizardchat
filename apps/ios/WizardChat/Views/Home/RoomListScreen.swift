@@ -521,7 +521,8 @@ struct RoomRow: View {
                     }
             }
             VStack(alignment: .leading, spacing: WZ.Space.space2) {
-                Text(room.displayName)
+                Text(room.title)
+                    .italic(room.isEmpty)
                     .font(.wizard(WZ.FontSize.lg, hasUnread ? .semibold : .regular))
                     .foregroundStyle(hasUnread ? theme.textPrimary : theme.textPrimary.opacity(0.85))
                     .lineLimit(1)

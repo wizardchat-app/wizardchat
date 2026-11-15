@@ -1236,6 +1236,8 @@ data class RoomSummary(
     val dmUserName: String? = null,
     val dmUserAvatar: String? = null,
     val lastMessage: LastMessage? = null,
+    /** Everyone else left; `name` is what the room was called before */
+    val isEmpty: Boolean,
 )
 
 /** A room tag with its sort order (favourites, low priority, custom `u.*` tags) */

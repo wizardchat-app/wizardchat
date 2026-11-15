@@ -92,7 +92,7 @@ async fn details_of(room: &Room) -> RoomDetails {
     );
     RoomDetails {
         id: room.room_id().to_string(),
-        name: room.cached_display_name().map(|n| n.to_string()),
+        name: crate::rooms::room_name(room),
         topic: room.topic(),
         avatar_url: room.avatar_url().map(|u| u.to_string()),
         canonical_alias: room.canonical_alias().map(|a| a.to_string()),

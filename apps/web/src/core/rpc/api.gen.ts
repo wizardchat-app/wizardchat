@@ -971,6 +971,10 @@ export type RoomSummary = {
   dmUserName: string | null;
   dmUserAvatar: string | null;
   lastMessage: LastMessage | null;
+  /**
+   * Everyone else left; `name` is what the room was called before
+   */
+  isEmpty: boolean;
 };
 
 /**

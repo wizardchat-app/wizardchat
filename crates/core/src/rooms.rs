@@ -18,7 +18,7 @@ use matrix_sdk::{
         serde::Raw,
         OwnedRoomId, OwnedServerName, RoomId, RoomOrAliasId, UserId,
     },
-    Room, RoomState,
+    Room, RoomDisplayName, RoomState,
 };
 use matrix_sdk_ui::room_list_service::{
     filters::{
@@ -80,6 +80,8 @@ pub struct RoomSummary {
     pub dm_user_name: Option<String>,
     pub dm_user_avatar: Option<String>,
     pub last_message: Option<LastMessage>,
+    /// Everyone else left; `name` is what the room was called before
+    pub is_empty: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -138,7 +140,11 @@ impl RoomSummary {
         let unread = extras.and_then(|e| e.unread);
         Self {
             id: room.room_id().to_string(),
-            name: room.cached_display_name().map(|name| name.to_string()),
+            name: room_name(room),
+            is_empty: matches!(
+                room.cached_display_name(),
+                Some(RoomDisplayName::EmptyWas(_))
+            ),
             avatar_url: room
                 .avatar_url()
                 .or_else(|| dm_avatar(room))
@@ -291,6 +297,17 @@ fn voice_room_power_levels(is_public: bool) -> Value {
         events["m.call.invite"] = serde_json::json!(50);
     }
     serde_json::json!({ "events": events })
+}
+
+/// The SDK's "Empty Room" placeholders never reach the apps
+pub(crate) fn room_name(room: &Room) -> Option<String> {
+    match room.cached_display_name()? {
+        RoomDisplayName::Named(name)
+        | RoomDisplayName::Aliased(name)
+        | RoomDisplayName::Calculated(name)
+        | RoomDisplayName::EmptyWas(name) => Some(name),
+        RoomDisplayName::Empty => None,
+    }
 }
 
 pub(crate) fn parse_room_id(id: &str) -> Result<&RoomId> {

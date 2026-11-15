@@ -395,10 +395,7 @@ impl WizardClient {
     }
 
     fn room_name(&self, room_id: &str) -> Option<String> {
-        self.sdk()
-            .get_room(parse_room_id(room_id).ok()?)?
-            .cached_display_name()
-            .map(|name| name.to_string())
+        crate::rooms::room_name(&self.sdk().get_room(parse_room_id(room_id).ok()?)?)
     }
 
     async fn can_edit_packs(&self, room_id: &str) -> bool {

@@ -590,7 +590,7 @@ pub(crate) async fn notification_for(
         .and_then(|m| m.display_name().map(ToOwned::to_owned));
     Some(Notification {
         room_id: room.room_id().to_string(),
-        room_name: room.cached_display_name().map(|n| n.to_string()),
+        room_name: crate::rooms::room_name(room),
         room_avatar_url: room.avatar_url().map(|url| url.to_string()),
         event_id: event.get("event_id")?.as_str()?.to_owned(),
         sender: sender.to_owned(),

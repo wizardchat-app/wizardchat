@@ -317,6 +317,7 @@
     },
     "joinVoice": "Sprachraum beitreten",
     "openChat": "Chat öffnen",
+    "emptyWas": "(früher {{name}})",
     "name": "Raumname",
     "namePlaceholder": "allgemein",
     "topic": "Thema",

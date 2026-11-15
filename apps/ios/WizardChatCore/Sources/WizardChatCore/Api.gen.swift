@@ -1916,8 +1916,10 @@ public struct RoomSummary: Codable, Hashable, Sendable {
     public var dmUserName: String?
     public var dmUserAvatar: String?
     public var lastMessage: LastMessage?
+    /// Everyone else left; `name` is what the room was called before
+    public var isEmpty: Bool
 
-    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, latestEventTs: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil, lastMessage: LastMessage? = nil) {
+    public init(id: String, name: String? = nil, avatarUrl: String? = nil, isDirect: Bool, isInvite: Bool, isFavourite: Bool, unreadMessages: Int, unreadMentions: Int, unreadThreads: Int, unreadNotifications: Int, markedUnread: Bool, isVoice: Bool, isLowPriority: Bool, isTombstoned: Bool, isEncrypted: Bool, dmUserId: String? = nil, topic: String? = nil, canonicalAlias: String? = nil, memberCount: Int, notificationMode: NotificationMode? = nil, callParticipants: [String], inCall: Bool, inCallElsewhere: Bool, lastActivity: Int? = nil, latestEventTs: Int? = nil, isSpace: Bool, isKnocked: Bool, dmUserName: String? = nil, dmUserAvatar: String? = nil, lastMessage: LastMessage? = nil, isEmpty: Bool) {
         self.id = id
         self.name = name
         self.avatarUrl = avatarUrl
@@ -1948,6 +1950,7 @@ public struct RoomSummary: Codable, Hashable, Sendable {
         self.dmUserName = dmUserName
         self.dmUserAvatar = dmUserAvatar
         self.lastMessage = lastMessage
+        self.isEmpty = isEmpty
     }
 }
 

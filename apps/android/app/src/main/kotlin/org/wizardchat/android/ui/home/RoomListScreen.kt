@@ -91,6 +91,8 @@ import org.wizardchat.core.NotificationMode
 import org.wizardchat.core.RoomSection
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.tokens.WZ
+import androidx.compose.ui.text.font.FontStyle
+import org.wizardchat.android.matrix.title
 
 @Composable
 fun RoomListScreen(roomList: RoomListModel, selection: SidebarSelection, onOpenInbox: (() -> Unit)?) {
@@ -473,8 +475,9 @@ fun RoomRow(room: RoomSummary, showsHashIcon: Boolean, modifier: Modifier = Modi
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(WZ.Space.space2)) {
             Text(
-                room.displayName,
+                room.title,
                 style = wizardFont(WZ.FontSize.lg, if (hasUnread) FontWeight.SemiBold else FontWeight.Normal),
+                fontStyle = if (room.isEmpty) FontStyle.Italic else null,
                 color = if (hasUnread) theme.textPrimary else theme.textPrimary.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

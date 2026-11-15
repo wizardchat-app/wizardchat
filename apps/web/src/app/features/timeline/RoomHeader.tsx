@@ -144,7 +144,9 @@ export function RoomHeader({
               <HashStraightIcon size={16} className={css.roomIcon} />
             )}
             <Tooltip content={roomId}>
-              <h1 className={css.roomName}>{roomName}</h1>
+              <h1 className={css.roomName}>
+                {room?.isEmpty ? <em>{t('room.emptyWas', { name: roomName })}</em> : roomName}
+              </h1>
             </Tooltip>
           </div>
           {topic && (

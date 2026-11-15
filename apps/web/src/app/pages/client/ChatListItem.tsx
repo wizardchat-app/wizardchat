@@ -18,6 +18,7 @@ import { vars } from '@/theme/vars.css';
 
 interface ChatListItemProps {
   name: string;
+  formerName?: boolean;
   roomId: string;
   avatarMxc?: string | null;
   avatarUrl?: string | null;
@@ -42,6 +43,7 @@ interface ChatListItemProps {
 
 export function ChatListItem({
   name,
+  formerName,
   roomId,
   avatarMxc,
   avatarUrl,
@@ -64,6 +66,7 @@ export function ChatListItem({
   onMenuClick,
 }: ChatListItemProps) {
   const { t } = useTranslation();
+  const label = formerName ? <em>{t('room.emptyWas', { name })}</em> : name;
   const client = getMatrixClientOrNull();
   const touchUi = useTouchUi();
   const itemClass = css.roomItem;
@@ -174,11 +177,11 @@ export function ChatListItem({
 
         {preview ? (
           <span className={css.chatTextStack}>
-            <span className={css.chatTextContent}>{name}</span>
+            <span className={css.chatTextContent}>{label}</span>
             <span className={css.chatPreview}>{preview}</span>
           </span>
         ) : (
-          <span className={css.chatTextContent}>{name}</span>
+          <span className={css.chatTextContent}>{label}</span>
         )}
 
         <span className={css.itemBadges}>

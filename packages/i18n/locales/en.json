@@ -317,6 +317,7 @@
     },
     "joinVoice": "Join voice room",
     "openChat": "Open chat",
+    "emptyWas": "(was {{name}})",
     "name": "Room name",
     "namePlaceholder": "General",
     "topic": "Topic",

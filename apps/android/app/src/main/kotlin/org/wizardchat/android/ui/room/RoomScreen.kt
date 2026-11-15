@@ -164,6 +164,7 @@ import org.wizardchat.core.RichSpan
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
+import org.wizardchat.android.matrix.title
 
 /** What a message row can do; null actions (settings preview, pinned list) make it read-only */
 class MessageActions(
@@ -652,8 +653,9 @@ internal fun RoomTitle(room: RoomSummary) {
                 PhIcon(if (room.isVoice) "speaker-high" else "hash-straight", size = WZ.SizeIcon.xs, tint = theme.textMuted)
             }
             Text(
-                room.displayName,
+                room.title,
                 style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold),
+                fontStyle = if (room.isEmpty) FontStyle.Italic else null,
                 color = theme.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -774,7 +776,13 @@ private fun TimelineStart(room: RoomSummary) {
         verticalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
         Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.xl, modifier = Modifier.padding(bottom = WZ.Space.space2))
-        Text(room.displayName, style = wizardFont(WZ.FontSize.xxl, FontWeight.Bold), color = theme.textPrimary, textAlign = TextAlign.Center)
+        Text(
+            room.title,
+            style = wizardFont(WZ.FontSize.xxl, FontWeight.Bold),
+            fontStyle = if (room.isEmpty) FontStyle.Italic else null,
+            color = theme.textPrimary,
+            textAlign = TextAlign.Center,
+        )
         Text(tr("timeline.thisIsTheStart"), style = wizardFont(WZ.FontSize.md), color = theme.textMuted, textAlign = TextAlign.Center)
     }
 }

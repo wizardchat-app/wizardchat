@@ -21,8 +21,13 @@ import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.SpaceSummary
 import org.wizardchat.core.Subscription
 import org.wizardchat.core.WizardClient
+import org.wizardchat.android.ui.tr
+import androidx.compose.runtime.Composable
 
 val RoomSummary.displayName: String get() = name ?: canonicalAlias ?: id
+
+/** "(was Alice)" once everyone else left, shown in italics */
+val RoomSummary.title: String @Composable get() = if (isEmpty) tr("room.emptyWas", displayName) else displayName
 /** Messages that notify under the room's notification setting (as on the web), or 1 when marked unread */
 val RoomSummary.unreadCount: Int get() = if (unreadNotifications > 0) unreadNotifications.toInt() else if (markedUnread) 1 else 0
 val RoomSummary.mentionCount: Int get() = unreadMentions.toInt()
