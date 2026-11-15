@@ -104,6 +104,7 @@ struct RoomInfoView: View {
                 }
 
                 Section {
+                    NicknameRow(roomId: room.id)
                     NavigationLink {
                         MembersView(roomId: room.id)
                     } label: {
@@ -573,6 +574,96 @@ struct CreateRoomView: View {
                 isSpace: isSpace)
             dismiss()
             if let onSpaceCreated { onSpaceCreated(roomId) } else { openRoom(roomId, notifier: notifier) }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+struct NicknameRow: View {
+    let roomId: String
+    var space = false
+
+    @EnvironmentObject private var session: MatrixSession
+    @State private var nickname: String?
+
+    var body: some View {
+        NavigationLink {
+            NicknameView(roomId: roomId, space: space, current: nickname) { nickname = $0 }
+        } label: {
+            LabeledContent { Text(nickname ?? "") } label: {
+                Label(String(localized: "room.nickname.title"), image: "ph-user-regular")
+            }
+        }
+        .task { nickname = (try? await session.client?.roomNickname(roomId: roomId)) ?? nil }
+    }
+}
+
+private struct NicknameView: View {
+    let roomId: String
+    let space: Bool
+    let current: String?
+    let onSaved: (String?) -> Void
+
+    @EnvironmentObject private var session: MatrixSession
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
+    @State private var name = ""
+    @State private var saving = false
+    @State private var error: String?
+
+    private var dirty: Bool { name.trimmingCharacters(in: .whitespaces) != (current ?? "") }
+
+    var body: some View {
+        ThemedForm {
+            Section {
+                TextField(session.displayName ?? "", text: $name)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .onSubmit { if dirty { Task { await save(name) } } }
+            } footer: {
+                Text(String(localized: space ? "room.nickname.spaceNote" : "room.nickname.roomNote"))
+            }
+            if current != nil || space {
+                Section {
+                    Button(String(localized: "room.nickname.reset")) { Task { await save("") } }
+                        .disabled(saving)
+                }
+            }
+            if let error {
+                Text(error).font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.error)
+            }
+        }
+        .tint(theme.control)
+        .navigationTitle(String(localized: "room.nickname.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(String(localized: "common.save")) { Task { await save(name) } }
+                    .disabled(!dirty || saving)
+            }
+        }
+        .onAppear { name = current ?? "" }
+    }
+
+    private func save(_ value: String) async {
+        guard let client = session.client else { return }
+        saving = true
+        defer { saving = false }
+        do {
+            if space {
+                let failed = try await client.setSpaceNickname(spaceId: roomId, name: value)
+                if failed > 0 {
+                    error = L10n.format("room.nickname.someFailed", failed)
+                    onSaved((try? await client.roomNickname(roomId: roomId)) ?? nil)
+                    return
+                }
+            } else {
+                try await client.setRoomNickname(roomId: roomId, name: value)
+            }
+            let trimmed = value.trimmingCharacters(in: .whitespaces)
+            onSaved(trimmed.isEmpty ? nil : trimmed)
+            dismiss()
         } catch {
             self.error = error.localizedDescription
         }

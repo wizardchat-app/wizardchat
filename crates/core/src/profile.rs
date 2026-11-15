@@ -11,6 +11,8 @@ use serde_json::{json, Value};
 
 use crate::{rooms::parse_user_id, Error, Result, WizardClient};
 
+const NICKNAME_SYNC_POLLS: u32 = 25;
+
 /// WizardChat's custom status, stored as an extended profile field (MSC4133)
 pub const STATUS_FIELD: &str = "org.wizardchat.status";
 pub const MAX_STATUS_LENGTH: usize = 128;
@@ -201,6 +203,54 @@ impl WizardClient {
             .account()
             .set_display_name(Some(name).filter(|n| !n.is_empty()))
             .await?)
+    }
+
+    /// Our display name in one room, when it differs from the global one
+    pub async fn room_nickname(&self, room_id: &str) -> Result<Option<String>> {
+        let room = self.room(room_id)?;
+        let Some(member) = room.get_member_no_sync(room.own_user_id()).await? else {
+            return Ok(None);
+        };
+        let Some(name) = member.display_name().map(str::to_owned) else {
+            return Ok(None);
+        };
+        let global = self.sdk().account().get_display_name().await.ok().flatten();
+        Ok((global.as_deref() != Some(name.as_str())).then_some(name))
+    }
+
+    /// Sets our display name in one room; an empty name goes back to the global one
+    pub async fn set_room_nickname(&self, room_id: &str, name: &str) -> Result<()> {
+        let room = self.room(room_id)?;
+        let name = match name.trim() {
+            "" => self.sdk().account().get_display_name().await?,
+            name => Some(name.to_owned()),
+        };
+        room.set_own_member_display_name(name.clone()).await?;
+        for _ in 0..NICKNAME_SYNC_POLLS {
+            let member = room
+                .get_member_no_sync(room.own_user_id())
+                .await
+                .ok()
+                .flatten();
+            if member.and_then(|m| m.display_name().map(str::to_owned)) == name {
+                break;
+            }
+            matrix_sdk::sleep::sleep(std::time::Duration::from_millis(200)).await;
+        }
+        Ok(())
+    }
+
+    /// Sets our display name in a space and every joined room in it; resolves to how many
+    /// rooms couldn't be changed
+    pub async fn set_space_nickname(&self, space_id: &str, name: &str) -> Result<u32> {
+        self.set_room_nickname(space_id, name).await?;
+        let mut failed = 0;
+        for child in self.space_children(space_id).await? {
+            if child.joined && self.set_room_nickname(&child.id, name).await.is_err() {
+                failed += 1;
+            }
+        }
+        Ok(failed)
     }
 
     /// Uploads a new avatar and sets it; resolves to its `mxc://` URI.

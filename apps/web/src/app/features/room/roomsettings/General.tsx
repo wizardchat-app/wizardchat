@@ -27,6 +27,7 @@ import { getErrorMessage } from '@/util/error';
 import { joinRuleToAccess } from '@/util/matrix';
 import { Toggle } from '@/app/components/Toggle';
 import * as css from '@/app/components/Settings/Settings.css';
+import { NicknameSection } from './NicknameSection';
 import { RoomBridges } from './RoomBridges';
 import { vars } from '@/theme/vars.css';
 
@@ -452,6 +453,10 @@ export function GeneralPanel({ roomId, onClose }: GeneralPanelProps) {
           </Button>
         </div>
       ) : null}
+
+      <div className={css.divider} />
+
+      <NicknameSection roomId={roomId} />
 
       <div className={css.divider} />
 

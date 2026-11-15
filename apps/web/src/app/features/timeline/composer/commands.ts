@@ -301,6 +301,10 @@ const handleNick: CommandHandler = async (args, { client }) => {
   await client.setDisplayName(name);
 };
 
+const handleRoomNick: CommandHandler = async (args, { client, roomId }) => {
+  await client.setRoomNickname(roomId, args.trim());
+};
+
 const handleSpoiler: CommandHandler = async (args, ctx) => {
   if (!args.trim()) throw new Error('Usage: /spoiler ["reason"] <message>');
   let reason = '';
@@ -425,6 +429,13 @@ export const COMMANDS: CommandDefinition[] = [
     description: (t) => t('timeline.commands.nick.description'),
     usage: '/nick <display_name>',
     fn: handleNick,
+  },
+  {
+    command: 'myroomnick',
+    aliases: ['roomnick'],
+    description: (t) => t('timeline.commands.myroomnick.description'),
+    usage: '/myroomnick [display_name]',
+    fn: handleRoomNick,
   },
   {
     command: 'spoiler',

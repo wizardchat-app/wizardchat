@@ -249,6 +249,15 @@
     }
   },
   "room": {
+    "nickname": {
+      "title": "Spitzname",
+      "roomNote": "Dein Anzeigename nur in diesem Raum. Leer lassen, um deinen globalen Namen zu verwenden.",
+      "spaceNote": "Dein Anzeigename in diesem Space und allen beigetretenen Räumen darin. Leer lassen, um deinen globalen Namen zu verwenden.",
+      "saved": "Spitzname aktualisiert",
+      "reset": "Zurücksetzen",
+      "someFailed_one": "Spitzname aktualisiert, aber {{count}} Raum konnte nicht geändert werden",
+      "someFailed_other": "Spitzname aktualisiert, aber {{count}} Räume konnten nicht geändert werden"
+    },
     "addFavourite": "Zu Favoriten hinzufügen",
     "removeFavourite": "Aus Favoriten entfernen",
     "toggleFavouriteFailed": "Favorit konnte nicht aktualisiert werden: {{error}}",
@@ -992,6 +1001,9 @@
       },
       "roomname": {
         "description": "Raumname setzen. Beispiel: /roomname Mein Raum"
+      },
+      "myroomnick": {
+        "description": "Anzeigenamen nur für diesen Raum setzen, leer zum Zurücksetzen. Beispiel: /myroomnick NeuerName"
       },
       "nick": {
         "description": "Anzeigenamen setzen. Beispiel: /nick NeuerName"

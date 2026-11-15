@@ -2093,6 +2093,19 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
         Runtime.callUnit("WizardClient.setDisplayName", handle, listOf(Arg.value<String>(name)))
     }
 
+    /** Our display name in a room when it differs from the global one */
+    suspend fun roomNickname(roomId: String): String? =
+        Runtime.call("WizardClient.roomNickname", handle, listOf(Arg.value<String>(roomId)))
+
+    /** An empty name goes back to the global display name */
+    suspend fun setRoomNickname(roomId: String, name: String) {
+        Runtime.callUnit("WizardClient.setRoomNickname", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(name)))
+    }
+
+    /** Applies to the space and its joined rooms; resolves to how many rooms failed */
+    suspend fun setSpaceNickname(spaceId: String, name: String): Long =
+        Runtime.call("WizardClient.setSpaceNickname", handle, listOf(Arg.value<String>(spaceId), Arg.value<String>(name)))
+
     /** Uploads and sets a new avatar; resolves to its mxc:// URI. */
     suspend fun setAvatar(bytes: Bytes, mimetype: String): String =
         Runtime.call("WizardClient.setAvatar", handle, listOf(Arg.bytes(bytes), Arg.value<String>(mimetype)))

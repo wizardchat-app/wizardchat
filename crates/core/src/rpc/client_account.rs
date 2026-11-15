@@ -30,6 +30,21 @@ rpc_methods! {
             this.set_display_name(&name).await
         }
 
+        /// Our display name in a room when it differs from the global one
+        call fn roomNickname(room_id: String) -> Option<String> {
+            this.room_nickname(&room_id).await
+        }
+
+        /// An empty name goes back to the global display name
+        call fn setRoomNickname(room_id: String, name: String) -> () {
+            this.set_room_nickname(&room_id, &name).await
+        }
+
+        /// Applies to the space and its joined rooms; resolves to how many rooms failed
+        call fn setSpaceNickname(space_id: String, name: String) -> u32 {
+            this.set_space_nickname(&space_id, &name).await
+        }
+
         /// Uploads and sets a new avatar; resolves to its mxc:// URI.
         call fn setAvatar(bytes: Bytes, mimetype: String) -> String {
             this.set_avatar(bytes.0, &mimetype).await

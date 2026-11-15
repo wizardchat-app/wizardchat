@@ -3156,6 +3156,21 @@ public final class WizardClient: Remote, @unchecked Sendable {
         _ = try await call("WizardClient.setDisplayName", [.value(name)]) as Empty
     }
 
+    /// Our display name in a room when it differs from the global one
+    public func roomNickname(roomId: String) async throws -> String? {
+        try await call("WizardClient.roomNickname", [.value(roomId)])
+    }
+
+    /// An empty name goes back to the global display name
+    public func setRoomNickname(roomId: String, name: String) async throws {
+        _ = try await call("WizardClient.setRoomNickname", [.value(roomId), .value(name)]) as Empty
+    }
+
+    /// Applies to the space and its joined rooms; resolves to how many rooms failed
+    public func setSpaceNickname(spaceId: String, name: String) async throws -> Int {
+        try await call("WizardClient.setSpaceNickname", [.value(spaceId), .value(name)])
+    }
+
     /// Uploads and sets a new avatar; resolves to its mxc:// URI.
     public func setAvatar(bytes: Data, mimetype: String) async throws -> String {
         try await call("WizardClient.setAvatar", [.bytes(bytes), .value(mimetype)])

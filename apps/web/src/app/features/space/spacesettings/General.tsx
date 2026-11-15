@@ -17,6 +17,7 @@ import { useCanSendState } from '@/app/hooks/useCanSendState';
 import { getErrorMessage } from '@/util/error';
 import { joinRuleToAccess } from '@/util/matrix';
 import * as css from '@/app/components/Settings/Settings.css';
+import { NicknameSection } from '@/app/features/room/roomsettings/NicknameSection';
 import { vars } from '@/theme/vars.css';
 
 type AccessOption = 'invite' | 'restricted' | 'public' | 'knock';
@@ -292,6 +293,10 @@ export function GeneralPanel({ spaceId }: GeneralPanelProps) {
           </Button>
         </div>
       ) : null}
+
+      <div className={css.divider} />
+
+      <NicknameSection roomId={spaceId} space />
 
       <div className={css.divider} />
 

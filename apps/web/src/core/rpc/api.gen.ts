@@ -1711,6 +1711,21 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.setDisplayName', this, [name]) as Promise<void>;
   }
 
+  /** Our display name in a room when it differs from the global one */
+  roomNickname(roomId: string): Promise<string | null> {
+    return runtime.call('WizardClient.roomNickname', this, [roomId]) as Promise<string | null>;
+  }
+
+  /** An empty name goes back to the global display name */
+  setRoomNickname(roomId: string, name: string): Promise<void> {
+    return runtime.call('WizardClient.setRoomNickname', this, [roomId, name]) as Promise<void>;
+  }
+
+  /** Applies to the space and its joined rooms; resolves to how many rooms failed */
+  setSpaceNickname(spaceId: string, name: string): Promise<number> {
+    return runtime.call('WizardClient.setSpaceNickname', this, [spaceId, name]) as Promise<number>;
+  }
+
   /** Uploads and sets a new avatar; resolves to its mxc:// URI. */
   setAvatar(bytes: Uint8Array, mimetype: string): Promise<string> {
     return runtime.call('WizardClient.setAvatar', this, [bytes, mimetype]) as Promise<string>;

@@ -249,6 +249,15 @@
     }
   },
   "room": {
+    "nickname": {
+      "title": "Nickname",
+      "roomNote": "Your display name in this room only. Leave empty to use your global name.",
+      "spaceNote": "Your display name in this space and every room in it you've joined. Leave empty to use your global name.",
+      "saved": "Nickname updated",
+      "reset": "Reset",
+      "someFailed_one": "Nickname updated, but {{count}} room couldn't be changed",
+      "someFailed_other": "Nickname updated, but {{count}} rooms couldn't be changed"
+    },
     "addFavourite": "Add to Favourites",
     "removeFavourite": "Remove from Favourites",
     "toggleFavouriteFailed": "Couldn't update favourite: {{error}}",
@@ -992,6 +1001,9 @@
       },
       "roomname": {
         "description": "Set the room name. Example: /roomname My Room"
+      },
+      "myroomnick": {
+        "description": "Set your display name in this room only, empty to reset. Example: /myroomnick NewName"
       },
       "nick": {
         "description": "Set your display name. Example: /nick NewDisplayName"

@@ -80,6 +80,7 @@ internal sealed interface PeoplePage {
     data class Pinned(val canPin: Boolean) : PeoplePage
     data class Widgets(val canManage: Boolean) : PeoplePage
     data object Bridges : PeoplePage
+    data class Nickname(val roomId: String, val space: Boolean) : PeoplePage
 }
 
 /** The pages shared by room info and space settings; false for pages the caller shows itself */
@@ -88,6 +89,7 @@ internal fun SharedPage(page: PeoplePage, push: (PeoplePage) -> Unit, pop: () ->
     when (page) {
         is PeoplePage.Members -> MembersScreen(page.roomId, pop)
         is PeoplePage.Roles -> RolesPermissionsScreen(page.roomId, pop)
+        is PeoplePage.Nickname -> NicknameScreen(page.roomId, page.space, pop)
         is PeoplePage.Packs -> RoomPacksScreen(page.roomId, pop) { key, content, canEdit ->
             push(PeoplePage.PackEditor(page.roomId, key, content, canEdit))
         }
@@ -312,6 +314,8 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
 
                     item {
                         GroupedSection {
+                            NicknameRow(room.id, space = false, push)
+                            RowDivider()
                             NavRow(tr("common.members"), "users", { push(PeoplePage.Members(room.id)) }, value = "$memberCount")
                             RowDivider()
                             NavRow(tr("search.title"), "magnifying-glass", { push(PeoplePage.Search) })

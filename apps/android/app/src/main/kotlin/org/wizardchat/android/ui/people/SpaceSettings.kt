@@ -200,6 +200,8 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
 
                         item {
                             GroupedSection {
+                                NicknameRow(space.id, space = true, push)
+                                RowDivider()
                                 NavRow(tr("common.members"), "users", { push(PeoplePage.Members(space.id)) })
                                 RowDivider()
                                 NavRow(tr("room.settings.permissions.title"), "shield-check", { push(PeoplePage.Roles(space.id)) })
