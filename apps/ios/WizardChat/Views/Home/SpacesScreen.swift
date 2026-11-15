@@ -8,6 +8,8 @@ struct SpacesScreen: View {
 
     @Environment(\.theme) private var theme
     @State private var search = ""
+    @State private var settingsSpace: SpaceSummary?
+    @State private var leavingSpace: SpaceSummary?
 
     private var spaces: [SpaceSummary] {
         guard !search.isEmpty else { return roomList.spaces }
@@ -35,6 +37,13 @@ struct SpacesScreen: View {
                         Button { copyToClipboard("https://matrix.to/#/\(space.id)", message: String(localized: "timeline.linkCopied")) } label: {
                             Label(menu: String(localized: "common.copyLink"), icon: "ph-link-simple-regular")
                         }
+                        Button { settingsSpace = space } label: {
+                            Label(menu: String(localized: "space.settingsTitle"), icon: "ph-gear-regular")
+                        }
+                        Divider()
+                        Button(role: .destructive) { leavingSpace = space } label: {
+                            Label(menu: String(localized: "space.leave"), icon: "ph-sign-out-regular", destructive: true)
+                        }
                     }
                 }
             }
@@ -42,6 +51,18 @@ struct SpacesScreen: View {
             .padding(.top, WZ.Space.space4)
         }
         .background(theme.bgPrimary.ignoresSafeArea())
+        .sheet(item: $settingsSpace) { space in
+            SpaceSettingsView(space: space, roomList: roomList)
+        }
+        .confirmationDialog(
+            L10n.format("space.leaveConfirm", leavingSpace?.name ?? ""),
+            isPresented: Binding(get: { leavingSpace != nil }, set: { if !$0 { leavingSpace = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "common.leave"), role: .destructive) {
+                if let space = leavingSpace { Task { try? await roomList.client.leave(roomId: space.id) } }
+            }
+        }
         .tabTitle(String(localized: "room.settings.permissions.groups.spaces"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

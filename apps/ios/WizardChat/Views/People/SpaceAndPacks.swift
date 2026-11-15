@@ -21,6 +21,7 @@ struct SpaceSettingsView: View {
     @State private var showAddRooms = false
     @State private var showCreateRoom = false
     @State private var confirmLeave = false
+    @State private var removing: String?
     @State private var saving = false
     @State private var error: String?
 
@@ -65,7 +66,10 @@ struct SpaceSettingsView: View {
                         childRow(roomId)
                             .swipeActions {
                                 if canManageRooms {
-                                    Button(String(localized: "common.remove"), role: .destructive) { Task { await remove(roomId) } }
+                                    Button(role: .destructive) { removing = roomId } label: {
+                                        Label(String(localized: "common.remove"), image: "ph-trash-regular")
+                                    }
+                                    .tint(theme.danger)
                                 }
                             }
                     }
@@ -90,7 +94,6 @@ struct SpaceSettingsView: View {
                     NavigationLink { RoomSoundPacksView(roomId: space.id) } label: {
                         Label(String(localized: "room.settings.sounds.title"), image: "ph-vinyl-record-regular")
                     }
-                    CopyButton(title: "space.copyLink", image: "ph-link-simple-regular", value: "https://matrix.to/#/\(space.id)")
                 }
 
                 Section {
@@ -109,6 +112,15 @@ struct SpaceSettingsView: View {
                     Task { try? await session.client?.leave(roomId: space.id); dismiss() }
                 }
             }
+            .confirmationDialog(
+                L10n.format("room.members.removeConfirm", removing.map { roomName($0) } ?? ""),
+                isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "space.removeRoom"), role: .destructive) {
+                    if let roomId = removing { Task { await remove(roomId) } }
+                }
+            }
             .sheet(isPresented: $showAddRooms, onDismiss: { Task { await load() } }) {
                 AddRoomsToSpaceSheet(space: space, roomList: roomList, existing: Set(childIds))
             }
@@ -123,9 +135,13 @@ struct SpaceSettingsView: View {
         .task { await load() }
     }
 
+    private func roomName(_ roomId: String) -> String {
+        roomList.room(id: roomId)?.displayName ?? hierarchy[roomId]?.name ?? roomId
+    }
+
     private func childRow(_ roomId: String) -> some View {
         let room = roomList.room(id: roomId)
-        let name = room?.displayName ?? hierarchy[roomId]?.name ?? roomId
+        let name = roomName(roomId)
         return HStack(spacing: WZ.Space.space5) {
             AvatarView(name: name, url: room?.avatarUrl ?? hierarchy[roomId]?.avatar, size: WZ.SizeAvatar.sm)
             Text(name).lineLimit(1).foregroundStyle(theme.textPrimary)

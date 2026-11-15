@@ -118,7 +118,9 @@ struct RoomListScreen: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { showNewMessage = true } label: { Label(menu: String(localized: "common.newDm"), icon: "ph-chat-circle-regular") }
+                    if spaceId == nil {
+                        Button { showNewMessage = true } label: { Label(menu: String(localized: "common.newDm"), icon: "ph-chat-circle-regular") }
+                    }
                     if selection != .dms {
                         Button { showNewRoom = true } label: { Label(menu: String(localized: "nav.newRoom"), icon: "ph-hash-straight-regular") }
                     }
@@ -126,14 +128,16 @@ struct RoomListScreen: View {
                         Button { startNewSection(for: nil) } label: { Label(menu: String(localized: "room.sections.new"), icon: "ph-list-bullets-regular") }
                         Button { reordering = true } label: { Label(menu: String(localized: "nav.reorderRooms"), icon: "ph-caret-up-down-regular") }
                     }
-                    if spaceId != nil {
-                        Divider()
-                        Button { showSpaceSettings = true } label: { Label(menu: String(localized: "space.settingsTitle"), icon: "ph-gear-regular") }
-                    }
                 } label: {
                     Image("ph-plus-regular")
                 }
                 .accessibilityLabel(String(localized: "nav.new"))
+            }
+            if spaceId != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSpaceSettings = true } label: { Image("ph-gear-regular") }
+                        .accessibilityLabel(String(localized: "space.settingsTitle"))
+                }
             }
             if reordering {
                 ToolbarItem(placement: .confirmationAction) {

@@ -69,6 +69,7 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
     var showAddRooms by remember { mutableStateOf(false) }
     var showCreateRoom by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var reloads by remember { mutableIntStateOf(0) }
@@ -183,7 +184,7 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
                                 childIds.forEachIndexed { index, roomId ->
                                     if (index > 0) RowDivider()
                                     if (canManageRooms) {
-                                        RemovableRow(onRemove = { remove(roomId) }) { ChildRow(roomId, roomList, hierarchy) }
+                                        RemovableRow(onRemove = { removing = roomId }) { ChildRow(roomId, roomList, hierarchy) }
                                     } else {
                                         ChildRow(roomId, roomList, hierarchy)
                                     }
@@ -206,8 +207,6 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
                                 NavRow(tr("room.settings.emojis.title"), "smiley", { push(PeoplePage.Packs(space.id)) })
                                 RowDivider()
                                 NavRow(tr("room.settings.sounds.title"), "vinyl-record", { push(PeoplePage.SoundPacks(space.id)) })
-                                RowDivider()
-                                CopyRow(tr("space.copyLink"), "link-simple", "https://matrix.to/#/${space.id}")
                             }
                         }
 
@@ -231,6 +230,17 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
                             }
                         },
                         onDismiss = { confirmLeave = false },
+                    )
+                }
+                removing?.let { roomId ->
+                    ConfirmDialog(
+                        title = L10n.format(
+                            "room.members.removeConfirm",
+                            roomList.room(roomId)?.displayName ?: hierarchy[roomId]?.first ?: roomId,
+                        ),
+                        confirmLabel = tr("space.removeRoom"),
+                        onConfirm = { remove(roomId) },
+                        onDismiss = { removing = null },
                     )
                 }
                 if (showAddRooms) {
@@ -287,7 +297,7 @@ private fun RemovableRow(onRemove: () -> Unit, content: @Composable () -> Unit) 
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(tr("common.remove"), style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold), color = theme.textOnAccent)
+                PhIcon("trash", tint = theme.textOnAccent, size = WZ.SizeIcon.lg)
             }
         },
     ) {

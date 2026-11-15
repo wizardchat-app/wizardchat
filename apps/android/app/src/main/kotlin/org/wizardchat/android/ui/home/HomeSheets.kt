@@ -45,6 +45,7 @@ import org.wizardchat.android.matrix.UnreadState
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.BarButton
 import org.wizardchat.android.ui.BarTextButton
+import org.wizardchat.android.ui.ConfirmDialog
 import org.wizardchat.android.ui.GroupedRow
 import org.wizardchat.android.ui.GroupedSection
 import org.wizardchat.android.ui.L10n
@@ -61,6 +62,7 @@ import org.wizardchat.android.ui.WizardTextField
 import org.wizardchat.android.ui.WizardTopBar
 import org.wizardchat.android.ui.copyToClipboard
 import org.wizardchat.android.ui.people.CreateRoomSheet
+import org.wizardchat.android.ui.people.SpaceSettingsSheet
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
@@ -73,6 +75,8 @@ fun SpacesScreen(roomList: RoomListModel, onCreateSpace: () -> Unit, onExplore: 
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     var search by remember { mutableStateOf("") }
+    var settingsSpace by remember { mutableStateOf<SpaceSummary?>(null) }
+    var leavingSpace by remember { mutableStateOf<SpaceSummary?>(null) }
     val spaces = if (search.isEmpty()) roomList.spaces else roomList.spaces.filter { it.name.contains(search, ignoreCase = true) }
 
     Column(Modifier.fillMaxSize().background(theme.bgPrimary)) {
@@ -103,17 +107,35 @@ fun SpacesScreen(roomList: RoomListModel, onCreateSpace: () -> Unit, onExplore: 
                     space,
                     roomList.unreadState(SidebarSelection.Space(space.id)),
                     onMarkRead = { scope.launch { roomList.markAsRead(roomList.rooms(SidebarSelection.Space(space.id))) } },
+                    onSettings = { settingsSpace = space },
+                    onLeave = { leavingSpace = space },
                 ) {
                     navigator.push(Route.Space(space.id))
                 }
             }
         }
     }
+    settingsSpace?.let { space -> SpaceSettingsSheet(space, roomList, onDismiss = { settingsSpace = null }) }
+    leavingSpace?.let { space ->
+        ConfirmDialog(
+            title = L10n.format("space.leaveConfirm", space.name),
+            confirmLabel = tr("common.leave"),
+            onConfirm = { scope.launch { runCatching { roomList.client.leave(space.id) } } },
+            onDismiss = { leavingSpace = null },
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SpaceGridItem(space: SpaceSummary, unread: UnreadState, onMarkRead: () -> Unit, onOpen: () -> Unit) {
+private fun SpaceGridItem(
+    space: SpaceSummary,
+    unread: UnreadState,
+    onMarkRead: () -> Unit,
+    onSettings: () -> Unit,
+    onLeave: () -> Unit,
+    onOpen: () -> Unit,
+) {
     var menuOpen by remember { mutableStateOf(false) }
     Box {
         SpaceTile(space.name, unread, Modifier.combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true })) {
@@ -127,6 +149,8 @@ private fun SpaceGridItem(space: SpaceSummary, unread: UnreadState, onMarkRead: 
                 MenuItem(tr("common.copyLink"), "link-simple") {
                     copyToClipboard("https://matrix.to/#/${space.id}", L10n.format("timeline.linkCopied"))
                 },
+                MenuItem(tr("space.settingsTitle"), "gear", onClick = onSettings),
+                MenuItem(tr("space.leave"), "sign-out", destructive = true, divider = true, onClick = onLeave),
             ),
         )
     }

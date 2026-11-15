@@ -164,16 +164,16 @@ fun RoomListScreen(roomList: RoomListModel, selection: SidebarSelection, onOpenI
                     menuOpen,
                     { menuOpen = false },
                     buildList {
-                        add(MenuItem(tr("common.newDm"), "chat-circle") { showNewMessage = true })
+                        if (spaceId == null) add(MenuItem(tr("common.newDm"), "chat-circle") { showNewMessage = true })
                         if (selection != SidebarSelection.Dms) add(MenuItem(tr("nav.newRoom"), "hash-straight") { showNewRoom = true })
                         if (selection != SidebarSelection.Dms) {
                             add(MenuItem(tr("room.sections.new"), "list-bullets") { newSectionFor = "" })
                             add(MenuItem(tr("nav.reorderRooms"), "caret-up-down") { reordering = true })
                         }
-                        if (spaceId != null) add(MenuItem(tr("space.settingsTitle"), "gear", divider = true) { showSpaceSettings = true })
                     },
                 )
             }
+            if (spaceId != null) BarButton("gear", tr("space.settingsTitle"), { showSpaceSettings = true })
             if (reordering) BarTextButton(tr("common.done"), { reordering = false }, bold = true)
             if (onOpenInbox != null) InboxButton(roomList, onOpenInbox)
         }
