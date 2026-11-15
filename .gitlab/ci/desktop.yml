@@ -34,15 +34,33 @@ build-desktop-mac:
     - !reference [.stamp-version, script]
     - node apps/desktop/scripts/release-config.mjs
     - |
+      mkdir -p "$CI_PROJECT_DIR/.apple"
       if [ -n "$APPLE_API_KEY_P8" ]; then
         export APPLE_API_KEY_PATH="$CI_PROJECT_DIR/.apple/AuthKey.p8"
-        mkdir -p "$CI_PROJECT_DIR/.apple"
         printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$APPLE_API_KEY_PATH"
+      fi
+      if [ -n "$APPLE_CERTIFICATE" ]; then
+        keychain="$CI_PROJECT_DIR/.apple/signing.keychain-db"
+        keychain_password=$(openssl rand -hex 16)
+        printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$CI_PROJECT_DIR/.apple/cert.p12"
+        for ca in DeveloperIDG2CA DeveloperIDCA; do
+          curl -fsSL -o "$CI_PROJECT_DIR/.apple/$ca.cer" "https://www.apple.com/certificateauthority/$ca.cer"
+        done
+        security create-keychain -p "$keychain_password" "$keychain"
+        security set-keychain-settings -lut 21600 "$keychain"
+        security unlock-keychain -p "$keychain_password" "$keychain"
+        security import "$CI_PROJECT_DIR/.apple/DeveloperIDG2CA.cer" -k "$keychain"
+        security import "$CI_PROJECT_DIR/.apple/DeveloperIDCA.cer" -k "$keychain"
+        security import "$CI_PROJECT_DIR/.apple/cert.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+        security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+        unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
       fi
     - npm run tokens
     - npm run build:release -w @wizardchat/desktop -- --target "$TARGET"
     - sccache --show-stats
   after_script:
+    - security delete-keychain "$CI_PROJECT_DIR/.apple/signing.keychain-db" 2>/dev/null || true
     - rm -rf "$CI_PROJECT_DIR/.apple"
 
 build-desktop-linux:
