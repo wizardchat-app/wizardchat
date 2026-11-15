@@ -6,8 +6,11 @@ stages:
   - release
 
 variables:
+  CHANNEL:
+    value: none
+    options: [none, next, stable]
+    description: Release this commit of main as next or stable. none only runs the checks.
   DRY_RUN: 'false'
-  VERSION: ''
   PKGREL: '1'
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
   RUSTUP_HOME: $CI_PROJECT_DIR/.rustup
@@ -28,7 +31,7 @@ workflow:
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
       when: never
     - if: '$CI_COMMIT_BRANCH'
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-next\.\d+)?$/'
+    - if: '$CI_COMMIT_TAG && $CI_PIPELINE_SOURCE == "web"'
 
 .node-cache:
   cache:
@@ -71,20 +74,26 @@ workflow:
 
 .branch-rules:
   rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^prepare\// || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^prepare\// || $VERSION'
+    - if: '$CHANNEL == "next" || $CHANNEL == "stable"'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
 
 .release-rules:
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+    - if: '$CI_PIPELINE_SOURCE != "web"'
+      when: never
+    - if: '($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANNEL == "stable") || $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
       variables:
         PAGES_PROJECT: wizardchat
         WEB_URL: https://app.wizardchat.org
         RELEASE_NAME: Release
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-next\.\d+$/'
+    - if: '($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANNEL == "next") || $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-next\.\d+$/'
       variables:
         PAGES_PROJECT: wizardchat-next
         WEB_URL: https://next.wizardchat.org
         RELEASE_NAME: Pre-release
+
+.stamp-version:
+  script:
+    - node .gitlab/scripts/stamp-version.mjs

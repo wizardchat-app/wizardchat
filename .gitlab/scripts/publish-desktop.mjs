@@ -1,7 +1,8 @@
 // Publishes a desktop release from the CI build artifacts: uploads the installers and update bundles
 // to the GitLab package registry (`wizardchat-desktop/<tag>/`) and writes the update feed the apps
 // check (`wizardchat-desktop/<channel>/latest.json`), stable releases to stable and next releases to
-// next. The installers are listed in desktop-assets.json for the release page.
+// next. The installers are listed in desktop-assets.json for the release page. Uploading again
+// replaces the files, so the job is safe to retry.
 // The Linux tarball's PKGBUILD goes next to the feed (`<channel>/PKGBUILD`) for Arch users, and the
 // Android APKs too (`<channel>/WizardChat_arm64.apk`), a fixed link per channel for Obtainium, and the
 // SideStore source for the iOS build (`<channel>/sidestore.json`); a stable release goes to both sources.
@@ -13,10 +14,10 @@ const {
   CI_API_V4_URL: api,
   CI_PROJECT_ID: project,
   CI_JOB_TOKEN: token,
-  CI_COMMIT_TAG: tag,
+  RELEASE_TAG: tag,
   DRY_RUN: dryRun,
 } = process.env;
-if (!api || !project || !token || !tag) throw new Error('run this in a CI tag pipeline');
+if (!api || !project || !token || !tag) throw new Error('run this in a CI release pipeline');
 
 const version = tag.replace(/^v/, '');
 const bundle = 'target/release/bundle';

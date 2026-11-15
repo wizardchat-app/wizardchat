@@ -1,4 +1,4 @@
-// Prepares a release build in CI: checks that the tag matches the app version and puts the
+// Prepares a release build in CI: checks that the release tag matches the app version and puts the
 // updater's public key (CI variable TAURI_UPDATER_PUBKEY) into tauri.release.conf.json, so the app
 // can verify the updates it downloads. See docs/BUILDING.md.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -7,7 +7,7 @@ const root = new URL('../../../', import.meta.url);
 const configUrl = new URL('apps/desktop/src-tauri/tauri.release.conf.json', root);
 const { version } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'));
 const {
-  CI_COMMIT_TAG: tag,
+  RELEASE_TAG: tag,
   TAURI_UPDATER_PUBKEY: pubkey,
   APPLE_SIGNING_IDENTITY: identity,
 } = process.env;

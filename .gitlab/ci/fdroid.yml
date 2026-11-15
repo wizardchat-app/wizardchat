@@ -2,7 +2,7 @@
 # rebuilt with every stable release. Needs FDROID_KEYSTORE_BASE64 and FDROID_KEYSTORE_PASSWORD.
 .fdroid-rules:
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $DRY_RUN != "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $DRY_RUN != "true" && (($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANNEL == "stable") || $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/)'
 
 build-fdroid:
   stage: build
@@ -10,7 +10,7 @@ build-fdroid:
   image:
     name: registry.gitlab.com/fdroid/docker-executable-fdroidserver:master
     entrypoint: ['']
-  needs: [build-android]
+  needs: [release-version, build-android]
   script:
     - sh .gitlab/scripts/fdroid-repo.sh
   artifacts:

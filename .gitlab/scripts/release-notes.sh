@@ -5,21 +5,21 @@ set -e
 git fetch --tags
 git fetch --unshallow || true
 
-case "$CI_COMMIT_TAG" in
+case "$RELEASE_TAG" in
   *-next.*) NEXT=true ;;
   *) NEXT=false ;;
 esac
 
 if [ "$NEXT" = true ]; then
-  PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CI_COMMIT_TAG}$" | head -n 1 || true)
+  PREV_TAG=$(git tag --sort=-version:refname | grep -vFx "$RELEASE_TAG" | head -n 1 || true)
 else
-  PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CI_COMMIT_TAG}$" | grep -v '\-next\.' | head -n 1 || true)
+  PREV_TAG=$(git tag --sort=-version:refname | grep -vFx "$RELEASE_TAG" | grep -v '\-next\.' | head -n 1 || true)
 fi
 if [ -z "$PREV_TAG" ]; then
   RANGE="${CI_COMMIT_SHA}"
   PREV_LABEL="the beginning of the project"
 else
-  RANGE="${PREV_TAG}..${CI_COMMIT_TAG}"
+  RANGE="${PREV_TAG}..${CI_COMMIT_SHA}"
   PREV_LABEL="${PREV_TAG}"
 fi
 COMMITS=$(git log "$RANGE" --pretty=format:"%h %s" --no-merges | grep -viE '^[a-f0-9]+ chore\(release\)' || true)
@@ -52,13 +52,13 @@ section() {
 OTHER=$(echo "$COMMITS" | grep -ivE "^[a-f0-9]+ (feat|fix|perf|refactor|docs|chore|ci|test|build|style|revert)" || true)
 {
   if [ "$NEXT" = true ]; then
-    printf "## Pre-release %s\n" "$CI_COMMIT_TAG"
+    printf "## Pre-release %s\n" "$RELEASE_TAG"
     printf "\n> **This is a pre-release.** It may be unstable and is intended for testing purposes.\n"
   else
     printf "## What's Changed\n"
   fi
   printf "\nComparing [%s...%s](https://gitlab.com/%s/-/compare/%s...%s)\n" \
-    "$PREV_LABEL" "$CI_COMMIT_TAG" "$CI_PROJECT_PATH" "${PREV_TAG:-}" "$CI_COMMIT_TAG"
+    "$PREV_LABEL" "$RELEASE_TAG" "$CI_PROJECT_PATH" "${PREV_TAG:-}" "$RELEASE_TAG"
   section "New Features" "feat(\([^)]*\))?!?:"
   section "Bug Fixes" "fix(\([^)]*\))?!?:"
   section "Performance" "perf(\([^)]*\))?!?:"

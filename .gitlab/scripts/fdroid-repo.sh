@@ -25,7 +25,7 @@ cp target/android/*_arm64_foss.apk fdroid/repo/
 python3 - "$KEEP" <<'PY'
 import json, os, sys, urllib.request
 keep = int(sys.argv[1]) - 1
-api, project, tag = os.environ['CI_API_V4_URL'], os.environ['CI_PROJECT_ID'], os.environ['CI_COMMIT_TAG']
+api, project, tag = os.environ['CI_API_V4_URL'], os.environ['CI_PROJECT_ID'], os.environ['RELEASE_TAG']
 registry = f"{api}/projects/{project}/packages/generic/wizardchat-desktop"
 with urllib.request.urlopen(f"{api}/projects/{project}/releases?per_page=50") as response:
     tags = [r['tag_name'] for r in json.load(response)]

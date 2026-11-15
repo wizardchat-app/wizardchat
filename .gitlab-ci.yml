@@ -1,7 +1,6 @@
 include:
   - local: .gitlab/ci/common.yml
   - local: .gitlab/ci/checks.yml
-  - local: .gitlab/ci/prepare.yml
   - local: .gitlab/ci/web.yml
   - local: .gitlab/ci/desktop.yml
   - local: .gitlab/ci/mobile.yml

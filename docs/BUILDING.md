@@ -13,9 +13,17 @@ number comes from it and App Store Connect rejects one it already has.
 
 ## Releases
 
-Start a release from **Build -> Pipelines -> Run pipeline** on `main` with the variable `VERSION`: `v26.11.0` for
-stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publishing). The pipeline bumps the version in
-`package.json` on a `prepare/<version>` branch, tags it and opens a merge request to merge back. The tag then:
+`package.json` holds the version being worked on, and releases are made from it:
+
+1. At the start of a version, bump `package.json` to it (`npm version <version> --no-git-tag-version`) and commit it
+   as `chore(release): prepare v<version>`.
+2. Start a release from **Build -> Pipelines -> Run pipeline** on `main` and pick the **CHANNEL**: `next` releases
+   `26.12.4-next.1`, then `-next.2` and so on, counting up from the existing tags; `stable` releases `26.12.4`. It's
+   `none` by default, which only runs the checks. Add `DRY_RUN=true` to try a release without publishing.
+3. After the stable release, bump `package.json` to the next version.
+
+The pipeline first checks that the commit is the latest on `main` and that the version isn't released yet, then builds
+everything. Only when all builds pass does it publish, and the tag is created last, with the GitLab release. The release:
 
 - builds the web app and deploys it, stable to <https://app.wizardchat.org>, next to <https://next.wizardchat.org>
 - pushes the Docker image to the container registry
@@ -23,8 +31,8 @@ stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publish
   Linux gets an AppImage, `.deb` and `.rpm`, which install their updates, and a tarball, its `PKGBUILD` (from
   `packaging/aur/wizardchat-bin/`) and the Arch package built from it, which point to the new release instead
   (`apps/desktop/scripts/package-linux.mjs`). Like the web app, stable installs only get stable releases and next
-  installs only next ones. The `PKGBUILD` gets `pkgrel=1`; when the package of a release has to change, run the tag's
-  pipeline again with `PKGREL=2` (then 3, ...)
+  installs only next ones. The `PKGBUILD` gets `pkgrel=1`; when the package of a release has to change, run the
+  pipeline on the release's tag with `PKGREL=2` (then 3, ...), which rebuilds and republishes that release
 - builds two signed Android APKs (arm64) and lists them with the installers, for people who don't use Google Play: the
   `gplay` flavor (`WizardChat_<version>_arm64.apk`) and the `fdroid` flavor without Google code
   (`WizardChat_<version>_arm64_foss.apk`). Both also go to a fixed link per channel
@@ -36,7 +44,7 @@ stable, `v26.11.0-next.1` for next (add `DRY_RUN=true` to try it without publish
 - builds an unsigned iOS `.ipa` for sideloading and lists it with the installers. The SideStore / AltStore source
   (`wizardchat-desktop/<channel>/sidestore.json`, from `.gitlab/scripts/sidestore-source.mjs`) lists it with every
   earlier release's: stable releases go to both channels' sources, next releases only to next
-- creates the GitLab release with the notes from the commits and the installers
+- creates the tag and the GitLab release with the notes from the commits and the installers
 
 The "What's new" notes in the apps come from `whatsnew/<version>.md`, with translations in `whatsnew/<version>.<lang>.md`.
 Each section starts with a `##` heading. Optional frontmatter sets the release date
@@ -50,7 +58,7 @@ date: 2026-11-01
 ## A section
 ```
 
-CI needs `GITLAB_RELEASE_TOKEN` (pushes the branch and tag, opens the merge request), `CLOUDFLARE_API_TOKEN` and
+CI needs `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` (the Pages projects `wizardchat` and `wizardchat-next`) and the updater key. The updates are signed with Tauri's updater key, which CI reads from the `TAURI_SIGNING_PRIVATE_KEY`,
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and `TAURI_UPDATER_PUBKEY` variables. Create it once with
 `npx -w @wizardchat/desktop tauri signer generate -w wizardchat-updater.key` and keep it safe: without it, installed
@@ -60,7 +68,7 @@ The macOS app is signed with a Developer ID certificate and notarized by Apple, 
 CI reads the certificate from `APPLE_CERTIFICATE` (the `.p12`, base64) and `APPLE_CERTIFICATE_PASSWORD`, its name from
 `APPLE_SIGNING_IDENTITY` (`Developer ID Application: <name> (<team ID>)`, not masked since it can't contain spaces), and
 an App Store Connect API key for notarization from `APPLE_API_KEY` (key ID), `APPLE_API_ISSUER` and `APPLE_API_KEY_P8`
-(the `.p8`, base64). They're protected variables, so only pipelines of protected tags get them. Without them, the app
+(the `.p8`, base64). They're protected variables, so only pipelines of protected branches like `main` and protected tags get them. Without them, the app
 is signed ad hoc and macOS asks people to allow it in **System Settings -> Privacy & Security**.
 
 Android release builds are signed with the key in `apps/android/keystore.properties` (`storeFile`, `storePassword`,

@@ -5,7 +5,7 @@
 .desktop-build:
   stage: build
   extends: [.release-rules, .rust-cache]
-  needs: []
+  needs: [release-version]
   variables:
     CARGO_PROFILE_RELEASE_LTO: thin
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'
@@ -31,6 +31,7 @@ build-desktop-mac:
     - rustup target add "$TARGET"
     - !reference [.install-sccache-mac, script]
     - npm ci --ignore-scripts
+    - !reference [.stamp-version, script]
     - node apps/desktop/scripts/release-config.mjs
     - |
       if [ -n "$APPLE_API_KEY_P8" ]; then
@@ -55,6 +56,7 @@ build-desktop-linux:
     - !reference [.install-rust, script]
     - !reference [.install-sccache-linux, script]
     - npm ci --ignore-scripts
+    - !reference [.stamp-version, script]
     - node apps/desktop/scripts/release-config.mjs
     - npm run tokens
     - npm run build:release -w @wizardchat/desktop -- --bundles appimage,deb
@@ -105,6 +107,7 @@ build-desktop-win:
     - !reference [.install-sccache-linux, script]
     - curl -sSfL "https://github.com/rust-cross/cargo-xwin/releases/download/v${CARGO_XWIN}/cargo-xwin-v${CARGO_XWIN}.x86_64-unknown-linux-musl.tar.gz" | tar -xz -C "$CARGO_HOME/bin" cargo-xwin
     - npm ci --ignore-scripts
+    - !reference [.stamp-version, script]
     - node apps/desktop/scripts/release-config.mjs
     - npm run tokens
     - npm run build:release -w @wizardchat/desktop -- --runner cargo-xwin --target x86_64-pc-windows-msvc
@@ -116,6 +119,7 @@ publish-desktop:
   image: node:22-alpine
   resource_group: desktop-feed
   needs:
+    - release-version
     - build-desktop-mac
     - build-desktop-linux
     - build-desktop-win
