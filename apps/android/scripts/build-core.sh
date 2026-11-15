@@ -39,12 +39,11 @@ CARGO_PROFILE_DEV_DEBUG=line-tables-only cargo ndk "${ABIS[@]}" -P 26 -o "$CORE/
 # Debug info makes the library hundreds of MB
 "$(ls "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin/llvm-strip | head -1)" --strip-unneeded "$CORE"/src/main/jniLibs/*/*.so
 
-# The bindings come from the library's metadata, read from a host build
-cargo build -p wizardchat-core-ffi --lib
+# The bindings come from the metadata in the arm64 library (before stripping), so the core isn't
+# built a second time for the host
 rm -rf "$CORE/build/generated/uniffi"
-for HOST_LIB in "$ROOT"/target/debug/libwizardchat_core_ffi.{dylib,so}; do [[ -f "$HOST_LIB" ]] && break; done
-cargo run -q -p wizardchat-core-ffi --features bindgen --bin uniffi-bindgen -- \
-  generate --library "$HOST_LIB" --language kotlin \
+cargo run -q -p uniffi-bindgen -- \
+  generate --library "$ROOT/target/aarch64-linux-android/$PROFILE/libwizardchat_core_ffi.so" --language kotlin \
   --out-dir "$CORE/build/generated/uniffi" --no-format
 
 echo "WizardChat core for Android is ready ($PROFILE)"

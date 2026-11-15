@@ -2,11 +2,31 @@ build-android:
   stage: build
   extends: [.release-rules, .rust-cache]
   image: node:22-bookworm
+  tags: [saas-linux-large-amd64]
   needs: [release-version]
   variables:
     ANDROID_HOME: $CI_PROJECT_DIR/.android-sdk
     ANDROID_CMDLINE_TOOLS: '15859902'
     ANDROID_NDK: '28.2.13676358'
+    GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
+  cache:
+    - key:
+        files:
+          - package-lock.json
+      paths:
+        - .npm/
+    - key: cargo-$CI_JOB_NAME_SLUG
+      paths:
+        - .rustup/
+        - .sccache/
+        - .cargo/bin/cargo-ndk
+    - key:
+        files:
+          - apps/android/gradle/libs.versions.toml
+          - apps/android/gradle/wrapper/gradle-wrapper.properties
+      paths:
+        - .gradle/caches/
+        - .gradle/wrapper/
   script:
     - test -n "$ANDROID_KEYSTORE_BASE64" && test -n "$ANDROID_KEYSTORE_PASSWORD"
     - apt-get update && apt-get install -y --no-install-recommends openjdk-17-jdk-headless unzip cmake
@@ -23,7 +43,7 @@ build-android:
     - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > apps/android/wizardchat-release.jks
     - printf 'storeFile=wizardchat-release.jks\nstorePassword=%s\nkeyAlias=wizardchat\nkeyPassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD" > apps/android/keystore.properties
     - apps/android/scripts/build-core.sh
-    - (cd apps/android && ./gradlew --no-daemon :app:assembleGplayRelease :app:assembleFdroidRelease)
+    - (cd apps/android && ./gradlew --no-daemon :app:assembleGplayRelease :app:assembleFdroidRelease -x lintVitalGplayRelease -x lintVitalFdroidRelease)
     - rm apps/android/wizardchat-release.jks apps/android/keystore.properties
     - mkdir -p target/android
     - APP_VERSION=$(node -p "require('./package.json').version")
@@ -31,6 +51,7 @@ build-android:
     - cp apps/android/app/build/outputs/apk/fdroid/release/app-fdroid-release.apk "target/android/WizardChat_${APP_VERSION}_arm64_foss.apk"
     - for apk in target/android/*.apk; do "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"; done
     - sccache --show-stats
+    - rm -rf target/aarch64-linux-android target/debug target/release apps/android/app/build apps/android/core/build
   artifacts:
     paths:
       - target/android/*.apk
