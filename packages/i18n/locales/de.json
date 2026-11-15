@@ -1752,6 +1752,20 @@
       "favoritePacksNote": "Wähle Sound-Packs aus deinen Räumen, um sie in jedem Anruf zu verwenden.",
       "defaultPack": "Standard-Pack",
       "defaultPackNote": "Dein persönliches Pack ist in jedem Anruf verfügbar."
+    },
+    "desktop": {
+      "title": "Desktop-App",
+      "launchAtLogin": "Beim Anmelden öffnen",
+      "launchAtLoginNote": "Startet WizardChat, wenn du dich an deinem Computer anmeldest.",
+      "startMinimized": "Minimiert starten",
+      "startMinimizedNote": "Wenn WizardChat beim Anmelden startet, bleibt es im Tray, statt das Fenster zu zeigen.",
+      "closeToTray": "In den Tray schließen",
+      "closeToTrayNote": "Beim Schließen des Fensters läuft WizardChat im Tray weiter, damit du weiter Nachrichten und Anrufe bekommst. Beenden kannst du es über das Tray-Symbol.",
+      "saveFailed": "Die Einstellung konnte nicht gespeichert werden: {{error}}",
+      "trayOpen": "WizardChat öffnen",
+      "trayQuit": "WizardChat beenden",
+      "trayInCall": "Im Anruf: {{room}}",
+      "trayRestartToUpdate": "Neu starten und aktualisieren"
     }
   },
   "verification": {

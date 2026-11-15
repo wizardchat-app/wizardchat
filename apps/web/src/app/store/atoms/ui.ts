@@ -259,6 +259,7 @@ export type SettingsPage =
   | 'soundboard'
   | 'keybinds'
   | 'language'
+  | 'desktop'
   | 'developer'
   | 'sessions'
   | 'encryption'

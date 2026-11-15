@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue } from 'jotai';
 import { Dialog } from '@/app/components/Dialog/Dialog';
 import {
+  AppWindowIcon,
   ArrowSquareOutIcon,
   UserIcon,
   UserCircleIcon,
@@ -48,6 +49,7 @@ import { DeveloperOptions } from './developer';
 import { Sessions } from './sessions';
 import { Encryption } from './encryption';
 import { About } from './about';
+import { DesktopSettings } from './desktop';
 import { useKeyboardHints } from '@/app/hooks/useKeyboardHints';
 import {
   NarrowSettingsList,
@@ -158,6 +160,8 @@ function PageContent({ page }: { page: SettingsPage }) {
       return <Encryption />;
     case 'about':
       return <About />;
+    case 'desktop':
+      return <DesktopSettings />;
   }
 }
 
@@ -191,6 +195,9 @@ export function useSettingsNav(): NarrowSettingsItem<SettingsPage>[] {
       ? [{ key: 'keybinds' as const, label: t('settings.keybinds.title'), Icon: KeyboardIcon }]
       : []),
     { key: 'language', label: t('settings.language.title'), Icon: GlobeSimpleIcon },
+    ...(window.desktopAPI?.getWindowSettings
+      ? [{ key: 'desktop' as const, label: t('settings.desktop.title'), Icon: AppWindowIcon }]
+      : []),
     {
       key: 'sessions',
       label: t('settings.sessions.title'),

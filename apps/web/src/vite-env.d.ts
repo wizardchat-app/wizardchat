@@ -59,6 +59,29 @@ interface DesktopAPI {
   getPlatform?: () => string;
   setTitleBarTheme?: (background: string, foreground: string) => void;
   onFullscreenChange?: (cb: (fullscreen: boolean) => void) => void;
+  getWindowSettings?: () => Promise<DesktopWindowSettings>;
+  setWindowSettings?: (patch: Partial<DesktopWindowSettings>) => Promise<DesktopWindowSettings>;
+  setTrayState?: (state: DesktopTrayState) => void;
+  onTrayAction?: (cb: (action: string) => void) => () => void;
+}
+
+interface DesktopTrayState {
+  labels: {
+    open: string;
+    quit: string;
+    mute: string;
+    deafen: string;
+    leaveCall: string;
+    restartToUpdate: string;
+  };
+  call: { title: string; muted: boolean; deafened: boolean } | null;
+  updateReady: boolean;
+}
+
+interface DesktopWindowSettings {
+  closeToTray: boolean;
+  startMinimized: boolean;
+  launchAtLogin: boolean;
 }
 
 interface Window {

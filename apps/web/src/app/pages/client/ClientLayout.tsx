@@ -55,6 +55,7 @@ import { useTranslation } from 'react-i18next';
 import { useClientNotifications } from './hooks/useClientNotifications';
 import { useRecordLastRoom, useSwitchContext } from './hooks/useContextNavigation';
 import { useFaviconBadge } from '@/app/hooks/useFaviconBadge';
+import { DesktopTray } from '@/app/hooks/DesktopTray';
 import { useDocumentTitle } from '@/app/hooks/useDocumentTitle';
 import { registerNotificationServiceWorker } from '@/app/hooks/useNotifications';
 import { useUpdateCheck } from '@/app/hooks/useUpdateCheck';
@@ -531,6 +532,7 @@ export function ClientLayout() {
               <CallLayer client={client} />
               <CallController />
               <WatchTogetherController />
+              {window.desktopAPI?.setTrayState && <DesktopTray />}
             </main>
 
             <MembersSidebar

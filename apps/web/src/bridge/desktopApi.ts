@@ -78,6 +78,12 @@ export const desktopApi: DesktopAPI = {
   installUpdate() {
     void invoke('install_update');
   },
+  getWindowSettings: () => invoke<DesktopWindowSettings>('window_settings'),
+  setWindowSettings: (patch) => invoke<DesktopWindowSettings>('set_window_settings', { patch }),
+  setTrayState(state) {
+    void invoke('set_tray_state', { state }).catch(() => {});
+  },
+  onTrayAction: (listener) => onDesktopEvent<string>('tray-action', listener),
   getDesktopSources,
   onOpenDesktopPicker,
   selectDesktopSource,

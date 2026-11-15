@@ -1752,6 +1752,20 @@
       "favoritePacksNote": "Pick sound packs from your rooms to use them in every call.",
       "defaultPack": "Default Pack",
       "defaultPackNote": "Your personal pack is available in every call."
+    },
+    "desktop": {
+      "title": "Desktop app",
+      "launchAtLogin": "Open when you log in",
+      "launchAtLoginNote": "Starts WizardChat when you log in to your computer.",
+      "startMinimized": "Start minimized",
+      "startMinimizedNote": "When it opens at login, WizardChat starts in the tray instead of showing its window.",
+      "closeToTray": "Close to tray",
+      "closeToTrayNote": "Closing the window keeps WizardChat running in the tray, so you still get messages and calls. Quit it from the tray icon.",
+      "saveFailed": "Couldn't save this setting: {{error}}",
+      "trayOpen": "Open WizardChat",
+      "trayQuit": "Quit WizardChat",
+      "trayInCall": "In call: {{room}}",
+      "trayRestartToUpdate": "Restart to update"
     }
   },
   "verification": {

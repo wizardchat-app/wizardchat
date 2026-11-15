@@ -6,6 +6,7 @@ mod links;
 mod loopback;
 mod rpc;
 mod screen_share;
+mod tray;
 mod update;
 
 use tauri::{
@@ -59,6 +60,20 @@ pub(crate) fn focus_main<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
+fn hide_to_tray(window: &tauri::Window, event: &tauri::WindowEvent) {
+    let tauri::WindowEvent::CloseRequested { api, .. } = event else {
+        return;
+    };
+    if window.label() != "main" {
+        return;
+    }
+    if window.state::<tray::Tray>().close_to_tray() {
+        api.prevent_close();
+        let _ = window.hide();
+    }
+}
+
 /// macOS keeps the app running when the window closes, like other Mac apps: the window only hides
 #[cfg(target_os = "macos")]
 fn hide_on_close<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEvent) {
@@ -106,9 +121,15 @@ pub fn run() {
             | PermissionKind::Geolocation => PermissionResponse::Allow,
             _ => PermissionResponse::Default,
         })
-        .on_window_event(|_window, _event| {
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![tray::MINIMIZED_ARG]),
+        ))
+        .on_window_event(|window, event| {
             #[cfg(target_os = "macos")]
-            hide_on_close(_window, _event);
+            hide_on_close(window, event);
+            #[cfg(not(target_os = "macos"))]
+            hide_to_tray(window, event);
         })
         .setup(|app| {
             // Account stores (`StoreConfig.location`) are relative paths: keep them in app data
@@ -120,6 +141,12 @@ pub fn run() {
             #[cfg(windows)]
             if let Some(window) = app.get_webview_window("main") {
                 window.set_decorations(false)?;
+            }
+            let start_hidden = tray::setup(app.handle())?;
+            if !start_hidden {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.show()?;
+                }
             }
             links::setup(app.handle());
             update::start(app.handle().clone());
@@ -142,6 +169,9 @@ pub fn run() {
             global_keys::global_key_set,
             global_keys::global_keys_permission,
             keep_awake::keep_awake,
+            tray::window_settings,
+            tray::set_window_settings,
+            tray::set_tray_state,
             update::update_ready,
             update::install_update,
             screen_share::screen_capture_supported,
