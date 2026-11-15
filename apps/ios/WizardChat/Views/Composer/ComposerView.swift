@@ -747,7 +747,7 @@ struct ComposerView: View {
             draft = ""
             let html = await Self.richHtml(text, emotes: usedEmotes, mentions: mentions, client: session.client)
             let userIds = mentions.filter { text.contains($0.key) && $0.value != session.userId }.map(\.value)
-            let room = text.range(of: #"(^|\s)@room\b"#, options: .regularExpression) != nil
+            let room = RoomMention.isIn(text)
             usedEmotes = [:]
             mentions = [:]
             await timeline.edit(editing, newText: text, html: html,
@@ -785,7 +785,7 @@ struct ComposerView: View {
                                                              uniquingKeysWith: { first, _ in first }))
         // Always set (even empty) so legacy push rules don't fire
         let userIds = mentions.filter { text.contains($0.key) && $0.value != session.userId }.map(\.value)
-        let room = text.range(of: #"(^|\s)@room\b"#, options: .regularExpression) != nil
+        let room = RoomMention.isIn(text)
         usedEmotes = [:]
         mentions = [:]
         roomLinks = [:]

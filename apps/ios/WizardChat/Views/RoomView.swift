@@ -1245,7 +1245,7 @@ enum MessageText {
         return result
     }
 
-    /// Mention pills: accent for others, the mention colour for you and @room
+    /// Mention pills: accent for others, the mention colour for you and whole-room mentions
     static func withMentions(_ text: AttributedString, _ mentions: [MessageMention], theme: WizardTheme) -> AttributedString {
         var text = text
         var cursor = text.startIndex
@@ -1258,12 +1258,16 @@ enum MessageText {
             text[range].link = URL(string: "https://matrix.to/#/\(mention.userId)")
             cursor = range.upperBound
         }
-        var searchStart = text.startIndex
-        while let range = text[searchStart...].range(of: "@room") {
-            text[range].foregroundColor = theme.mention
-            text[range].backgroundColor = theme.mention.opacity(0.16)
-            text[range].inlinePresentationIntent = .stronglyEmphasized
-            searchStart = range.upperBound
+        let plain = String(text.characters)
+        for match in plain.matches(of: RoomMention.pattern) {
+            let token = match.output.1
+            let start = plain.distance(from: plain.startIndex, to: token.startIndex)
+            let lower = text.characters.index(text.startIndex, offsetBy: start)
+            let upper = text.characters.index(lower, offsetBy: token.count)
+            guard text[lower..<upper].link == nil else { continue }
+            text[lower..<upper].foregroundColor = theme.mention
+            text[lower..<upper].backgroundColor = theme.mention.opacity(0.16)
+            text[lower..<upper].inlinePresentationIntent = .stronglyEmphasized
         }
         return text
     }

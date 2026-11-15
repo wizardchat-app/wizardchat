@@ -23,8 +23,9 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.matrix.MessageMention
+import org.wizardchat.android.matrix.RoomMention
 
-/** Pills for mentions: [own] for you and @room, [other] for everyone else */
+/** Pills for mentions: [own] for you and whole-room mentions, [other] for everyone else */
 data class MentionColors(val own: Color, val other: Color) {
     fun pill(isOwn: Boolean): SpanStyle {
         val color = if (isOwn) own else other
@@ -70,7 +71,7 @@ object MessageText {
 
     /**
      * The text with tappable links (shortened to their host when [prettifyLinks] is on), [mentions] and
-     * "@room" as pills when [mentionColors] is set (tapping one calls [onMention], else opens matrix.to),
+     * whole-room mentions as pills when [mentionColors] is set (tapping one calls [onMention], else opens matrix.to),
      * and [spoilers] covered by [cover] (their links removed).
      */
     fun attributed(
@@ -131,7 +132,7 @@ object MessageText {
         }
     }
 
-    /** Each mention's label in order, then every "@room" (with no mention) */
+    /** Each mention's label in order, then every @room, @everyone or @all (with no mention) */
     private fun mentionRanges(text: String, mentions: List<MessageMention>): List<Pair<IntRange, MessageMention?>> {
         val result = mutableListOf<Pair<IntRange, MessageMention?>>()
         var cursor = 0
@@ -141,11 +142,8 @@ object MessageText {
             result += (start until start + mention.label.length) to mention
             cursor = start + mention.label.length
         }
-        var start = text.indexOf("@room")
-        while (start >= 0) {
-            val range = start until start + 5
+        for (range in RoomMention.ranges(text)) {
             if (result.none { it.first.overlaps(range) }) result += range to null
-            start = text.indexOf("@room", start + 5)
         }
         return result
     }

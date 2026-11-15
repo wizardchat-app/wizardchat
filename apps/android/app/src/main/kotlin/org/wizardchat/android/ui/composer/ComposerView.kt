@@ -110,6 +110,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.WizardApplication
+import org.wizardchat.android.matrix.RoomMention
 import org.wizardchat.android.matrix.ChatEntry
 import org.wizardchat.android.matrix.Emoji
 import org.wizardchat.android.matrix.MediaMetadata
@@ -371,7 +372,7 @@ fun ComposerView(
         val body = links.fold(message) { text, (label, link) -> text.replace(label, RoomLinks.target(link) ?: link) }
         val html = richHtml(body, usedEmotes, mentions, timeline.client, links.associate { (_, link) -> (RoomLinks.target(link) ?: link) to link })
         val userIds = mentions.filter { message.contains(it.key) && it.value != session.userId }.values.toSet().sorted()
-        val room = Regex("(^|\\s)@room\\b").containsMatchIn(message)
+        val room = RoomMention.isIn(message)
         usedEmotes.clear()
         mentions.clear()
         roomLinks.clear()
@@ -389,7 +390,7 @@ fun ComposerView(
             setDraft("")
             val html = richHtml(message, usedEmotes, mentions, timeline.client)
             val userIds = mentions.filter { message.contains(it.key) && it.value != session.userId }.values.toSet().sorted()
-            val room = Regex("(^|\\s)@room\\b").containsMatchIn(message)
+            val room = RoomMention.isIn(message)
             usedEmotes.clear()
             mentions.clear()
             timeline.edit(entry, message, html, Mentions(userIds, if (room) true else null))
