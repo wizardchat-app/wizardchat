@@ -9,6 +9,7 @@ struct VoiceRoomView: View {
     @EnvironmentObject private var calls: CallManager
     @EnvironmentObject private var session: MatrixSession
     @EnvironmentObject private var notifier: MessageNotifier
+    @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
     @State private var showInfo = false
     @State private var barWidth: CGFloat = 0
@@ -33,9 +34,10 @@ struct VoiceRoomView: View {
                 Button { showInfo = true } label: {
                     RoomTitle(room: room, maxWidth: RoomTitle.maxWidth(barWidth: barWidth, buttons: 1))
                         .fixedSize()
-                        .padding(.horizontal, WZ.Space.space6)
+                        .padding(.leading, prefs.showRoomAvatars ? WZ.Space.space3 : WZ.Space.space6)
+                        .padding(.trailing, WZ.Space.space6)
                         .padding(.vertical, WZ.Space.space2)
-                        .frame(minHeight: WZ.Space.space10)
+                        .frame(minHeight: WZ.Size.touchTarget)
                         .floatingGlass(in: Capsule())
                         .contentShape(Capsule())
                 }

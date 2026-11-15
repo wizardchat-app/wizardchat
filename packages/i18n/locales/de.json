@@ -645,10 +645,8 @@
       "deleteMessage": "Die Räume darin kommen zurück in die normale Raumliste. Das gilt auch in anderen Apps mit Bereichen, z. B. Element.",
       "failed": "Bereiche konnten nicht aktualisiert werden: {{error}}"
     },
-    "favourite": "Favorisieren",
     "info": {
       "leaveConfirm": "{{name}} verlassen?",
-      "copyLink": "Raumlink kopieren",
       "leaveConversation": "Unterhaltung verlassen",
       "conversation": "Unterhaltung",
       "title": "Rauminfo",
@@ -852,7 +850,6 @@
     "addImagesToYour": "Füge in Einstellungen > Emojis & Sticker Bilder zu deinem Paket hinzu.",
     "poweredByGiphy": "Bereitgestellt von GIPHY",
     "option": "Option {{index}}",
-    "replyingToName": "Antwort an {{name}}",
     "photosVideos": "Fotos & Videos",
     "file": "Datei",
     "pasteImage": "Bild einfügen",

@@ -198,15 +198,16 @@ struct RoomView: View {
                         .fixedSize()
                         .padding(.horizontal, WZ.Space.space6)
                         .padding(.vertical, WZ.Space.space2)
-                        .frame(minHeight: WZ.Space.space10)
+                        .frame(minHeight: WZ.Size.touchTarget)
                         .floatingGlass(in: Capsule())
                 } else {
                     Button { showInfo = true } label: {
                         RoomTitle(room: room, maxWidth: RoomTitle.maxWidth(barWidth: barWidth, buttons: 2))
                             .fixedSize()
-                            .padding(.horizontal, WZ.Space.space6)
+                            .padding(.leading, prefs.showRoomAvatars ? WZ.Space.space3 : WZ.Space.space6)
+                            .padding(.trailing, WZ.Space.space6)
                             .padding(.vertical, WZ.Space.space2)
-                            .frame(minHeight: WZ.Space.space10)
+                            .frame(minHeight: WZ.Size.touchTarget)
                             .floatingGlass(in: Capsule())
                             .contentShape(Capsule())
                     }
@@ -691,7 +692,7 @@ struct RoomTitle: View {
         VStack(alignment: .leading, spacing: WZ.Space.space0) {
             HStack(spacing: prefs.showRoomAvatars ? WZ.Space.space3 : WZ.Space.space1) {
                 if prefs.showRoomAvatars {
-                    AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.xs)
+                    AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.sm)
                 } else if !room.isDirect {
                     Image(room.isVoice ? "ph-speaker-high-regular" : "ph-hash-straight-regular")
                         .font(.system(size: WZ.SizeIcon.xs, weight: .semibold))

@@ -645,10 +645,8 @@
       "deleteMessage": "The rooms in it go back to the normal room list. This also applies in other apps that show sections, like Element.",
       "failed": "Couldn't update sections: {{error}}"
     },
-    "favourite": "Favourite",
     "info": {
       "leaveConfirm": "Leave {{name}}?",
-      "copyLink": "Copy room link",
       "leaveConversation": "Leave conversation",
       "conversation": "Conversation",
       "title": "Room Info",
@@ -852,7 +850,6 @@
     "addImagesToYour": "Add images to your pack in Settings > Emojis & Stickers.",
     "poweredByGiphy": "Powered by GIPHY",
     "option": "Option {{index}}",
-    "replyingToName": "Replying to {{name}}",
     "photosVideos": "Photos & Videos",
     "file": "File",
     "pasteImage": "Paste image",

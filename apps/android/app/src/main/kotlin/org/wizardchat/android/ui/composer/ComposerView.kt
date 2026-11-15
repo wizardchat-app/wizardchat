@@ -88,8 +88,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -126,7 +129,6 @@ import org.wizardchat.android.ui.room.EmojiText
 import org.wizardchat.android.ui.room.RoomLinks
 import org.wizardchat.android.ui.theme.nameColor
 import org.wizardchat.android.ui.theme.theme
-import org.wizardchat.android.ui.theme.withNameColors
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.core.Member
@@ -564,7 +566,7 @@ fun ComposerView(
                 }
                 Column(Modifier.weight(1f).floatingGlass(RoundedCornerShape(COMPOSER_HEIGHT / 2), theme.bgTertiary)) {
                     replyTo?.let { entry ->
-                        ContextBar("arrow-bend-up-left", L10n.format("composer.replyingToName", entry.senderName), entry.summary, entry.rich?.emoticons().orEmpty(), entry.senderName to nameColor(entry.sender)) {
+                        ContextBar("arrow-bend-up-left", entry.senderName, entry.summary, entry.rich?.emoticons().orEmpty(), entry.senderName to nameColor(entry.sender)) {
                             onReplyToChange(null)
                         }
                     }
@@ -846,16 +848,18 @@ private fun ContextBar(icon: String, title: String, text: String, emotes: Map<St
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
-        PhIcon(icon, tint = theme.accent)
-        Column(Modifier.weight(1f)) {
+        PhIcon(icon, tint = theme.textMuted)
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
             Text(
-                withNameColors(title, listOfNotNull(name)),
-                style = wizardFont(WZ.FontSize.sm, FontWeight.SemiBold),
-                color = theme.accent,
+                contextTitle(title, name),
+                style = wizardFont(WZ.FontSize.sm),
+                color = theme.textMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            EmojiText(text, emotes, wizardFont(WZ.FontSize.sm), theme.textMuted, maxLines = 1)
+            Box(Modifier.weight(1f)) {
+                EmojiText(text, emotes, wizardFont(WZ.FontSize.sm), theme.textMuted, maxLines = 1)
+            }
         }
         Box(Modifier.clip(CircleShape).clickable(onClick = onClose)) {
             PhIcon("x-circle", size = WZ.SizeIcon.md, tint = theme.textMuted, contentDescription = tr("common.cancel"))
@@ -1096,4 +1100,11 @@ private fun isAnimatedImage(data: ByteArray): Boolean {
         }
         else -> false
     }
+}
+
+private fun contextTitle(title: String, name: Pair<String, Color>?): AnnotatedString = buildAnnotatedString {
+    append(title)
+    val (text, color) = name ?: return@buildAnnotatedString
+    val start = title.indexOf(text).takeIf { text.isNotEmpty() && it >= 0 } ?: return@buildAnnotatedString
+    addStyle(SpanStyle(color = color, fontWeight = FontWeight.SemiBold), start, start + text.length)
 }

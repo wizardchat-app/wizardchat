@@ -17,12 +17,10 @@ struct RoomInfoView: View {
     @State private var confirmResetAvatar = false
     @State private var memberCount = 0
     @State private var encrypted = false
-    @State private var isFavourite = false
     @State private var alias: String?
     @State private var canEditName = false
     @State private var canEditTopic = false
     @State private var canEditAvatar = false
-    @State private var canInvite = false
     @State private var canPin = false
     @State private var canManageWidgets = false
     @State private var canEnableEncryption = false
@@ -30,7 +28,6 @@ struct RoomInfoView: View {
     @State private var confirmEncryption = false
     @State private var bridges: [RoomBridge] = []
     @State private var pinnedCount = 0
-    @State private var showInvite = false
     @State private var confirmLeave = false
     @State private var photo: PhotosPickerItem?
     @State private var saving = false
@@ -167,17 +164,6 @@ struct RoomInfoView: View {
                             }
                         }
                     }
-                    if canInvite {
-                        Button { showInvite = true } label: { Label(String(localized: "room.members.invite"), image: "ph-user-plus-regular") }
-                    }
-                    CopyButton(title: "room.info.copyLink", image: "ph-link-simple-regular",
-                               value: "https://matrix.to/#/\(alias ?? room.id)")
-                    Toggle(isOn: Binding(get: { isFavourite }, set: { value in
-                        isFavourite = value
-                        Task { try? await client.setFavourite(roomId: room.id, favourite: value) }
-                    })) {
-                        Label(String(localized: "room.favourite"), image: "ph-star-regular")
-                    }
                 }
 
                 Section {
@@ -221,9 +207,6 @@ struct RoomInfoView: View {
                 Button(String(localized: "room.settings.general.resetAvatar"), role: .destructive) {
                     Task { await resetAvatar() }
                 }
-            }
-            .sheet(isPresented: $showInvite) {
-                UserPickerView(mode: .invite(room.id)) { Task { await load() } }
             }
             .onChange(of: photo) { _, item in
                 guard let item else { return }
@@ -277,14 +260,12 @@ struct RoomInfoView: View {
         }
         alias = info?.canonicalAlias
         pinnedCount = info?.pinnedEventIds.count ?? 0
-        isFavourite = info?.isFavourite ?? room.isFavourite
         memberCount = info?.memberCount ?? room.memberCount
         encrypted = info?.isEncrypted ?? room.isEncrypted
         if let permissions = info?.permissions {
             canEditName = permissions.changeName
             canEditTopic = permissions.changeTopic
             canEditAvatar = permissions.changeAvatar
-            canInvite = permissions.invite
             canPin = permissions.pin
             canManageWidgets = permissions.manageWidgets
             canEnableEncryption = permissions.enableEncryption

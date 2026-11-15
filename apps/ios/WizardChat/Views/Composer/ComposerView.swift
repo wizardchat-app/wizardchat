@@ -66,7 +66,7 @@ struct ComposerView: View {
                     if editing == nil { plusBubble }
                     VStack(spacing: WZ.Space.space0) {
                         if let replyTo { contextBar(icon: "ph-arrow-bend-up-left-regular",
-                                                    title: L10n.format("composer.replyingToName", "\(replyTo.senderName)"), text: replyTo.summary,
+                                                    title: replyTo.senderName, text: replyTo.summary,
                                                     emotes: replyTo.rich?.emoticons ?? [:],
                                                     name: (replyTo.senderName, theme.nameColor(replyTo.sender, colored: prefs.colorUsernames))) {
                             self.replyTo = nil
@@ -170,7 +170,7 @@ struct ComposerView: View {
             Image(image)
                 .font(.system(size: WZ.SizeIcon.md, weight: .medium))
                 .foregroundStyle(theme.textPrimary)
-                .frame(width: WZ.Space.space10, height: WZ.Space.space10)
+                .frame(width: WZ.Size.composerMin, height: WZ.Size.composerMin)
                 .floatingGlass(in: Circle())
         }
         .buttonStyle(.plain)
@@ -184,7 +184,7 @@ struct ComposerView: View {
                 .resizable()
                 .frame(width: WZ.Space.space7, height: WZ.Space.space7)
                 .foregroundStyle(theme.textPrimary)
-                .frame(width: WZ.Space.space10, height: WZ.Space.space10)
+                .frame(width: WZ.Size.composerMin, height: WZ.Size.composerMin)
                 .floatingGlass(in: Circle())
         }
         .buttonStyle(.plain)
@@ -216,7 +216,7 @@ struct ComposerView: View {
             Image("ph-plus-regular")
                 .font(.system(size: WZ.SizeIcon.md, weight: .medium))
                 .foregroundStyle(theme.textPrimary)
-                .frame(width: WZ.Space.space10, height: WZ.Space.space10)
+                .frame(width: WZ.Size.composerMin, height: WZ.Size.composerMin)
                 .floatingGlass(in: Circle())
         }
         .accessibilityLabel(String(localized: "composer.attach"))
@@ -229,7 +229,7 @@ struct ComposerView: View {
             Image(editing == nil ? "ph-paper-plane-right-fill" : "ph-check-bold")
                 .font(.system(size: WZ.SizeIcon.md, weight: .bold))
                 .foregroundStyle(theme.textOnAccent)
-                .frame(width: WZ.Space.space10, height: WZ.Space.space10)
+                .frame(width: WZ.Size.composerMin, height: WZ.Size.composerMin)
                 .background(theme.accent, in: Circle())
         }
         .buttonStyle(.plain)
@@ -255,7 +255,7 @@ struct ComposerView: View {
             .task(id: usedEmotes.keys.sorted()) { await loadEmoteImages() }
             .padding(.vertical, WZ.Space.space5)
             .padding(.horizontal, WZ.Space.space6)
-            .frame(minHeight: WZ.Space.space10)
+            .frame(minHeight: WZ.Size.composerMin)
     }
 
     private var formatBar: some View {
@@ -335,17 +335,27 @@ struct ComposerView: View {
         setCursor(draft.index(draft.startIndex, offsetBy: startOffset + replaced.count))
     }
 
+    private func contextTitle(_ title: String, _ name: (String, Color)?) -> AttributedString {
+        var result = AttributedString(title)
+        guard let (name, color) = name, !name.isEmpty, let range = result.range(of: name) else { return result }
+        result[range].foregroundColor = color
+        result[range].font = .wizard(WZ.FontSize.sm, .semibold)
+        return result
+    }
+
     private func contextBar(icon: String, title: String, text: String, emotes: [String: String] = [:],
                             name: (String, Color)? = nil, onClose: @escaping () -> Void) -> some View {
         HStack(spacing: WZ.Space.space4) {
-            Image(icon).foregroundStyle(theme.accent)
-            VStack(alignment: .leading, spacing: WZ.Space.space0) {
-                Text(withNameColors(title, name.map { [$0] } ?? [])).font(.wizard(WZ.FontSize.sm, .semibold)).foregroundStyle(theme.accent)
+            Image(icon).foregroundStyle(theme.textMuted)
+            HStack(spacing: WZ.Space.space3) {
+                Text(contextTitle(title, name))
+                    .layoutPriority(1)
                 EmojiText(text: text, emotes: emotes, size: WZ.FontSize.sm * 1.2)
-                    .font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.textMuted)
             }
+            .font(.wizard(WZ.FontSize.sm))
+            .foregroundStyle(theme.textMuted)
             .lineLimit(1)
-            Spacer()
+            Spacer(minLength: WZ.Space.space0)
             Button(action: onClose) {
                 Image("ph-x-circle-regular").font(.system(size: WZ.SizeIcon.md))
             }

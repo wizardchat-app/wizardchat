@@ -122,12 +122,10 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
     var confirmResetAvatar by remember { mutableStateOf(false) }
     var memberCount by remember { mutableStateOf(0L) }
     var encrypted by remember { mutableStateOf(false) }
-    var isFavourite by remember { mutableStateOf(false) }
     var alias by remember { mutableStateOf<String?>(null) }
     var canEditName by remember { mutableStateOf(false) }
     var canEditTopic by remember { mutableStateOf(false) }
     var canEditAvatar by remember { mutableStateOf(false) }
-    var canInvite by remember { mutableStateOf(false) }
     var canPin by remember { mutableStateOf(false) }
     var canManageWidgets by remember { mutableStateOf(false) }
     var canEnableEncryption by remember { mutableStateOf(false) }
@@ -135,7 +133,6 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
     var confirmEncryption by remember { mutableStateOf(false) }
     var bridges by remember { mutableStateOf<List<RoomBridge>>(emptyList()) }
     var pinnedCount by remember { mutableStateOf(0) }
-    var showInvite by remember { mutableStateOf(false) }
     var showJumpToDate by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -166,14 +163,12 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
         }
         alias = info?.canonicalAlias
         pinnedCount = info?.pinnedEventIds?.size ?: 0
-        isFavourite = info?.isFavourite ?: room.isFavourite
         memberCount = info?.memberCount ?: room.memberCount
         encrypted = info?.isEncrypted ?: room.isEncrypted
         info?.permissions?.let { permissions ->
             canEditName = permissions.changeName
             canEditTopic = permissions.changeTopic
             canEditAvatar = permissions.changeAvatar
-            canInvite = permissions.invite
             canPin = permissions.pin
             canManageWidgets = permissions.manageWidgets
             canEnableEncryption = permissions.enableEncryption
@@ -340,17 +335,6 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                                     NavRow(tr("room.settings.bridges.title"), "plugs-connected", { push(PeoplePage.Bridges) }, value = "${bridges.size}")
                                 }
                             }
-                            if (canInvite) {
-                                RowDivider()
-                                ActionRow(tr("room.members.invite"), "user-plus", { showInvite = true })
-                            }
-                            RowDivider()
-                            CopyRow(tr("room.info.copyLink"), "link-simple", "https://matrix.to/#/${alias ?: room.id}")
-                            RowDivider()
-                            ToggleRow(tr("room.favourite"), isFavourite, { value ->
-                                isFavourite = value
-                                scope.launch { runCatching { client.setFavourite(room.id, value) } }
-                            }, icon = "star")
                         }
                     }
 
@@ -428,9 +412,6 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
             if (showJumpToDate) {
         JumpToDateDialog(client, room.id, { showJumpToDate = false }, onJump)
     }
-    if (showInvite) {
-                UserPickerSheet(UserPickerMode.Invite, { showInvite = false }, room.id, onDone = { reloads++ })
-            }
             }
         }
     }
