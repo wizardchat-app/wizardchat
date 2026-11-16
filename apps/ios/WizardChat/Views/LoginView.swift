@@ -21,6 +21,7 @@ struct LoginView: View {
     @State private var mode = Mode.login
     @State private var serverChoice = presets[0]
     @State private var customServer = ""
+    @State private var viewportHeight: CGFloat = 0
     @State private var info: ServerInfo?
     @State private var registration: RegistrationInfo?
     @State private var registrationRateLimited = false
@@ -105,8 +106,9 @@ struct LoginView: View {
             .frame(maxWidth: WZ.SizeMedia.maxWidth)
             .padding(WZ.Space.space6)
             .frame(maxWidth: .infinity)
-            .frame(minHeight: UIScreen.main.bounds.height - 120)
+            .frame(minHeight: viewportHeight)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
         .scrollDismissesKeyboard(.interactively)
         .background(theme.bgPrimary.ignoresSafeArea())
         .tint(theme.control)
