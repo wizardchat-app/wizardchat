@@ -1247,13 +1247,15 @@ public struct PackImage: Codable, Hashable, Sendable {
     public var body: String?
     public var emoticon: Bool
     public var sticker: Bool
+    public var info: JSONValue?
 
-    public init(shortcode: String, url: String, body: String? = nil, emoticon: Bool, sticker: Bool) {
+    public init(shortcode: String, url: String, body: String? = nil, emoticon: Bool, sticker: Bool, info: JSONValue? = nil) {
         self.shortcode = shortcode
         self.url = url
         self.body = body
         self.emoticon = emoticon
         self.sticker = sticker
+        self.info = info
     }
 }
 

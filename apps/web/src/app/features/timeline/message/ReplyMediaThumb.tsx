@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useAtomValue } from 'jotai';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import {
   EyeSlashIcon,
@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react';
 import { hiddenMediaAtom } from '@/app/store/atoms';
 import { useDecryptedMedia } from './encryption';
-import { getMediaBlobUrl, getMediaAnimates, plainMediaUrl } from './media';
+import { getMediaAnimates } from './media';
 import { AnimatedImage } from './AnimatedImage';
 import { getMediaInfoSpoiler } from './spoiler';
 import { useMediaCoveredByPreference } from './privacy';
@@ -58,7 +58,13 @@ export function ReplyMediaThumb({
   const isHidden = hiddenMedia[entryEventId(event)] === true;
   const covered = spoiler.isSpoiler || coveredByPreference || isHidden;
 
-  const { mediaSrc, thumbnailSrc, setMediaSrc } = useDecryptedMedia(event, client, !covered, false);
+  const rowRef = useRef<HTMLSpanElement>(null);
+  const { mediaSrc: src, thumbnailSrc } = useDecryptedMedia(event, client, {
+    enabled: !covered,
+    showErrors: false,
+    targetRef: rowRef,
+    previewOnly: true,
+  });
 
   if (covered) {
     return (
@@ -68,11 +74,6 @@ export function ReplyMediaThumb({
       </span>
     );
   }
-
-  const mxcUrl = plainMediaUrl(media?.source);
-  const src =
-    mediaSrc ??
-    (mxcUrl && mxcUrl.startsWith('mxc://') ? getMediaBlobUrl(mxcUrl, client, setMediaSrc) : null);
 
   const text =
     isImage || isVideo ? ((media && getMediaCaption(media)) ?? '') : isSticker ? '' : body.trim();
@@ -114,7 +115,7 @@ export function ReplyMediaThumb({
   }
 
   return (
-    <span className={rowClassName}>
+    <span ref={rowRef} className={rowClassName}>
       {visual}
       {text && <span className={css.replyMediaText}>{text}</span>}
     </span>

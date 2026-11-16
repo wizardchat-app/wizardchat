@@ -36,6 +36,8 @@ struct ImageMessageView: View {
 
     private var animate: Bool { canAnimate && (prefs.autoplayGifs || holding || animatesMedia) }
 
+    private var preview: MediaSource { canAnimate ? media.source : media.thumbnail ?? media.source }
+
     private var displaySize: CGSize {
         let maxWidth: CGFloat = isSticker ? 160 : 260
         let maxHeight: CGFloat = isSticker ? 160 : 320
@@ -84,11 +86,16 @@ struct ImageMessageView: View {
         .gesture(HoldGesture { holding = $0 })
         .task(id: "\(animate)-\(hidden)") {
             guard !hidden, let mediaLoader else { return }
-            image = await mediaLoader.image(for: media.source, thumbnailSize: animate ? nil : 800, animated: animate)
+            if animate {
+                image = await mediaLoader.image(for: media.source, thumbnailSize: nil, animated: true)
+            } else {
+                image = await mediaLoader.image(for: preview, thumbnailSize: 800, animated: false)
+            }
         }
         .fullScreenCover(isPresented: $showViewer) {
             ImageViewer(image: image, title: media.caption ?? media.filename,
-                        animatedSource: canAnimate ? media.source : nil, loader: mediaLoader)
+                        fullSource: canAnimate || preview != media.source ? media.source : nil,
+                        animates: canAnimate, loader: mediaLoader)
         }
         .accessibilityLabel(media.body)
     }
@@ -98,22 +105,25 @@ struct ImageViewer: View {
     @Environment(\.theme) private var theme
     let image: UIImage?
     let title: String
-    var animatedSource: MediaSource?
+    var fullSource: MediaSource?
+    var animates = false
     var loader: MediaLoader?
     @Environment(\.dismiss) private var dismiss
     @State private var scale: CGFloat = 1
-    @State private var animated: UIImage?
+    @State private var full: UIImage?
+
+    private var shown: UIImage? { full ?? image }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 theme.overlay.ignoresSafeArea()
-                if let animated {
-                    AnimatedImageView(image: animated, contentMode: .scaleAspectFit)
+                if let full, full.images != nil {
+                    AnimatedImageView(image: full, contentMode: .scaleAspectFit)
                         .scaleEffect(scale)
                         .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }
                             .onEnded { _ in withAnimation { scale = 1 } })
-                } else if let image {
+                } else if let image = shown {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
@@ -123,18 +133,15 @@ struct ImageViewer: View {
                 }
             }
             .task {
-                guard let animatedSource, let loader else { return }
-                if let full = await loader.image(for: animatedSource, thumbnailSize: nil, animated: true),
-                   full.images != nil {
-                    animated = full
-                }
+                guard let fullSource, let loader else { return }
+                full = await loader.image(for: fullSource, thumbnailSize: nil, animated: animates)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(String(localized: "common.done")) { dismiss() } }
-                if let image {
+                if let image = shown {
                     ToolbarItem(placement: .primaryAction) {
                         ShareLink(item: Image(uiImage: image), preview: SharePreview(title, image: Image(uiImage: image)))
                     }
@@ -555,7 +562,8 @@ struct ReplyQuoteView: View {
     private var thumbSource: MediaSource? {
         guard let media = quote.media, !mediaHidden else { return nil }
         switch quote.mediaKind {
-        case .image, .sticker: return media.source
+        case .image: return media.thumbnail ?? media.source
+        case .sticker: return media.source
         case .video: return media.thumbnail
         default: return nil
         }

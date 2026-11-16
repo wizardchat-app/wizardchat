@@ -1,7 +1,5 @@
 package org.wizardchat.android.matrix
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
@@ -30,6 +28,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.core.AttachmentOptions
+import org.wizardchat.core.AttachmentThumbnail
 import org.wizardchat.core.CallHistoryView
 import org.wizardchat.core.EntryContent
 import org.wizardchat.core.ListDiff
@@ -47,25 +46,11 @@ import org.wizardchat.core.Subscription
 import org.wizardchat.core.ThreadSummaryView
 import org.wizardchat.core.TimelineEntry
 import org.wizardchat.core.TimelineKind
-import org.wizardchat.core.UploadedFile
-import org.wizardchat.core.UploadedThumbnail
 import org.wizardchat.core.WizardClient
-
-/** A row of the timeline. Immutable: changes make copies. */
-data class PendingUpload(
-    val preview: Bitmap?,
-    val isVideo: Boolean,
-    val filename: String,
-    val progress: Float? = null,
-    val id: Long = nextId++,
-) {
-    private companion object {
-        var nextId = 0L
-    }
-}
 
 data class MessageMention(val label: String, val userId: String, val isOwn: Boolean)
 
+/** A row of the timeline. Immutable: changes make copies. */
 @Immutable
 data class ChatEntry(
     val id: String,
@@ -140,10 +125,10 @@ data class ChatEntry(
         val thumbnail: MediaSource?,
         val isAnimated: Boolean,
     ) {
-        constructor(media: MediaInfo, body: String? = null) : this(
+        constructor(media: MediaInfo, body: String? = null, caption: String? = null) : this(
             source = media.source,
             body = body ?: media.caption ?: media.filename,
-            caption = media.caption,
+            caption = caption ?: media.caption,
             filename = media.filename,
             mimetype = media.mimetype,
             width = media.width?.toFloat(),
@@ -241,8 +226,6 @@ class TimelineModel(
         private set
     var pinnedIds by mutableStateOf<Set<String>>(emptySet())
         private set
-    var uploads by mutableStateOf<List<PendingUpload>>(emptyList())
-        private set
 
     private val kind: TimelineKind = threadRoot?.let { TimelineKind.Thread(it) }
         ?: if (pinnedOnly) TimelineKind.Pinned else TimelineKind.Main
@@ -265,7 +248,7 @@ class TimelineModel(
     suspend fun start() {
         if (timeline != null || starting) return
         starting = true
-        loadPinned()
+        scope.launch { loadPinned() }
         try {
             val timeline = if (kind == TimelineKind.Main) client.timeline(roomId) else client.timelineOf(roomId, kind)
             this.timeline = timeline
@@ -413,67 +396,61 @@ class TimelineModel(
         report { timeline.toggleReaction(itemKey, key) }
     }
 
-    /** Uploads a picked file (`content://` or `file://`) */
+    /** Sends a picked file (`content://` or `file://`) */
     suspend fun sendFile(uri: Uri, caption: String? = null, replyTo: String? = null, spoiler: Boolean = false) =
-        sendFiles(listOf(uri to null), caption, replyTo, spoiler)
+        sendFiles(listOf(uri), caption, replyTo, spoiler)
 
     /** The caption and reply go with the first file */
     suspend fun sendFiles(
-        files: List<Pair<Uri, Bitmap?>>,
+        uris: List<Uri>,
         caption: String? = null,
         replyTo: String? = null,
         spoiler: Boolean = false,
+        captionHtml: String? = null,
+        mentions: Mentions? = null,
     ) {
-        if (timeline == null) return
-        val pending = files.map { (uri, preview) ->
-            val mimetype = mimeTypeOf(uri)
-            PendingUpload(
-                preview = preview ?: if (mimetype.startsWith("image/")) decodePreview(uri) else null,
-                isVideo = mimetype.startsWith("video/"),
-                filename = filenameOf(uri),
-            )
-        }
-        uploads = uploads + pending
-        files.zip(pending).forEachIndexed { index, (file, item) ->
-            upload(
-                file.first,
-                item.id,
-                caption = if (index == 0) caption else null,
-                replyTo = if (index == 0) replyTo else null,
-                spoiler = spoiler,
-            )
-            uploads = uploads.filter { it.id != item.id }
+        uris.forEachIndexed { index, uri ->
+            val first = index == 0
+            send(uri, caption.takeIf { first }, replyTo.takeIf { first }, spoiler, captionHtml.takeIf { first }, mentions.takeIf { first })
         }
     }
 
-    private suspend fun upload(uri: Uri, id: Long, caption: String?, replyTo: String?, spoiler: Boolean) {
+    private suspend fun send(
+        uri: Uri,
+        caption: String?,
+        replyTo: String?,
+        spoiler: Boolean,
+        captionHtml: String? = null,
+        mentions: Mentions? = null,
+    ) {
         val timeline = timeline ?: return
         val context = WizardApplication.instance
         val mimetype = mimeTypeOf(uri)
-        var file = UploadedFile(
-            source = JsonPrimitive(""),
-            size = 0,
+        var options = AttachmentOptions(
             filename = filenameOf(uri),
             mimetype = mimetype,
             caption = caption,
+            captionHtml = captionHtml,
+            mentions = mentions,
             spoiler = spoiler,
             isAnimated = mimetype == "image/gif",
             replyTo = replyTo,
         )
         when {
             mimetype.startsWith("image/") -> MediaMetadata.imageSize(uri)?.let { (w, h) ->
-                file = file.copy(width = w.toLong(), height = h.toLong())
+                options = options.copy(width = w.toLong(), height = h.toLong())
             }
             mimetype.startsWith("video/") -> {
                 val video = MediaMetadata.video(uri)
-                file = file.copy(
+                options = options.copy(
                     width = video.size?.first?.toLong(),
                     height = video.size?.second?.toLong(),
                     durationMs = video.duration?.let { (it * 1000).toLong() },
+                    thumbnail = MediaMetadata.videoFrame(uri)?.attachment(),
                 )
             }
             mimetype.startsWith("audio/") ->
-                file = file.copy(durationMs = MediaMetadata.duration(uri)?.let { (it * 1000).toLong() })
+                options = options.copy(durationMs = MediaMetadata.duration(uri)?.let { (it * 1000).toLong() })
         }
         report {
             var data = withContext(Dispatchers.IO) {
@@ -481,33 +458,26 @@ class TimelineModel(
             } ?: throw IllegalStateException(L10n.format("common.somethingWentWrong"))
             if (mimetype.startsWith("image/") && mimetype != "image/svg+xml") {
                 MediaMetadata.shareableImage(data)?.let { image ->
+                    val filename = options.filename ?: "image"
                     data = image.data
-                    file = file.copy(
+                    options = options.copy(
                         mimetype = image.mimetype,
-                        filename = file.filename.substringBeforeLast('.', file.filename) + "." + image.ext,
+                        filename = filename.substringBeforeLast('.', filename) + "." + image.ext,
                         isAnimated = image.mimetype == "image/gif",
-                        width = image.size?.first?.toLong() ?: file.width,
-                        height = image.size?.second?.toLong() ?: file.height,
+                        width = image.size?.first?.toLong() ?: options.width,
+                        height = image.size?.second?.toLong() ?: options.height,
                     )
                 }
-            }
-            val source = timeline.uploadFile(data, file.mimetype) { progress ->
-                if (progress.total <= 0) return@uploadFile
-                val fraction = progress.current.toFloat() / progress.total
-                scope.launch { uploads = uploads.map { if (it.id == id) it.copy(progress = fraction) else it } }
-            }
-            if (mimetype.startsWith("video/")) {
-                MediaMetadata.videoFrame(uri)?.let { frame ->
-                    runCatching { timeline.uploadFile(frame.data, "image/jpeg") {} }.getOrNull()?.let { thumb ->
-                        file = file.copy(
-                            thumbnail = UploadedThumbnail(thumb, "image/jpeg", frame.width.toLong(), frame.height.toLong(), frame.data.size.toLong()),
-                        )
-                    }
+                if (options.isAnimated != true) {
+                    options = options.copy(thumbnail = MediaMetadata.imageThumbnail(data)?.attachment())
                 }
             }
-            timeline.sendUploaded(file.copy(source = source, size = data.size.toLong()))
+            timeline.sendFile(data, options)
         }
     }
+
+    private fun MediaMetadata.Frame.attachment() =
+        AttachmentThumbnail(data, "image/jpeg", width.toLong(), height.toLong())
 
     private fun filenameOf(uri: Uri): String =
         displayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "file"
@@ -515,14 +485,6 @@ class TimelineModel(
     private fun mimeTypeOf(uri: Uri): String =
         WizardApplication.instance.contentResolver.getType(uri)?.takeIf { it != "application/octet-stream" }
             ?: mimeType(filenameOf(uri))
-
-    private suspend fun decodePreview(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
-        runCatching {
-            WizardApplication.instance.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = 4 })
-            }
-        }.getOrNull()
-    }
 
     suspend fun sendFile(file: File, caption: String? = null, replyTo: String? = null, spoiler: Boolean = false) =
         sendFile(Uri.fromFile(file), caption, replyTo, spoiler)
@@ -545,8 +507,26 @@ class TimelineModel(
     }
 
     suspend fun sendSticker(url: String, body: String, info: JsonElement, replyTo: String?) {
+        sendSticker(mapOf("url" to JsonPrimitive(url)), body, info, replyTo)
+    }
+
+    suspend fun sendGif(data: ByteArray, width: Int, height: Int, replyTo: String?): Boolean {
+        val timeline = timeline ?: return false
+        val options = AttachmentOptions(
+            filename = "GIF.gif",
+            mimetype = "image/gif",
+            width = width.toLong(),
+            height = height.toLong(),
+            isAnimated = true,
+            replyTo = replyTo,
+        )
+        return runCatching { timeline.sendFile(data, options) }.isSuccess
+    }
+
+    private suspend fun sendSticker(source: Map<String, JsonElement>, body: String, info: JsonElement, replyTo: String?) {
         val timeline = timeline ?: return
-        val content = mutableMapOf("body" to JsonPrimitive(body), "url" to JsonPrimitive(url), "info" to info)
+        val content = mutableMapOf<String, JsonElement>("body" to JsonPrimitive(body), "info" to info)
+        content.putAll(source)
         if (replyTo != null) {
             content["m.relates_to"] = JsonObject(mapOf("m.in_reply_to" to JsonObject(mapOf("event_id" to JsonPrimitive(replyTo)))))
         }
@@ -761,12 +741,16 @@ class TimelineModel(
                 is EntryContent.Image -> {
                     contentType = ChatEntry.ContentType.image
                     mediaSpoiler = if (content.media.spoiler) content.media.spoilerReason ?: "" else null
-                    ChatEntry.Kind.Image(ChatEntry.MediaContent(content.media))
+                    val mentioned = mentionText(content.media.captionHtml, ownUserId)
+                    mentions = mentioned?.second ?: emptyList()
+                    ChatEntry.Kind.Image(ChatEntry.MediaContent(content.media, caption = mentioned?.first))
                 }
                 is EntryContent.Video -> {
                     contentType = ChatEntry.ContentType.video
                     mediaSpoiler = if (content.media.spoiler) content.media.spoilerReason ?: "" else null
-                    ChatEntry.Kind.Video(ChatEntry.MediaContent(content.media))
+                    val mentioned = mentionText(content.media.captionHtml, ownUserId)
+                    mentions = mentioned?.second ?: emptyList()
+                    ChatEntry.Kind.Video(ChatEntry.MediaContent(content.media, caption = mentioned?.first))
                 }
                 is EntryContent.Audio -> {
                     contentType = ChatEntry.ContentType.audio
@@ -775,7 +759,9 @@ class TimelineModel(
                 }
                 is EntryContent.File -> {
                     contentType = ChatEntry.ContentType.file
-                    ChatEntry.Kind.File(ChatEntry.MediaContent(content.media))
+                    val mentioned = mentionText(content.media.captionHtml, ownUserId)
+                    mentions = mentioned?.second ?: emptyList()
+                    ChatEntry.Kind.File(ChatEntry.MediaContent(content.media, caption = mentioned?.first))
                 }
                 is EntryContent.Sticker -> ChatEntry.Kind.Sticker(ChatEntry.MediaContent(content.media, content.body))
                 is EntryContent.Location -> {
@@ -890,7 +876,7 @@ class TimelineModel(
         private fun collapseGalleries(entries: List<ChatEntry>): List<ChatEntry> {
             fun isCandidate(entry: ChatEntry): Boolean {
                 val image = entry.kind as? ChatEntry.Kind.Image ?: return false
-                return entry.replyTo == null && image.media.mimetype != "image/svg+xml" && image.media.caption == null
+                return entry.replyTo == null && !entry.sendFailed && image.media.mimetype != "image/svg+xml" && image.media.caption == null
             }
             fun day(instant: Instant) = instant.atZone(ZoneId.systemDefault()).toLocalDate()
             val result = mutableListOf<ChatEntry>()

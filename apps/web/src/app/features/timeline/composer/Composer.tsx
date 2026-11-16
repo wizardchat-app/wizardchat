@@ -294,7 +294,8 @@ export function Composer({
                   <span className={css.statusMeta}>
                     {uploadFileInfo.total > 1 &&
                       `${uploadFileInfo.current}/${uploadFileInfo.total} · `}
-                    {formatFileSize(uploadFileInfo.size)} · {Math.round(uploadProgress * 100)}%
+                    {formatFileSize(uploadFileInfo.size)}
+                    {uploadProgress > 0 && ` · ${Math.round(uploadProgress * 100)}%`}
                   </span>
                 </span>
                 <Tooltip content={t('composer.cancelUpload')}>
@@ -308,10 +309,14 @@ export function Composer({
                   </button>
                 </Tooltip>
                 <div className={css.uploadProgressTrack}>
-                  <div
-                    className={css.uploadProgressFill}
-                    style={{ width: `${Math.round(uploadProgress * 100)}%` }}
-                  />
+                  {uploadProgress > 0 ? (
+                    <div
+                      className={css.uploadProgressFill}
+                      style={{ width: `${Math.round(uploadProgress * 100)}%` }}
+                    />
+                  ) : (
+                    <div className={css.uploadProgressIndeterminate} />
+                  )}
                 </div>
               </div>
             )}

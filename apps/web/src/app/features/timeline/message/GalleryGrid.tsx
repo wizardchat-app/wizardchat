@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { useDecryptedMedia } from './encryption';
-import { getMediaBlobUrl, getMediaAnimates, plainMediaUrl } from './media';
+import { getMediaAnimates } from './media';
 import { getMediaInfoSpoiler } from './spoiler';
 import { entryEventId, entryMedia, type EventEntry as MatrixEvent } from './entry';
 import { MediaSpoiler } from './MediaSpoiler';
@@ -32,6 +32,7 @@ interface GalleryImageProps {
   hidden?: boolean;
   coverLabel?: string;
   onRevealCover?: (index: number) => void;
+  eager?: boolean;
 }
 
 function GalleryImage({
@@ -48,16 +49,18 @@ function GalleryImage({
   hidden = false,
   coverLabel,
   onRevealCover,
+  eager = false,
 }: GalleryImageProps) {
   const { t } = useTranslation();
   const media = entryMedia(event);
   const mediaSpoiler = getMediaInfoSpoiler(media);
   const isCovered = hidden || (!revealed && (forceCovered || mediaSpoiler.isSpoiler));
-  const { mediaSrc, setMediaSrc, requestFullRes } = useDecryptedMedia(event, client, !isCovered);
-
-  const mxcUrl = plainMediaUrl(media?.source);
-  const src =
-    mediaSrc ?? (!isCovered && mxcUrl ? getMediaBlobUrl(mxcUrl, client, setMediaSrc) : null);
+  const tileRef = useRef<HTMLButtonElement>(null);
+  const { mediaSrc, requestFullRes } = useDecryptedMedia(event, client, {
+    enabled: !isCovered,
+    targetRef: eager ? undefined : tileRef,
+  });
+  const src = isCovered ? null : mediaSrc;
   const body = media?.caption ?? media?.filename ?? 'image';
 
   useEffect(() => {
@@ -82,6 +85,7 @@ function GalleryImage({
 
   return (
     <button
+      ref={tileRef}
       type="button"
       className={className ?? css.galleryTile}
       style={style}
@@ -305,6 +309,7 @@ export function MessageGallery({
                 hidden={events[i] ? hiddenEventIds?.has(entryEventId(events[i])) === true : false}
                 coverLabel={coverLabel}
                 onRevealCover={handleRevealTile}
+                eager
               />
             </span>
           ))}

@@ -190,13 +190,17 @@ function AttachmentTile({
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.round(upload.progress * 100)}
+            aria-valuenow={upload.progress > 0 ? Math.round(upload.progress * 100) : undefined}
             aria-label={t('attachment.uploading')}
           >
-            <div
-              className={css.progressFill}
-              style={{ width: `${Math.round(upload.progress * 100)}%` }}
-            />
+            {upload.progress > 0 ? (
+              <div
+                className={css.progressFill}
+                style={{ width: `${Math.round(upload.progress * 100)}%` }}
+              />
+            ) : (
+              <div className={css.progressIndeterminate} />
+            )}
           </div>
         )}
         {caption && (

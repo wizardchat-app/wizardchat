@@ -82,9 +82,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
@@ -122,7 +120,6 @@ import org.wizardchat.android.matrix.MessageLayout
 import org.wizardchat.android.matrix.MessageMention
 import org.wizardchat.android.matrix.MessageNotifier
 import org.wizardchat.android.matrix.PacksStore
-import org.wizardchat.android.matrix.PendingUpload
 import org.wizardchat.android.matrix.RecentEmoji
 import org.wizardchat.android.matrix.TimelineModel
 import org.wizardchat.android.matrix.displayName
@@ -445,7 +442,6 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
                 contentPadding = PaddingValues(top = WZ.Space.space4, bottom = WZ.Space.space4),
             ) {
                 item(key = BOTTOM_ID) { Spacer(Modifier.height(0.dp)) }
-                items(timeline.uploads.asReversed(), key = { "upload${it.id}" }) { UploadingRow(it) }
                 items(timeline.entries.asReversed(), key = { it.id }) { entry ->
                     val highlight by animateColorAsState(
                         if (highlightedId == entry.id) theme.accent.copy(alpha = 0.18f) else Color.Transparent,
@@ -1047,9 +1043,8 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                         }
                         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
                             val sending = entry.isSending && !entry.sendFailed
-                            Box(Modifier.weight(1f, fill = false).alpha(if (sending && isText) 0.5f else 1f), contentAlignment = Alignment.Center) {
+                            Box(Modifier.weight(1f, fill = false).alpha(if (sending) 0.5f else 1f), contentAlignment = Alignment.Center) {
                                 MessageContent(entry, actions, isPrivateRoom, isText)
-                                if (sending && !isText) UploadProgressRing(null)
                             }
                             if (entry.sendFailed) {
                                 Box {
@@ -1128,15 +1123,18 @@ private fun MessageContent(entry: ChatEntry, actions: MessageActions?, isPrivate
             } else {
                 ImageMessageView(kind.media, isPrivateRoom = isPrivateRoom, spoiler = entry.mediaSpoiler)
             }
-            kind.media.caption?.let { Text(it, style = captionStyle, color = theme.textPrimary) }
+            kind.media.caption?.let { CaptionText(it, entry, captionStyle, actions?.openProfile) }
         }
         is ChatEntry.Kind.Sticker -> ImageMessageView(kind.media, isSticker = true, isPrivateRoom = isPrivateRoom)
         is ChatEntry.Kind.Video -> Column(verticalArrangement = Arrangement.spacedBy(WZ.Space.space2)) {
             VideoMessageView(kind.media, entry.mediaSpoiler)
-            kind.media.caption?.let { Text(it, style = captionStyle, color = theme.textPrimary) }
+            kind.media.caption?.let { CaptionText(it, entry, captionStyle, actions?.openProfile) }
         }
         is ChatEntry.Kind.Audio -> AudioMessageView(kind.media, kind.isVoice, kind.waveform)
-        is ChatEntry.Kind.File -> FileMessageView(kind.media)
+        is ChatEntry.Kind.File -> Column(verticalArrangement = Arrangement.spacedBy(WZ.Space.space2)) {
+            FileMessageView(kind.media)
+            kind.media.caption?.let { CaptionText(it, entry, captionStyle, actions?.openProfile) }
+        }
         is ChatEntry.Kind.Location -> LocationMessageView(kind.geoUri, kind.description)
         is ChatEntry.Kind.Poll -> PollMessageView(
             kind.poll,
@@ -1146,6 +1144,23 @@ private fun MessageContent(entry: ChatEntry, actions: MessageActions?, isPrivate
         )
         else -> {}
     }
+}
+
+@Composable
+private fun CaptionText(caption: String, entry: ChatEntry, style: TextStyle, onMention: ((String) -> Unit)?) {
+    val prefs = LocalPrefs.current
+    Text(
+        MessageText.attributed(
+            caption,
+            prefs.prettifyLinks,
+            theme.linkColor,
+            mentions = entry.mentions,
+            mentionColors = MentionColors(theme.mention, theme.accent),
+            onMention = onMention,
+        ),
+        style = style,
+        color = theme.textPrimary,
+    )
 }
 
 @Composable
@@ -1442,61 +1457,6 @@ private fun DeletedLabel(icon: String, text: String, style: androidx.compose.ui.
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
         PhIcon(icon, size = WZ.SizeIcon.sm, tint = theme.textMuted)
         Text(text, style = style.copy(fontStyle = FontStyle.Italic), color = theme.textMuted)
-    }
-}
-
-@Composable
-private fun UploadingRow(upload: PendingUpload) {
-    val preview = upload.preview
-    val width = preview?.width?.toFloat() ?: 260f
-    val height = preview?.height?.toFloat() ?: 72f
-    val scale = minOf(260f / maxOf(width, 1f), 320f / maxOf(height, 1f), 1f)
-    val label = L10n.format("timeline.uploading", upload.filename)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space1)
-            .semantics(mergeDescendants = true) { contentDescription = label },
-        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
-    ) {
-        Spacer(Modifier.width(WZ.SizeAvatar.md))
-        Box(
-            Modifier
-                .size(maxOf(width * scale, 60f).dp, maxOf(height * scale, 60f).dp)
-                .clip(RoundedCornerShape(WZ.Radius.lg))
-                .background(theme.fill),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (preview != null) {
-                Image(preview.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            }
-            UploadProgressRing(upload.progress)
-        }
-    }
-}
-
-@Composable
-private fun UploadProgressRing(progress: Float?) {
-    val label = tr("attachment.uploading")
-    Box(
-        Modifier.size(WZ.Space.space10).background(theme.overlay, CircleShape).semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) {
-        if (progress != null) {
-            androidx.compose.material3.CircularProgressIndicator(
-                progress = { maxOf(progress, 0.03f) },
-                modifier = Modifier.size(WZ.Space.space10),
-                color = theme.textOnAccent,
-                trackColor = theme.textOnAccent.copy(alpha = 0.3f),
-                strokeWidth = WZ.BorderWidth.thick,
-            )
-        } else {
-            androidx.compose.material3.CircularProgressIndicator(
-                Modifier.size(WZ.SizeIcon.md),
-                color = theme.textOnAccent,
-                strokeWidth = WZ.BorderWidth.thick,
-            )
-        }
     }
 }
 

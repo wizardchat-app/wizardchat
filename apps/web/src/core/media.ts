@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { WizardClient, type MediaSource } from '@wizardchat/core';
+import type { MediaSource, WizardClient } from '@wizardchat/core';
 import { getSafeMimeType } from '@/util/safeMimeType';
+import { sniffMimeType } from '@/util/sniffMimeType';
 
 const cache = new Map<string, Promise<string | null>>();
 
@@ -8,11 +9,8 @@ function load(key: string, fetchBytes: () => Promise<Uint8Array>, mimetype?: str
   let request = cache.get(key);
   if (!request) {
     request = fetchBytes()
-      .then(async (bytes) => {
-        const type =
-          mimetype ||
-          (await WizardClient.sniffMimeType(bytes.subarray(0, 32)).catch(() => null)) ||
-          '';
+      .then((bytes) => {
+        const type = mimetype || sniffMimeType(bytes) || '';
         return URL.createObjectURL(new Blob([bytes as BlobPart], { type: getSafeMimeType(type) }));
       })
       .catch((error: unknown) => {

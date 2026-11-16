@@ -1089,7 +1089,8 @@ impl RoomTimeline {
         Ok(())
     }
 
-    /// Uploads and sends a file; images, video and audio are shown inline by clients.
+    /// Sends a file through the send queue: its local echo shows at once from the media cache
+    /// while it uploads, and it is retried like text when the upload fails.
     pub async fn send_attachment(
         &self,
         mut attachment: Attachment,
@@ -1099,7 +1100,32 @@ impl RoomTimeline {
             .mimetype
             .parse()
             .unwrap_or(mime::APPLICATION_OCTET_STREAM);
-        let mut config = AttachmentConfig::default();
+        if mimetype.type_() == mime::IMAGE && mimetype.subtype() == mime::SVG {
+            // The send queue would make it an `m.image`; SVGs go out as plain files
+            let size = attachment.bytes.len() as u64;
+            let source = self
+                .upload_file(attachment.bytes, &attachment.mimetype, |_| {})
+                .await?;
+            let uploaded = UploadedAttachment {
+                source,
+                size,
+                filename: attachment.filename,
+                mimetype: attachment.mimetype,
+                caption: attachment.caption,
+                caption_html: attachment.caption_html,
+                spoiler: attachment.spoiler,
+                spoiler_reason: attachment.spoiler_reason,
+                mentions: attachment.mentions,
+                ..Default::default()
+            };
+            return self.send_uploaded(uploaded, reply_to).await;
+        }
+        let mut config = AttachmentConfig {
+            info: Some(AttachmentInfo::File(matrix_sdk::attachment::BaseFileInfo {
+                size: UInt::new(attachment.bytes.len() as u64),
+            })),
+            ..Default::default()
+        };
         if attachment.voice || mimetype.type_() == mime::AUDIO {
             let audio = matrix_sdk::attachment::BaseAudioInfo {
                 duration: attachment.duration_ms.map(std::time::Duration::from_millis),
@@ -1186,6 +1212,7 @@ impl RoomTimeline {
         };
         self.timeline
             .send_attachment(source, mimetype, config)
+            .use_send_queue()
             .await?;
         Ok(())
     }

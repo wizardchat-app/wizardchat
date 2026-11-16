@@ -194,24 +194,24 @@ struct ComposerView: View {
 
     private var plusBubble: some View {
         Menu {
-            Button { showPhotos = true } label: { Label(menu: String(localized: "composer.photosVideos"), icon: "ph-images-regular") }
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button { showCamera = true } label: { Label(menu: String(localized: "composer.camera"), icon: "ph-camera-regular") }
             }
+            Button { showPhotos = true } label: { Label(menu: String(localized: "composer.photosVideos"), icon: "ph-images-regular") }
             Button { showFiles = true } label: { Label(menu: String(localized: "composer.file"), icon: "ph-file-regular") }
             if UIPasteboard.general.hasImages {
                 Button { pasteImages() } label: { Label(menu: String(localized: "composer.pasteImage"), icon: "ph-clipboard-text-regular") }
             }
             Divider()
+            Button { Task { await recorder.start() } } label: { Label(menu: String(localized: "composer.voice.record"), icon: "ph-microphone-regular") }
+            Button { showLocation = true } label: { Label(menu: String(localized: "composer.location.share"), icon: "ph-map-pin-regular") }
+            Button { showPoll = true } label: { Label(menu: String(localized: "composer.poll.create"), icon: "ph-chart-bar-horizontal-regular") }
             Button {
                 formatting.toggle()
                 if formatting { focused = true }
             } label: {
                 Label(menu: String(localized: "composer.formatting.toolbar"), icon: "ph-text-aa-regular")
             }
-            Button { showPoll = true } label: { Label(menu: String(localized: "composer.poll.create"), icon: "ph-chart-bar-horizontal-regular") }
-            Button { showLocation = true } label: { Label(menu: String(localized: "composer.location.share"), icon: "ph-map-pin-regular") }
-            Button { Task { await recorder.start() } } label: { Label(menu: String(localized: "composer.voice.record"), icon: "ph-microphone-regular") }
         } label: {
             Image("ph-plus-regular")
                 .font(.system(size: WZ.SizeIcon.md, weight: .medium))
@@ -219,6 +219,7 @@ struct ComposerView: View {
                 .frame(width: WZ.Size.composerMin, height: WZ.Size.composerMin)
                 .floatingGlass(in: Circle())
         }
+        .menuOrder(.fixed)
         .accessibilityLabel(String(localized: "composer.attach"))
     }
 
@@ -760,7 +761,13 @@ struct ComposerView: View {
             attachments = []
             draft = ""
             replyTo = nil
-            await timeline.sendFiles(pending.map { ($0.url, $0.thumbnail) }, caption: text.isEmpty ? nil : text,
+            let html = text.isEmpty ? nil : await Self.richHtml(text, emotes: usedEmotes, mentions: mentions, client: session.client)
+            let userIds = mentions.filter { text.contains($0.key) && $0.value != session.userId }.map(\.value)
+            let room = RoomMention.isIn(text)
+            usedEmotes = [:]
+            mentions = [:]
+            await timeline.sendFiles(pending.map(\.url), caption: text.isEmpty ? nil : text, captionHtml: html,
+                                     mentions: Mentions(userIds: Array(Set(userIds)).sorted(), room: room ? true : nil),
                                      replyTo: reply)
             return
         }
@@ -826,8 +833,10 @@ struct ComposerView: View {
 
     private func sendSticker(_ sticker: PackImage) async {
         var info: [String: JSONValue] = [:]
+        if case .object(let packInfo) = sticker.info { info = packInfo }
         let source: MediaSource = .object(["url": .string(sticker.url)])
-        if let data = try? await timeline.client.media(source: source),
+        if info["w"] == nil || info["h"] == nil,
+           let data = try? await timeline.client.media(source: source),
            let image = AnimatedImage.image(from: data, animated: false) {
             info["w"] = .number(Double(image.size.width * image.scale))
             info["h"] = .number(Double(image.size.height * image.scale))

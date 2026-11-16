@@ -1,4 +1,4 @@
-import { globalStyle, style } from '@vanilla-extract/css';
+import { keyframes, globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -129,6 +129,20 @@ export const progressFill = style({
   borderRadius: '2px',
   backgroundColor: vars.color.accent,
   transition: `width ${fast} linear`,
+});
+
+// Browsers don't report upload progress to the core, so until a real number arrives the bar just moves
+const indeterminateSlide = keyframes({
+  '0%': { transform: 'translateX(-100%)' },
+  '100%': { transform: 'translateX(250%)' },
+});
+
+export const progressIndeterminate = style({
+  width: '40%',
+  height: '100%',
+  borderRadius: '2px',
+  backgroundColor: vars.color.accent,
+  animation: `${indeterminateSlide} 1.2s ease-in-out infinite`,
 });
 
 export const caption = style({

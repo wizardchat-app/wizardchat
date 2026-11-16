@@ -1,6 +1,7 @@
-import { WizardClient } from '@wizardchat/core';
+import type { WizardClient } from '@wizardchat/core';
 import { getCachedBlobUrl, setCachedBlobUrl } from '@/app/features/timeline/message/mediaCache';
 import { getSafeMimeType } from '@/util/safeMimeType';
+import { sniffMimeType } from '@/util/sniffMimeType';
 
 function isMxcUrl(url: string): boolean {
   return url.startsWith('mxc://');
@@ -54,11 +55,11 @@ export async function fetchMediaBlobUrl(
                 resizeMethod === 'crop'
               )
             : await client.media({ url: mxcUrl });
-        const type = await WizardClient.sniffMimeType(bytes.subarray(0, 32)).catch(() => null);
+        const type = sniffMimeType(bytes);
         // Never trust the content type: an SVG/HTML blob opened in a tab would run as the app
         const blob = new Blob([bytes as BlobPart], { type: getSafeMimeType(type ?? '') });
         const blobUrl = URL.createObjectURL(blob);
-        setCachedBlobUrl(cacheKey, blobUrl, blob.type);
+        setCachedBlobUrl(cacheKey, blobUrl, blob.type, blob.size);
         return blobUrl;
       } catch {
         if (i < retries) await new Promise((r) => setTimeout(r, 500 * (i + 1)));

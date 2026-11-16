@@ -6,7 +6,8 @@ import { Waveform } from '../Waveform/Waveform';
 import * as css from './VoiceMessagePlayer.css';
 
 interface Props {
-  src: string;
+  src: string | null;
+  loadSrc?: () => Promise<string | null>;
   waveform?: number[];
   durationMs?: number;
 }
@@ -50,7 +51,7 @@ async function extractWaveform(src: string, bars = 60): Promise<number[]> {
   return result;
 }
 
-export function VoiceMessagePlayer({ src, waveform: waveformProp, durationMs }: Props) {
+export function VoiceMessagePlayer({ src, loadSrc, waveform: waveformProp, durationMs }: Props) {
   const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -62,25 +63,29 @@ export function VoiceMessagePlayer({ src, waveform: waveformProp, durationMs }: 
     waveformProp && waveformProp.length > 0 ? normalizeWaveform(waveformProp) : []
   );
   const progress = duration && duration > 0 ? currentTime / duration : 0;
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const playWhenReadyRef = useRef(false);
+  const effectiveSrc = src ?? loadedSrc;
 
   useEffect(() => {
     if (waveformProp && waveformProp.length > 0) {
       setWaveformData(normalizeWaveform(waveformProp));
       return;
     }
+    if (!effectiveSrc) return;
     let cancelled = false;
-    extractWaveform(src).then((data) => {
+    extractWaveform(effectiveSrc).then((data) => {
       if (!cancelled) setWaveformData(data);
     });
     return () => {
       cancelled = true;
     };
-  }, [src, waveformProp]);
+  }, [effectiveSrc, waveformProp]);
 
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
-    audio.src = src;
     audio.preload = 'metadata';
 
     const onMeta = () => setDuration(audio.duration);
@@ -107,17 +112,39 @@ export function VoiceMessagePlayer({ src, waveform: waveformProp, durationMs }: 
       audio.removeEventListener('pause', onPause);
       audioRef.current = null;
     };
-  }, [src]);
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !effectiveSrc) return;
+    audio.src = effectiveSrc;
+    if (playWhenReadyRef.current) {
+      playWhenReadyRef.current = false;
+      audio.play().catch(() => {});
+    }
+  }, [effectiveSrc]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (!effectiveSrc) {
+      if (!loadSrc || loading) return;
+      setLoading(true);
+      playWhenReadyRef.current = true;
+      void loadSrc()
+        .then((url) => {
+          if (url) setLoadedSrc(url);
+          else playWhenReadyRef.current = false;
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
     if (audio.paused) {
       audio.play();
     } else {
       audio.pause();
     }
-  }, []);
+  }, [effectiveSrc, loadSrc, loading]);
 
   const handleWaveformClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -140,6 +167,7 @@ export function VoiceMessagePlayer({ src, waveform: waveformProp, durationMs }: 
         type="button"
         className={css.playBtn}
         onClick={togglePlay}
+        aria-busy={loading}
         aria-label={playing ? t('voiceMessagePlayer.pause') : t('voiceMessagePlayer.play')}
       >
         {playing ? <PauseIcon size={16} weight="fill" /> : <PlayIcon size={16} weight="fill" />}

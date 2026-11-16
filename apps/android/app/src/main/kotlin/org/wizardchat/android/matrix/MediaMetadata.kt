@@ -3,6 +3,7 @@ package org.wizardchat.android.matrix
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.graphics.Matrix
 import android.os.Build
 import android.media.ExifInterface
 import android.media.MediaMetadataRetriever
@@ -76,6 +77,58 @@ object MediaMetadata {
             scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
             Frame(out.toByteArray(), scaled.width, scaled.height)
         }
+    }
+
+    suspend fun imageThumbnail(data: ByteArray, maxSize: Int = 800): Frame? = withContext(Dispatchers.Default) {
+        val image = decodeImage(data, maxSize) ?: return@withContext null
+        val scale = maxSize.toFloat() / maxOf(image.width, image.height)
+        if (scale >= 1f) return@withContext null
+        val scaled = Bitmap.createScaledBitmap(image, (image.width * scale).toInt(), (image.height * scale).toInt(), true)
+        val out = ByteArrayOutputStream()
+        scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        Frame(out.toByteArray(), scaled.width, scaled.height)
+    }
+
+    fun decodeImage(data: ByteArray, size: Int?): Bitmap? = runCatching {
+        if (Build.VERSION.SDK_INT >= 28) {
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(data))) { decoder, info, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                decoder.setTargetSampleSize(sampleSize(maxOf(info.size.width, info.size.height), size))
+            }
+        } else {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(maxOf(bounds.outWidth, bounds.outHeight), size) }
+            BitmapFactory.decodeByteArray(data, 0, data.size, options)?.let { upright(it, data) }
+        }
+    }.getOrNull()
+
+    private const val MAX_DECODED_SIZE = 2560
+
+    private fun sampleSize(longest: Int, size: Int?): Int {
+        val target = minOf(size ?: MAX_DECODED_SIZE, MAX_DECODED_SIZE)
+        var sample = 1
+        while (longest / (sample * 2) >= target) sample *= 2
+        while (longest / sample > MAX_DECODED_SIZE) sample *= 2
+        return sample
+    }
+
+    private fun upright(bitmap: Bitmap, data: ByteArray): Bitmap {
+        val orientation = runCatching {
+            ExifInterface(data.inputStream()).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.setScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> matrix.apply { setRotate(90f); postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> matrix.apply { setRotate(-90f); postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+            else -> return bitmap
+        }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
     suspend fun video(uri: Uri): Video = withContext(Dispatchers.IO) {

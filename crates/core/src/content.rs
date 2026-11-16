@@ -307,6 +307,11 @@ fn media_info(msgtype: &MessageType) -> Option<MediaInfo> {
         .filter(|name| **name != body)
         .map(|_| body.clone());
     let number = |key: &str| info.get(key).and_then(Value::as_u64);
+    let caption_html = caption
+        .as_ref()
+        .filter(|_| json.get("format").and_then(Value::as_str) == Some("org.matrix.custom.html"))
+        .and_then(|_| json.get("formatted_body").and_then(Value::as_str))
+        .map(sanitize);
     Some(MediaInfo {
         source: media_source(&json, "url", "file")?,
         thumbnail_source: media_source(&info, "thumbnail_url", "thumbnail_file"),
@@ -326,7 +331,7 @@ fn media_info(msgtype: &MessageType) -> Option<MediaInfo> {
         waveform: None,
         blurhash: None,
         is_animated: false,
-        caption_html: None,
+        caption_html,
     })
 }
 
@@ -365,9 +370,13 @@ fn message_content(msgtype: &MessageType, body: &str, raw: Option<&Value>) -> En
             let rich = html.as_deref().and_then(crate::rich_text::rich_blocks);
             EntryContent::Emote { body, html, rich }
         }
-        MessageType::Image(_) => {
-            media().map_or(EntryContent::Other, |media| EntryContent::Image { media })
-        }
+        MessageType::Image(_) => media().map_or(EntryContent::Other, |media| {
+            if is_svg(&media) {
+                EntryContent::File { media }
+            } else {
+                EntryContent::Image { media }
+            }
+        }),
         MessageType::Video(_) => {
             media().map_or(EntryContent::Other, |media| EntryContent::Video { media })
         }
@@ -581,6 +590,15 @@ fn fallback_text(content: Option<&Value>) -> Option<String> {
                 .and_then(Value::as_str)
         })
         .map(ToOwned::to_owned)
+}
+
+// SVGs can carry scripts and render differently per client, so they're offered as files
+fn is_svg(media: &MediaInfo) -> bool {
+    media
+        .mimetype
+        .as_deref()
+        .is_some_and(|m| m.eq_ignore_ascii_case("image/svg+xml"))
+        || media.filename.to_ascii_lowercase().ends_with(".svg")
 }
 
 /// A one-line plain-text summary, for reply previews and notifications
