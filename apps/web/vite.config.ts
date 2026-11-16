@@ -46,12 +46,38 @@ function soundsPlugin(): Plugin {
   };
 }
 
+// livekit-client encrypts data packets without stamping their encryption type, so the other
+// LiveKit SDKs (and itself) report them as unencrypted and our encrypted calls drop them
+const LIVEKIT_ENCRYPTED_PACKET = /new EncryptedPacket\(\{(\s*)encryptedValue:/;
+function livekitDataEncryptionPlugin(): Plugin {
+  return {
+    name: 'livekit-data-encryption-type',
+    transform(code, id) {
+      if (!id.replace(/\\/g, '/').endsWith('livekit-client/dist/livekit-client.esm.mjs')) return;
+      if (!LIVEKIT_ENCRYPTED_PACKET.test(code))
+        throw new Error(
+          'livekit-client changed, check livekitDataEncryptionPlugin in vite.config.ts'
+        );
+      return code.replace(
+        LIVEKIT_ENCRYPTED_PACKET,
+        'new EncryptedPacket({$1encryptionType: Encryption_Type.GCM,$1encryptedValue:'
+      );
+    },
+  };
+}
+
 const corePkg = fileURLToPath(new URL('../../crates/wasm/pkg/', import.meta.url));
 export default defineConfig(({ mode }) => {
   // The desktop app runs the core natively in Tauri and talks to it over IPC
   const desktop = mode === 'desktop';
   return {
-    plugins: [react(), vanillaExtractPlugin(), versionFilePlugin(), soundsPlugin()],
+    plugins: [
+      react(),
+      vanillaExtractPlugin(),
+      versionFilePlugin(),
+      soundsPlugin(),
+      livekitDataEncryptionPlugin(),
+    ],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -81,7 +107,10 @@ export default defineConfig(({ mode }) => {
         packageJson.homepage ?? 'https://wizardchat.org'
       ),
     },
-    optimizeDeps: { exclude: ['@wizardchat/core-wasm'] },
+    optimizeDeps: {
+      exclude: ['@wizardchat/core-wasm'],
+      rolldownOptions: { plugins: [livekitDataEncryptionPlugin()] },
+    },
     build: { target: 'es2022', outDir: desktop ? 'dist-desktop' : 'dist' },
   };
 });
