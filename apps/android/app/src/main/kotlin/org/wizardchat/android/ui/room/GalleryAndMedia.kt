@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,7 +68,7 @@ import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalMedia
 import org.wizardchat.android.matrix.ChatEntry
 import org.wizardchat.android.matrix.TimelineModel
-import org.wizardchat.android.ui.BarTextButton
+import org.wizardchat.android.ui.BarButton
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.LocalBottomBarInset
 import org.wizardchat.android.ui.MenuItem
@@ -135,13 +136,15 @@ fun GalleryGridView(items: List<ChatEntry>, isPrivateRoom: Boolean = true) {
             Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
                 chunk.forEachIndexed { column, (entry, media) ->
                     val index = row * columns + column
-                    Box(Modifier.size(tile)) {
-                        GalleryTile(
-                            media,
-                            entry.mediaSpoiler,
-                            isPrivateRoom,
-                            moreCount = if (index == visible.size - 1 && extra > 0) extra else 0,
-                        ) { openIndex = index }
+                    key(entry.id) {
+                        Box(Modifier.size(tile)) {
+                            GalleryTile(
+                                media,
+                                entry.mediaSpoiler,
+                                isPrivateRoom,
+                                moreCount = if (index == visible.size - 1 && extra > 0) extra else 0,
+                            ) { openIndex = index }
+                        }
                     }
                 }
             }
@@ -157,12 +160,12 @@ private const val MAX_VISIBLE = 8
 @Composable
 private fun GalleryTile(media: ChatEntry.MediaContent, spoiler: String?, isPrivateRoom: Boolean, moreCount: Int, onOpen: () -> Unit) {
     val loader = LocalMedia.current
-    var image by remember(media.source) { mutableStateOf<Bitmap?>(null) }
+    var image by remember { mutableStateOf<Bitmap?>(null) }
     var revealed by remember { mutableStateOf(false) }
     val hidden = mediaHidden(revealed, spoiler, isPrivateRoom)
-    LaunchedEffect(hidden, loader) {
+    LaunchedEffect(media.source, media.thumbnail, hidden, loader) {
         if (hidden || loader == null) return@LaunchedEffect
-        image = loader.image(media.thumbnail ?: media.source, 400)
+        loader.image(media.thumbnail ?: media.source, 400, serverThumbnail = media.thumbnail == null)?.let { image = it }
     }
     Box(
         Modifier.fillMaxSize().background(theme.fill).clipToBounds().messageTap { if (hidden) revealed = true else onOpen() },
@@ -190,7 +193,7 @@ fun MediaPagerView(items: List<ChatEntry.MediaContent>, startIndex: Int, isVideo
                     .padding(horizontal = WZ.Space.space3),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.align(Alignment.CenterStart)) { BarTextButton(tr("common.done"), onDismiss) }
+                Box(Modifier.align(Alignment.CenterStart)) { BarButton("x", tr("common.close"), onDismiss, tint = Color.White) }
                 if (items.size > 1) {
                     Text(
                         tr("timeline.pageIndicator", "${pager.currentPage + 1}", items.size),
@@ -217,7 +220,7 @@ private fun MediaPage(media: ChatEntry.MediaContent, isVideo: Boolean) {
     LaunchedEffect(media.source, loader) {
         loader ?: return@LaunchedEffect
         if (isVideo) {
-            media.thumbnail?.let { image = loader.image(it, 800) }
+            media.thumbnail?.let { image = loader.image(it, 800, serverThumbnail = false) }
         } else {
             if (media.isAnimated) animated = loader.animated(media.source)
             image = loader.image(media.source, null)

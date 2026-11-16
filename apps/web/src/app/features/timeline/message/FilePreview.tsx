@@ -53,13 +53,13 @@ type State =
   | { status: 'pdf'; url: string };
 
 interface FilePreviewModalProps {
-  src: string;
+  load: () => Promise<string | null>;
   filename: string;
   kind: PreviewKind;
   onClose: () => void;
 }
 
-export function FilePreviewModal({ src, filename, kind, onClose }: FilePreviewModalProps) {
+export function FilePreviewModal({ load, filename, kind, onClose }: FilePreviewModalProps) {
   const { t } = useTranslation();
   const [state, setState] = useState<State>({ status: 'loading' });
 
@@ -68,6 +68,8 @@ export function FilePreviewModal({ src, filename, kind, onClose }: FilePreviewMo
     let pdfUrl: string | null = null;
     setState({ status: 'loading' });
     (async () => {
+      const src = await load();
+      if (!src) throw new Error('File unavailable');
       const blob = await (await fetch(src)).blob();
       if (kind === 'pdf') {
         pdfUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
@@ -83,7 +85,7 @@ export function FilePreviewModal({ src, filename, kind, onClose }: FilePreviewMo
       cancelled = true;
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     };
-  }, [src, kind]);
+  }, [load, kind]);
 
   const markdownHtml = useMemo(
     () =>

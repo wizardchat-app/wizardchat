@@ -1,5 +1,18 @@
 package org.wizardchat.android.ui
 
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.material3.Surface
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -219,21 +232,59 @@ data class MenuItem(
 )
 
 @Composable
-fun WizardMenu(expanded: Boolean, onDismiss: () -> Unit, items: List<MenuItem>) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = theme.bgTertiary) {
-        items.forEach { item ->
-            if (item.divider) HorizontalDivider(color = theme.border)
-            val color = if (item.destructive) theme.danger else theme.textPrimary
-            DropdownMenuItem(
-                text = { Text(item.label, style = wizardFont(WZ.FontSize.lg), color = color) },
-                leadingIcon = item.icon?.let { { PhIcon(it, tint = color) } },
-                trailingIcon = if (item.checked) ({ PhIcon("check", PhWeight.bold, tint = theme.accent) }) else null,
-                onClick = {
-                    onDismiss()
-                    item.onClick()
-                },
-            )
+fun WizardMenu(expanded: Boolean, onDismiss: () -> Unit, items: List<MenuItem>, above: Boolean = false) {
+    if (above) {
+        if (!expanded) return
+        val gap = with(LocalDensity.current) { WZ.Space.space3.roundToPx() }
+        Popup(
+            popupPositionProvider = remember(gap) { AboveAnchor(gap) },
+            onDismissRequest = onDismiss,
+            properties = PopupProperties(focusable = true),
+        ) {
+            Surface(
+                shape = MenuDefaults.shape,
+                color = theme.bgTertiary,
+                shadowElevation = MenuDefaults.ShadowElevation,
+                tonalElevation = MenuDefaults.TonalElevation,
+            ) {
+                Column(Modifier.width(IntrinsicSize.Max).padding(vertical = WZ.Space.space3)) { MenuItems(items, onDismiss) }
+            }
         }
+        return
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = theme.bgTertiary) {
+        MenuItems(items, onDismiss)
+    }
+}
+
+@Composable
+private fun MenuItems(items: List<MenuItem>, onDismiss: () -> Unit) {
+    items.forEach { item ->
+        if (item.divider) HorizontalDivider(color = theme.border)
+        val color = if (item.destructive) theme.danger else theme.textPrimary
+        DropdownMenuItem(
+            text = { Text(item.label, style = wizardFont(WZ.FontSize.lg), color = color) },
+            leadingIcon = item.icon?.let { { PhIcon(it, tint = color) } },
+            trailingIcon = if (item.checked) ({ PhIcon("check", PhWeight.bold, tint = theme.accent) }) else null,
+            onClick = {
+                onDismiss()
+                item.onClick()
+            },
+        )
+    }
+}
+
+// The dropdown keeps a large margin when it flips above its anchor; this sits right on top of it
+private class AboveAnchor(private val gap: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = anchorBounds.left.coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width))
+        val y = maxOf(0, anchorBounds.top - gap - popupContentSize.height)
+        return IntOffset(x, y)
     }
 }
 

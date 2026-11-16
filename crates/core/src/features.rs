@@ -67,6 +67,7 @@ pub struct PackImage {
     pub body: Option<String>,
     pub emoticon: bool,
     pub sticker: bool,
+    pub info: Option<Value>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
@@ -144,6 +145,7 @@ fn parse_pack(id: String, room_id: Option<String>, content: &Value) -> Option<Em
                     .map(ToOwned::to_owned),
                 emoticon: has("emoticon"),
                 sticker: has("sticker"),
+                info: image.get("info").filter(|info| info.is_object()).cloned(),
             })
         })
         .collect();

@@ -59,6 +59,19 @@ enum MediaMetadata {
         return (data, frame.width, frame.height)
     }
 
+    static func imageThumbnail(of data: Data, maxSize: CGFloat = 800) -> (data: Data, width: Int, height: Int)? {
+        guard let size = imageSize(of: data), max(size.width, size.height) > maxSize,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxSize,
+        ]
+        guard let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
+              let jpeg = UIImage(cgImage: thumb).jpegData(compressionQuality: 0.8) else { return nil }
+        return (jpeg, thumb.width, thumb.height)
+    }
+
     static func duration(at url: URL) async -> TimeInterval? {
         try? await AVURLAsset(url: url).load(.duration).seconds
     }
@@ -114,8 +127,31 @@ struct AnimatedImageView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeUIView(context: Context) -> UIImageView {
-        let view = UIImageView()
+    final class FramesView: UIImageView {
+        var frames: CAKeyframeAnimation?
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            NotificationCenter.default.addObserver(self, selector: #selector(resume),
+                                                   name: UIApplication.willEnterForegroundNotification, object: nil)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            resume()
+        }
+
+        // Core Animation drops the animation when the view leaves the window or the app backgrounds
+        @objc func resume() {
+            guard window != nil, let frames, layer.animation(forKey: AnimatedImageView.animationKey) == nil else { return }
+            layer.add(frames, forKey: AnimatedImageView.animationKey)
+        }
+    }
+
+    func makeUIView(context: Context) -> FramesView {
+        let view = FramesView(frame: .zero)
         view.clipsToBounds = true
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
@@ -124,11 +160,15 @@ struct AnimatedImageView: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ view: UIImageView, context: Context) {
+    func updateUIView(_ view: FramesView, context: Context) {
         view.contentMode = contentMode
-        if let shown = context.coordinator.shown, shown.image === image, shown.loops == loops { return }
+        if let shown = context.coordinator.shown, shown.image === image, shown.loops == loops {
+            view.resume()
+            return
+        }
         context.coordinator.shown = (image, loops)
         guard let frames = image.images else {
+            view.frames = nil
             view.layer.removeAnimation(forKey: Self.animationKey)
             view.image = image
             return
@@ -139,10 +179,11 @@ struct AnimatedImageView: UIViewRepresentable {
         animation.calculationMode = .discrete
         animation.duration = image.duration
         animation.repeatCount = loops == 0 ? .infinity : Float(loops)
+        view.frames = loops == 0 ? animation : nil
         view.layer.add(animation, forKey: Self.animationKey)
     }
 
-    private static let animationKey = "frames"
+    fileprivate static let animationKey = "frames"
 }
 
 private struct AnimatesMediaKey: EnvironmentKey {

@@ -617,6 +617,7 @@ export type PackImage = {
   body: string | null;
   emoticon: boolean;
   sticker: boolean;
+  info: JsonValue | null;
 };
 
 export type PollAnswerView = { id: string; text: string; votes: number };

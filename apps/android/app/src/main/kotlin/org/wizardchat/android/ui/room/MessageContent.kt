@@ -7,6 +7,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
+import android.view.View
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
@@ -106,7 +107,6 @@ import org.wizardchat.android.matrix.MediaVisibility
 import org.wizardchat.android.matrix.memberProfile
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.BarButton
-import org.wizardchat.android.ui.BarTextButton
 import org.wizardchat.android.ui.CopyToast
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcon
@@ -218,14 +218,22 @@ internal suspend fun saveToPhotos(context: Context, file: File, mimetype: String
 @Composable
 internal fun AnimatedDrawable(drawable: Drawable, fit: Boolean, modifier: Modifier = Modifier) {
     AndroidView(
-        factory = { ImageView(it) },
+        factory = { context ->
+            ImageView(context).apply {
+                addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: View) {
+                        (this@apply.drawable as? Animatable)?.start()
+                    }
+
+                    override fun onViewDetachedFromWindow(view: View) = Unit
+                })
+            }
+        },
         modifier = modifier,
         update = { view ->
             view.scaleType = if (fit) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
-            if (view.drawable !== drawable) {
-                view.setImageDrawable(drawable)
-                (drawable as? Animatable)?.start()
-            }
+            if (view.drawable !== drawable) view.setImageDrawable(drawable)
+            (drawable as? Animatable)?.takeIf { !it.isRunning }?.start()
         },
     )
 }
@@ -248,12 +256,24 @@ fun ImageMessageView(
     val canAnimate = media.isAnimated || isSticker || media.mimetype in listOf("image/gif", "image/webp", "image/apng")
     val animate = canAnimate && (prefs.autoplayGifs || holding || animatesMedia)
 
-    var image by remember(media.source) { mutableStateOf<Bitmap?>(null) }
+    val preview = media.thumbnail.takeIf { !canAnimate }
+    var image by remember { mutableStateOf<Bitmap?>(null) }
+    var imageSource by remember { mutableStateOf<MediaSource?>(null) }
+    var full by remember(media.source) { mutableStateOf<Bitmap?>(null) }
     var animated by remember(media.source) { mutableStateOf<Drawable?>(null) }
-    LaunchedEffect(animate, showViewer, hidden, loader) {
+    var viewerAnimated by remember(media.source) { mutableStateOf<Drawable?>(null) }
+    LaunchedEffect(media.source, preview, animate, showViewer, hidden, loader) {
         if (hidden || loader == null) return@LaunchedEffect
-        if ((animate || showViewer && canAnimate) && animated == null) animated = loader.animated(media.source)
-        if (image == null) image = loader.image(media.source, if (animate) null else 800)
+        if (animate && animated == null) animated = loader.animated(media.source)
+        if (showViewer && canAnimate && viewerAnimated == null) viewerAnimated = loader.animated(media.source)
+        val wanted = preview ?: media.source
+        if (imageSource != wanted) {
+            loader.image(wanted, 800, serverThumbnail = preview == null)?.let {
+                image = it
+                imageSource = wanted
+            }
+        }
+        if (showViewer && !canAnimate && full == null) full = loader.image(media.source, null)
     }
 
     val maxWidth = if (isSticker) 160f else 260f
@@ -309,8 +329,9 @@ fun ImageMessageView(
         }
     }
     if (showViewer) {
-        ImageViewer(image, animated.takeIf { canAnimate }, media.caption ?: media.filename, media.source, media.filename, media.mimetype) {
+        ImageViewer(full ?: image, viewerAnimated.takeIf { canAnimate }, media.caption ?: media.filename, media.source, media.filename, media.mimetype) {
             showViewer = false
+            viewerAnimated = null
         }
     }
 }
@@ -336,7 +357,7 @@ fun ImageViewer(
                     .padding(horizontal = WZ.Space.space3),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BarTextButton(tr("common.done"), onDismiss)
+                BarButton("x", tr("common.close"), onDismiss, tint = Color.White)
                 Text(
                     title,
                     Modifier.weight(1f),
@@ -352,13 +373,13 @@ fun ImageViewer(
                             val file = runCatching { loader.file(source, filename) }.getOrNull() ?: return@launch
                             saveToPhotos(context, file, mimetype ?: "image/png")
                         }
-                    })
+                    }, tint = Color.White)
                     BarButton("export", tr("desktopPicker.share"), {
                         scope.launch {
                             val file = runCatching { loader.file(source, filename) }.getOrNull() ?: return@launch
                             shareFile(context, file, mimetype ?: "image/*")
                         }
-                    })
+                    }, tint = Color.White)
                 } else {
                     Spacer(Modifier.size(WZ.Space.space11))
                 }
@@ -404,14 +425,14 @@ fun VideoMessageView(media: ChatEntry.MediaContent, spoiler: String? = null) {
     val loader = LocalMedia.current
     val scope = rememberCoroutineScope()
     var revealed by remember { mutableStateOf(false) }
-    var thumbnail by remember(media.source) { mutableStateOf<Bitmap?>(null) }
+    var thumbnail by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(false) }
     var playing by remember { mutableStateOf<File?>(null) }
     val width = 260f
     val ratio = (media.height ?: 9f) / maxOf(media.width ?: 16f, 1f)
     LaunchedEffect(media.thumbnail, loader) {
         val source = media.thumbnail ?: return@LaunchedEffect
-        thumbnail = loader?.image(source, 600)
+        loader?.image(source, 600, serverThumbnail = false)?.let { thumbnail = it }
     }
     val description = tr("timeline.summary.video")
     Box(
@@ -483,7 +504,7 @@ fun VideoPlayer(file: File, onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
             )
             Box(Modifier.statusBarsPadding().padding(WZ.Space.space3)) {
-                BarTextButton(tr("common.done"), onDismiss)
+                BarButton("x", tr("common.close"), onDismiss, tint = Color.White)
             }
         }
     }

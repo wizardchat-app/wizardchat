@@ -145,23 +145,26 @@ export function NativeStickerPicker({
 
   const sendSticker = useCallback(
     async (sticker: StickerImage) => {
+      onClose();
       try {
         const baseInfo: Record<string, unknown> = { ...sticker.info };
         if (sticker.mimetype && !baseInfo.mimetype) baseInfo.mimetype = sticker.mimetype;
-        const info = await resolveStickerInfo(client, sticker.url, baseInfo);
+        const [info, timeline] = await Promise.all([
+          resolveStickerInfo(client, sticker.url, baseInfo),
+          getTimeline(),
+        ]);
         const content: Record<string, unknown> = {
           body: sticker.body ?? sticker.shortcode,
           url: sticker.url,
           info,
         };
         await sendRawEvent('m.sticker', content, {
-          timeline: await getTimeline(),
+          timeline,
           threadId,
           replyTo,
           myId: client.userId() ?? '',
         });
         if (replyTo) onReplySent?.();
-        onClose();
       } catch (err) {
         toast.error(t('room.settings.widgets.stickerSendFailed', { error: getErrorMessage(err) }));
       }

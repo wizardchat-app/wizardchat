@@ -94,9 +94,10 @@ export function AnimatedImage({
     };
   }, [src, mimeType, wantsStill]);
 
-  // For encrypted animated images, decrypt the full-res on first hover
+  // An animated image shown from a still thumbnail animates from the original on first hover
   useEffect(() => {
-    if (alwaysStatic || !hovering || !requestFullRes || fetchedFullResRef.current) return;
+    if (alwaysStatic || !isAnimationCandidate || !hovering || !requestFullRes) return;
+    if (fetchedFullResRef.current) return;
     fetchedFullResRef.current = true;
     let cancelled = false;
     void requestFullRes().then((url) => {
@@ -105,7 +106,7 @@ export function AnimatedImage({
     return () => {
       cancelled = true;
     };
-  }, [alwaysStatic, hovering, requestFullRes]);
+  }, [alwaysStatic, isAnimationCandidate, hovering, requestFullRes]);
 
   const effectiveSrc = animatedSrc ?? src;
   const showStill = wantsStill && !!stillUrl && (alwaysStatic || !hovering);

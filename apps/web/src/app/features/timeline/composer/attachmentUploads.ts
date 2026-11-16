@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { JsonValue, RoomTimeline, UploadedThumbnail } from '@wizardchat/core';
 import { getMediaDetails, type MediaDetails } from '../encryptedMedia';
+import { cacheOwnUpload } from '../message/mediaCache';
 import { prepareMediaFile, type MediaOptions } from './mediaProcessing';
 
 export type AttachmentUploadStatus = 'uploading' | 'done' | 'error';
@@ -93,21 +94,29 @@ async function prepareAttachment(
   ]);
   throwIfAborted(signal);
   const mimetype = file.type || 'application/octet-stream';
-  const source = await timeline.uploadFile(bytes, mimetype, (p) => {
-    if (p.total > 0) onProgress(p.current / p.total);
-  });
+  const thumb = details.thumbnail;
+  const [source, thumbnailSource] = await Promise.all([
+    timeline.uploadFile(bytes, mimetype, (p) => {
+      if (p.total > 0) onProgress(p.current / p.total);
+    }),
+    thumb ? timeline.uploadFile(thumb.data, thumb.mimetype, () => {}) : Promise.resolve(null),
+  ]);
   throwIfAborted(signal);
+  cacheOwnUpload(source, file, mimetype);
   let thumbnail: UploadedThumbnail | null = null;
-  if (details.thumbnail) {
-    const thumb = details.thumbnail;
+  if (thumb && thumbnailSource) {
     thumbnail = {
-      source: await timeline.uploadFile(thumb.data, thumb.mimetype, () => {}),
+      source: thumbnailSource,
       mimetype: thumb.mimetype,
       width: thumb.width,
       height: thumb.height,
       size: thumb.data.byteLength,
     };
-    throwIfAborted(signal);
+    cacheOwnUpload(
+      thumbnailSource,
+      new Blob([new Uint8Array(thumb.data)], { type: thumb.mimetype }),
+      thumb.mimetype
+    );
   }
   return {
     ...details,

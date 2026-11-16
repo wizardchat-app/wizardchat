@@ -3,14 +3,6 @@ import UIKit
 import UniformTypeIdentifiers
 import WizardChatCore
 
-struct PendingUpload: Identifiable {
-    let id = UUID()
-    let preview: UIImage?
-    let isVideo: Bool
-    let filename: String
-    var progress: Double?
-}
-
 struct MessageMention: Hashable {
     let label: String
     let userId: String
@@ -67,10 +59,10 @@ struct ChatEntry: Identifiable {
         let thumbnail: MediaSource?
         let isAnimated: Bool
 
-        init(_ media: MediaInfo, body: String? = nil) {
+        init(_ media: MediaInfo, body: String? = nil, caption: String? = nil) {
             source = media.source
             self.body = body ?? media.caption ?? media.filename
-            caption = media.caption
+            self.caption = caption ?? media.caption
             filename = media.filename
             mimetype = media.mimetype
             width = media.width.map { CGFloat($0) }
@@ -201,7 +193,6 @@ final class TimelineModel: ObservableObject {
     @Published var loadFailed = false
     @Published private(set) var firstUnreadId: String?
     @Published private(set) var pinnedIds: Set<String> = []
-    @Published private(set) var uploads: [PendingUpload] = []
 
     let client: WizardClient
     let roomId: String
@@ -235,7 +226,7 @@ final class TimelineModel: ObservableObject {
     func start() async {
         guard !started else { return }
         started = true
-        await loadPinned()
+        Task { await loadPinned() }
         do {
             let timeline = kind == .main
                 ? try await client.timeline(roomId: roomId)
@@ -384,27 +375,21 @@ final class TimelineModel: ObservableObject {
     }
 
     func sendFile(at url: URL, caption: String? = nil, replyTo: String? = nil, spoiler: Bool = false) async {
-        await sendFiles([(url, nil)], caption: caption, replyTo: replyTo, spoiler: spoiler)
+        await sendFiles([url], caption: caption, replyTo: replyTo, spoiler: spoiler)
     }
 
     /// The caption and reply go with the first file
-    func sendFiles(_ files: [(url: URL, preview: UIImage?)], caption: String? = nil, replyTo: String? = nil,
-                   spoiler: Bool = false) async {
-        guard timeline != nil else { return }
-        let pending = files.map { file in
-            let type = UTType(filenameExtension: file.url.pathExtension) ?? .data
-            return PendingUpload(preview: file.preview ?? (type.conforms(to: .image) ? UIImage(contentsOfFile: file.url.path) : nil),
-                                 isVideo: type.conforms(to: .movie), filename: file.url.lastPathComponent)
-        }
-        uploads.append(contentsOf: pending)
-        for (index, (file, item)) in zip(files, pending).enumerated() {
-            await upload(file.url, as: item.id, caption: index == 0 ? caption : nil,
-                         replyTo: index == 0 ? replyTo : nil, spoiler: spoiler)
-            uploads.removeAll { $0.id == item.id }
+    func sendFiles(_ urls: [URL], caption: String? = nil, captionHtml: String? = nil, mentions: Mentions? = nil,
+                   replyTo: String? = nil, spoiler: Bool = false) async {
+        for (index, url) in urls.enumerated() {
+            let first = index == 0
+            await send(url, caption: first ? caption : nil, captionHtml: first ? captionHtml : nil,
+                       mentions: first ? mentions : nil, replyTo: first ? replyTo : nil, spoiler: spoiler)
         }
     }
 
-    private func upload(_ url: URL, as id: UUID, caption: String?, replyTo: String?, spoiler: Bool) async {
+    private func send(_ url: URL, caption: String?, captionHtml: String? = nil, mentions: Mentions? = nil,
+                      replyTo: String?, spoiler: Bool) async {
         guard let timeline else { return }
         let type = UTType(filenameExtension: url.pathExtension) ?? .data
         var mimetype = type.preferredMIMEType ?? "application/octet-stream"
@@ -415,36 +400,33 @@ final class TimelineModel: ObservableObject {
             mimetype = shareable.mimetype
             filename = url.deletingPathExtension().lastPathComponent + "." + shareable.ext
         }
-        var file = UploadedFile(source: .null, size: 0, filename: filename, mimetype: mimetype,
-                                caption: caption, spoiler: spoiler, isAnimated: mimetype == "image/gif", replyTo: replyTo)
-        if let image, let size = MediaMetadata.imageSize(of: image) {
-            file.width = Int(size.width)
-            file.height = Int(size.height)
+        var options = AttachmentOptions(filename: filename, mimetype: mimetype, caption: caption,
+                                        spoiler: spoiler ? true : nil, replyTo: replyTo,
+                                        isAnimated: mimetype == "image/gif", captionHtml: captionHtml, mentions: mentions)
+        if let image {
+            if let size = MediaMetadata.imageSize(of: image) {
+                options.width = Int(size.width)
+                options.height = Int(size.height)
+            }
+            if mimetype != "image/gif", let thumb = MediaMetadata.imageThumbnail(of: image) {
+                options.thumbnail = AttachmentThumbnail(data: thumb.data, mimetype: "image/jpeg",
+                                                        width: thumb.width, height: thumb.height)
+            }
         } else if type.conforms(to: .movie) {
             let video = await MediaMetadata.video(at: url)
-            file.width = video.size.map { Int($0.width) }
-            file.height = video.size.map { Int($0.height) }
-            file.durationMs = video.duration.map { Int($0 * 1000) }
+            options.width = video.size.map { Int($0.width) }
+            options.height = video.size.map { Int($0.height) }
+            options.durationMs = video.duration.map { Int($0 * 1000) }
+            if let frame = await MediaMetadata.videoFrame(at: url) {
+                options.thumbnail = AttachmentThumbnail(data: frame.data, mimetype: "image/jpeg",
+                                                        width: frame.width, height: frame.height)
+            }
         } else if type.conforms(to: .audio) {
-            file.durationMs = await MediaMetadata.duration(at: url).map { Int($0 * 1000) }
+            options.durationMs = await MediaMetadata.duration(at: url).map { Int($0 * 1000) }
         }
         await report {
             let data = try image ?? Data(contentsOf: url)
-            file.size = data.count
-            file.source = try await timeline.uploadFile(data: data, mimetype: mimetype) { [weak self] progress in
-                guard progress.total > 0 else { return }
-                let fraction = Double(progress.current) / Double(progress.total)
-                Task { @MainActor in
-                    guard let self, let index = self.uploads.firstIndex(where: { $0.id == id }) else { return }
-                    self.uploads[index].progress = fraction
-                }
-            }
-            if type.conforms(to: .movie), let frame = await MediaMetadata.videoFrame(at: url),
-               let source = try? await timeline.uploadFile(data: frame.data, mimetype: "image/jpeg", listener: { _ in }) {
-                file.thumbnail = UploadedThumbnail(source: source, mimetype: "image/jpeg", width: frame.width,
-                                                   height: frame.height, size: frame.data.count)
-            }
-            try await timeline.sendUploaded(file: file)
+            try await timeline.sendFile(bytes: data, options: options)
         }
     }
 
@@ -470,13 +452,12 @@ final class TimelineModel: ObservableObject {
 
     /// Encrypted rooms get an encrypted upload (a `file` source), others a plain `url`
     func sendGif(_ data: Data, width: Int, height: Int, replyTo: String?) async -> Bool {
+        guard let timeline else { return false }
+        var options = AttachmentOptions(filename: "GIF.gif", mimetype: "image/gif", replyTo: replyTo, isAnimated: true)
+        options.width = width
+        options.height = height
         do {
-            let encrypted = (try? await client.roomDetails(roomId: roomId))?.isEncrypted ?? true
-            let source: [String: JSONValue] = encrypted
-                ? ["file": try await client.uploadEncryptedMedia(data: data)]
-                : ["url": .string(try await client.uploadMedia(data: data, mimetype: "image/gif"))]
-            let info = JSONValue(any: ["mimetype": "image/gif", "size": data.count, "is_animated": true, "w": width, "h": height])
-            await sendSticker(source: source, body: "GIF", info: info, replyTo: replyTo)
+            try await timeline.sendFile(bytes: data, options: options)
             return true
         } catch {
             return false
@@ -665,11 +646,15 @@ final class TimelineModel: ObservableObject {
             spoilers = Self.spoilers(in: emote.html)
             mentions = mentioned?.mentions ?? []
         case .image(let image):
-            kind = .image(.init(image.media))
+            let mentioned = Self.mentionText(image.media.captionHtml, ownUserId: ownUserId)
+            kind = .image(.init(image.media, caption: mentioned?.text))
+            mentions = mentioned?.mentions ?? []
             contentType = .image
             mediaSpoiler = image.media.spoiler ? image.media.spoilerReason ?? "" : nil
         case .video(let video):
-            kind = .video(.init(video.media))
+            let mentioned = Self.mentionText(video.media.captionHtml, ownUserId: ownUserId)
+            kind = .video(.init(video.media, caption: mentioned?.text))
+            mentions = mentioned?.mentions ?? []
             contentType = .video
             mediaSpoiler = video.media.spoiler ? video.media.spoilerReason ?? "" : nil
         case .audio(let audio):
@@ -677,7 +662,9 @@ final class TimelineModel: ObservableObject {
             kind = .audio(.init(audio.media), isVoice: audio.media.voice, waveform: waveform)
             contentType = .audio
         case .file(let file):
-            kind = .file(.init(file.media))
+            let mentioned = Self.mentionText(file.media.captionHtml, ownUserId: ownUserId)
+            kind = .file(.init(file.media, caption: mentioned?.text))
+            mentions = mentioned?.mentions ?? []
             contentType = .file
         case .sticker(let sticker):
             kind = .sticker(.init(sticker.media, body: sticker.body))

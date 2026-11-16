@@ -806,6 +806,7 @@ data class PackImage(
     val body: String? = null,
     val emoticon: Boolean,
     val sticker: Boolean,
+    val info: JsonElement? = null,
 )
 
 @Serializable

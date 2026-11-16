@@ -1,7 +1,6 @@
 package org.wizardchat.android.matrix
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.Drawable
@@ -24,7 +23,9 @@ class MediaLoader(val client: WizardClient) {
     private val cache = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
-    private val animatedCache = LruCache<String, Drawable>(24)
+    private val animatedData = object : LruCache<String, ByteArray>(32 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ByteArray) = value.size
+    }
     private val inFlight = HashMap<String, CompletableDeferred<Bitmap?>>()
     private val files = File(WizardApplication.instance.cacheDir, "media")
 
@@ -40,7 +41,7 @@ class MediaLoader(val client: WizardClient) {
         val pixels = standardSize(size)
         val cached = cache.get(url)
         if (cached != null && (thumbnailSizes[url] ?: 0) >= pixels) return cached
-        val image = load("$url|$pixels") { it.thumbnail(url, pixels.toLong(), pixels.toLong(), if (pixels == 96) true else null) }
+        val image = load("$url|$pixels", pixels) { it.thumbnail(url, pixels.toLong(), pixels.toLong(), if (pixels == 96) true else null) }
         if (image != null && (thumbnailSizes[url] ?: 0) < pixels) {
             store(image, url)
             thumbnailSizes[url] = pixels
@@ -48,22 +49,23 @@ class MediaLoader(val client: WizardClient) {
         return image ?: cache.get(url)
     }
 
-    suspend fun image(source: MediaSource, thumbnailSize: Int?): Bitmap? =
-        load("${key(source)}|${thumbnailSize ?: 0}") {
-            it.media(source, thumbnailSize?.toLong(), thumbnailSize?.toLong())
+    suspend fun image(source: MediaSource, size: Int?, serverThumbnail: Boolean = true): Bitmap? =
+        load("${key(source)}|${size ?: 0}", size) {
+            val thumbnail = size?.takeIf { serverThumbnail }?.toLong()
+            it.media(source, thumbnail, thumbnail)
         }
 
     /** A playing GIF/WebP (Android 9+); null if the image isn't animated */
     suspend fun animated(source: MediaSource): Drawable? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
         val key = key(source)
-        animatedCache.get(key)?.let { return it }
-        val data = runCatching { client.media(source) }.getOrNull() ?: return null
+        val data = animatedData.get(key) ?: runCatching { client.media(source) }.getOrNull() ?: return null
+        // Each view gets its own drawable: one shared instance only animates in the view that took it last
         val drawable = withContext(Dispatchers.Default) {
             runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(data))) }.getOrNull()
         } ?: return null
         if (drawable !is AnimatedImageDrawable) return null
-        animatedCache.put(key, drawable)
+        animatedData.put(key, data)
         return drawable
     }
 
@@ -80,13 +82,13 @@ class MediaLoader(val client: WizardClient) {
         return file
     }
 
-    private suspend fun load(key: String, fetch: suspend (WizardClient) -> ByteArray): Bitmap? {
+    private suspend fun load(key: String, size: Int?, fetch: suspend (WizardClient) -> ByteArray): Bitmap? {
         cache.get(key)?.let { return it }
         inFlight[key]?.let { return it.await() }
         val deferred = CompletableDeferred<Bitmap?>()
         inFlight[key] = deferred
         val image = runCatching { fetch(client) }.getOrNull()?.let { data ->
-            withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(data, 0, data.size) }
+            withContext(Dispatchers.Default) { MediaMetadata.decodeImage(data, size) }
         }
         inFlight.remove(key)
         if (image != null) store(image, key)

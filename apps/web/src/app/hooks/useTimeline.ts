@@ -128,6 +128,7 @@ function isGalleryCandidate(e: EventEntry, redacted: ReadonlySet<string>): boole
   if (e.content.type !== 'image') return false;
   if (redacted.has(entryEventId(e))) return false;
   if (e.threadRoot) return false;
+  if (e.sendState === 'failed') return false;
   return e.content.media.mimetype !== 'image/svg+xml';
 }
 
@@ -235,7 +236,7 @@ export function buildItems(
       ...computeMessagePermissions(event, roomPerms),
       isDecrypting: event.content.type === 'unableToDecrypt' && !!decryptingIds?.has(eventId),
       isUndecryptable: event.content.type === 'unableToDecrypt' && !decryptingIds?.has(eventId),
-      isSending: event.sendState === 'sending',
+      isSending: (galleryEvents ?? [event]).some((e) => e.sendState === 'sending'),
       isFailed: event.sendState === 'failed',
       sendError: event.sendState === 'failed' ? event.sendError : null,
       optimisticBody,

@@ -381,9 +381,6 @@ struct RoomView: View {
                 Color.clear
                     .frame(height: WZ.Space.space0)
                     .id(Self.bottomId)
-                ForEach(timeline.uploads.reversed()) { upload in
-                    UploadingRow(upload: upload).flippedVertically()
-                }
                 ForEach(timeline.entries.reversed()) { entry in
                     VStack(spacing: WZ.Space.space0) {
                         if entry.id == unreadDividerId { NewMessagesDivider { unreadDividerId = nil } }
@@ -506,63 +503,6 @@ private struct ScrollEdges: Equatable {
         farFromBottom = bottomGap > geometry.containerSize.height
         fillsScreen = geometry.contentSize.height + geometry.contentInsets.top + geometry.contentInsets.bottom
             > geometry.containerSize.height + 240
-    }
-}
-
-private struct UploadingRow: View {
-    let upload: PendingUpload
-    @Environment(\.theme) private var theme
-
-    private var size: CGSize {
-        guard let preview = upload.preview else { return CGSize(width: 260, height: 72) }
-        let scale = min(260 / max(preview.size.width, 1), 320 / max(preview.size.height, 1), 1)
-        return CGSize(width: max(preview.size.width * scale, 60), height: max(preview.size.height * scale, 60))
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: WZ.Space.space5) {
-            Color.clear.frame(width: WZ.SizeAvatar.md, height: WZ.Space.space0)
-            ZStack {
-                if let preview = upload.preview {
-                    Image(uiImage: preview).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    theme.fill
-                }
-                UploadProgressRing(progress: upload.progress)
-            }
-            .frame(width: size.width, height: size.height)
-            .clipShape(RoundedRectangle(cornerRadius: WZ.Radius.lg, style: .continuous))
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, WZ.Space.space6)
-        .padding(.vertical, WZ.Space.space1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L10n.format("timeline.uploading", upload.filename))
-        .accessibilityValue(upload.progress.map { "\(Int($0 * 100))%" } ?? "")
-    }
-}
-
-private struct UploadProgressRing: View {
-    @Environment(\.theme) private var theme
-    let progress: Double?
-
-    var body: some View {
-        ZStack {
-            Circle().fill(theme.overlay)
-            if let progress {
-                Circle().stroke(theme.textOnAccent.opacity(0.3), lineWidth: WZ.BorderWidth.thick)
-                Circle()
-                    .trim(from: 0, to: max(progress, 0.03))
-                    .stroke(theme.textOnAccent, style: StrokeStyle(lineWidth: WZ.BorderWidth.thick, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeOut(duration: WZ.MotionDuration.normal), value: progress)
-            } else {
-                ProgressView().tint(theme.textOnAccent)
-            }
-        }
-        .frame(width: WZ.Space.space10, height: WZ.Space.space10)
-        .accessibilityLabel(String(localized: "attachment.uploading"))
-        .accessibilityValue(progress.map { "\(Int($0 * 100))%" } ?? "")
     }
 }
 
@@ -878,12 +818,7 @@ struct MessageRow: View {
                 }
                 HStack(alignment: .bottom, spacing: WZ.Space.space3) {
                     messageContent
-                        .opacity(entry.isSending && !entry.sendFailed && isText ? 0.5 : 1)
-                        .overlay {
-                            if entry.isSending && !entry.sendFailed && !isText {
-                                UploadProgressRing(progress: nil)
-                            }
-                        }
+                        .opacity(entry.isSending && !entry.sendFailed ? 0.5 : 1)
                     if entry.sendFailed {
                         Button { showFailed = true } label: {
                             Image("ph-warning-circle-regular")
@@ -1059,6 +994,23 @@ struct MessageRow: View {
         }
     }
 
+    private func captionText(_ caption: String) -> some View {
+        Text(MessageText.withMentions(MessageText.attributed(caption, prettifyLinks: prefs.prettifyLinks),
+                                      entry.mentions, theme: theme))
+            .font(.wizard(WZ.FontSize.lg * scale))
+            .foregroundStyle(theme.textPrimary)
+            .environment(\.openURL, OpenURLAction { url in
+                if RoomLinks.target(url.absoluteString) != nil, let actions {
+                    actions.openRoomLink(url.absoluteString)
+                    return .handled
+                }
+                guard let userId = MessageText.mentionedUser(url) else { return .systemAction }
+                actions?.openProfile(userId)
+                return .handled
+            })
+    }
+
+
     @ViewBuilder
     private var mediaContent: some View {
         switch entry.kind {
@@ -1069,19 +1021,22 @@ struct MessageRow: View {
                 } else {
                     ImageMessageView(media: media, isPrivateRoom: isPrivateRoom, spoiler: entry.mediaSpoiler)
                 }
-                if let caption = media.caption { Text(caption).font(.wizard(WZ.FontSize.lg * scale)).foregroundStyle(theme.textPrimary) }
+                if let caption = media.caption { captionText(caption) }
             }
         case .sticker(let media):
             ImageMessageView(media: media, isSticker: true, isPrivateRoom: isPrivateRoom)
         case .video(let media):
             VStack(alignment: .leading, spacing: WZ.Space.space2) {
                 VideoMessageView(media: media, spoiler: entry.mediaSpoiler)
-                if let caption = media.caption { Text(caption).font(.wizard(WZ.FontSize.lg * scale)).foregroundStyle(theme.textPrimary) }
+                if let caption = media.caption { captionText(caption) }
             }
         case .audio(let media, let isVoice, let waveform):
             AudioMessageView(media: media, isVoice: isVoice, waveform: waveform)
         case .file(let media):
-            FileMessageView(media: media)
+            VStack(alignment: .leading, spacing: WZ.Space.space2) {
+                FileMessageView(media: media)
+                if let caption = media.caption { captionText(caption) }
+            }
         case .location(_, let geoUri, let description):
             LocationMessageView(geoUri: geoUri, description: description)
         case .poll(let poll):

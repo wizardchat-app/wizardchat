@@ -367,9 +367,8 @@ export const Message = memo(function Message({
     thumbnailSrc,
     isDecrypting: isFileDecrypting,
     hasFailed: mediaFailed,
-    setMediaSrc,
     requestFullRes,
-  } = useDecryptedMedia(event, client, mediaEnabled);
+  } = useDecryptedMedia(event, client, { enabled: mediaEnabled, targetRef: msgRowRef });
 
   const handleRevealMedia = useCallback(() => {
     setMediaRevealed(true);
@@ -755,7 +754,6 @@ export const Message = memo(function Message({
         searchQuery={searchQuery}
         myId={myId}
         senderName={senderName}
-        onMediaLoad={setMediaSrc}
         onMediaClick={handleMediaClick}
         roomId={roomId}
         optimisticBody={optimisticBody}

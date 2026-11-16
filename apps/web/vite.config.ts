@@ -111,6 +111,7 @@ export default defineConfig(({ mode }) => {
       exclude: ['@wizardchat/core-wasm'],
       rolldownOptions: { plugins: [livekitDataEncryptionPlugin()] },
     },
+    worker: { format: 'es' },
     build: { target: 'es2022', outDir: desktop ? 'dist-desktop' : 'dist' },
   };
 });

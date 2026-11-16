@@ -402,10 +402,17 @@ fun ComposerView(
             attachments.clear()
             setDraft("")
             onReplyToChange(null)
+            val html = if (message.isEmpty()) null else richHtml(message, usedEmotes, mentions, timeline.client)
+            val userIds = mentions.filter { message.contains(it.key) && it.value != session.userId }.values.toSet().sorted()
+            val room = RoomMention.isIn(message)
+            usedEmotes.clear()
+            mentions.clear()
             timeline.sendFiles(
-                pending.map { Uri.fromFile(it.file) to it.thumbnail },
+                pending.map { Uri.fromFile(it.file) },
                 caption = message.ifEmpty { null },
                 replyTo = reply,
+                captionHtml = html,
+                mentions = Mentions(userIds, if (room) true else null),
             )
             return
         }
@@ -431,7 +438,8 @@ fun ComposerView(
     suspend fun sendSticker(sticker: PackImage) {
         val reply = currentReplyTo?.eventId
         val source = JsonObject(mapOf("url" to JsonPrimitive(sticker.url)))
-        val info = runCatching { timeline.client.media(source) }.getOrNull()?.let { data ->
+        val packInfo = sticker.info as? JsonObject
+        val info = if (packInfo != null && "w" in packInfo && "h" in packInfo) packInfo else runCatching { timeline.client.media(source) }.getOrNull()?.let { data ->
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
             if (bounds.outWidth <= 0) return@let null
@@ -450,18 +458,10 @@ fun ComposerView(
 
     suspend fun sendGif(gif: GiphyGif) {
         val data = download(gif.url)
-        val mxc = data?.let { runCatching { timeline.client.uploadMedia(it, "image/gif") }.getOrNull() }
-        if (data == null || mxc == null) {
+        if (data == null || !timeline.sendGif(data, gif.width, gif.height, currentReplyTo?.eventId)) {
             timeline.sendError = L10n.format("composer.gifSendFailed")
             return
         }
-        val info = buildJsonObject {
-            put("mimetype", "image/gif")
-            put("w", gif.width)
-            put("h", gif.height)
-            put("size", data.size)
-        }
-        timeline.sendSticker(mxc, gif.title.ifEmpty { "GIF" }, info, currentReplyTo?.eventId)
         sentSomething()
     }
 
@@ -542,9 +542,6 @@ fun ComposerView(
                             plusMenu,
                             { plusMenu = false },
                             buildList {
-                                add(MenuItem(tr("composer.photosVideos"), "images") {
-                                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                                })
                                 if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
                                     add(MenuItem(tr("composer.camera"), "camera") {
                                         val granted = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -552,16 +549,20 @@ fun ComposerView(
                                         if (granted) launchCamera() else cameraPermission.launch(Manifest.permission.CAMERA)
                                     })
                                 }
+                                add(MenuItem(tr("composer.photosVideos"), "images") {
+                                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                                })
                                 add(MenuItem(tr("composer.file"), "file") { filePicker.launch(arrayOf("*/*")) })
                                 if (clipboardHasImages) add(MenuItem(tr("composer.pasteImage"), "clipboard-text") { pasteImages() })
-                                add(MenuItem(tr("composer.formatting.toolbar"), "text-aa", divider = true) {
+                                add(MenuItem(tr("composer.voice.record"), "microphone", divider = true) { startRecording() })
+                                add(MenuItem(tr("composer.location.share"), "map-pin") { showLocation = true })
+                                add(MenuItem(tr("composer.poll.create"), "chart-bar-horizontal") { showPoll = true })
+                                add(MenuItem(tr("composer.formatting.toolbar"), "text-aa") {
                                     formatting = !formatting
                                     if (formatting) runCatching { focusRequester.requestFocus() }
                                 })
-                                add(MenuItem(tr("composer.poll.create"), "chart-bar-horizontal") { showPoll = true })
-                                add(MenuItem(tr("composer.location.share"), "map-pin") { showLocation = true })
-                                add(MenuItem(tr("composer.voice.record"), "microphone") { startRecording() })
                             },
+                            above = true,
                         )
                     }
                 }

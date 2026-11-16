@@ -4,7 +4,7 @@ export function mediaCacheDbName(userId: string | null = getStoredUserId()): str
   return `wz-media-cache-${userId ?? 'anon'}`;
 }
 
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const DATA_STORE = 'decrypted-media';
 const META_STORE = 'decrypted-media-meta';
 
@@ -23,9 +23,11 @@ interface MetaRecord {
 const MAX_CACHE_BYTES = 100 * 1024 * 1024;
 const MAX_CACHE_ENTRIES = 400;
 
-// In-memory blob URL cache
-const blobUrlCache = new Map<string, { blobUrl: string; mimeType: string }>();
+const blobUrlCache = new Map<string, { blobUrl: string; mimeType: string; size: number }>();
+const retained = new Map<string, number>();
 const MAX_MEMORY_ENTRIES = 2000;
+const MAX_MEMORY_BYTES = 384 * 1024 * 1024;
+let memoryBytes = 0;
 
 export function getCachedBlobUrl(key: string): string | null {
   const entry = blobUrlCache.get(key);
@@ -35,27 +37,48 @@ export function getCachedBlobUrl(key: string): string | null {
   return entry.blobUrl;
 }
 
-export function setCachedBlobUrl(key: string, blobUrl: string, mimeType: string): void {
+function dropEntry(key: string, revoke: boolean): void {
+  const entry = blobUrlCache.get(key);
+  if (!entry) return;
+  if (revoke) URL.revokeObjectURL(entry.blobUrl);
+  memoryBytes -= entry.size;
+  blobUrlCache.delete(key);
+}
+
+function evictOverBudget(): void {
+  if (blobUrlCache.size <= MAX_MEMORY_ENTRIES && memoryBytes <= MAX_MEMORY_BYTES) return;
+  for (const key of Array.from(blobUrlCache.keys())) {
+    if (blobUrlCache.size <= MAX_MEMORY_ENTRIES && memoryBytes <= MAX_MEMORY_BYTES) return;
+    if (retained.has(key)) continue;
+    dropEntry(key, true);
+  }
+}
+
+export function setCachedBlobUrl(key: string, blobUrl: string, mimeType: string, size = 0): void {
   const existing = blobUrlCache.get(key);
-  if (existing) {
-    URL.revokeObjectURL(existing.blobUrl);
-  }
-  if (blobUrlCache.size >= MAX_MEMORY_ENTRIES) {
-    const lruKey = blobUrlCache.keys().next().value;
-    if (lruKey !== undefined) {
-      const evicted = blobUrlCache.get(lruKey);
-      if (evicted) URL.revokeObjectURL(evicted.blobUrl);
-      blobUrlCache.delete(lruKey);
-    }
-  }
-  blobUrlCache.set(key, { blobUrl, mimeType });
+  if (existing && existing.blobUrl !== blobUrl) URL.revokeObjectURL(existing.blobUrl);
+  dropEntry(key, false);
+  blobUrlCache.set(key, { blobUrl, mimeType, size });
+  memoryBytes += size;
+  evictOverBudget();
 }
 
 export function deleteCachedBlobUrl(key: string, revoke = false): void {
-  const existing = blobUrlCache.get(key);
-  if (!existing) return;
-  if (revoke) URL.revokeObjectURL(existing.blobUrl);
-  blobUrlCache.delete(key);
+  dropEntry(key, revoke);
+}
+
+// A mounted <img>/<video> keeps using its blob URL, so entries in use are never revoked
+export function retainBlobUrl(key: string): () => void {
+  retained.set(key, (retained.get(key) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const count = (retained.get(key) ?? 1) - 1;
+    if (count > 0) retained.set(key, count);
+    else retained.delete(key);
+    evictOverBudget();
+  };
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -66,6 +89,7 @@ export function clearMediaCache(): Promise<void> {
     URL.revokeObjectURL(entry.blobUrl);
   }
   blobUrlCache.clear();
+  memoryBytes = 0;
 
   const pending = dbPromise;
   dbPromise = null;
@@ -126,6 +150,26 @@ function openDb(name: string): Promise<IDBDatabase> {
 
 export function getMediaCacheKey(file: { url: string; iv: string }): string {
   return `enc:${file.url}:${file.iv}`;
+}
+
+export function mediaSourceCacheKey(source: unknown): string | null {
+  const { url, file } = (source ?? {}) as {
+    url?: unknown;
+    file?: { url?: unknown; iv?: unknown };
+  };
+  if (file && typeof file.url === 'string') {
+    return getMediaCacheKey({ url: file.url, iv: typeof file.iv === 'string' ? file.iv : '' });
+  }
+  return typeof url === 'string' ? `mxc:${url}` : null;
+}
+
+export function cacheOwnUpload(source: unknown, blob: Blob, mimeType: string): void {
+  try {
+    const key = mediaSourceCacheKey(source);
+    if (key) setCachedBlobUrl(key, URL.createObjectURL(blob), mimeType, blob.size);
+  } catch {
+    // Caching is best-effort
+  }
 }
 
 export async function getCachedMedia(key: string): Promise<CacheRecord | null> {

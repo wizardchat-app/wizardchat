@@ -6,7 +6,8 @@ import { formatFileSize } from '@/util/format';
 import * as css from './AudioFilePlayer.css';
 
 interface Props {
-  src: string;
+  src: string | null;
+  loadSrc?: () => Promise<string | null>;
   fileName: string;
   size?: number;
   durationMs?: number;
@@ -19,7 +20,7 @@ function formatTime(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function AudioFilePlayer({ src, fileName, size, durationMs }: Props) {
+export function AudioFilePlayer({ src, loadSrc, fileName, size, durationMs }: Props) {
   const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -28,10 +29,14 @@ export function AudioFilePlayer({ src, fileName, size, durationMs }: Props) {
     typeof durationMs === 'number' && durationMs > 0 ? durationMs / 1000 : 0
   );
 
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const playWhenReadyRef = useRef(false);
+  const effectiveSrc = src ?? loadedSrc;
+
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
-    audio.src = src;
     audio.preload = 'metadata';
 
     const onMeta = () => {
@@ -61,17 +66,39 @@ export function AudioFilePlayer({ src, fileName, size, durationMs }: Props) {
       audio.removeEventListener('pause', onPause);
       audioRef.current = null;
     };
-  }, [src]);
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !effectiveSrc) return;
+    audio.src = effectiveSrc;
+    if (playWhenReadyRef.current) {
+      playWhenReadyRef.current = false;
+      audio.play().catch(() => {});
+    }
+  }, [effectiveSrc]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (!effectiveSrc) {
+      if (!loadSrc || loading) return;
+      setLoading(true);
+      playWhenReadyRef.current = true;
+      void loadSrc()
+        .then((url) => {
+          if (url) setLoadedSrc(url);
+          else playWhenReadyRef.current = false;
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
     if (audio.paused) {
       audio.play();
     } else {
       audio.pause();
     }
-  }, []);
+  }, [effectiveSrc, loadSrc, loading]);
 
   const handleSeek = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -92,6 +119,7 @@ export function AudioFilePlayer({ src, fileName, size, durationMs }: Props) {
         type="button"
         className={css.playBtn}
         onClick={togglePlay}
+        aria-busy={loading}
         aria-label={playing ? t('voiceMessagePlayer.pause') : t('voiceMessagePlayer.play')}
       >
         {playing ? <PauseIcon size={16} weight="fill" /> : <PlayIcon size={16} weight="fill" />}

@@ -32,7 +32,7 @@ import {
   getMediaCaption,
   textRenderContent,
 } from './textContent';
-import { getMediaBlobUrl, getMediaAnimates, plainMediaUrl } from './media';
+import { getMediaAnimates } from './media';
 import { MediaSpoiler } from './MediaSpoiler';
 import type { MediaCover } from './MediaSpoiler';
 import { AnimatedImage } from './AnimatedImage';
@@ -478,7 +478,6 @@ interface MessageContentProps {
   searchQuery: string;
   myId: string;
   senderName: string;
-  onMediaLoad: (url: string) => void;
   onMediaClick?: (src: string, type?: 'image' | 'video', opts?: { currentTime?: number }) => void;
   roomId?: string;
   onMentionClick?: (userId: string, rect: DOMRect) => void;
@@ -504,7 +503,6 @@ export function MessageContent({
   searchQuery,
   myId,
   senderName,
-  onMediaLoad,
   onMediaClick,
   onMentionClick,
   roomId,
@@ -612,13 +610,9 @@ export function MessageContent({
 
   if (content.type === 'sticker') {
     const { media } = content;
-    const mxcUrl = plainMediaUrl(media.source);
-    const src =
-      mediaSrc ??
-      (mxcUrl && mxcUrl.startsWith('mxc://') ? getMediaBlobUrl(mxcUrl, client, onMediaLoad) : null);
     return (
       <StickerBox
-        src={src}
+        src={mediaSrc}
         alt={content.body || 'sticker'}
         mimeType={media.mimetype ?? undefined}
         mediaFailed={mediaFailed}
@@ -632,7 +626,6 @@ export function MessageContent({
 
   if (content.type === 'image') {
     const { media } = content;
-    const mxcUrl = plainMediaUrl(media.source);
     const body = media.caption ?? media.filename;
 
     // File types that should not be rendered inline (SVG, TIFF, etc.)
@@ -643,8 +636,7 @@ export function MessageContent({
     }
 
     const isCovered = mediaCover != null;
-    const src =
-      mediaSrc ?? (!isCovered && mxcUrl ? getMediaBlobUrl(mxcUrl, client, onMediaLoad) : null);
+    const src = isCovered ? null : mediaSrc;
 
     const imgW = media.width;
     const imgH = media.height;
@@ -703,8 +695,6 @@ export function MessageContent({
 
   if (content.type === 'audio') {
     const { media } = content;
-    const mxcUrl = plainMediaUrl(media.source);
-    const src = mediaSrc ?? (mxcUrl ? getMediaBlobUrl(mxcUrl, client, onMediaLoad) : null);
     const durationMs = media.durationMs ?? undefined;
     const waveform = media.waveform ?? undefined;
     const isVoiceMessage = media.voice || media.waveform !== null;
@@ -717,32 +707,35 @@ export function MessageContent({
         </MediaSkeleton>
       );
     }
-    if (src) {
-      if (isVoiceMessage) {
-        return <VoiceMessagePlayer src={src} waveform={waveform} durationMs={durationMs} />;
-      }
-      const fileName = (media.caption ?? media.filename) || t('timeline.audioFile');
-      const size = typeof media.size === 'number' && media.size >= 0 ? media.size : undefined;
-      return <AudioFilePlayer src={src} fileName={fileName} size={size} durationMs={durationMs} />;
+    if (mediaFailed) return <MediaError />;
+    if (isVoiceMessage) {
+      return (
+        <VoiceMessagePlayer
+          src={mediaSrc}
+          loadSrc={requestFullRes}
+          waveform={waveform}
+          durationMs={durationMs}
+        />
+      );
     }
-    return mediaFailed ? (
-      <MediaError />
-    ) : isVoiceMessage ? (
-      <MediaSkeleton className={css.msgAudioSkeleton} />
-    ) : (
-      <MediaSkeleton className={css.fileSkeleton}>
-        <FileTextIcon size={20} />
-      </MediaSkeleton>
+    const fileName = (media.caption ?? media.filename) || t('timeline.audioFile');
+    const size = typeof media.size === 'number' && media.size >= 0 ? media.size : undefined;
+    return (
+      <AudioFilePlayer
+        src={mediaSrc}
+        loadSrc={requestFullRes}
+        fileName={fileName}
+        size={size}
+        durationMs={durationMs}
+      />
     );
   }
 
   if (content.type === 'video') {
     const { media } = content;
-    const mxcUrl = plainMediaUrl(media.source);
     const body = media.caption ?? media.filename;
     const isCovered = mediaCover != null;
-    const src =
-      mediaSrc ?? (!isCovered && mxcUrl ? getMediaBlobUrl(mxcUrl, client, onMediaLoad) : null);
+    const src = isCovered ? null : mediaSrc;
     const vidW = media.width;
     const vidH = media.height;
     const hasDimensions =
@@ -811,20 +804,20 @@ export function MessageContent({
 
   if (content.type === 'file') {
     const { media } = content;
-    const mxcUrl = plainMediaUrl(media.source);
     const filename = media.filename || 'file';
-    const src = mediaSrc ?? (mxcUrl ? getMediaBlobUrl(mxcUrl, client, onMediaLoad) : null);
-    if (isDecrypting) {
-      return (
-        <MediaSkeleton className={css.fileSkeleton}>
-          <FileTextIcon size={20} />
-        </MediaSkeleton>
-      );
-    }
     const captionHtml = renderCaptionHtml(media);
     const size = typeof media.size === 'number' && media.size >= 0 ? media.size : undefined;
     const kind = previewKind(filename, media.mimetype);
-    const mediaEl = src ? (
+    const handleDownload = () => {
+      void requestFullRes?.().then((url) => {
+        if (!url) return;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+      });
+    };
+    const mediaEl = (
       <div className={css.fileCard}>
         <span className={css.fileIcon}>
           <FileTextIcon size={20} />
@@ -848,30 +841,24 @@ export function MessageContent({
           </Tooltip>
         )}
         <Tooltip content={t('common.download')}>
-          <a
-            href={src}
-            download={filename}
+          <button
+            type="button"
             className={css.fileDownload}
             aria-label={t('common.download')}
+            onClick={handleDownload}
           >
             <DownloadSimpleIcon size={16} />
-          </a>
+          </button>
         </Tooltip>
-        {kind && previewOpen && (
+        {kind && previewOpen && requestFullRes && (
           <FilePreviewModal
-            src={src}
+            load={requestFullRes}
             filename={filename}
             kind={kind}
             onClose={() => setPreviewOpen(false)}
           />
         )}
       </div>
-    ) : mediaFailed ? (
-      <MediaError />
-    ) : (
-      <MediaSkeleton className={css.fileSkeleton}>
-        <FileTextIcon size={20} />
-      </MediaSkeleton>
     );
     return captionHtml ? (
       <div className={css.mediaWrap}>

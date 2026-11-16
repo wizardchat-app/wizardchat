@@ -286,6 +286,15 @@ export function ThreadPanel({
     [client, roomId, setReport, toast, t]
   );
 
+  const handleResend = useCallback(
+    (event: EventEntry) => {
+      timeline?.retrySend(event.itemKey).catch((err) => {
+        toast.error(t('timeline.sendFailed', { error: getErrorMessage(err) }));
+      });
+    },
+    [timeline, toast, t]
+  );
+
   const handleCancel = useCallback(
     (event: EventEntry) => {
       timeline?.redact(event.itemKey).catch((err) => {
@@ -452,6 +461,7 @@ export function ThreadPanel({
                     onDelete={handleDelete}
                     onReport={handleReport}
                     onReact={handleReact}
+                    onResend={handleResend}
                     onCancel={handleCancel}
                     hideThreadBadge
                     isHovered={hoveredEventId === eventId}

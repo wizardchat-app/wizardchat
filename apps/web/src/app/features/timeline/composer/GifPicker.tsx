@@ -8,6 +8,7 @@ import { Tooltip } from '@/app/components/Tooltip';
 import { useCoarsePointer } from '@/app/hooks/useCoarsePointer';
 import { probeIsAnimated } from '../utils/imageAnimation';
 import { getImageDimensions } from './imageDimensions';
+import { cacheOwnUpload } from '../message/mediaCache';
 import { sendRawEvent, type ReplyTarget } from './sendMessageContent';
 import { useComposerTimeline } from './composerTimeline';
 import { getErrorMessage } from '@/util/error';
@@ -38,6 +39,12 @@ function getThumb(gif: GiphyGif): GiphyImage {
   return gif.images.fixed_width || gif.images.fixed_height;
 }
 
+function renditionSize(image: GiphyImage): { w: number; h: number } | undefined {
+  const w = Number(image.width);
+  const h = Number(image.height);
+  return w > 0 && h > 0 ? { w, h } : undefined;
+}
+
 function getAspect(gif: GiphyGif): number {
   const thumb = getThumb(gif);
   const w = Number(thumb.width) || 1;
@@ -48,6 +55,7 @@ function getAspect(gif: GiphyGif): number {
 interface GridItem {
   key: string;
   src: string;
+  size?: { w: number; h: number };
   alt: string;
   aspect: number;
 }
@@ -140,7 +148,7 @@ export function GifPicker({
   }, [onClose, naked]);
 
   const sendImage = useCallback(
-    async (url: string) => {
+    async (url: string, size?: { w: number; h: number }) => {
       onClose();
       onStatusChange?.(true);
       try {
@@ -151,12 +159,15 @@ export function GifPicker({
 
         const mimetype = file.type || 'image/gif';
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const source = isEncrypted
-          ? { file: await client.uploadEncryptedMedia(bytes) }
-          : { url: await client.uploadMedia(bytes, mimetype) };
-        const isAnimated = await probeIsAnimated(mimetype, file);
-
-        const dims = await getImageDimensions(file);
+        const [source, isAnimated, dims, timeline] = await Promise.all([
+          isEncrypted
+            ? client.uploadEncryptedMedia(bytes).then((encrypted) => ({ file: encrypted }))
+            : client.uploadMedia(bytes, mimetype).then((mxc) => ({ url: mxc })),
+          probeIsAnimated(mimetype, file),
+          size ?? getImageDimensions(file),
+          getTimeline(),
+        ]);
+        cacheOwnUpload(source, file, mimetype);
         const info: Record<string, unknown> = {
           mimetype,
           size: file.size,
@@ -168,13 +179,14 @@ export function GifPicker({
         }
 
         const content: Record<string, unknown> = {
-          body: 'GIF',
-          info,
+          msgtype: 'm.image',
+          body: 'GIF.gif',
+          info: { ...info, is_animated: isAnimated ?? true },
           ...source,
         };
 
-        await sendRawEvent('m.sticker', content, {
-          timeline: await getTimeline(),
+        await sendRawEvent('m.room.message', content, {
+          timeline,
           threadId,
           replyTo,
           myId: client.userId() ?? '',
@@ -206,6 +218,7 @@ export function GifPicker({
     (gif: GiphyGif): GridItem => ({
       key: gif.id,
       src: gif.images.downsized?.url ?? gif.images.original.url,
+      size: renditionSize(gif.images.downsized ?? gif.images.original),
       alt: gif.title,
       aspect: getAspect(gif),
     }),
@@ -244,11 +257,11 @@ export function GifPicker({
         style={{ aspectRatio: String(item.aspect) }}
         role="button"
         tabIndex={0}
-        onClick={() => sendImage(item.src)}
+        onClick={() => sendImage(item.src, item.size)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            sendImage(item.src);
+            sendImage(item.src, item.size);
           }
         }}
       >

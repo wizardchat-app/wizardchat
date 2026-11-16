@@ -1,4 +1,4 @@
-import { style, globalStyle } from '@vanilla-extract/css';
+import { keyframes, style, globalStyle } from '@vanilla-extract/css';
 import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { fast, med } from '@/theme/animations.css';
@@ -83,6 +83,20 @@ export const uploadProgressFill = style({
   borderRadius: '2px',
   backgroundColor: vars.color.accent,
   transition: `width ${med} ease`,
+});
+
+// Browsers don't report upload progress to the core, so until a real number arrives the bar just moves
+const indeterminateSlide = keyframes({
+  '0%': { transform: 'translateX(-100%)' },
+  '100%': { transform: 'translateX(250%)' },
+});
+
+export const uploadProgressIndeterminate = style({
+  width: '40%',
+  height: '100%',
+  borderRadius: '2px',
+  backgroundColor: vars.color.accent,
+  animation: `${indeterminateSlide} 1.2s ease-in-out infinite`,
 });
 
 export const replyCancel = style({
