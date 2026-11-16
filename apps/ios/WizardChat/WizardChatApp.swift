@@ -53,6 +53,7 @@ struct WizardChatApp: App {
                     if let roomList = session.roomList {
                         MainTabView(roomList: roomList)
                             .id(session.userId)
+                            .background(CallPictureInPictureSource())
                             .sheet(item: $verificationRequests.presented) { VerificationSheet(model: $0) }
                             .sheet(isPresented: $session.isAddingAccount, onDismiss: {
                                 Task { await session.cancelBrowserLogin() }

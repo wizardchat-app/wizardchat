@@ -691,7 +691,7 @@ private fun FloatingPip(
 }
 
 @Composable
-private fun Backdrop(name: String, avatarUrl: String?, modifier: Modifier = Modifier) {
+internal fun Backdrop(name: String, avatarUrl: String?, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxSize().background(theme.bgTertiary), contentAlignment = Alignment.Center) {
         Avatar(name, avatarUrl, min(max(maxWidth.value, maxHeight.value), 1200f).dp, modifier = Modifier.blur(60.dp).alpha(0.55f))
     }

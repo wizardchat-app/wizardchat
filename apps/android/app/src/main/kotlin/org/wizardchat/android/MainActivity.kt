@@ -1,9 +1,13 @@
 package org.wizardchat.android
 
 import org.wizardchat.android.matrix.deviceId
+import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
@@ -53,10 +57,15 @@ import org.wizardchat.android.ui.theme.WizardThemeRoot
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.android.ui.voice.CallPipContent
+import org.wizardchat.android.ui.voice.LocalInPip
+import org.wizardchat.android.ui.voice.pipWatching
+import org.wizardchat.android.ui.voice.pipFeatured
 import org.wizardchat.tokens.WZ
 
 class MainActivity : AppCompatActivity() {
     private val app get() = application as WizardApplication
+    private var inPip by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,8 +87,17 @@ class MainActivity : AppCompatActivity() {
                 if (inCall) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            CompositionLocalProvider(LocalSession provides app.session, LocalPrefs provides app.prefs) {
-                WizardThemeRoot(app.prefs.theme) { Root() }
+            val calls = CallManager.shared
+            val joined = calls.state == CallManager.State.Joined
+            val screen = pipWatching(calls) || pipFeatured(calls.participants)?.screen == true
+            LaunchedEffect(joined, screen) { setPictureInPictureParams(pipParams(joined, screen)) }
+            CompositionLocalProvider(LocalSession provides app.session, LocalPrefs provides app.prefs, LocalInPip provides inPip) {
+                WizardThemeRoot(app.prefs.theme) {
+                    Box(Modifier.fillMaxSize()) {
+                        Root()
+                        if (inPip && inCall) CallPipContent()
+                    }
+                }
             }
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -91,6 +109,27 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch { app.session.resumeSync() }
             }
         })
+    }
+
+    private fun pipParams(joined: Boolean, landscape: Boolean): PictureInPictureParams =
+        PictureInPictureParams.Builder()
+            .setAspectRatio(if (landscape) Rational(16, 9) else Rational(9, 16))
+            .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAutoEnterEnabled(joined) }
+            .build()
+
+    // Android 12+ enters picture-in-picture by itself (setAutoEnterEnabled); older versions need the leave hint
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val calls = CallManager.shared
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && calls.state == CallManager.State.Joined) {
+            enterPictureInPictureMode(pipParams(true, pipWatching(calls) || pipFeatured(calls.participants)?.screen == true))
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPip = isInPictureInPictureMode
+        if (!isInPictureInPictureMode && CallManager.shared.isInCall) CallManager.shared.showCallScreen = true
     }
 
     override fun onNewIntent(intent: Intent) {

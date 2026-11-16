@@ -496,7 +496,7 @@ private struct FloatingPip<Content: View>: View {
     }
 }
 
-private struct Backdrop: View {
+struct CallBackdrop: View {
     let name: String
     let url: String?
     @Environment(\.theme) private var theme
@@ -547,7 +547,7 @@ private struct PersonTile: View {
 
     var body: some View {
         ZStack {
-            Backdrop(name: label, url: avatarUrl)
+            CallBackdrop(name: label, url: avatarUrl)
             if let track = participant.cameraTrack {
                 SwiftUIVideoView(track, layoutMode: .fill)
                     .transition(.opacity)
@@ -689,7 +689,7 @@ private struct ScreenTile: View {
     var body: some View {
         ZStack {
             if participant.isLocal && !calls.showOwnScreen {
-                Backdrop(name: name ?? participant.userId, url: avatarUrl)
+                CallBackdrop(name: name ?? participant.userId, url: avatarUrl)
                 VStack(spacing: WZ.Space.space4) {
                     Image("ph-monitor-arrow-up-regular")
                         .font(.system(size: compact ? WZ.SizeIcon.md : WZ.SizeIcon.xl))
@@ -702,7 +702,7 @@ private struct ScreenTile: View {
                 .foregroundStyle(theme.textPrimary)
                 .padding(WZ.Space.space6)
             } else if !participant.watchingScreen {
-                Backdrop(name: name ?? participant.userId, url: avatarUrl)
+                CallBackdrop(name: name ?? participant.userId, url: avatarUrl)
                 VStack(spacing: WZ.Space.space5) {
                     if !compact {
                         AvatarView(name: name ?? participant.userId, url: avatarUrl, size: WZ.SizeAvatar.lg)
@@ -855,7 +855,7 @@ private struct CallingView: View {
                     .overlay(Color.black.opacity(0.35))
                     .transition(.opacity)
             } else {
-                Backdrop(name: otherName ?? room.displayName, url: otherAvatar ?? room.avatarUrl)
+                CallBackdrop(name: otherName ?? room.displayName, url: otherAvatar ?? room.avatarUrl)
                     .transition(.opacity)
             }
             VStack(spacing: WZ.Space.space6) {

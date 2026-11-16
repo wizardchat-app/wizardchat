@@ -422,7 +422,7 @@ internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact:
     val starterName = rememberMemberProfile(state.startedBy, room.id).name ?: state.startedBy
     Box(modifier.clip(RoundedCornerShape(WZ.Radius.xl))) {
         if (watch.watchingVideoId == state.videoId) {
-            WatchPlayer(watch, state, compact, onFocus, room.id)
+            if (!LocalInPip.current) WatchPlayer(watch, state, compact, onFocus, room.id)
         } else {
             WatchInvite(watch, state, starterName, compact)
             if (!compact) WatchViewers(watch, room.id, Modifier.align(Alignment.TopStart).padding(WZ.Space.space4))
@@ -431,7 +431,7 @@ internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact:
 }
 
 @Composable
-private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolean, onFocus: () -> Unit, roomId: String) {
+internal fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolean, onFocus: () -> Unit, roomId: String) {
     var failed by remember(state.videoId) { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         YouTubeSyncPlayer(
