@@ -106,6 +106,7 @@ export const pipNav = style([
     left: 0,
     right: 0,
     height: '40px',
+    padding: '0 6px',
     cursor: 'grab',
     backgroundColor: 'rgba(0,0,0,0.55)',
     backdropFilter: 'blur(6px)',
@@ -126,6 +127,34 @@ export const pipNavTitle = style([
     },
   },
 ]);
+
+export const trueFullscreen = style({
+  position: 'fixed !important' as 'fixed',
+  inset: 0,
+  width: '100% !important',
+  height: '100% !important',
+  zIndex: 7000,
+});
+
+export const pipNavBtn = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  flexShrink: 0,
+  border: 'none',
+  borderRadius: vars.radius.sm,
+  background: 'transparent',
+  color: 'rgba(255,255,255,0.85)',
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      color: '#fff',
+      backgroundColor: 'rgba(255,255,255,0.15)',
+    },
+  },
+});
 
 export const dragOverlay = style({
   position: 'absolute',

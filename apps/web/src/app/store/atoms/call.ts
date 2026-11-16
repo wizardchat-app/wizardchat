@@ -71,7 +71,7 @@ export const callPanelAtom = atom<'reactions' | 'soundboard' | null>(null);
 
 export const showNonVideoParticipantsAtom = atom(true);
 
-export const showOwnScreenShareAtom = atom(true);
+export const showOwnScreenShareAtom = atom(false);
 
 export interface CallUserAudio {
   volume: number;

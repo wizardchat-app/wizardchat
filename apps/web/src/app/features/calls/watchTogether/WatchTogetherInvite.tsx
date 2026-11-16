@@ -46,7 +46,7 @@ export function WatchTogetherInvite({ state, startedByName, compact }: Props) {
               setWatching(state.videoId);
             }}
           >
-            {t('call.watchTogether.watch')}
+            {t('call.watchTogether.name')}
           </button>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function WatchTogetherInvite({ state, startedByName, compact }: Props) {
         </p>
       )}
       <button type="button" className={css.invitePrimary} onClick={watch}>
-        {t('call.watchTogether.watch')}
+        {t('call.watchTogether.name')}
       </button>
       {!compact && (
         <a

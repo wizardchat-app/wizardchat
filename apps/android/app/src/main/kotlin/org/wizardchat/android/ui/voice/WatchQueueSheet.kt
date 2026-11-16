@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +76,8 @@ internal fun WatchQueueSheet(watch: WatchTogether, roomId: String, onDismiss: ()
     var notice by remember { mutableStateOf<QueueNotice?>(null) }
     var historyOpen by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
+    var confirmStop by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
     var draggingId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val order = remember { mutableStateListOf<String>() }
@@ -160,10 +163,11 @@ internal fun WatchQueueSheet(watch: WatchTogether, roomId: String, onDismiss: ()
 
     WizardSheet(onDismiss) {
         Row(
-            Modifier.fillMaxWidth().padding(start = WZ.Space.space6, end = WZ.Space.space4, top = WZ.Space.space2, bottom = WZ.Space.space4),
+            Modifier.fillMaxWidth().padding(start = WZ.Space.space4, end = WZ.Space.space4, top = WZ.Space.space2, bottom = WZ.Space.space4),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
         ) {
+            QueueAction("stop", tr("call.watchTogether.stopForEveryone"), tint = theme.danger, weight = PhWeight.fill) { confirmStop = true }
             Text(tr("call.watchTogether.queue.title"), style = wizardFont(WZ.FontSize.xl, FontWeight.SemiBold), color = theme.textPrimary)
             Text(
                 "${queue.size}/${WatchTogether.QUEUE_LIMIT}",
@@ -254,7 +258,12 @@ internal fun WatchQueueSheet(watch: WatchTogether, roomId: String, onDismiss: ()
                         .padding(horizontal = WZ.Space.space4)
                         .clip(RoundedCornerShape(WZ.Radius.md))
                         .background(theme.accent.copy(alpha = 0.12f)),
-                )
+                ) {
+                    QueueAction("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
+                        val now = watch.state ?: return@QueueAction
+                        runCatching { uriHandler.openUri(WatchTogether.watchUrl(now.videoId, now.expectedPosition())) }
+                    }
+                }
             }
             item(key = "up-next") {
                 Row(
@@ -367,6 +376,15 @@ internal fun WatchQueueSheet(watch: WatchTogether, roomId: String, onDismiss: ()
         }
     }
 
+    if (confirmStop) {
+        ConfirmDialog(
+            title = tr("call.watchTogether.stopConfirm"),
+            message = tr("call.watchTogether.stopMessage"),
+            confirmLabel = tr("call.watchTogether.stopForEveryone"),
+            onConfirm = { watch.stop() },
+            onDismiss = { confirmStop = false },
+        )
+    }
     if (confirmClear) {
         ConfirmDialog(
             title = tr("call.watchTogether.queue.clearConfirm"),

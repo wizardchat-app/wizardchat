@@ -8,8 +8,10 @@ struct WatchQueueSheet: View {
 
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     @State private var link = ""
+    @State private var confirmStop = false
     @State private var adding = false
     @State private var notice: (text: String, error: Bool)?
     @State private var historyOpen = false
@@ -37,9 +39,24 @@ struct WatchQueueSheet: View {
                             .foregroundStyle(theme.textMuted)
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common.done")) { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(role: .destructive) { confirmStop = true } label: {
+                        Image("ph-stop-fill")
+                            .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
+                            .foregroundStyle(theme.danger)
+                    }
+                    .accessibilityLabel(String(localized: "call.watchTogether.stopForEveryone"))
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "common.done")) { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+            .confirmationDialog(String(localized: "call.watchTogether.stopConfirm"), isPresented: $confirmStop,
+                                titleVisibility: .visible) {
+                Button(String(localized: "call.watchTogether.stopForEveryone"), role: .destructive) { watch.stop() }
+            } message: {
+                Text(String(localized: "call.watchTogether.stopMessage"))
             }
         }
         .presentationDetents([.medium, .large])
@@ -94,7 +111,13 @@ struct WatchQueueSheet: View {
 
             Section {
                 WatchQueueRow(item: WatchQueueItem(id: "current", videoId: state.videoId, addedBy: state.addedBy),
-                              addedByName: name(state.addedBy), current: true)
+                              addedByName: name(state.addedBy), current: true) {
+                    action("ph-arrow-square-out-regular", label: "call.watchTogether.openOnYouTube") {
+                        if let state = watch.state {
+                            openURL(WatchTogether.watchURL(state.videoId, seconds: state.expectedPosition()))
+                        }
+                    }
+                }
             } header: {
                 sectionLabel("call.watchTogether.queue.nowPlaying")
             }
@@ -281,12 +304,6 @@ private struct WatchQueueRow<Actions: View>: View {
             title = YouTubeVideoInfo.cachedTitle(item.videoId)
             if title == nil { title = await YouTubeVideoInfo.title(item.videoId) }
         }
-    }
-}
-
-extension WatchQueueRow where Actions == EmptyView {
-    init(item: WatchQueueItem, addedByName: String, current: Bool = false) {
-        self.init(item: item, addedByName: addedByName, current: current) { EmptyView() }
     }
 }
 

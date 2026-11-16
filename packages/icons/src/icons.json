@@ -41,6 +41,7 @@
   ["devices", "regular"],
   ["dots-six-vertical", "bold"],
   ["dots-three", "bold"],
+  ["dots-three-vertical", "bold"],
   ["download-simple", "regular"],
   ["envelope-simple", "regular"],
   ["envelope-simple-open", "regular"],

@@ -20,9 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -45,15 +43,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -68,7 +65,6 @@ import kotlinx.serialization.json.jsonObject
 import org.wizardchat.android.matrix.rtc.WatchState
 import org.wizardchat.android.matrix.rtc.WatchTogether
 import org.wizardchat.android.ui.BarTextButton
-import org.wizardchat.android.ui.ConfirmDialog
 import org.wizardchat.android.ui.GroupedRow
 import org.wizardchat.android.ui.GroupedSection
 import org.wizardchat.android.ui.L10n
@@ -435,10 +431,7 @@ internal fun WatchTogetherTile(watch: WatchTogether, room: RoomSummary, compact:
 
 @Composable
 private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolean, onFocus: () -> Unit, roomId: String) {
-    val uriHandler = LocalUriHandler.current
     var failed by remember(state.videoId) { mutableStateOf(false) }
-    var confirmStop by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         YouTubeSyncPlayer(
             watch,
@@ -473,70 +466,63 @@ private fun WatchPlayer(watch: WatchTogether, state: WatchState, compact: Boolea
         }
         if (compact) {
             Box(Modifier.fillMaxSize().clickable(onClick = onFocus))
+            val label = tr("call.watchTogether.name")
+            StagePill(Modifier.align(Alignment.TopStart).padding(WZ.Space.space3).clearAndSetSemantics { contentDescription = label }) {
+                PhIcon("youtube-logo", PhWeight.fill, size = 12.dp, tint = Color.White)
+            }
         } else {
             Row(
-                Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(WZ.Space.space4),
-                horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
+                Modifier.align(Alignment.TopStart).padding(WZ.Space.space4),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconLabel(
-                        tr("call.watchTogether.badge"),
-                        "youtube-logo",
+                StagePill(Modifier.weight(1f, fill = false)) {
+                    PhIcon("youtube-logo", PhWeight.fill, size = 12.dp, tint = Color.White)
+                    Text(
+                        tr("call.watchTogether.name"),
+                        style = wizardFont(WZ.FontSize.xs, FontWeight.Bold),
                         color = Color.White,
-                        size = WZ.FontSize.sm,
-                        weight = FontWeight.SemiBold,
-                        iconWeight = PhWeight.fill,
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.45f))
-                            .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
+                        letterSpacing = 0.3.sp,
+                        maxLines = 1,
                     )
-                    WatchViewers(watch, roomId)
+                }
+                WatchViewers(watch, roomId)
+            }
+            TileMenuButton(Modifier.align(Alignment.BottomEnd).padding(WZ.Space.space4)) { close ->
+                MenuRow(
+                    tr("call.watchTogether.queue.title"),
+                    "queue",
+                    trailing = if (state.queue.isNotEmpty()) {
+                        {
+                            Text(
+                                "${state.queue.size}",
+                                Modifier
+                                    .clip(CircleShape)
+                                    .background(theme.accent)
+                                    .padding(horizontal = WZ.Space.space3),
+                                style = wizardFont(WZ.FontSize.xs, FontWeight.Bold),
+                                color = theme.textOnAccent,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                ) {
+                    close()
+                    WatchQueueUi.open = true
                 }
                 if (state.queue.isNotEmpty()) {
-                    SmallButton("skip-forward", tr("call.watchTogether.queue.skip"), weight = PhWeight.fill) { watch.skip() }
-                }
-                Box {
-                    SmallButton("queue", tr("call.watchTogether.queue.title")) { showQueue = true }
-                    if (state.queue.isNotEmpty()) {
-                        Text(
-                            "${state.queue.size}",
-                            Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = WZ.Space.space2, y = -WZ.Space.space2)
-                                .clip(CircleShape)
-                                .background(theme.accent)
-                                .padding(horizontal = WZ.Space.space2)
-                                .clearAndSetSemantics {},
-                            style = wizardFont(WZ.FontSize.xs, FontWeight.Bold),
-                            color = theme.textOnAccent,
-                        )
+                    MenuRow(tr("call.watchTogether.queue.skip"), "skip-forward", PhWeight.fill) {
+                        close()
+                        watch.skip()
                     }
                 }
-                SmallButton("arrow-square-out", tr("call.watchTogether.openOnYouTube")) {
-                    runCatching { uriHandler.openUri(WatchTogether.watchUrl(state.videoId, state.expectedPosition())) }
+                MenuRow(tr("call.watchTogether.stopWatching"), "eye-slash") {
+                    close()
+                    watch.watchingVideoId = null
                 }
-                SmallButton("eye-slash", tr("call.watchTogether.stopJustMe")) { watch.watchingVideoId = null }
-                SmallButton("x", tr("call.watchTogether.stopForEveryone"), tint = theme.danger) { confirmStop = true }
             }
         }
-    }
-    if (confirmStop) {
-        ConfirmDialog(
-            title = tr("call.watchTogether.stopConfirm"),
-            confirmLabel = tr("call.watchTogether.stopForEveryone"),
-            onConfirm = { watch.stop() },
-            onDismiss = { confirmStop = false },
-        )
-    }
-    if (showQueue && !compact) {
-        WatchQueueSheet(watch, roomId, onDismiss = { showQueue = false })
     }
 }
 
@@ -577,9 +563,9 @@ private fun WatchInvite(watch: WatchTogether, state: WatchState, starterName: St
             horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PhIcon("play", PhWeight.fill, size = WZ.SizeIcon.sm, tint = theme.textOnAccent)
+            PhIcon("youtube-logo", PhWeight.fill, size = WZ.SizeIcon.sm, tint = theme.textOnAccent)
             Text(
-                tr("call.watchTogether.watch"),
+                tr("call.watchTogether.name"),
                 style = wizardFont(if (compact) WZ.FontSize.xs else WZ.FontSize.md, FontWeight.SemiBold),
                 color = theme.textOnAccent,
             )
@@ -621,21 +607,6 @@ private fun WatchViewers(watch: WatchTogether, roomId: String, modifier: Modifie
     }
 }
 
-@Composable
-private fun SmallButton(icon: String, label: String, tint: Color = Color.White, weight: PhWeight = PhWeight.regular, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(WZ.Space.space9)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) {
-        PhIcon(icon, weight, size = WZ.SizeIcon.sm, tint = tint)
-    }
-}
-
 /** Asks for a YouTube link to watch together */
 @Composable
 internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit) {
@@ -651,6 +622,7 @@ internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit
         if (videoIds.isEmpty()) return
         watch.start(videoIds.take(WatchTogether.QUEUE_LIMIT + 1))
         onDismiss()
+        WatchQueueUi.open = true
     }
 
     fun start() {
@@ -681,7 +653,7 @@ internal fun WatchTogetherStartSheet(watch: WatchTogether, onDismiss: () -> Unit
         Box(Modifier.fillMaxWidth().height(WZ.Space.space11).padding(horizontal = WZ.Space.space3)) {
             Box(Modifier.align(Alignment.CenterStart)) { BarTextButton(tr("common.cancel"), onDismiss) }
             Text(
-                tr("call.watchTogether.watch"),
+                tr("call.watchTogether.name"),
                 Modifier.align(Alignment.Center),
                 style = wizardFont(WZ.FontSize.lg, FontWeight.SemiBold),
                 color = theme.textPrimary,

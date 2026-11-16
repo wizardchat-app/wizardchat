@@ -159,15 +159,10 @@ struct CallControls: View {
                         : Label(menu: String(localized: "call.shareScreen"), icon: "ph-monitor-arrow-up-regular")
                 }
                 if let watch = calls.watch {
-                    if watch.state != nil {
-                        Button(role: .destructive) { watch.stop() } label: {
-                            Label(menu: String(localized: "call.watchTogether.stopTogether"), icon: "ph-stop-fill", destructive: true)
-                        }
-                        .tint(theme.danger)
-                    } else {
-                        Button { showWatchSheet = true } label: {
-                            Label(menu: String(localized: "call.watchTogether.menuBeta"), icon: "ph-youtube-logo-fill")
-                        }
+                    Button {
+                        if watch.state != nil { watch.queueOpen = true } else { showWatchSheet = true }
+                    } label: {
+                        Label(menu: watch.state != nil ? String(localized: "call.watchTogether.queue.title") : String(localized: "call.watchTogether.name"), icon: "ph-youtube-logo-fill")
                     }
                 }
                 if let onOpenChat {
@@ -207,13 +202,17 @@ struct CallControls: View {
         .sensoryFeedback(.impact(weight: .light), trigger: calls.micMuted)
         .sensoryFeedback(.impact(weight: .light), trigger: calls.deafened)
         .sensoryFeedback(.impact(weight: .light), trigger: calls.handRaised)
-        .sheet(isPresented: $showWatchSheet) {
-            if let watch = calls.watch { WatchTogetherStartSheet(watch: watch) }
+        .sheet(isPresented: $showWatchSheet, onDismiss: {
+            if startedWatch, let watch = calls.watch, watch.state != nil { watch.queueOpen = true }
+            startedWatch = false
+        }) {
+            if let watch = calls.watch { WatchTogetherStartSheet(watch: watch) { startedWatch = true } }
         }
         .sheet(isPresented: $showSoundboard) { SoundboardSheet() }
     }
 
     @State private var showWatchSheet = false
+    @State private var startedWatch = false
     @State private var showSoundboard = false
 
     private var moreHighlighted: Bool { calls.handRaised || calls.screenSharing }

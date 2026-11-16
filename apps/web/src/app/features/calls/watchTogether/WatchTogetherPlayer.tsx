@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowSquareOutIcon,
   ArrowsOutSimpleIcon,
+  DotsThreeVerticalIcon,
   EyeSlashIcon,
   QueueIcon,
   SkipForwardIcon,
-  XIcon,
   YoutubeLogoIcon,
 } from '@phosphor-icons/react';
 import { useSetAtom } from 'jotai';
 import { Tooltip } from '@/app/components/Tooltip';
+import { Popover } from '@/app/components/Popover';
 import {
   expectedPosition,
   watchingVideoIdAtom,
-  youtubeWatchUrl,
   type WatchPatch,
   type WatchState,
 } from './watchTogether';
@@ -23,6 +22,7 @@ import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useProfile } from '@/app/data';
 import { YT_STATE, createYouTubePlayer, type YTPlayer } from './youtube';
 import * as css from './WatchTogether.css';
+import * as menuCss from '../CallControlBar.css';
 
 const IN_SYNC_S = 0.3;
 const NUDGE_MAX_S = 3;
@@ -52,7 +52,6 @@ interface Props {
   compact?: boolean;
   onUpdate: (patch: WatchPatch) => void;
   onAdvance: (fromVideoId: string) => boolean;
-  onStop: () => void;
   onQueue?: () => void;
   onSkip?: () => void;
   onFocus?: () => void;
@@ -63,7 +62,6 @@ export function WatchTogetherPlayer({
   compact,
   onUpdate,
   onAdvance,
-  onStop,
   onQueue,
   onSkip,
   onFocus,
@@ -86,6 +84,8 @@ export function WatchTogetherPlayer({
   const onAdvanceRef = useRef(onAdvance);
   onAdvanceRef.current = onAdvance;
   const setWatching = useSetAtom(watchingVideoIdAtom);
+  const menuRef = useRef<HTMLSpanElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [failed, setFailed] = useState<'video' | 'bridge' | null>(null);
   const client = getMatrixClientOrNull();
   const myId = client?.userId() ?? '';
@@ -305,40 +305,12 @@ export function WatchTogetherPlayer({
           <span className={css.playerTop}>
             <span className={css.playerLabel}>
               <YoutubeLogoIcon size={14} weight="fill" />
-              {t('call.watchTogether.badge')}
+              {t('call.watchTogether.name')}
             </span>
             <WatchViewers />
           </span>
           <div className={css.playerBar}>
             <span className={css.playerButtons}>
-              {onQueue && (
-                <Tooltip content={t('call.watchTogether.queue.title')}>
-                  <button
-                    type="button"
-                    className={css.playerButton}
-                    onClick={onQueue}
-                    aria-label={t('call.watchTogether.queue.title')}
-                    data-call-panel-toggle
-                  >
-                    <QueueIcon size={14} />
-                    {state.queue.length > 0 && (
-                      <span className={css.playerButtonCount}>{state.queue.length}</span>
-                    )}
-                  </button>
-                </Tooltip>
-              )}
-              {onSkip && state.queue.length > 0 && (
-                <Tooltip content={t('call.watchTogether.queue.skip')}>
-                  <button
-                    type="button"
-                    className={css.playerButton}
-                    onClick={onSkip}
-                    aria-label={t('call.watchTogether.queue.skip')}
-                  >
-                    <SkipForwardIcon size={14} weight="fill" />
-                  </button>
-                </Tooltip>
-              )}
               {onFocus && (
                 <Tooltip content={t('call.watchTogether.focus')}>
                   <button
@@ -351,43 +323,87 @@ export function WatchTogetherPlayer({
                   </button>
                 </Tooltip>
               )}
-              <Tooltip content={t('call.watchTogether.openOnYouTube')}>
-                <a
-                  className={css.playerButton}
-                  href={youtubeWatchUrl(state.videoId)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t('call.watchTogether.openOnYouTube')}
-                  onClick={(e) => {
-                    const current = playerRef.current?.getCurrentTime() ?? expectedPosition(state);
-                    e.currentTarget.href = youtubeWatchUrl(state.videoId, current);
-                  }}
-                >
-                  <ArrowSquareOutIcon size={14} />
-                </a>
-              </Tooltip>
-              <Tooltip content={t('call.watchTogether.stopWatching')}>
-                <button
-                  type="button"
-                  className={css.playerButton}
-                  onClick={() => setWatching(null)}
-                  aria-label={t('call.watchTogether.stopWatching')}
-                >
-                  <EyeSlashIcon size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip content={t('call.watchTogether.stop')}>
-                <button
-                  type="button"
-                  className={css.playerStop}
-                  onClick={onStop}
-                  aria-label={t('call.watchTogether.stop')}
-                >
-                  <XIcon size={14} weight="bold" />
-                </button>
-              </Tooltip>
             </span>
           </div>
+          <span ref={menuRef} className={menuOpen ? css.playerMenuOpen : css.playerMenu}>
+            <Tooltip content={t('common.moreOptions')}>
+              <button
+                type="button"
+                className={css.playerMenuBtn}
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-label={t('common.moreOptions')}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                <DotsThreeVerticalIcon size={16} weight="bold" />
+              </button>
+            </Tooltip>
+          </span>
+          <Popover
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            anchorRef={menuRef}
+            placement="top"
+            role="menu"
+            dense
+          >
+            <div className={menuCss.menu}>
+              {onQueue && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={menuCss.menuItem}
+                  data-call-panel-toggle
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onQueue();
+                  }}
+                >
+                  <QueueIcon size={16} />
+                  <span className={menuCss.menuItemLabel}>
+                    {t('call.watchTogether.queue.title')}
+                  </span>
+                  {state.queue.length > 0 ? (
+                    <span className={css.playerMenuCount}>{state.queue.length}</span>
+                  ) : (
+                    <span className={menuCss.menuItemSpacer} />
+                  )}
+                </button>
+              )}
+              {onSkip && state.queue.length > 0 && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={menuCss.menuItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onSkip();
+                  }}
+                >
+                  <SkipForwardIcon size={16} weight="fill" />
+                  <span className={menuCss.menuItemLabel}>
+                    {t('call.watchTogether.queue.skip')}
+                  </span>
+                  <span className={menuCss.menuItemSpacer} />
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                className={menuCss.menuItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setWatching(null);
+                }}
+              >
+                <EyeSlashIcon size={16} />
+                <span className={menuCss.menuItemLabel}>
+                  {t('call.watchTogether.stopWatching')}
+                </span>
+                <span className={menuCss.menuItemSpacer} />
+              </button>
+            </div>
+          </Popover>
         </>
       )}
     </div>

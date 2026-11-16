@@ -52,6 +52,7 @@ export const stageMain = style({
 });
 
 export const stageFocus = style({
+  position: 'relative',
   aspectRatio: '16 / 9',
   width: 'min(100cqw, calc(100cqh * 16 / 9))',
   flexShrink: 0,
@@ -70,6 +71,32 @@ export const strip = style({
   flexShrink: 0,
   overflowX: 'auto',
 });
+
+export const stripToggle = style({
+  position: 'absolute',
+  left: '50%',
+  bottom: '10px',
+  zIndex: 4,
+  transform: 'translateX(-50%)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '4px 12px',
+  borderRadius: '999px',
+  border: 'none',
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  color: '#fff',
+  fontSize: '0.78rem',
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  opacity: 0,
+  transition: `opacity ${fast}, background-color ${fast}`,
+  ':hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+  ':focus-visible': { opacity: 1, outline: `2px solid ${vars.color.accent}` },
+});
+
+globalStyle(`${stageFocus}:hover ${stripToggle}`, { opacity: 1 });
 
 export const stripItem = style({
   height: '100%',
@@ -400,8 +427,6 @@ export const tileMenuBtn = style({
 
 globalStyle(`${tile}:hover ${tileMenuBtn}`, { opacity: 1 });
 
-export const tileFullscreenBtn = style([tileMenuBtn, { right: '42px' }]);
-
 export const videoHiddenBadge = style({
   position: 'absolute',
   right: '8px',
@@ -418,10 +443,6 @@ export const videoHiddenBadge = style({
 });
 
 export const tileMenuBtnShifted = style([tileMenuBtn, { right: '42px' }]);
-export const tileFullscreenBtnShifted = style([tileMenuBtn, { right: '76px' }]);
-
-globalStyle(`${tile}:fullscreen`, { borderRadius: 0 });
-globalStyle(`${tile}:fullscreen ${video}`, { objectFit: 'contain' });
 
 export const watchOverlay = style({
   position: 'absolute',
@@ -484,7 +505,7 @@ export const reactionDivider = style({
 
 export const userMenu = style({
   position: 'fixed',
-  zIndex: 6500,
+  zIndex: 9000,
   width: '220px',
   display: 'flex',
   flexDirection: 'column',
@@ -581,6 +602,8 @@ export const userMenuItem = style({
   transition: `background-color ${fast}`,
   ':hover': { backgroundColor: vars.color.bgHover },
 });
+
+export const userMenuItemDanger = style([userMenuItem, { color: vars.color.danger }]);
 
 export const bubbleRingSmall = style({ width: '72px', height: '72px' });
 

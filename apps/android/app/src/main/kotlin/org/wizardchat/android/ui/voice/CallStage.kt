@@ -34,8 +34,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
@@ -54,7 +56,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -63,6 +64,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -226,6 +229,7 @@ fun InCallView(
         }
     }
     LaunchedEffect(watchingNow) { if (watchingNow) pinned = StageTile.Watch.key }
+    LaunchedEffect(watchState == null) { if (watchState == null) WatchQueueUi.open = false }
     val keys = tiles.map { it.key }
     LaunchedEffect(keys) { if (pinned != null && pinned !in keys) pinned = null }
 
@@ -377,6 +381,49 @@ fun InCallView(
     }
     volumeFor?.let { userId ->
         WizardSheet(onDismiss = { volumeFor = null }) { VolumeSheet(room.id, userId) }
+    }
+    if (WatchQueueUi.open && watch != null && watchState != null) {
+        WatchQueueSheet(watch, room.id, onDismiss = { WatchQueueUi.open = false })
+    }
+}
+
+internal object WatchQueueUi {
+    var open by mutableStateOf(false)
+}
+
+@Composable
+internal fun StagePill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier
+            .height(18.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF593695))
+            .padding(horizontal = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+internal fun TileMenuButton(modifier: Modifier = Modifier, menu: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val label = tr("common.moreOptions")
+    Box(modifier) {
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.6f))
+                .clickable { open = true }
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) {
+            PhIcon("dots-three-vertical", PhWeight.bold, size = 16.dp, tint = Color.White)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = theme.bgTertiary) {
+            menu { open = false }
+        }
     }
 }
 
@@ -836,7 +883,6 @@ private fun NameLabel(participant: CallParticipantInfo, label: String, compact: 
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ScreenTile(
     roomId: String,
@@ -851,20 +897,18 @@ private fun ScreenTile(
     val name = participant.displayName ?: profile.name ?: participant.userId
     val avatarUrl = participant.avatarUrl ?: profile.avatarUrl
     val watching = !participant.isLocal && participant.watchingScreen
-    var showMenu by remember { mutableStateOf(false) }
     Box(
         modifier
             .clip(RoundedCornerShape(WZ.Radius.xl))
-            .combinedClickable(
+            .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onTap,
-                onLongClick = if (watching) ({ showMenu = true }) else null,
             ),
         contentAlignment = Alignment.Center,
     ) {
         when {
-            participant.isLocal -> {
+            participant.isLocal && !calls.showOwnScreen -> {
                 Backdrop(name, avatarUrl)
                 Column(
                     Modifier.padding(WZ.Space.space6),
@@ -917,18 +961,9 @@ private fun ScreenTile(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val chip = wizardFont(WZ.FontSize.xs, FontWeight.Bold)
-            Text(
-                tr("call.live"),
-                Modifier
-                    .height(18.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF593695))
-                    .padding(horizontal = 7.dp)
-                    .wrapContentHeight(),
-                style = chip,
-                color = Color.White,
-                letterSpacing = 0.3.sp,
-            )
+            StagePill {
+                Text(tr("call.live"), style = chip, color = Color.White, letterSpacing = 0.3.sp)
+            }
             val watchers = participant.screenWatchers.size
             if (participant.isLocal && watchers > 0) {
                 val label = trPlural("call.streamViewers", watchers, watchers)
@@ -962,27 +997,59 @@ private fun ScreenTile(
                     .padding(horizontal = WZ.Space.space4, vertical = WZ.Space.space2),
             )
         }
-        if (!compact && watching) {
-            val stopLabel = tr("call.stopWatching")
-            Box(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(WZ.Space.space4)
-                    .size(WZ.Space.space9)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f))
-                    .clickable { calls.setWatchingScreen(participant.identity, false) }
-                    .semantics { contentDescription = stopLabel },
-                contentAlignment = Alignment.Center,
-            ) {
-                PhIcon("eye-slash", size = WZ.SizeIcon.sm, tint = Color.White)
+        if (!compact && (participant.isLocal || watching)) {
+            TileMenuButton(Modifier.align(Alignment.BottomEnd).padding(WZ.Space.space4)) { close ->
+                ScreenMenu(participant, watching, close)
             }
         }
-        WizardMenu(
-            showMenu,
-            { showMenu = false },
-            listOf(MenuItem(tr("call.stopWatching"), "eye-slash") { calls.setWatchingScreen(participant.identity, false) }),
-        )
+    }
+}
+
+@Composable
+private fun ScreenMenu(participant: CallParticipantInfo, watching: Boolean, close: () -> Unit) {
+    val calls = CallManager.shared
+    if (participant.isLocal) {
+        MenuRow(
+            tr("call.showOwnScreen"),
+            "monitor",
+            trailing = {
+                Switch(
+                    checked = calls.showOwnScreen,
+                    onCheckedChange = { calls.showOwnScreen = it },
+                    colors = SwitchDefaults.colors(checkedTrackColor = theme.accent),
+                )
+            },
+        ) { calls.showOwnScreen = !calls.showOwnScreen }
+        HorizontalDivider(color = theme.border)
+        MenuRow(tr("call.stopShare"), "monitor-arrow-up", color = theme.danger) {
+            close()
+            if (calls.screenSharing) calls.toggleScreenShare()
+        }
+        return
+    }
+    if (watching && participant.screenAudio) {
+        val streamVolume = tr("call.streamVolume")
+        Row(
+            Modifier.padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space2),
+            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PhIcon("speaker-high", PhWeight.regular, tint = theme.textPrimary)
+            Slider(
+                value = participant.streamVolume.toFloat(),
+                onValueChange = { calls.setStreamVolume(it.toDouble(), participant.userId) },
+                valueRange = 0f..1f,
+                modifier = Modifier.width(180.dp).semantics { contentDescription = streamVolume },
+                colors = SliderDefaults.colors(thumbColor = theme.accent, activeTrackColor = theme.accent, inactiveTrackColor = theme.fill),
+            )
+        }
+        HorizontalDivider(color = theme.border)
+    }
+    if (watching) {
+        MenuRow(tr("call.stopWatching"), "eye-slash") {
+            close()
+            calls.setWatchingScreen(participant.identity, false)
+        }
     }
 }
 

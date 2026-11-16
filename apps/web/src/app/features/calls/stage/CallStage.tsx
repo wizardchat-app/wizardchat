@@ -3,8 +3,6 @@ import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
-  ArrowsInIcon,
-  ArrowsOutIcon,
   DotsThreeIcon,
   LockKeyIcon,
   EyeIcon,
@@ -13,6 +11,8 @@ import {
   MicrophoneSlashIcon,
   MonitorIcon,
   PhoneIcon,
+  CaretDownIcon,
+  CaretUpIcon,
 } from '@phosphor-icons/react';
 import type { CallMedia, CallParticipant, RingState, TrackHandle } from '@/call/media';
 import { useClient, useMembers, useRoom } from '@/app/data';
@@ -89,22 +89,6 @@ function UserBackdrop({ name, mxc }: { name: string; mxc: string | null }) {
   return <span className={css.backdrop} style={{ backgroundImage: gradient }} />;
 }
 
-function useFullscreen(ref: React.RefObject<HTMLElement | null>): [boolean, () => void] {
-  const [active, setActive] = useState(false);
-  useEffect(() => {
-    const update = () => setActive(!!ref.current && document.fullscreenElement === ref.current);
-    document.addEventListener('fullscreenchange', update);
-    return () => document.removeEventListener('fullscreenchange', update);
-  }, [ref]);
-  const toggle = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (document.fullscreenElement === el) void document.exitFullscreen();
-    else void el.requestFullscreen().catch(() => {});
-  }, [ref]);
-  return [active, toggle];
-}
-
 /** The user's other devices in the call are named as such */
 function participantInfo(
   participant: CallParticipant,
@@ -148,9 +132,6 @@ function Tile({
   const flash =
     soundboard ?? (participant.reaction ? { emoji: participant.reaction, key: 0 } : null);
   const videoHidden = !screen && participant.cameraHidden;
-  const canFullscreen = !!track && !previewHidden && !unwatched;
-  const [isFullscreen, toggleFullscreen] = useFullscreen(ref);
-  const fullscreenLabel = isFullscreen ? t('common.exitFullscreen') : t('common.fullscreen');
 
   const classes = [
     css.tile,
@@ -166,8 +147,7 @@ function Tile({
     <div
       ref={ref}
       className={classes}
-      onClick={onSelect ? (e) => e.detail < 2 && onSelect() : undefined}
-      onDoubleClick={canFullscreen ? toggleFullscreen : undefined}
+      onClick={onSelect}
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
       onKeyDown={(e) => {
@@ -261,25 +241,6 @@ function Tile({
           <span className={css.videoHiddenBadge} aria-label={t('call.videoHiddenForYou')}>
             <EyeSlashIcon size={16} weight="bold" />
           </span>
-        </Tooltip>
-      )}
-      {canFullscreen && (
-        <Tooltip content={fullscreenLabel}>
-          <button
-            type="button"
-            className={videoHidden ? css.tileFullscreenBtnShifted : css.tileFullscreenBtn}
-            aria-label={fullscreenLabel}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFullscreen();
-            }}
-          >
-            {isFullscreen ? (
-              <ArrowsInIcon size={16} weight="bold" />
-            ) : (
-              <ArrowsOutIcon size={16} weight="bold" />
-            )}
-          </button>
         </Tooltip>
       )}
       {onMenu && (
@@ -546,6 +507,7 @@ export function CallStage() {
   const theme = useAtomValue(themeAtom);
   const [panel, setPanel] = useAtom(callPanelAtom);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [hideMembers, setHideMembers] = useState(false);
   const [userMenu, setUserMenu] = useState<UserMenuAnchor | null>(null);
   const closePanel = useCallback(() => setPanel(null), [setPanel]);
   const closeUserMenu = useCallback(() => setUserMenu(null), []);
@@ -714,22 +676,37 @@ export function CallStage() {
     );
   } else if (stageView) {
     const others = tiles.filter((tile) => tile.key !== focused.key);
+    const hasStrip = !compact && others.length > 0;
+    const showStrip = hasStrip && !hideMembers;
+    const membersLabel = hideMembers ? t('call.showMembers') : t('call.hideMembers');
     content = (
       <>
         <div className={css.stageMain}>
-          <div
-            key={focused.key}
-            className={!compact && others.length > 0 ? css.stageFocusWithStrip : css.stageFocus}
-          >
+          <div key={focused.key} className={showStrip ? css.stageFocusWithStrip : css.stageFocus}>
             {renderTile(focused, {
               focused: true,
               compact,
               onSelect: compact ? undefined : () => select(focused.key),
               menu: !compact,
             })}
+            {hasStrip && (
+              <button
+                type="button"
+                className={css.stripToggle}
+                onClick={() => setHideMembers((hidden) => !hidden)}
+                aria-expanded={!hideMembers}
+              >
+                {hideMembers ? (
+                  <CaretUpIcon size={12} weight="bold" />
+                ) : (
+                  <CaretDownIcon size={12} weight="bold" />
+                )}
+                {membersLabel}
+              </button>
+            )}
           </div>
         </div>
-        {!compact && others.length > 0 && (
+        {showStrip && (
           <div className={css.strip}>
             {others.map((tile) => (
               <div key={tile.key} className={css.stripItem}>
@@ -762,7 +739,7 @@ export function CallStage() {
       <div ref={grid.ref} className={css.area}>
         {content}
       </div>
-      {!compact && watchingNow && queueOpen && (
+      {!compact && watchActive && queueOpen && (
         <WatchQueuePanel nameOf={(userId) => lookup(userId).member?.displayName ?? userId} />
       )}
       {!compact && panel === 'reactions' && (

@@ -337,13 +337,10 @@ struct WatchTogetherTile: View {
     var onFocus: () -> Void = {}
 
     @EnvironmentObject private var session: MatrixSession
-    @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
     @State private var starterName: String?
     @State private var waitingName: String?
     @State private var failed = false
-    @State private var confirmStop = false
-    @State private var showQueue = false
 
     var body: some View {
         if let state = watch.state {
@@ -362,7 +359,6 @@ struct WatchTogetherTile: View {
                 guard let waitingFor = state.waitingFor else { return }
                 waitingName = await session.memberProfile(waitingFor, in: room.id).name
             }
-            .sheet(isPresented: $showQueue) { WatchQueueSheet(watch: watch, roomId: room.id) }
         }
     }
 
@@ -395,45 +391,36 @@ struct WatchTogetherTile: View {
                 Color.clear.contentShape(Rectangle()).onTapGesture(perform: onFocus)
             }
         }
-        .overlay(alignment: .top) {
+        .overlay(alignment: .topLeading) {
+            HStack(spacing: WZ.Space.space3) {
+                playerLabel
+                if !compact { WatchViewersChip(viewers: watch.viewers, roomId: room.id) }
+            }
+            .padding(compact ? WZ.Space.space3 : WZ.Space.space4)
+        }
+        .overlay(alignment: .bottomTrailing) {
             if !compact {
-                HStack(spacing: WZ.Space.space3) {
-                    Label(String(localized: "call.watchTogether.badge"), image: "ph-youtube-logo-fill")
-                        .font(.wizard(WZ.FontSize.sm, .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .padding(.horizontal, WZ.Space.space4)
-                        .padding(.vertical, WZ.Space.space2)
-                        .background(.black.opacity(0.45), in: Capsule())
-                    WatchViewersChip(viewers: watch.viewers, roomId: room.id)
-                    Spacer(minLength: 0)
-                    smallButton(Image("ph-queue-regular"), label: "call.watchTogether.queue.title") { showQueue = true }
-                        .overlay(alignment: .topTrailing) {
-                            if !state.queue.isEmpty {
-                                Text(verbatim: "\(state.queue.count)")
-                                    .font(.wizard(WZ.FontSize.xs, .bold))
-                                    .foregroundStyle(theme.textOnAccent)
-                                    .padding(.horizontal, WZ.Space.space2)
-                                    .frame(minWidth: WZ.SizeIcon.sm, minHeight: WZ.SizeIcon.sm)
-                                    .background(theme.accent, in: Capsule())
-                                    .offset(x: WZ.Space.space2, y: -WZ.Space.space2)
-                                    .allowsHitTesting(false)
-                            }
-                        }
+                Menu {
+                    Button { watch.queueOpen = true } label: {
+                        Label(menu: state.queue.isEmpty ? String(localized: "call.watchTogether.queue.title")
+                                  : "\(String(localized: "call.watchTogether.queue.title")) (\(state.queue.count))",
+                              icon: "ph-queue-regular")
+                    }
                     if !state.queue.isEmpty {
-                        smallButton(Image("ph-skip-forward-fill"), label: "call.watchTogether.queue.skip") { watch.skip() }
+                        Button { watch.skip() } label: {
+                            Label(menu: String(localized: "call.watchTogether.queue.skip"), icon: "ph-skip-forward-fill")
+                        }
                     }
-                    smallButton("ph-arrow-square-out-regular", label: "call.watchTogether.openOnYouTube") {
-                        openURL(WatchTogether.watchURL(state.videoId, seconds: state.expectedPosition()))
+                    Button { watch.watchingVideoId = nil } label: {
+                        Label(menu: String(localized: "call.watchTogether.stopWatching"), icon: "ph-eye-slash-regular")
                     }
-                    smallButton("ph-eye-slash-regular", label: "call.watchTogether.stopJustMe") { watch.watchingVideoId = nil }
-                    smallButton("ph-x-regular", label: "call.watchTogether.stopForEveryone", tint: theme.danger) { confirmStop = true }
+                } label: {
+                    TileMenuLabel()
                 }
+                .menuOrder(.fixed)
+                .tint(theme.textPrimary)
                 .padding(WZ.Space.space4)
             }
-        }
-        .confirmationDialog(String(localized: "call.watchTogether.stopConfirm"), isPresented: $confirmStop, titleVisibility: .visible) {
-            Button(String(localized: "call.watchTogether.stopForEveryone"), role: .destructive) { watch.stop() }
         }
         .onChange(of: state.videoId) { _, _ in failed = false }
     }
@@ -461,7 +448,7 @@ struct WatchTogetherTile: View {
                     watch.consent = true
                     watch.watchingVideoId = state.videoId
                 } label: {
-                    Label(String(localized: "call.watchTogether.watch"), image: "ph-play-fill")
+                    Label(String(localized: "call.watchTogether.name"), image: "ph-youtube-logo-fill")
                         .font(.wizard(compact ? WZ.FontSize.xs : WZ.FontSize.md, .semibold))
                         .foregroundStyle(theme.textOnAccent)
                         .padding(.horizontal, compact ? WZ.Space.space4 : WZ.Space.space6)
@@ -480,22 +467,23 @@ struct WatchTogetherTile: View {
         }
     }
 
-    private func smallButton(_ icon: String, label: LocalizedStringKey, tint: Color = .white,
-                             action: @escaping () -> Void) -> some View {
-        smallButton(Image(icon), label: label, tint: tint, action: action)
-    }
-
-    private func smallButton(_ image: Image, label: LocalizedStringKey, tint: Color = .white,
-                             action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            image
-                .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: WZ.Space.space9, height: WZ.Space.space9)
-                .background(.black.opacity(0.45), in: Circle())
+    private var playerLabel: some View {
+        HStack(spacing: 4) {
+            Image("ph-youtube-logo-fill").font(.system(size: 12, weight: .bold))
+            if !compact {
+                Text(String(localized: "call.watchTogether.name"))
+                    .tracking(0.3)
+                    .lineLimit(1)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .font(.wizard(WZ.FontSize.xs, .bold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 7)
+        .frame(height: 18)
+        .background(Color.callLive, in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "call.watchTogether.name"))
+        .allowsHitTesting(false)
     }
 }
 
@@ -536,6 +524,7 @@ private struct WatchViewersChip: View {
 
 struct WatchTogetherStartSheet: View {
     let watch: WatchTogether
+    var onStart: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @State private var link = ""
@@ -568,7 +557,7 @@ struct WatchTogetherStartSheet: View {
                 }
             }
             .tint(theme.control)
-            .navigationTitle(String(localized: "call.watchTogether.watch"))
+            .navigationTitle(String(localized: "call.watchTogether.name"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(String(localized: "common.cancel")) { dismiss() } }
@@ -611,6 +600,7 @@ struct WatchTogetherStartSheet: View {
     private func begin(_ videoIds: [String]) {
         guard !videoIds.isEmpty else { return }
         watch.start(videoIds: Array(videoIds.prefix(WatchTogether.queueLimit + 1)))
+        onStart()
         dismiss()
     }
 }

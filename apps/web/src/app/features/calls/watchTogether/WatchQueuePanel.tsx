@@ -18,11 +18,13 @@ import {
 } from '@dnd-kit/sortable';
 import {
   ArrowLineUpIcon,
+  ArrowSquareOutIcon,
   CaretDownIcon,
   CaretRightIcon,
   DotsSixVerticalIcon,
   PlayIcon,
   ShuffleIcon,
+  StopIcon,
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react';
@@ -31,11 +33,13 @@ import { Spinner } from '@/app/components/Spinner';
 import { useConfirm } from '@/app/hooks/useConfirm';
 import {
   QUEUE_LIMIT,
+  expectedPosition,
   parseYouTubeLink,
   watchActionsAtom,
   watchQueueOpenAtom,
   watchStateAtom,
   youtubeThumbnail,
+  youtubeWatchUrl,
   type QueueItem,
 } from './watchTogether';
 import { fetchPlaylistIds, fetchVideoInfo } from './youtube';
@@ -247,6 +251,16 @@ export function WatchQueuePanel({ nameOf }: { nameOf: (userId: string) => string
     if (ok) actions.clear();
   };
 
+  const stopForEveryone = async () => {
+    const ok = await confirm({
+      title: t('call.watchTogether.stopConfirm'),
+      message: t('call.watchTogether.stopMessage'),
+      confirmLabel: t('call.watchTogether.stopForEveryone'),
+      danger: true,
+    });
+    if (ok) actions.stop();
+  };
+
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
     const ids = queue.map((item) => item.id);
@@ -267,9 +281,18 @@ export function WatchQueuePanel({ nameOf }: { nameOf: (userId: string) => string
             {queue.length}/{QUEUE_LIMIT}
           </span>
         </span>
-        <IconAction label={t('common.close')} onClick={() => setOpen(false)}>
-          <XIcon size={16} />
-        </IconAction>
+        <span className={css.headerActions}>
+          <IconAction
+            label={t('call.watchTogether.stopForEveryone')}
+            onClick={() => void stopForEveryone()}
+            destructive
+          >
+            <StopIcon size={16} weight="fill" />
+          </IconAction>
+          <IconAction label={t('common.close')} onClick={() => setOpen(false)}>
+            <XIcon size={16} />
+          </IconAction>
+        </span>
       </div>
 
       <form
@@ -304,7 +327,20 @@ export function WatchQueuePanel({ nameOf }: { nameOf: (userId: string) => string
       <div className={css.body}>
         <div className={css.sectionLabel}>{t('call.watchTogether.queue.nowPlaying')}</div>
         <div className={css.rowCurrent}>
-          <VideoRow item={current} addedByName={nameOf(current.addedBy)} current />
+          <VideoRow item={current} addedByName={nameOf(current.addedBy)} current>
+            <IconAction
+              label={t('call.watchTogether.openOnYouTube')}
+              onClick={() =>
+                window.open(
+                  youtubeWatchUrl(state.videoId, expectedPosition(state)),
+                  '_blank',
+                  'noopener,noreferrer'
+                )
+              }
+            >
+              <ArrowSquareOutIcon size={14} />
+            </IconAction>
+          </VideoRow>
         </div>
 
         <div className={css.sectionRow}>

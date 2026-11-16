@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
   EyeIcon,
   EyeSlashIcon,
+  MonitorArrowUpIcon,
   MonitorIcon,
   SpeakerHighIcon,
   SpeakerSlashIcon,
@@ -13,6 +14,7 @@ import {
 import { Toggle } from '@/app/components/Toggle';
 import {
   type CallUserAudio,
+  callActionsAtom,
   callSessionAtom,
   callUserAudioAtom,
   showOwnScreenShareAtom,
@@ -91,6 +93,7 @@ export function StreamCallMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [showOwn, setShowOwn] = useAtom(showOwnScreenShareAtom);
   const session = useAtomValue(callSessionAtom);
+  const actions = useAtomValue(callActionsAtom);
   const setSaved = useSetAtom(callUserAudioAtom);
   const participant = useCallSnapshot()?.participants.find(
     (p) => p.identity === anchor.participantId
@@ -130,6 +133,19 @@ export function StreamCallMenu({
               ariaLabel={t('call.showOwnScreen')}
             />
           </label>
+          <div className={css.userMenuDivider} />
+          <button
+            type="button"
+            role="menuitem"
+            className={css.userMenuItemDanger}
+            onClick={() => {
+              actions?.toggleScreenshare();
+              onClose();
+            }}
+          >
+            <MonitorArrowUpIcon size={18} className={css.userMenuIcon} />
+            <span className={css.userMenuText}>{t('call.stopShare')}</span>
+          </button>
         </>
       )}
       {!isSelf && watching && participant?.screenAudio && (

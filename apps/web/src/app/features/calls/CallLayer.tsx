@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { Tooltip } from '@/app/components/Tooltip';
 import type { WizardClient } from '@wizardchat/core';
-import { SpeakerHighIcon } from '@phosphor-icons/react';
+import { ArrowSquareInIcon, SpeakerHighIcon, XIcon } from '@phosphor-icons/react';
 import {
   callActionsAtom,
   callEffectiveViewAtom,
@@ -18,6 +20,7 @@ import { IncomingCallOverlay } from './IncomingCallOverlay';
 import { CallControlBar } from './CallControlBar';
 import { CallStage } from './stage/CallStage';
 import { WatchPlayerHost } from './watchTogether/WatchStage';
+import { useReturnToCall } from './useReturnToCall';
 import * as css from './CallLayer.css';
 import { DOCKED_HEADER_HEIGHT } from './CallLayer.css';
 
@@ -55,7 +58,9 @@ export function CallLayer({ client }: Props) {
   const { accept, decline } = useIncomingCall(client);
 
   const inCall = ui.roomId !== null;
+  const { t } = useTranslation();
   const view = useAtomValue(callEffectiveViewAtom);
+  const returnToCall = useReturnToCall();
   const isVoiceRoomCall = useAtomValue(callIsVoiceRoomAtom);
   const isHidden = view === 'hidden';
   const isPip = view === 'tile';
@@ -328,6 +333,28 @@ export function CallLayer({ client }: Props) {
               <SpeakerHighIcon size={14} />
               {roomName}
             </span>
+            <Tooltip content={t('call.returnToCall')}>
+              <button
+                type="button"
+                className={css.pipNavBtn}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={returnToCall}
+                aria-label={t('call.returnToCall')}
+              >
+                <ArrowSquareInIcon size={18} />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('common.close')}>
+              <button
+                type="button"
+                className={css.pipNavBtn}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => callActions?.setPresentation('room')}
+                aria-label={t('common.close')}
+              >
+                <XIcon size={18} />
+              </button>
+            </Tooltip>
           </div>,
           containerEl
         )}

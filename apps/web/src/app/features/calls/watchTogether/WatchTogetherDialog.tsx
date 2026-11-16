@@ -9,6 +9,7 @@ import {
   parseYouTubeLink,
   watchActionsAtom,
   watchDialogOpenAtom,
+  watchQueueOpenAtom,
   watchingVideoIdAtom,
   youtubeConsentAtom,
 } from './watchTogether';
@@ -18,6 +19,7 @@ import * as css from './WatchTogether.css';
 export function WatchTogetherDialog() {
   const { t } = useTranslation();
   const [open, setOpen] = useAtom(watchDialogOpenAtom);
+  const setQueueOpen = useSetAtom(watchQueueOpenAtom);
   const actions = useAtomValue(watchActionsAtom);
   const setWatching = useSetAtom(watchingVideoIdAtom);
   const setConsent = useSetAtom(youtubeConsentAtom);
@@ -39,6 +41,7 @@ export function WatchTogetherDialog() {
     setConsent(true);
     setWatching(first);
     actions?.start(videoIds.slice(0, QUEUE_LIMIT + 1));
+    setQueueOpen(true);
     close();
   };
 

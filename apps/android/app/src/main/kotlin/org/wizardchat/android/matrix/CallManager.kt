@@ -102,6 +102,8 @@ data class CallParticipantInfo(
     val cameraTrack: VideoTrack? = null,
     val screenTrack: VideoTrack? = null,
     val screenShared: Boolean = false,
+    val screenAudio: Boolean = false,
+    val streamVolume: Double = 1.0,
     val watchingScreen: Boolean = false,
     /** The LiveKit room the tracks come from (video views render with its EGL context) */
     val connection: LiveKitRoom? = null,
@@ -164,6 +166,7 @@ class CallManager {
         private set
     var screenSharing by mutableStateOf(false)
         private set
+    var showOwnScreen by mutableStateOf(false)
     var handRaised by mutableStateOf(false)
         private set
     var status by mutableStateOf(CallStatus.joiningMedia)
@@ -255,6 +258,7 @@ class CallManager {
     /** Bumped on every join and leave, so a join that was left halfway stops */
     private var attempt = 0
     private val userVolumes = mutableMapOf<String, Double>()
+    private val streamVolumes = mutableMapOf<String, Double>()
     private val mutedUsers = mutableSetOf<String>()
     private val appliedVolumes = mutableMapOf<String, Double>()
     private val reactions = mutableMapOf<String, String>()
@@ -298,6 +302,7 @@ class CallManager {
         val current = ++attempt
         this.room = room
         this.client = client
+        showOwnScreen = false
         status = CallStatus.joiningMedia
         state = State.Joining
         var call: CallSession? = null
@@ -811,6 +816,11 @@ class CallManager {
         refresh()
     }
 
+    fun setStreamVolume(volume: Double, userId: String) {
+        streamVolumes[userId] = volume.coerceIn(0.0, 1.0)
+        refresh()
+    }
+
     fun toggleLocalMute(userId: String) {
         if (!mutedUsers.remove(userId)) mutedUsers.add(userId)
         refresh()
@@ -972,6 +982,7 @@ class CallManager {
                     cameraTrack = videos.firstOrNull { it.source == Track.Source.CAMERA }?.track as? VideoTrack,
                     screenTrack = screen?.track as? VideoTrack,
                     screenShared = screen != null,
+                    screenAudio = participant.trackPublications.values.any { it.source == Track.Source.SCREEN_SHARE_AUDIO },
                     connection = if (isLocal) publisher else remote?.second,
                 )
             }
@@ -983,6 +994,7 @@ class CallManager {
                 reaction = reactions[member.identity],
                 soundboard = soundboardPlaying[member.identity],
                 volume = userVolumes[member.userId] ?: 1.0,
+                streamVolume = streamVolumes[member.userId] ?: 1.0,
                 locallyMuted = member.userId in mutedUsers,
                 watchingScreen = isLocal || member.identity in watchedScreens,
             )
@@ -991,9 +1003,14 @@ class CallManager {
 
             // Deafen and per-person volume, applied only when they change
             if (participant is RemoteParticipant) {
-                val target = if (deafened || info.locallyMuted) 0.0 else info.volume * outputVolume
                 for (publication in participant.trackPublications.values) {
                     val track = publication.track as? RemoteAudioTrack ?: continue
+                    val target = when {
+                        deafened -> 0.0
+                        publication.source == Track.Source.SCREEN_SHARE_AUDIO -> info.streamVolume * outputVolume
+                        info.locallyMuted -> 0.0
+                        else -> info.volume * outputVolume
+                    }
                     val key = "${member.identity}|${publication.sid}"
                     if (appliedVolumes[key] != target) {
                         appliedVolumes[key] = target

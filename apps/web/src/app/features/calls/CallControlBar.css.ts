@@ -1,4 +1,5 @@
-import { keyframes, style } from '@vanilla-extract/css';
+import { globalStyle, keyframes, style } from '@vanilla-extract/css';
+import { stage } from './stage/CallStage.css';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -119,18 +120,6 @@ export const menuItemSpacer = style({
   flexShrink: 0,
 });
 
-export const menuBadge = style({
-  flexShrink: 0,
-  padding: '1px 6px',
-  borderRadius: '999px',
-  backgroundColor: `rgba(${vars.color.accentRgb}, 0.18)`,
-  color: vars.color.accent,
-  fontSize: '0.65rem',
-  fontWeight: 700,
-  letterSpacing: '0.04em',
-  textTransform: 'uppercase',
-});
-
 export const menuDivider = style({
   height: '1px',
   backgroundColor: vars.color.border,
@@ -165,4 +154,27 @@ export const reconnectingSpinner = style({
   border: `2px solid ${vars.color.border}`,
   borderTopColor: vars.color.warning,
   animation: `${spin} 0.8s linear infinite`,
+});
+
+export const chatCorner = style({
+  position: 'absolute',
+  top: '8px',
+  right: '8px',
+  zIndex: 75,
+  display: 'flex',
+  pointerEvents: 'auto',
+});
+
+export const viewCorner = style({
+  position: 'absolute',
+  bottom: '19px',
+  right: '12px',
+  zIndex: 75,
+  display: 'flex',
+  gap: '2px',
+  pointerEvents: 'auto',
+});
+
+globalStyle(`*:has(> ${chatCorner}) > ${stage}`, {
+  paddingTop: '48px',
 });

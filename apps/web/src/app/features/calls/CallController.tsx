@@ -132,7 +132,7 @@ export function CallController() {
         }
         setSession(next);
         store.set(showNonVideoParticipantsAtom, true);
-        store.set(showOwnScreenShareAtom, true);
+        store.set(showOwnScreenShareAtom, false);
         setUi((prev) => ({
           ...prev,
           roomId,

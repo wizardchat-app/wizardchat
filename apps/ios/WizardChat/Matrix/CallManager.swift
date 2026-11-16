@@ -16,11 +16,13 @@ struct CallParticipantInfo: Identifiable, Equatable {
     var cameraTrack: VideoTrack?
     var screenTrack: VideoTrack?
     var screenShared = false
+    var screenAudio = false
     var watchingScreen = false
     var handRaised = false
     var reaction: String?
     var soundboard: SoundboardFlash?
     var volume: Double = 1
+    var streamVolume: Double = 1
     var locallyMuted = false
     var screenWatchers: [String] = []
 
@@ -28,6 +30,7 @@ struct CallParticipantInfo: Identifiable, Equatable {
         lhs.identity == rhs.identity && lhs.connected == rhs.connected && lhs.speaking == rhs.speaking
             && lhs.micMuted == rhs.micMuted && lhs.cameraTrack === rhs.cameraTrack
             && lhs.screenTrack === rhs.screenTrack && lhs.screenShared == rhs.screenShared
+            && lhs.screenAudio == rhs.screenAudio && lhs.streamVolume == rhs.streamVolume
             && lhs.watchingScreen == rhs.watchingScreen && lhs.handRaised == rhs.handRaised
             && lhs.reaction == rhs.reaction && lhs.soundboard == rhs.soundboard && lhs.volume == rhs.volume && lhs.locallyMuted == rhs.locallyMuted
             && lhs.screenWatchers == rhs.screenWatchers
@@ -51,6 +54,7 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var participants: [CallParticipantInfo] = []
     @Published private(set) var cameraOn = false
     @Published private(set) var screenSharing = false
+    @Published var showOwnScreen = false
     @Published private(set) var handRaised = false
     @Published private(set) var status = CallStatus.joiningMedia
     var reconnecting: Bool { status == .reconnecting }
@@ -116,6 +120,7 @@ final class CallManager: NSObject, ObservableObject {
     private var pendingServices: Set<String> = []
     private var refreshTimer: Timer?
     private var userVolumes: [String: Double] = [:]
+    private var streamVolumes: [String: Double] = [:]
     private var mutedUsers: Set<String> = []
     private var appliedVolumes: [String: Double] = [:]
     private var reactions: [String: String] = [:]
@@ -172,6 +177,7 @@ final class CallManager: NSObject, ObservableObject {
         self.room = room
         self.client = client
         appSession = app
+        showOwnScreen = false
         status = .joiningMedia
         state = .joining
         if let answeredId {
@@ -627,6 +633,11 @@ final class CallManager: NSObject, ObservableObject {
         refresh()
     }
 
+    func setStreamVolume(_ volume: Double, for userId: String) {
+        streamVolumes[userId] = volume
+        refresh()
+    }
+
     func toggleLocalMute(_ userId: String) {
         if mutedUsers.contains(userId) { mutedUsers.remove(userId) } else { mutedUsers.insert(userId) }
         refresh()
@@ -771,6 +782,7 @@ final class CallManager: NSObject, ObservableObject {
                 let screen = participant.videoTracks.first { $0.source == .screenShareVideo && !$0.isMuted }
                 info.screenShared = screen != nil
                 info.screenTrack = screen?.track as? VideoTrack
+                info.screenAudio = participant.audioTracks.contains { $0.source == .screenShareAudio && !$0.isMuted }
             }
             info.watchingScreen = isLocal || watchedScreens.contains(member.identity)
             if isLocal { info.micMuted = !micPublished; info.connected = state == .joined }
@@ -779,6 +791,7 @@ final class CallManager: NSObject, ObservableObject {
             info.reaction = reactions[member.identity]
             info.soundboard = soundboardPlaying[member.identity]
             info.volume = userVolumes[member.userId] ?? 1
+            info.streamVolume = streamVolumes[member.userId] ?? 1
             info.locallyMuted = mutedUsers.contains(member.userId)
             if isLocal {
                 var seenWatchers = Set<String>()
@@ -789,9 +802,11 @@ final class CallManager: NSObject, ObservableObject {
 
             // Deafen and per-person volume, applied only when they change
             if let remote = participant as? RemoteParticipant {
-                let target = deafened || info.locallyMuted ? 0 : info.volume * outputVolume
+                let muted = deafened || info.locallyMuted
                 for publication in remote.audioTracks {
                     guard let track = publication.track as? RemoteAudioTrack else { continue }
+                    let level = publication.source == .screenShareAudio ? info.streamVolume : info.volume
+                    let target = muted ? 0 : level * outputVolume
                     let key = "\(member.identity)|\(publication.sid)"
                     if appliedVolumes[key] != target {
                         appliedVolumes[key] = target

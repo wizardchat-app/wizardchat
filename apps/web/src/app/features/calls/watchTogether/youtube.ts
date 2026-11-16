@@ -47,8 +47,7 @@ export function createYouTubePlayer(host: HTMLElement, options: PlayerOptions): 
   const url = bridgeUrl();
   const iframe = document.createElement('iframe');
   iframe.src = url.href;
-  iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-  iframe.allowFullscreen = true;
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
   iframe.style.visibility = 'hidden';
   host.appendChild(iframe);
 

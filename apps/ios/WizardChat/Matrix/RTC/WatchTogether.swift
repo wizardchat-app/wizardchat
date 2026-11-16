@@ -63,6 +63,7 @@ final class WatchTogether: ObservableObject {
         didSet { if watchingVideoId != oldValue { send(viewerMessage(watchingVideoId)) } }
     }
     @Published private var viewerVideos: [String: String] = [:]
+    @Published var queueOpen = false
     @Published var consent: Bool { didSet { UserDefaults.standard.set(consent, forKey: "youtubeConsent") } }
 
     /// Who in the call watches the current video (user IDs), you included

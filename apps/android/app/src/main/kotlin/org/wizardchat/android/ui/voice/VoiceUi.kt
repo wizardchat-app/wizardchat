@@ -276,12 +276,12 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
                 val watch = calls.watch
                 if (watch != null) {
                     if (watch.state != null) {
-                        MenuRow(tr("call.watchTogether.stopTogether"), "stop", PhWeight.fill, color = theme.danger) {
+                        MenuRow(tr("call.watchTogether.queue.title"), "youtube-logo", PhWeight.fill) {
                             showMenu = false
-                            watch.stop()
+                            WatchQueueUi.open = true
                         }
                     } else {
-                        MenuRow(tr("call.watchTogether.menuBeta"), "youtube-logo", PhWeight.fill) {
+                        MenuRow(tr("call.watchTogether.name"), "youtube-logo", PhWeight.fill) {
                             showMenu = false
                             showWatchSheet = true
                         }
@@ -311,10 +311,18 @@ fun CallControls(onOpenChat: (() -> Unit)? = null, onInteraction: () -> Unit = {
 }
 
 @Composable
-private fun MenuRow(text: String, icon: String, weight: PhWeight = PhWeight.regular, color: Color = theme.textPrimary, onClick: () -> Unit) {
+internal fun MenuRow(
+    text: String,
+    icon: String,
+    weight: PhWeight = PhWeight.regular,
+    color: Color = theme.textPrimary,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     DropdownMenuItem(
         text = { Text(text, style = wizardFont(WZ.FontSize.lg), color = color) },
         leadingIcon = { PhIcon(icon, weight, tint = color) },
+        trailingIcon = trailing,
         onClick = onClick,
     )
 }

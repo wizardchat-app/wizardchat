@@ -163,7 +163,6 @@ function WatchPlayerLayer({ rootRef, startedByName }: LayerProps) {
         compact={small}
         onUpdate={actions.update}
         onAdvance={actions.advance}
-        onStop={actions.stop}
         onQueue={() => setQueueOpen((open) => !open)}
         onSkip={actions.skip}
         onFocus={slot?.onSelect && !slot.focused ? slot.onSelect : undefined}

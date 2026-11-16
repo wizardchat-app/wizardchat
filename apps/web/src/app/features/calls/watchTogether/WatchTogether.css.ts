@@ -1,5 +1,6 @@
 import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
+import { fast } from '@/theme/animations.css';
 
 export const player = style({
   position: 'relative',
@@ -92,11 +93,6 @@ export const playerButton = style({
   ':hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
 });
 
-export const playerStop = style({
-  ...playerButtonBase,
-  ':hover': { backgroundColor: vars.color.error },
-});
-
 export const playerTop = style({
   position: 'absolute',
   top: '8px',
@@ -141,23 +137,6 @@ export const playerLabel = style({
   textOverflow: 'ellipsis',
   userSelect: 'none',
   pointerEvents: 'none',
-});
-
-export const playerButtonCount = style({
-  position: 'absolute',
-  top: '-4px',
-  right: '-4px',
-  minWidth: '16px',
-  height: '16px',
-  padding: '0 4px',
-  borderRadius: '999px',
-  background: vars.color.accent,
-  color: '#fff',
-  fontSize: '0.62rem',
-  fontWeight: 700,
-  lineHeight: '16px',
-  textAlign: 'center',
-  fontVariantNumeric: 'tabular-nums',
 });
 
 export const dialogBody = style({
@@ -263,4 +242,46 @@ export const layerSelect = style({
   padding: 0,
   background: 'transparent',
   cursor: 'pointer',
+});
+
+export const playerMenu = style({
+  position: 'absolute',
+  right: '8px',
+  bottom: '8px',
+  zIndex: 3,
+  display: 'inline-flex',
+  opacity: 0,
+  transition: `opacity ${fast}`,
+  selectors: {
+    [`${player}:hover &, &:focus-within`]: { opacity: 1 },
+  },
+});
+
+export const playerMenuOpen = style([playerMenu, { opacity: 1 }]);
+
+export const playerMenuBtn = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  borderRadius: '50%',
+  border: 'none',
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  color: '#fff',
+  cursor: 'pointer',
+  transition: `background-color ${fast}`,
+  ':hover': { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
+});
+
+export const playerMenuCount = style({
+  minWidth: '18px',
+  padding: '0 5px',
+  borderRadius: '999px',
+  backgroundColor: vars.color.bgActive,
+  color: vars.color.textMuted,
+  fontSize: '0.7rem',
+  fontWeight: 600,
+  lineHeight: '18px',
+  textAlign: 'center',
 });

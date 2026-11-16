@@ -56,6 +56,7 @@ struct InCallView: View {
     @State private var headerHeight: CGFloat = 0
     @State private var controlsHeight: CGFloat = 0
     @State private var volumeFor: CallParticipantInfo?
+    @State private var streamVolumeFor: CallParticipantInfo?
 
     private static let gap = WZ.Space.space4
     private static let autoHide = Duration.seconds(5)
@@ -71,6 +72,10 @@ struct InCallView: View {
         .sheet(item: $volumeFor) { participant in
             VolumeSheet(roomId: room.id, userId: participant.userId)
                 .presentationDetents([.height(260)])
+        }
+        .sheet(item: $streamVolumeFor) { participant in
+            VolumeSheet(roomId: room.id, userId: participant.userId, stream: true)
+                .presentationDetents([.height(200)])
         }
     }
 
@@ -174,6 +179,9 @@ struct InCallView: View {
             }
         }
         .onChange(of: watchingNow) { _, now in if now { pinned = StageTile.watch.id } }
+        .sheet(isPresented: Binding(get: { watch?.queueOpen ?? false }, set: { watch?.queueOpen = $0 })) {
+            if let watch { WatchQueueSheet(watch: watch, roomId: room.id) }
+        }
         .onChange(of: tiles.map(\.id)) { _, ids in if let pinned, !ids.contains(pinned) { self.pinned = nil } }
         .animation(.spring(duration: WZ.MotionDuration.slow * 1.5), value: layout)
         .animation(.spring(duration: WZ.MotionDuration.slow * 1.5), value: focused?.id)
@@ -404,20 +412,14 @@ struct InCallView: View {
                 .onTapGesture(perform: onTap)
                 .contextMenu { if !participant.isLocal { personMenu(participant) } }
         case .screen(let participant):
-            ScreenTile(roomId: room.id, participant: participant, compact: style == .strip) {
+            ScreenTile(roomId: room.id, participant: participant, compact: style == .strip,
+                       onStreamVolume: { streamVolumeFor = participant }) {
                 calls.setWatchingScreen(participant.identity, true)
                 pinned = tile.id
                 preferred = nil
             }
             .contentShape(RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
             .onTapGesture(perform: style == .focused ? {} : onTap)
-            .contextMenu {
-                if !participant.isLocal && participant.watchingScreen {
-                    Button { calls.setWatchingScreen(participant.identity, false) } label: {
-                        Label(String(localized: "call.stopWatching"), image: "ph-eye-slash-regular")
-                    }
-                }
-            }
         case .watch:
             if let watch {
                 WatchTogetherTile(watch: watch, room: room, compact: style == .strip, onFocus: onTap)
@@ -675,6 +677,7 @@ private struct ScreenTile: View {
     let roomId: String
     let participant: CallParticipantInfo
     let compact: Bool
+    let onStreamVolume: () -> Void
     let onWatch: () -> Void
 
     @EnvironmentObject private var session: MatrixSession
@@ -685,7 +688,7 @@ private struct ScreenTile: View {
 
     var body: some View {
         ZStack {
-            if participant.isLocal {
+            if participant.isLocal && !calls.showOwnScreen {
                 Backdrop(name: name ?? participant.userId, url: avatarUrl)
                 VStack(spacing: WZ.Space.space4) {
                     Image("ph-monitor-arrow-up-regular")
@@ -738,20 +741,15 @@ private struct ScreenTile: View {
                     .padding(WZ.Space.space4)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if !compact && !participant.isLocal && participant.watchingScreen {
-                Button { calls.setWatchingScreen(participant.identity, false) } label: {
-                    Image("ph-eye-slash-regular")
-                        .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: WZ.Space.space9, height: WZ.Space.space9)
-                        .background(.black.opacity(0.45), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .padding(WZ.Space.space4)
-                .accessibilityLabel(String(localized: "call.stopWatching"))
+        .overlay(alignment: .bottomTrailing) {
+            if !compact && hasMenu {
+                Menu { menuItems } label: { TileMenuLabel() }
+                    .menuOrder(.fixed)
+                    .tint(theme.textPrimary)
+                    .padding(WZ.Space.space4)
             }
         }
+        .contextMenu { if hasMenu { menuItems } }
         .animation(.easeInOut(duration: WZ.MotionDuration.slow), value: participant.screenTrack != nil)
         .animation(.easeInOut(duration: WZ.MotionDuration.slow), value: participant.watchingScreen)
         .task(id: participant.userId) {
@@ -761,13 +759,38 @@ private struct ScreenTile: View {
         }
     }
 
+    private var hasMenu: Bool { participant.isLocal || participant.watchingScreen }
+
+    @ViewBuilder
+    private var menuItems: some View {
+        if participant.isLocal {
+            Toggle(isOn: $calls.showOwnScreen) {
+                Label(menu: String(localized: "call.showOwnScreen"), icon: "ph-monitor-regular")
+            }
+            Button(role: .destructive) {
+                if calls.screenSharing { calls.toggleScreenShare() }
+            } label: {
+                Label(menu: String(localized: "call.stopShare"), icon: "ph-monitor-arrow-up-regular", destructive: true)
+            }
+        } else if participant.watchingScreen {
+            if participant.screenAudio {
+                Button(action: onStreamVolume) {
+                    Label(menu: String(localized: "call.streamVolume"), icon: "ph-speaker-high-regular")
+                }
+            }
+            Button { calls.setWatchingScreen(participant.identity, false) } label: {
+                Label(menu: String(localized: "call.stopWatching"), icon: "ph-eye-slash-regular")
+            }
+        }
+    }
+
     private var liveRow: some View {
         HStack(spacing: 6) {
             Text(String(localized: "call.live"))
                 .tracking(0.3)
                 .padding(.horizontal, 7)
                 .frame(height: 18)
-                .background(Color(red: 0x59 / 255, green: 0x36 / 255, blue: 0x95 / 255), in: Capsule())
+                .background(Color.callLive, in: Capsule())
             if participant.isLocal, !participant.screenWatchers.isEmpty {
                 HStack(spacing: 4) {
                     Image("ph-eye-regular").font(.system(size: 12, weight: .bold))
@@ -783,6 +806,22 @@ private struct ScreenTile: View {
         .font(.wizard(WZ.FontSize.xs, .bold))
         .foregroundStyle(.white)
         .padding(compact ? WZ.Space.space3 : WZ.Space.space4)
+    }
+}
+
+extension Color {
+    static let callLive = Color(red: 0x59 / 255, green: 0x36 / 255, blue: 0x95 / 255)
+}
+
+struct TileMenuLabel: View {
+    var body: some View {
+        Image("ph-dots-three-vertical-bold")
+            .font(.system(size: 16, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 28, height: 28)
+            .background(.black.opacity(0.6), in: Circle())
+            .contentShape(Circle())
+            .accessibilityLabel(String(localized: "common.moreOptions"))
     }
 }
 
@@ -878,40 +917,45 @@ private struct VolumeSheet: View {
     let roomId: String
     @EnvironmentObject private var session: MatrixSession
     let userId: String
+    var stream = false
     @EnvironmentObject private var calls: CallManager
     @Environment(\.theme) private var theme
     @State private var name: String?
     @State private var avatarUrl: String?
 
     private var participant: CallParticipantInfo? { calls.participants.first { $0.userId == userId } }
+    private var level: Double { (stream ? participant?.streamVolume : participant?.volume) ?? 1 }
 
     var body: some View {
         VStack(spacing: WZ.Space.space6) {
             HStack(spacing: WZ.Space.space5) {
                 AvatarView(name: name ?? userId, url: avatarUrl, size: WZ.SizeAvatar.md)
-                Text(name ?? userId).font(.wizard(WZ.FontSize.lg, .semibold)).foregroundStyle(theme.textPrimary).lineLimit(1)
+                Text(stream ? L10n.format("call.screenShareOf", name ?? userId) : name ?? userId).font(.wizard(WZ.FontSize.lg, .semibold)).foregroundStyle(theme.textPrimary).lineLimit(1)
                 Spacer()
             }
             VStack(alignment: .leading, spacing: WZ.Space.space3) {
                 HStack {
-                    Text(String(localized: "call.volume")).font(.wizard(WZ.FontSize.md, .medium))
+                    Text(String(localized: stream ? "call.streamVolume" : "call.volume")).font(.wizard(WZ.FontSize.md, .medium))
                     Spacer()
-                    Text("\(Int(((participant?.volume ?? 1) * 100).rounded()))%")
+                    Text("\(Int((level * 100).rounded()))%")
                         .font(.wizard(WZ.FontSize.md).monospacedDigit())
                         .foregroundStyle(theme.textMuted)
                 }
                 HStack(spacing: WZ.Space.space4) {
                     Image("ph-speaker-none-regular").foregroundStyle(theme.textMuted)
-                    Slider(value: Binding(get: { participant?.volume ?? 1 },
-                                          set: { calls.setVolume($0, for: userId) }), in: 0...2)
+                    Slider(value: Binding(get: { level },
+                                          set: { stream ? calls.setStreamVolume($0, for: userId) : calls.setVolume($0, for: userId) }),
+                           in: 0...(stream ? 1 : 2))
                         .tint(theme.accent)
                     Image("ph-speaker-high-regular").foregroundStyle(theme.textMuted)
                 }
             }
-            Toggle(String(localized: "call.muteForMe"), isOn: Binding(get: { participant?.locallyMuted ?? false },
-                                                set: { _ in calls.toggleLocalMute(userId) }))
-                .font(.wizard(WZ.FontSize.md, .medium))
-                .tint(theme.accent)
+            if !stream {
+                Toggle(String(localized: "call.muteForMe"), isOn: Binding(get: { participant?.locallyMuted ?? false },
+                                                    set: { _ in calls.toggleLocalMute(userId) }))
+                    .font(.wizard(WZ.FontSize.md, .medium))
+                    .tint(theme.accent)
+            }
         }
         .foregroundStyle(theme.textPrimary)
         .padding(WZ.Space.space8)
