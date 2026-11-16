@@ -7,6 +7,8 @@ const FEED_URL =
 export const RELEASES_URL = `${GITLAB_URL}/-/releases`;
 export const ANDROID_BETA_URL = 'https://wizardchat.org/android-beta/';
 export const WEB_APP_URL = 'https://app.wizardchat.org';
+export const ANDROID_OPTIONS_URL = `${GITLAB_URL}#android`;
+export const IOS_OPTIONS_URL = `${GITLAB_URL}#ios`;
 
 export type DesktopAsset =
   'windows' | 'mac-arm' | 'mac-intel' | 'appimage' | 'deb' | 'rpm' | 'arch' | 'tarball';

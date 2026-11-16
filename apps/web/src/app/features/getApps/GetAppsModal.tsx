@@ -9,6 +9,7 @@ import {
   CheckCircleIcon,
   DownloadSimpleIcon,
   GlobeSimpleIcon,
+  GooglePlayLogoIcon,
   LinuxLogoIcon,
   WindowsLogoIcon,
 } from '@phosphor-icons/react';
@@ -18,6 +19,8 @@ import { getAppsOpenAtom } from '@/app/store/atoms';
 import { isDesktop } from '@/bridge/desktop';
 import {
   ANDROID_BETA_URL,
+  ANDROID_OPTIONS_URL,
+  IOS_OPTIONS_URL,
   RELEASES_URL,
   WEB_APP_URL,
   detectDesktopPlatform,
@@ -205,13 +208,16 @@ function MobileSection() {
           <div className={css.cardHeader}>
             <AndroidLogoIcon size={28} weight="fill" className={css.platformIcon} />
             <span className={css.platformName}>Android</span>
-            <span className={css.badge}>{t('getApps.beta')}</span>
           </div>
           <p className={css.note}>{t('getApps.androidNote')}</p>
           <div className={css.actions}>
             <ExternalButton href={ANDROID_BETA_URL} primary={isDesktop}>
-              <ArrowSquareOutIcon size={16} />
+              <GooglePlayLogoIcon size={16} weight="fill" />
               {t('getApps.joinBeta')}
+            </ExternalButton>
+            <ExternalButton href={ANDROID_OPTIONS_URL}>
+              <ArrowSquareOutIcon size={16} />
+              {t('getApps.withoutPlay')}
             </ExternalButton>
           </div>
         </div>
@@ -219,9 +225,15 @@ function MobileSection() {
           <div className={css.cardHeader}>
             <AppleLogoIcon size={28} weight="fill" className={css.platformIcon} />
             <span className={css.platformName}>iOS</span>
-            <span className={css.badgeMuted}>{t('getApps.comingSoon')}</span>
+            <span className={css.badgeMuted}>{t('getApps.appStoreSoon')}</span>
           </div>
           <p className={css.note}>{t('getApps.iosNote')}</p>
+          <div className={css.actions}>
+            <ExternalButton href={IOS_OPTIONS_URL}>
+              <ArrowSquareOutIcon size={16} />
+              {t('getApps.sideload')}
+            </ExternalButton>
+          </div>
         </div>
         {isDesktop && (
           <div className={css.card}>
