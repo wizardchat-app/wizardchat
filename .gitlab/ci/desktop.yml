@@ -119,7 +119,7 @@ build-desktop-win:
       paths:
         - .xwin/
   script:
-    - apt-get update && apt-get install -y --no-install-recommends nsis lld llvm clang
+    - apt-get update && apt-get install -y --no-install-recommends nsis lld llvm clang pkg-config libayatana-appindicator3-dev
     - !reference [.install-rust, script]
     - rustup target add x86_64-pc-windows-msvc
     - !reference [.install-sccache-linux, script]
