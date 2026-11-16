@@ -63,7 +63,6 @@ export function CallControlBar() {
   const panel = useAtomValue(callPanelAtom);
   const [showNonVideo, setShowNonVideo] = useAtom(showNonVideoParticipantsAtom);
   const callSnapshot = useCallSnapshot();
-  const hasVideo = !!callSnapshot?.participants.some((p) => p.camera || p.screenShared);
   const status = callSnapshot?.status ?? 'joiningMedia';
   const roomChatOpen = useAtomValue(roomChatPanelOpenAtom);
   const roomChatRoomId = useAtomValue(roomChatRoomIdAtom);
@@ -74,6 +73,9 @@ export function CallControlBar() {
   const watching = !!useAtomValue(watchStateAtom);
   const [queueOpen, setQueueOpen] = useAtom(watchQueueOpenAtom);
   const watchActions = useAtomValue(watchActionsAtom);
+  const hasVideo =
+    (watching && !!watchActions) ||
+    !!callSnapshot?.participants.some((p) => p.camera || p.screenShared);
   const openWatchDialog = useSetAtom(watchDialogOpenAtom);
   const { containerRef } = useCallContainer();
   const [isFullscreen, setIsFullscreen] = useState(false);

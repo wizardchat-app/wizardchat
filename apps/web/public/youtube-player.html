@@ -67,8 +67,11 @@
           var data = player.getVideoData ? player.getVideoData() : null;
           var id = data && data.video_id;
           if (!id || id === captionsOffFor) return;
+          var modules = player.getOptions ? player.getOptions() : [];
+          if (modules.indexOf('captions') < 0 && modules.indexOf('cc') < 0) return;
           captionsOffFor = id;
           try {
+            player.setOption('captions', 'track', {});
             player.unloadModule('captions');
             player.unloadModule('cc');
           } catch (e) {}
@@ -144,6 +147,7 @@
                   var data = player.getVideoData ? player.getVideoData() : null;
                   post({ type: 'state', state: event.data, videoId: data && data.video_id });
                 },
+                onApiChange: captionsOff,
                 onPlaybackRateChange: function (event) {
                   status();
                   post({ type: 'rate', rate: event.data });
