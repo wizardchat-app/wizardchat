@@ -5,6 +5,7 @@
 .desktop-build:
   stage: build
   extends: [.release-rules, .rust-cache]
+  tags: [saas-linux-large-amd64]
   needs: [release-version]
   variables:
     CARGO_PROFILE_RELEASE_LTO: thin

@@ -66,6 +66,7 @@ workflow:
 
 .rust-web:
   extends: .rust-cache
+  tags: [saas-linux-large-amd64]
   before_script:
     - !reference [.install-rust, script]
     - !reference [.install-sccache-linux, script]
