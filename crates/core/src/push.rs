@@ -19,7 +19,7 @@ use matrix_sdk_ui::notification_client::{
     RawNotificationEvent,
 };
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::{
     features::{notification_for, NotificationKind},
@@ -229,6 +229,16 @@ fn undecrypted_notification(
 ) -> Option<Notification> {
     let sender: String = raw.get_field("sender").ok().flatten()?;
     if sender == own_user.as_str() {
+        return None;
+    }
+    // m.relates_to stays readable in encrypted events: reactions, edits, poll answers and call
+    // reactions are never messages worth a notification
+    let content: Option<Value> = raw.get_field("content").ok().flatten();
+    let rel_type = content
+        .as_ref()
+        .and_then(|c| c.pointer("/m.relates_to/rel_type"))
+        .and_then(Value::as_str);
+    if matches!(rel_type, Some("m.annotation" | "m.replace" | "m.reference")) {
         return None;
     }
     Some(Notification {

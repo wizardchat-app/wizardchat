@@ -45,9 +45,19 @@ final class NotificationService: UNNotificationServiceExtension {
             return
         }
         task = Task { [weak self] in
-            let content = await Self.message(userId: userId, roomId: roomId, eventId: eventId, unread: unread)
-            self?.finish(content ?? fallback)
+            switch await Self.message(userId: userId, roomId: roomId, eventId: eventId, unread: unread) {
+            case .show(let content): self?.finish(content)
+            case .skip: self?.finish(UNMutableNotificationContent())
+            case nil: self?.finish(fallback)
+            }
         }
+    }
+
+    // Without Apple's notification filtering entitlement every push must be delivered; one with no title, body
+    // or badge isn't shown, so pushes for events that aren't messages (e.g. call reactions) leave no trace.
+    private enum Outcome {
+        case show(UNNotificationContent)
+        case skip
     }
 
     override func serviceExtensionTimeWillExpire() {
@@ -64,13 +74,13 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     private static func message(userId: String?, roomId: String, eventId: String,
-                                unread: Int?) async -> UNNotificationContent? {
-        await withClient(userId: userId) { client, ownUserId in
+                                unread: Int?) async -> Outcome? {
+        await withClient(userId: userId) { client, ownUserId -> Outcome? in
             async let cleared: Void = clearRead(client: client, userId: ownUserId, except: roomId)
             let content = try await build(client: client, userId: ownUserId, roomId: roomId, eventId: eventId,
                                           unread: unread)
             await cleared
-            return content
+            return content.map(Outcome.show) ?? .skip
         }
     }
 
