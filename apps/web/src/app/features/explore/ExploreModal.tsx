@@ -137,11 +137,8 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-// How many rooms to request per page.
-const PAGE_SIZE = 15;
-const PAGE_SIZE_FILTERED = 60; // fetch more when filtering client-side
-const PAGE_SIZE_FEATURED = 60; // featured tab pulls a larger directory slice
-const FEATURED_LIMIT = 30; // ...but only renders the first N in server order
+const PAGE_SIZE = 30;
+const PAGE_SIZE_FILTERED = 60;
 
 export function ExploreModal() {
   const { t } = useTranslation();
@@ -200,21 +197,16 @@ export function ExploreModal() {
     queryFn: async () => {
       if (!client || !queryServer)
         return { chunk: [] as PublicRoom[], nextBatch: undefined as string | undefined };
-      const limit = isFeatured
-        ? PAGE_SIZE_FEATURED
-        : filter !== 'all'
-          ? PAGE_SIZE_FILTERED
-          : PAGE_SIZE;
       const res = await client.publicRoomsPage(
-        debouncedQuery.trim(),
+        isFeatured ? '' : debouncedQuery.trim(),
         queryServer,
-        isFeatured ? 'spaces' : null,
-        limit,
-        isFeatured ? null : (pageHistory[currentPage] ?? null)
+        null,
+        !isFeatured && filter !== 'all' ? PAGE_SIZE_FILTERED : PAGE_SIZE,
+        pageHistory[currentPage] ?? null
       );
       let chunk = res.rooms ?? [];
-      if (isFeatured) chunk = chunk.filter((r) => r.isSpace);
-      else if (filter === 'spaces') chunk = chunk.filter((r) => r.isSpace);
+      if (isFeatured) return { chunk, nextBatch: res.next ?? undefined };
+      if (filter === 'spaces') chunk = chunk.filter((r) => r.isSpace);
       else if (filter === 'rooms') chunk = chunk.filter((r) => !r.isSpace);
       return { chunk, nextBatch: res.next ?? undefined };
     },
@@ -225,7 +217,6 @@ export function ExploreModal() {
   });
 
   const rooms = roomsQuery.data?.chunk ?? [];
-  const featuredRooms = isFeatured ? rooms.slice(0, FEATURED_LIMIT) : rooms;
   const nextBatch = roomsQuery.data?.nextBatch;
   const loading = roomsQuery.isFetching;
   const error = roomsQuery.error ? getErrorMessage(roomsQuery.error) : null;
@@ -366,6 +357,7 @@ export function ExploreModal() {
             onClick={() => {
               setActiveTab('featured');
               setQuery('');
+              setDebouncedQuery('');
               setFilter('all');
               setPageHistory([undefined]);
               setCurrentPage(0);
@@ -458,110 +450,72 @@ export function ExploreModal() {
 
       {/* Content */}
       <div className={css.scrollArea}>
-        {/* Featured tab */}
-        {activeTab === 'featured' &&
-          (loading && !featuredRooms.length ? (
-            <SkeletonGrid />
-          ) : error ? (
-            <div className={css.errorBanner}>{t('explore.fetchError', { error })}</div>
-          ) : featuredRooms.length === 0 ? (
-            <EmptyState title={t('explore.noResults')} body={t('explore.noResultsBody')} />
-          ) : (
-            <>
-              <p className={css.sectionTitle}>{t('explore.featuredSpaces')}</p>
-              <div className={css.roomGrid}>
-                {featuredRooms.map((room) => (
-                  <RoomCard
-                    key={room.id}
-                    roomId={room.id}
-                    name={room.name ?? room.alias ?? room.id}
-                    alias={room.alias}
-                    topic={room.topic}
-                    avatarMxc={room.avatarUrl}
-                    client={client}
-                    members={room.memberCount}
-                    isSpace={room.isSpace}
-                    isJoined={isRoomJoined(room.id, room.alias)}
-                    onJoin={handleJoin}
-                    joiningId={joiningId}
-                  />
-                ))}
-              </div>
-            </>
-          ))}
+        {/* Waiting for server input */}
+        {activeTab === 'other' && !otherServer && !loading && (
+          <EmptyState title={t('explore.emptyTitle')} body={t('explore.emptyBody')} />
+        )}
 
-        {/* Server / Other tabs */}
-        {(activeTab === 'server' || activeTab === 'other') && (
+        {error && <div className={css.errorBanner}>{t('explore.fetchError', { error })}</div>}
+
+        {loading && !rooms.length && <SkeletonGrid />}
+
+        {rooms.length > 0 && (activeTab !== 'other' || otherServer) && (
           <>
-            {/* Waiting for server input */}
-            {activeTab === 'other' && !otherServer && !loading && (
-              <EmptyState title={t('explore.emptyTitle')} body={t('explore.emptyBody')} />
-            )}
-
-            {error && <div className={css.errorBanner}>{t('explore.fetchError', { error })}</div>}
-
-            {loading && !rooms.length && <SkeletonGrid />}
-
-            {rooms.length > 0 && (activeTab === 'server' || otherServer) && (
-              <>
-                <p className={css.sectionTitle}>
-                  {t('explore.publicRoomsOn', {
+            <p className={css.sectionTitle}>
+              {isFeatured
+                ? t('explore.featuredSpaces')
+                : t('explore.publicRoomsOn', {
                     server: activeTab === 'server' ? homeDomain : otherServer,
                   })}
-                </p>
-                <div className={css.roomGrid}>
-                  {rooms.map((room) => (
-                    <RoomCard
-                      key={room.id}
-                      roomId={room.id}
-                      name={room.name ?? room.alias ?? room.id}
-                      alias={room.alias}
-                      topic={room.topic}
-                      avatarMxc={room.avatarUrl}
-                      client={client}
-                      members={room.memberCount}
-                      isSpace={room.isSpace}
-                      isJoined={isRoomJoined(room.id, room.alias)}
-                      onJoin={handleJoin}
-                      joiningId={joiningId}
-                    />
-                  ))}
-                </div>
-                {(currentPage > 0 || nextBatch) && (
-                  <div className={css.paginationRow}>
-                    <button
-                      type="button"
-                      className={css.pageBtn}
-                      onClick={handlePrevPage}
-                      disabled={currentPage === 0 || loading}
-                    >
-                      <ArrowLeftIcon size={14} weight="bold" />
-                      {t('explore.prevPage')}
-                    </button>
-                    <span className={css.pageIndicator}>
-                      {t('explore.pageOf', { page: currentPage + 1 })}
-                    </span>
-                    <button
-                      type="button"
-                      className={css.pageBtn}
-                      onClick={handleNextPage}
-                      disabled={!nextBatch || loading}
-                    >
-                      {t('explore.nextPage')}
-                      <ArrowRightIcon size={14} weight="bold" />
-                    </button>
-                  </div>
-                )}
-              </>
+            </p>
+            <div className={css.roomGrid}>
+              {rooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  roomId={room.id}
+                  name={room.name ?? room.alias ?? room.id}
+                  alias={room.alias}
+                  topic={room.topic}
+                  avatarMxc={room.avatarUrl}
+                  client={client}
+                  members={room.memberCount}
+                  isSpace={room.isSpace}
+                  isJoined={isRoomJoined(room.id, room.alias)}
+                  onJoin={handleJoin}
+                  joiningId={joiningId}
+                />
+              ))}
+            </div>
+            {(currentPage > 0 || nextBatch) && (
+              <div className={css.paginationRow}>
+                <button
+                  type="button"
+                  className={css.pageBtn}
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 0 || loading}
+                >
+                  <ArrowLeftIcon size={14} weight="bold" />
+                  {t('explore.prevPage')}
+                </button>
+                <span className={css.pageIndicator}>
+                  {t('explore.pageOf', { page: currentPage + 1 })}
+                </span>
+                <button
+                  type="button"
+                  className={css.pageBtn}
+                  onClick={handleNextPage}
+                  disabled={!nextBatch || loading}
+                >
+                  {t('explore.nextPage')}
+                  <ArrowRightIcon size={14} weight="bold" />
+                </button>
+              </div>
             )}
-
-            {!loading &&
-              !error &&
-              rooms.length === 0 &&
-              (activeTab === 'server' || otherServer) && (
-                <EmptyState title={t('explore.noResults')} body={t('explore.noResultsBody')} />
-              )}
           </>
+        )}
+
+        {!loading && !error && rooms.length === 0 && (activeTab !== 'other' || otherServer) && (
+          <EmptyState title={t('explore.noResults')} body={t('explore.noResultsBody')} />
         )}
       </div>
     </Dialog>
