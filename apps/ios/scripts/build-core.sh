@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds wizardchat-core for iOS: the XCFramework, UniFFI's Swift bindings and the generated
-# API (Api.gen.swift). `--debug` builds faster, unoptimised libraries for development.
+# API (Api.gen.swift). `--debug` builds faster, unoptimised libraries for development; `--device-only` skips the
+# simulator (CI only ships the device build).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -8,11 +9,16 @@ PKG="$ROOT/apps/ios/WizardChatCore"
 OUT="$PKG/build"
 PROFILE=release
 PROFILE_DIR=release
-if [[ "${1:-}" == "--debug" ]]; then
-  PROFILE=dev
-  PROFILE_DIR=debug
-fi
 TARGETS=(aarch64-apple-ios aarch64-apple-ios-sim)
+for arg in "$@"; do
+  case "$arg" in
+    --debug)
+      PROFILE=dev
+      PROFILE_DIR=debug
+      ;;
+    --device-only) TARGETS=(aarch64-apple-ios) ;;
+  esac
+done
 
 cd "$ROOT"
 for target in "${TARGETS[@]}"; do
@@ -30,9 +36,10 @@ cp "$OUT/bindings/wizardchat_core_ffiFFI.modulemap" "$OUT/headers/module.modulem
 cp "$OUT/bindings/wizardchat_core_ffi.swift" "$PKG/Sources/WizardChatCore/Bridge.gen.swift"
 
 rm -rf "$PKG/WizardChatCoreFFI.xcframework"
-xcodebuild -create-xcframework \
-  -library "$ROOT/target/aarch64-apple-ios/$PROFILE_DIR/libwizardchat_core_ffi.a" -headers "$OUT/headers" \
-  -library "$ROOT/target/aarch64-apple-ios-sim/$PROFILE_DIR/libwizardchat_core_ffi.a" -headers "$OUT/headers" \
-  -output "$PKG/WizardChatCoreFFI.xcframework" >/dev/null
+LIBRARIES=()
+for target in "${TARGETS[@]}"; do
+  LIBRARIES+=(-library "$ROOT/target/$target/$PROFILE_DIR/libwizardchat_core_ffi.a" -headers "$OUT/headers")
+done
+xcodebuild -create-xcframework "${LIBRARIES[@]}" -output "$PKG/WizardChatCoreFFI.xcframework" >/dev/null
 
 echo "WizardChatCore is ready ($PROFILE_DIR)"
