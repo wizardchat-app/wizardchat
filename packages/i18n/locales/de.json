@@ -1245,6 +1245,8 @@
     "callAgain": "Erneut anrufen",
     "inProgress": "Anruf läuft",
     "noSfu": "Auf diesem Homeserver ist kein Anrufserver (LiveKit) eingerichtet, daher können integrierte Anrufe keine Verbindung herstellen.",
+    "unsupported": "Anrufe werden hier nicht unterstützt. Nutze stattdessen die Web-App.",
+    "unsupportedEncryption": "Verschlüsselte Anrufe werden hier nicht unterstützt. Nutze stattdessen die Web-App.",
     "handRaised": "Hand gehoben",
     "raiseHand": "Hand heben",
     "lowerHand": "Hand senken",

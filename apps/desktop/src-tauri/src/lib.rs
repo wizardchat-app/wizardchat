@@ -97,6 +97,22 @@ fn hide_on_close<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEve
     }
 }
 
+// WebKitGTK ships with WebRTC and getUserMedia turned off
+#[cfg(target_os = "linux")]
+fn enable_calls(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    window.with_webview(|webview| {
+        use webkit2gtk::{SettingsExt, WebViewExt};
+        let view = webview.inner();
+        if let Some(settings) = view.settings() {
+            if !settings.enables_webrtc() {
+                settings.set_enable_webrtc(true);
+                settings.set_enable_media_stream(true);
+                view.reload();
+            }
+        }
+    })
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -141,6 +157,10 @@ pub fn run() {
             #[cfg(windows)]
             if let Some(window) = app.get_webview_window("main") {
                 window.set_decorations(false)?;
+            }
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                enable_calls(&window)?;
             }
             let start_hidden = tray::setup(app.handle())?;
             if !start_hidden {

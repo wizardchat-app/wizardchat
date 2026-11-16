@@ -1245,6 +1245,8 @@
     "callAgain": "Call again",
     "inProgress": "Call in progress",
     "noSfu": "This homeserver has no call server (LiveKit) configured, so built-in calls can't connect.",
+    "unsupported": "Calls aren't supported here. Use the web app instead.",
+    "unsupportedEncryption": "Encrypted calls aren't supported here. Use the web app instead.",
     "handRaised": "Hand raised",
     "raiseHand": "Raise hand",
     "lowerHand": "Lower hand",

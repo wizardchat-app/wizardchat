@@ -238,17 +238,21 @@ export function CallController() {
           const message =
             snap.errorKind === 'noSfu'
               ? t('call.noSfu')
-              : snap.errorKind === 'timeout'
-                ? t('call.joinTimeout')
-                : snap.errorKind === 'disconnected'
-                  ? t('call.disconnected')
-                  : snap.errorKind === 'replaced'
-                    ? t('call.replaced')
-                    : snap.errorKind === 'removed'
-                      ? t('call.removed')
-                      : wasJoined
-                        ? t('call.failed', { error: reason })
-                        : t('call.startFailed', { error: reason });
+              : snap.errorKind === 'unsupported'
+                ? t('call.unsupported')
+                : snap.errorKind === 'unsupportedEncryption'
+                  ? t('call.unsupportedEncryption')
+                  : snap.errorKind === 'timeout'
+                    ? t('call.joinTimeout')
+                    : snap.errorKind === 'disconnected'
+                      ? t('call.disconnected')
+                      : snap.errorKind === 'replaced'
+                        ? t('call.replaced')
+                        : snap.errorKind === 'removed'
+                          ? t('call.removed')
+                          : wasJoined
+                            ? t('call.failed', { error: reason })
+                            : t('call.startFailed', { error: reason });
           toast.error(message, {
             duration: 10000,
             actionLabel: t('call.copyLog'),

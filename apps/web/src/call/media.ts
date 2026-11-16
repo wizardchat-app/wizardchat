@@ -16,6 +16,7 @@ import {
   type RemoteTrackPublication,
   type RoomOptions,
   type ScreenShareCaptureOptions,
+  isE2EESupported,
   version as livekitVersion,
 } from 'livekit-client';
 import E2EEWorker from 'livekit-client/e2ee-worker?worker';
@@ -42,6 +43,8 @@ export type CallPhase = 'joining' | 'joined' | 'left' | 'error';
 export type RingState = 'ringing' | 'declined' | 'unanswered';
 export type CallErrorKind =
   | 'noSfu'
+  | 'unsupported'
+  | 'unsupportedEncryption'
   | 'auth'
   | 'connection'
   | 'membership'
@@ -349,6 +352,8 @@ export class CallMedia {
       if (pendingLeaves.size)
         await Promise.race([Promise.allSettled([...pendingLeaves]), sleep(LEAVE_WAIT_MS)]);
       if (this.disposed) return;
+      if (typeof RTCPeerConnection === 'undefined')
+        throw new CallError('unsupported', 'WebRTC is not available in this browser');
       const serviceUrl =
         options.serviceUrl ?? (await this.client.rtcServiceUrl().catch(() => null));
       if (!serviceUrl) throw new CallError('noSfu', 'This homeserver has no call server (LiveKit)');
@@ -367,6 +372,11 @@ export class CallMedia {
         `web livekit-client=${livekitVersion} online=${navigator.onLine} ${navigator.userAgent}`
       );
       this.encrypted = await session.encrypted();
+      if (this.encrypted && !isE2EESupported())
+        throw new CallError(
+          'unsupportedEncryption',
+          'This browser cannot encrypt call media (no encoded transforms)'
+        );
       this.patch({
         encrypted: this.encrypted,
         deafened: this.deafened,
