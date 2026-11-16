@@ -239,10 +239,11 @@ struct YouTubeSyncPlayer: UIViewRepresentable {
                pending.seekTo.map({ abs(time - $0) <= Self.seekFallback }) ?? true {
                 command = nil
             }
-            if command != nil || !isSteady {
+            if command != nil {
                 steady = nil
                 return
             }
+            if !isSteady { return }
 
             let target = s.expectedPosition()
             let offBy = time - target

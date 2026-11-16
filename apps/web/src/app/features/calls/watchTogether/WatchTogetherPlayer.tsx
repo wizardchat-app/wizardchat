@@ -242,10 +242,11 @@ export function WatchTogetherPlayer({
       ) {
         commandRef.current = null;
       }
-      if (commandRef.current || !steady) {
+      if (commandRef.current) {
         steadyRef.current = null;
         return;
       }
+      if (!steady) return;
 
       const target = expectedPosition(s);
       const offBy = current - target;

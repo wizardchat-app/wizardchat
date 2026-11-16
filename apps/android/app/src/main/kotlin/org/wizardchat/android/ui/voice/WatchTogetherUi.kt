@@ -319,10 +319,11 @@ private class YouTubeCoordinator(private val watch: WatchTogether) {
         ) {
             command = null
         }
-        if (command != null || !isSteady) {
+        if (command != null) {
             steady = null
             return
         }
+        if (!isSteady) return
 
         val target = s.expectedPosition()
         val offBy = time - target
