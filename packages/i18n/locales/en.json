@@ -122,6 +122,7 @@
     "continueWithIdp": "Continue with {{name}}",
     "noLoginMethod": "This server doesn't support password or SSO login in this client.",
     "customServer": "Custom server...",
+    "whichServer": "Not sure which server to choose?",
     "serverUrl": "your.server.org",
     "loggingIn": "Logging in...",
     "registering": "Creating account...",

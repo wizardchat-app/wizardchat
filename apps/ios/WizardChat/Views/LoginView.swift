@@ -14,6 +14,7 @@ struct LoginView: View {
     private enum UsernameState { case idle, checking, available, taken, reserved, invalid }
 
     private static let presets = ["https://matrix.org", "https://mozilla.org", "https://unredacted.org"]
+    private static let serverListURL = URL(string: "https://servers.joinmatrix.org")!
     private static let custom = "custom"
     private static let localpartCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789._=-/+")
 
@@ -62,6 +63,13 @@ struct LoginView: View {
                         .foregroundStyle(theme.textPrimary)
 
                     serverPicker
+
+                    if mode == .register {
+                        Link(String(localized: "auth.whichServer"), destination: Self.serverListURL)
+                            .font(.wizard(WZ.FontSize.sm))
+                            .foregroundStyle(theme.accent)
+                            .frame(maxWidth: .infinity)
+                    }
 
                     if checking {
                         HStack(spacing: WZ.Space.space3) {

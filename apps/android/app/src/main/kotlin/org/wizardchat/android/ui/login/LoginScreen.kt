@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -62,6 +63,7 @@ private enum class UsernameState { Idle, Checking, Available, Taken, Reserved, I
 
 private val PRESETS = listOf("https://matrix.org", "https://mozilla.org", "https://unredacted.org")
 private const val CUSTOM = "custom"
+private const val SERVER_LIST_URL = "https://servers.joinmatrix.org"
 private val LOCALPART = Regex("^[a-z0-9._=\\-/+]+$")
 
 /**
@@ -246,6 +248,17 @@ fun LoginScreen() {
                 )
 
                 ServerPicker(serverChoice, { serverChoice = it }, customServer, { customServer = it })
+
+                if (mode == Mode.Register) {
+                    val uriHandler = LocalUriHandler.current
+                    Text(
+                        tr("auth.whichServer"),
+                        Modifier.fillMaxWidth().clickable { uriHandler.openUri(SERVER_LIST_URL) },
+                        style = wizardFont(WZ.FontSize.sm),
+                        color = theme.accent,
+                        textAlign = TextAlign.Center,
+                    )
+                }
 
                 val discovered = info
                 when {

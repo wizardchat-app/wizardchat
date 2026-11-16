@@ -21,6 +21,7 @@ import { SpinnerOverlay, Spinner } from '@/app/components/Spinner';
 import { Button } from '@/app/components/Button';
 import { Input } from '@/app/components/Input';
 import { Select } from '@/app/components/Select';
+import { SERVER_LIST_URL } from '@/const/links';
 import * as css from './WelcomePage.css';
 
 const LOCALPART_RE = /^[a-z0-9._=\-/+]+$/;
@@ -248,6 +249,16 @@ export function RegisterForm({
             onBlur={onRetryDiscovery}
           />
         )}
+        <p className={css.switchText}>
+          <a
+            href={SERVER_LIST_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={css.switchLink}
+          >
+            {t('auth.whichServer')}
+          </a>
+        </p>
       </div>
 
       {isChecking ? (
