@@ -397,24 +397,11 @@ extension Image {
 
 private struct TabTitle: ViewModifier {
     let title: String
-    @Environment(\.theme) private var theme
 
     func body(content: Content) -> some View {
         content
             .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) { Color.clear.frame(width: 0, height: 0) }
-                ToolbarItem(placement: .topBarLeading) {
-                    Text(title)
-                        .font(.wizard(WZ.FontSize.display, .bold))
-                        .foregroundStyle(theme.textPrimary)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .accessibilityAddTraits(.isHeader)
-                }
-                .glassBackgroundHidden()
-            }
+            .navigationBarTitleDisplayMode(.large)
     }
 }
 

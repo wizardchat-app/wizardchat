@@ -128,7 +128,7 @@ private fun SettingsRoot(isTab: Boolean, onDismiss: (() -> Unit)?, open: (Settin
     val session = LocalSession.current
     var search by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().background(theme.groupedBackground)) {
-        WizardTopBar(tr("common.settings"), large = true, titleInRow = isTab) {
+        WizardTopBar(tr("common.settings"), large = true) {
             if (!isTab && onDismiss != null) BarTextButton(tr("common.done"), onDismiss, bold = true)
         }
         WizardTextField(

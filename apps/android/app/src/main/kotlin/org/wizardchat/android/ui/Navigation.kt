@@ -61,7 +61,6 @@ fun WizardTopBar(
     title: String,
     modifier: Modifier = Modifier,
     large: Boolean = false,
-    titleInRow: Boolean = false,
     onBack: (() -> Unit)? = null,
     backLabel: String? = null,
     background: Color = theme.bgPrimary,
@@ -75,16 +74,7 @@ fun WizardTopBar(
             if (onBack != null) {
                 BarButton("arrow-left", tr("common.back"), onBack, tint = theme.textPrimary)
             }
-            if (large && titleInRow) {
-                Text(
-                    title,
-                    Modifier.weight(1f).padding(horizontal = WZ.Space.space3),
-                    style = wizardFont(WZ.FontSize.display, FontWeight.Bold),
-                    color = theme.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            } else if (!large) {
+            if (!large) {
                 Text(
                     title,
                     Modifier.weight(1f).padding(horizontal = WZ.Space.space3),
@@ -98,7 +88,7 @@ fun WizardTopBar(
             }
             Row(verticalAlignment = Alignment.CenterVertically, content = actions)
         }
-        if (large && !titleInRow) {
+        if (large) {
             Text(
                 title,
                 Modifier.padding(horizontal = WZ.Space.space6).padding(bottom = WZ.Space.space3),

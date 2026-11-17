@@ -80,7 +80,7 @@ fun SpacesScreen(roomList: RoomListModel, onCreateSpace: () -> Unit, onExplore: 
     val spaces = if (search.isEmpty()) roomList.spaces else roomList.spaces.filter { it.name.contains(search, ignoreCase = true) }
 
     Column(Modifier.fillMaxSize().background(theme.bgPrimary)) {
-        WizardTopBar(tr("room.settings.permissions.groups.spaces"), large = true, titleInRow = true) {
+        WizardTopBar(tr("room.settings.permissions.groups.spaces"), large = true) {
             BarButton("plus", tr("nav.createOrJoin"), onCreateSpace)
             BarButton("compass", tr("explore.title"), onExplore)
         }
