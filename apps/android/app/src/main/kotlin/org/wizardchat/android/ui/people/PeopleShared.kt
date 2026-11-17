@@ -1,7 +1,7 @@
 package org.wizardchat.android.ui.people
 
+import org.wizardchat.android.matrix.MediaMetadata
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -115,7 +115,7 @@ internal suspend fun readBytes(context: android.content.Context, uri: Uri): Byte
 internal suspend fun avatarJpeg(context: android.content.Context, uri: Uri, width: Int = WZ.SizeDialog.md.value.toInt()): ByteArray? =
     withContext(Dispatchers.Default) {
         val data = readBytes(context, uri) ?: return@withContext null
-        val image = BitmapFactory.decodeByteArray(data, 0, data.size) ?: return@withContext null
+        val image = MediaMetadata.decodeImage(data, width) ?: return@withContext null
         val height = (width.toFloat() * image.height / maxOf(image.width, 1)).toInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(image, width, height, true)
         ByteArrayOutputStream().use { out ->

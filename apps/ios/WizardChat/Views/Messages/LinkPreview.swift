@@ -71,7 +71,7 @@ struct LinkPreviewCard: View {
                 image = await mediaLoader?.thumbnail(imageUrl, size: 400)
             } else if let remote = URL(string: imageUrl),
                       let (bytes, _) = try? await URLSession.shared.data(from: remote) {
-                image = UIImage(data: bytes)
+                image = AnimatedImage.image(from: bytes, animated: false)
             }
         }
     }

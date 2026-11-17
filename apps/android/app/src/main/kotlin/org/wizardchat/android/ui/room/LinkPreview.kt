@@ -1,7 +1,7 @@
 package org.wizardchat.android.ui.room
 
+import org.wizardchat.android.matrix.MediaMetadata
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -95,7 +95,8 @@ fun LinkPreviewCard(url: String, loader: LinkPreviewLoader) {
             media?.thumbnail(imageUrl, 400)
         } else {
             withContext(Dispatchers.IO) {
-                runCatching { URL(imageUrl).openStream().use { BitmapFactory.decodeStream(it) } }.getOrNull()
+                runCatching { URL(imageUrl).openStream().use { it.readBytes() } }.getOrNull()
+                    ?.let { MediaMetadata.decodeImage(it, 400) }
             }
         }
     }

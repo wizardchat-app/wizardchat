@@ -86,16 +86,20 @@ enum MediaMetadata {
 }
 
 enum AnimatedImage {
+    static let maxPixelSize: CGFloat = 2560
+
     static func image(from data: Data, animated: Bool) -> UIImage? {
-        guard animated, let source = CGImageSourceCreateWithData(data as CFData, nil) else {
-            return UIImage(data: data)
-        }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return UIImage(data: data) }
         let count = CGImageSourceGetCount(source)
-        guard count > 1 else { return UIImage(data: data) }
+        guard animated, count > 1 else { return still(data, source: source) }
+        let downscale = longestSide(source).map { $0 > maxPixelSize } ?? false
         var frames: [UIImage] = []
         var duration: TimeInterval = 0
         for index in 0..<count {
-            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+            let decoded = downscale
+                ? CGImageSourceCreateThumbnailAtIndex(source, index, thumbnailOptions)
+                : CGImageSourceCreateImageAtIndex(source, index, nil)
+            guard let cgImage = decoded else { continue }
             frames.append(UIImage(cgImage: cgImage))
             let props = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
             let frame = (props?[kCGImagePropertyGIFDictionary] ?? props?[kCGImagePropertyWebPDictionary]
@@ -109,6 +113,26 @@ enum AnimatedImage {
             duration += max(delay, 0.02)
         }
         return UIImage.animatedImage(with: frames, duration: duration)
+    }
+
+    private static let thumbnailOptions: CFDictionary = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceShouldCacheImmediately: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+    ] as CFDictionary
+
+    private static func longestSide(_ source: CGImageSource) -> CGFloat? {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = props[kCGImagePropertyPixelWidth] as? CGFloat,
+              let height = props[kCGImagePropertyPixelHeight] as? CGFloat else { return nil }
+        return max(width, height)
+    }
+
+    private static func still(_ data: Data, source: CGImageSource) -> UIImage? {
+        guard let longest = longestSide(source), longest > maxPixelSize,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else { return UIImage(data: data) }
+        return UIImage(cgImage: image)
     }
 }
 

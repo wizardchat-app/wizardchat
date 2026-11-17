@@ -1,7 +1,6 @@
 package org.wizardchat.android.ui.composer
 
-import android.graphics.BitmapFactory
-import android.graphics.ImageDecoder
+import org.wizardchat.android.matrix.MediaMetadata
 import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -305,8 +304,8 @@ fun RemoteAnimatedImage(url: String, modifier: Modifier = Modifier) {
 
 private fun decodeAnimated(data: ByteArray): Drawable? {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        return runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(java.nio.ByteBuffer.wrap(data))) }.getOrNull()
+        return MediaMetadata.decodeDrawable(data)
     }
-    val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size) ?: return null
+    val bitmap = MediaMetadata.decodeImage(data, 400) ?: return null
     return BitmapDrawable(org.wizardchat.android.WizardApplication.instance.resources, bitmap)
 }

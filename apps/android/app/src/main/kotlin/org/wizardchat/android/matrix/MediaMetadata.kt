@@ -3,6 +3,8 @@ package org.wizardchat.android.matrix
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import androidx.annotation.RequiresApi
+import android.graphics.drawable.Drawable
 import android.graphics.Matrix
 import android.os.Build
 import android.media.ExifInterface
@@ -100,6 +102,13 @@ object MediaMetadata {
             BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
             val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(maxOf(bounds.outWidth, bounds.outHeight), size) }
             BitmapFactory.decodeByteArray(data, 0, data.size, options)?.let { upright(it, data) }
+        }
+    }.getOrNull()
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    fun decodeDrawable(data: ByteArray): Drawable? = runCatching {
+        ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(data))) { decoder, info, _ ->
+            decoder.setTargetSampleSize(sampleSize(maxOf(info.size.width, info.size.height), null))
         }
     }.getOrNull()
 

@@ -1,6 +1,6 @@
 package org.wizardchat.android.ui.voice
 
-import android.graphics.BitmapFactory
+import org.wizardchat.android.matrix.MediaMetadata
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -60,7 +60,7 @@ internal fun VideoThumbnail(videoId: String, modifier: Modifier = Modifier) {
         if (image != null) return@LaunchedEffect
         val data = download(WatchTogether.thumbnailUrl(videoId)) ?: return@LaunchedEffect
         val bitmap = withContext(Dispatchers.Default) {
-            BitmapFactory.decodeByteArray(data, 0, data.size)?.asImageBitmap()
+            MediaMetadata.decodeImage(data, 640)?.asImageBitmap()
         } ?: return@LaunchedEffect
         thumbnails.put(videoId, bitmap)
         image = bitmap

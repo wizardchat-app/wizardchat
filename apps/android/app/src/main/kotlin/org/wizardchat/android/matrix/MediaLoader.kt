@@ -1,14 +1,12 @@
 package org.wizardchat.android.matrix
 
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.util.LruCache
 import java.io.File
 import java.net.URLEncoder
-import java.nio.ByteBuffer
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -62,7 +60,7 @@ class MediaLoader(val client: WizardClient) {
         val data = animatedData.get(key) ?: runCatching { client.media(source) }.getOrNull() ?: return null
         // Each view gets its own drawable: one shared instance only animates in the view that took it last
         val drawable = withContext(Dispatchers.Default) {
-            runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(data))) }.getOrNull()
+            MediaMetadata.decodeDrawable(data)
         } ?: return null
         if (drawable !is AnimatedImageDrawable) return null
         animatedData.put(key, data)
