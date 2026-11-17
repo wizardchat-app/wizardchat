@@ -6,6 +6,8 @@ use std::sync::{Arc, LazyLock};
 
 use wizardchat_core::rpc::{Rpc, RpcError};
 
+pub use wizardchat_denoise::{wz_denoise_free, wz_denoise_new, wz_denoise_process};
+
 uniffi::setup_scaffolding!();
 
 // The SDK spawns its sync and streams onto Tokio, which the app's threads don't run

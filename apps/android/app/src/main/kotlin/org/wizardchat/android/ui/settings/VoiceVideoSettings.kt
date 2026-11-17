@@ -51,6 +51,7 @@ import kotlinx.coroutines.withContext
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.matrix.CallManager
 import org.wizardchat.android.matrix.rtc.CallSounds
+import org.wizardchat.android.matrix.rtc.NoiseFilterMode
 import org.wizardchat.android.matrix.rtc.Soundboard
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
@@ -73,6 +74,7 @@ internal fun VoiceVideoSettings(onBack: () -> Unit) {
     var outputDevice by remember { mutableStateOf(defaults.getInt("voice.outputDevice", -1)) }
     var outputVolume by remember { mutableFloatStateOf(defaults.getFloat("voice.outputVolume", 1f)) }
     var cameraPosition by remember { mutableStateOf(defaults.getString("voice.cameraPosition", "front") ?: "front") }
+    var noiseFilter by remember { mutableStateOf(NoiseFilterMode.from(defaults.getString(NoiseFilterMode.PREF, null))) }
     var previewing by remember { mutableStateOf(false) }
     var sounds by remember { mutableStateOf(SOUND_TOGGLES.associateWith(CallSounds::isOn)) }
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -108,6 +110,18 @@ internal fun VoiceVideoSettings(onBack: () -> Unit) {
                     ),
                 )
             }
+            SettingsDivider()
+            PickerRow(
+                tr("settings.voiceVideo.noiseFilter.title"),
+                noiseFilter,
+                NoiseFilterMode.entries.map { it to tr("settings.voiceVideo.noiseFilter.${it.key}") },
+                {
+                    noiseFilter = it
+                    defaults.edit().putString(NoiseFilterMode.PREF, it.key).apply()
+                    calls.applyNoiseFilter()
+                },
+                note = tr("settings.voiceVideo.noiseFilter.hint"),
+            )
             SettingsDivider()
             MicTest()
         }

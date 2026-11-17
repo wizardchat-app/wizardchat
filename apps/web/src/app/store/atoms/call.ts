@@ -1,10 +1,11 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import type { CallMedia, PreferredDevices } from '@/call/media';
+import type { CallMedia, NoiseFilter, PreferredDevices } from '@/call/media';
 import { roomsByIdAtom } from '@/app/data/atoms';
 import {
   STORAGE_KEY_CALL_DEVICES,
   STORAGE_KEY_CALL_VOLUMES,
+  STORAGE_KEY_NOISE_FILTER,
   STORAGE_KEY_SHARE_SCREEN_AUDIO,
   STORAGE_KEY_CALL_RTC_OVERRIDE,
   STORAGE_KEY_CALL_USER_AUDIO,
@@ -93,6 +94,8 @@ export const callVolumesAtom = atomWithStorage<CallVolumes>(STORAGE_KEY_CALL_VOL
   input: 1,
   output: 1,
 });
+
+export const noiseFilterAtom = atomWithStorage<NoiseFilter>(STORAGE_KEY_NOISE_FILTER, 'standard');
 
 export const shareScreenAudioAtom = atomWithStorage<boolean>(STORAGE_KEY_SHARE_SCREEN_AUDIO, true);
 

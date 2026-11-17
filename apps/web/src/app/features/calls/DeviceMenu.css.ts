@@ -137,3 +137,30 @@ export const flyout = style({
   borderRadius: vars.radius.md,
   boxShadow: '0 8px 28px rgba(0,0,0,0.35)',
 });
+
+export const itemIcon = style({ flexShrink: 0, color: vars.color.textMuted });
+
+export const previewFrame = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  aspectRatio: '16 / 9',
+  margin: '2px 4px 4px',
+  borderRadius: vars.radius.sm,
+  overflow: 'hidden',
+  backgroundColor: vars.color.bgTertiary,
+});
+
+export const previewVideo = style({
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  transform: 'scaleX(-1)',
+});
+
+export const previewError = style({
+  padding: '0 12px',
+  fontSize: '0.75rem',
+  textAlign: 'center',
+  color: vars.color.textMuted,
+});

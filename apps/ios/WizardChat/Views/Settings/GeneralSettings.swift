@@ -334,6 +334,8 @@ struct AboutSettings: View {
                            text: String(localized: "settings.about.creditMatrix"))
                     credit("Roboto", url: "https://fonts.google.com/specimen/Roboto",
                            text: String(localized: "settings.about.creditRoboto"))
+                    credit("RNNoise", url: "https://github.com/xiph/rnnoise",
+                           text: String(localized: "settings.about.creditRnnoise"))
                 }
                 DisclosureGroup(String(localized: "settings.about.sounds")) {
                     ForEach(soundCredits, id: \.url) { sound in

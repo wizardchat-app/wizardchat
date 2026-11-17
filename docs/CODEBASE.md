@@ -34,7 +34,8 @@ crates/
 |  |- src/rpc/  the app-facing API, one declaration per method
 |  `- examples/ end-to-end runs against a homeserver
 |- wasm/        transport: core <-> web app
-`- ffi/         transport: core <-> iOS and Android (UniFFI)
+|- ffi/         transport: core <-> iOS and Android (UniFFI)
+`- denoise/     call noise filter (RNNoise): wasm AudioWorklet on web, C ABI in ffi for mobile
 packages/       design-tokens, i18n, emoji, icons, sounds
 whatsnew/       release notes per version
 apps/

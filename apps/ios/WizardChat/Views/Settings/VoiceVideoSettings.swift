@@ -18,6 +18,7 @@ struct VoiceVideoSettings: View {
     @AppStorage("voice.inputUID") private var inputUID = ""
     @AppStorage("voice.outputVolume") private var outputVolume = 1.0
     @AppStorage("voice.cameraPosition") private var cameraPosition = "front"
+    @AppStorage(NoiseFilterMode.defaultsKey) private var noiseFilter = NoiseFilterMode.standard.rawValue
     @State private var inputs: [AVAudioSessionPortDescription] = []
     @State private var output = Self.currentOutput()
     @State private var routePicker = RoutePickerTrigger()
@@ -52,6 +53,22 @@ struct VoiceVideoSettings: View {
                     Text(String(localized: "call.outputVolume")).foregroundStyle(theme.textPrimary)
                     Slider(value: $outputVolume, in: 0...1)
                         .accessibilityLabel(String(localized: "call.outputVolume"))
+                }
+                VStack(alignment: .leading, spacing: WZ.Space.space2) {
+                    Picker(selection: $noiseFilter) {
+                        ForEach(NoiseFilterMode.allCases, id: \.self) { mode in
+                            Text(String(localized: String.LocalizationValue(mode.titleKey)))
+                                .tag(mode.rawValue)
+                        }
+                    } label: {
+                        Text(String(localized: "settings.voiceVideo.noiseFilter.title")).foregroundStyle(theme.textPrimary)
+                    }
+                    .pickerStyle(.menu)
+                    .tint(theme.textMuted)
+                    Text(String(localized: "settings.voiceVideo.noiseFilter.hint"))
+                        .font(.wizard(WZ.FontSize.sm))
+                        .foregroundStyle(theme.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 MicTest()
             }
@@ -101,6 +118,7 @@ struct VoiceVideoSettings: View {
         .onChange(of: prefs.pushToTalk) { calls.applyMic() }
         .onChange(of: inputUID) { CallManager.applyPreferredInput() }
         .onChange(of: outputVolume) { calls.applyOutputVolume() }
+        .onChange(of: noiseFilter) { NoiseFilter.apply() }
     }
 }
 

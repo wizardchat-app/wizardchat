@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   keybindsAtom,
   pushToTalkEnabledAtom,
+  settingsHighlightAtom,
   settingsPageAtom,
   soundboardVolumeAtom,
   voiceSoundsAtom,
@@ -13,6 +14,7 @@ import { Button } from '@/app/components/Button';
 import { Select } from '@/app/components/Select';
 import { KeyCaps } from '@/app/components/KeyCaps';
 import { VolumeSlider } from '@/app/features/calls/VolumeSlider';
+import { noiseFilterAtom } from '@/app/store/atoms/call';
 import {
   deviceChoices,
   useCallVolume,
@@ -22,7 +24,7 @@ import {
 import { comboKeys, parseCombo } from '@/app/features/keyboardShortcuts/keyCombo';
 import { VOICE_SOUND_TOGGLES, type VoiceSoundToggle } from '@/app/features/voice/voiceSounds';
 import { useKeyboardHints } from '@/app/hooks/useKeyboardHints';
-import type { DeviceKind } from '@/call/media';
+import type { DeviceKind, NoiseFilter } from '@/call/media';
 import { CameraPreview } from './CameraPreview';
 import { MicTest } from './MicTest';
 import * as layoutCss from '../Settings.css';
@@ -90,11 +92,35 @@ function VolumeField({ kind }: { kind: 'input' | 'output' }) {
   );
 }
 
+const NOISE_FILTERS: NoiseFilter[] = ['off', 'standard', 'enhanced'];
+
+function NoiseFilterField() {
+  const { t } = useTranslation();
+  const [filter, setFilter] = useAtom(noiseFilterAtom);
+  const label = t('settings.voiceVideo.noiseFilter.title');
+  return (
+    <div className={css.field}>
+      <span className={layoutCss.fieldLabel}>{label}</span>
+      <Select
+        label={label}
+        value={filter}
+        options={NOISE_FILTERS.map((value) => ({
+          value,
+          label: t(`settings.voiceVideo.noiseFilter.${value}`),
+        }))}
+        onChange={setFilter}
+      />
+      <span className={layoutCss.settingNote}>{t('settings.voiceVideo.noiseFilter.hint')}</span>
+    </div>
+  );
+}
+
 function PushToTalk() {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useAtom(pushToTalkEnabledAtom);
   const keybinds = useAtomValue(keybindsAtom);
   const setSettingsPage = useSetAtom(settingsPageAtom);
+  const setHighlight = useSetAtom(settingsHighlightAtom);
   const keyboardHints = useKeyboardHints();
   const desktop = window.desktopAPI;
   const [permission, setPermission] = useState<boolean | null>(null);
@@ -149,7 +175,16 @@ function PushToTalk() {
       {keyboardHints && (
         <div className={layoutCss.settingRow}>
           <span className={layoutCss.settingNote}>{t('settings.voiceVideo.keybindsHint')}</span>
-          <Button variant="secondary" size="sm" onClick={() => setSettingsPage('keybinds')}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setSettingsPage('keybinds');
+              setHighlight(
+                t(enabled ? 'settings.keybinds.pushToTalk' : 'settings.keybinds.voiceRoom')
+              );
+            }}
+          >
             {t('settings.voiceVideo.openKeybinds')}
           </Button>
         </div>
@@ -229,6 +264,7 @@ export function VoiceVideo() {
   const devices = useDevices(AUDIO_KINDS);
   const { select, current } = useSelectDevice();
   const [inputVolume] = useCallVolume('input');
+  const noiseFilter = useAtomValue(noiseFilterAtom);
   const choices = Object.fromEntries(
     AUDIO_KINDS.map((kind) => [kind, deviceChoices(devices[kind] ?? [], current(kind))])
   ) as Record<'audioinput' | 'audiooutput', ReturnType<typeof deviceChoices>>;
@@ -258,7 +294,12 @@ export function VoiceVideo() {
           <VolumeField kind="input" />
           <VolumeField kind="output" />
         </div>
-        <MicTest deviceId={choices.audioinput.selected} volume={inputVolume} />
+        <NoiseFilterField />
+        <MicTest
+          deviceId={choices.audioinput.selected}
+          volume={inputVolume}
+          noiseFilter={noiseFilter}
+        />
       </div>
 
       <div className={layoutCss.divider} />

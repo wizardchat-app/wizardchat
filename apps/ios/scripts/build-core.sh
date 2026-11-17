@@ -31,8 +31,9 @@ cargo build -p wizardchat-core-ffi --lib
 rm -rf "$OUT" && mkdir -p "$OUT/bindings" "$OUT/headers"
 cargo run -q -p wizardchat-core-ffi --features bindgen --bin uniffi-bindgen -- \
   generate --library "$ROOT/target/debug/libwizardchat_core_ffi.dylib" --language swift --out-dir "$OUT/bindings"
-cp "$OUT/bindings/"*.h "$OUT/headers/"
-cp "$OUT/bindings/wizardchat_core_ffiFFI.modulemap" "$OUT/headers/module.modulemap"
+cp "$OUT/bindings/"*.h "$ROOT/crates/denoise/include/wizardchat_denoise.h" "$OUT/headers/"
+awk '{ print } /header "wizardchat_core_ffiFFI.h"/ { sub(/header .*/, "header \"wizardchat_denoise.h\""); print }' \
+  "$OUT/bindings/wizardchat_core_ffiFFI.modulemap" > "$OUT/headers/module.modulemap"
 cp "$OUT/bindings/wizardchat_core_ffi.swift" "$PKG/Sources/WizardChatCore/Bridge.gen.swift"
 
 rm -rf "$PKG/WizardChatCoreFFI.xcframework"
