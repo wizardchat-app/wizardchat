@@ -25,6 +25,7 @@
         },
         "label": "main",
         "visible": false,
+        "dragDropEnabled": false,
         "backgroundColor": "#11111e",
         "backgroundThrottling": "throttle"
       }
