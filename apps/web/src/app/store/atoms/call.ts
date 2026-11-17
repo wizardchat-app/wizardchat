@@ -42,6 +42,7 @@ export interface CallUiState {
   isVideoMuted: boolean;
   isScreenSharing: boolean;
   isSpotlight: boolean;
+  hideMembers: boolean;
   presentation: CallPresentation;
   incoming: IncomingCall | null;
 }
@@ -55,6 +56,7 @@ export const CALL_INITIAL_STATE: CallUiState = {
   isVideoMuted: false,
   isScreenSharing: false,
   isSpotlight: true,
+  hideMembers: false,
   presentation: 'hidden',
   incoming: null,
 };

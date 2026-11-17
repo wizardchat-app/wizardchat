@@ -39,6 +39,7 @@ const IDLE_UI = {
   isVideoMuted: false,
   isScreenSharing: false,
   isSpotlight: true,
+  hideMembers: false,
 };
 
 function playParticipantSounds(previous: CallSnapshot, snap: CallSnapshot): void {
@@ -145,6 +146,7 @@ export function CallController() {
           isScreenSharing: false,
           // Discord starts in grid view
           isSpotlight: false,
+          hideMembers: false,
           presentation,
         }));
         store.set(pendingCallRoomIdAtom, null);

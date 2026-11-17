@@ -507,7 +507,6 @@ export function CallStage() {
   const theme = useAtomValue(themeAtom);
   const [panel, setPanel] = useAtom(callPanelAtom);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
-  const [hideMembers, setHideMembers] = useState(false);
   const [userMenu, setUserMenu] = useState<UserMenuAnchor | null>(null);
   const closePanel = useCallback(() => setPanel(null), [setPanel]);
   const closeUserMenu = useCallback(() => setUserMenu(null), []);
@@ -677,6 +676,7 @@ export function CallStage() {
   } else if (stageView) {
     const others = tiles.filter((tile) => tile.key !== focused.key);
     const hasStrip = !compact && others.length > 0;
+    const hideMembers = ui.hideMembers;
     const showStrip = hasStrip && !hideMembers;
     const membersLabel = hideMembers ? t('call.showMembers') : t('call.hideMembers');
     content = (
@@ -693,7 +693,7 @@ export function CallStage() {
               <button
                 type="button"
                 className={css.stripToggle}
-                onClick={() => setHideMembers((hidden) => !hidden)}
+                onClick={() => setUi((prev) => ({ ...prev, hideMembers: !prev.hideMembers }))}
                 aria-expanded={!hideMembers}
               >
                 {hideMembers ? (
