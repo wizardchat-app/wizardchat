@@ -35,7 +35,7 @@ const DURATION = '2.4s';
 const TIMING = 'ease-in-out';
 const ITER = 'infinite';
 
-const DELAYS = ['0s', '-0.4s', '-0.8s', '-1.2s', '-1.6s', '-2.0s'];
+const DELAYS = ['-0.4s', '-0.8s', '-1.2s', '0s', '-1.6s', '-2.0s'];
 
 const BASE = {
   animationDuration: DURATION,
