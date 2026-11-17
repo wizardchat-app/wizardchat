@@ -246,7 +246,7 @@ private struct RoomCard: View {
                     .lineLimit(3)
             }
             HStack {
-                Label(L10n.format("explore.memberCount", Self.format(room.memberCount)), image: "ph-users-regular")
+                Label(Self.memberCountText(room.memberCount), image: "ph-users-regular")
                     .font(.wizard(WZ.FontSize.sm))
                     .foregroundStyle(theme.textMuted)
                 Spacer()
@@ -268,7 +268,11 @@ private struct RoomCard: View {
         .overlay(RoundedRectangle(cornerRadius: WizardTheme.radiusMd).stroke(theme.border))
     }
 
-    private static func format(_ count: Int) -> String {
-        count >= 1000 ? String(format: "%.1fk", Double(count) / 1000) : "\(count)"
+    private static func memberCountText(_ count: Int) -> String {
+        if count < 1000 { return L10n.format("explore.memberCount", count) }
+        let marker = 987654321
+        let short = String(format: "%.1fk", locale: .current, Double(count) / 1000)
+        return L10n.format("explore.memberCount", marker)
+            .replacingOccurrences(of: String(format: "%lld", locale: .current, marker), with: short)
     }
 }
