@@ -62,6 +62,7 @@ struct WizardChatApp: App {
                 }
             }
             .font(.wizard(WZ.FontSize.lg))
+            .textCase(nil)
             .id(dynamicTypeSize)
             .environmentObject(session)
             .environmentObject(prefs)

@@ -336,7 +336,7 @@ private fun TabContent(
         stateHolder.SaveableStateProvider(route?.toString() ?: "root-$tab") {
             when (route) {
                 null -> when (tab) {
-                    Tab.home -> RoomListScreen(roomList, SidebarSelection.Home, onOpenInbox)
+                    Tab.home -> RoomListScreen(roomList, SidebarSelection.Home, onOpenInbox, onCreateSpace, onExplore)
                     Tab.dms -> RoomListScreen(roomList, SidebarSelection.Dms, onOpenInbox)
                     else -> SpacesScreen(roomList, onCreateSpace = onCreateSpace, onExplore = onExplore)
                 }

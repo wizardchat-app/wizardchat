@@ -12,6 +12,8 @@ struct RoomListScreen: View {
     @ObservedObject var roomList: RoomListModel
     let selection: SidebarSelection
     var onOpenInbox: (() -> Void)?
+    var onCreateSpace: (() -> Void)?
+    var onExplore: (() -> Void)?
 
     @EnvironmentObject private var prefs: AppPreferences
     @EnvironmentObject private var notifier: MessageNotifier
@@ -67,19 +69,34 @@ struct RoomListScreen: View {
             }
             if selection == .home, search.isEmpty, roomList.isLoaded {
                 ActiveNowSection(roomList: roomList)
+                let recent = JumpBackInSection.recent(roomList.joinedRooms)
+                if !recent.isEmpty {
+                    JumpBackInSection(rooms: recent)
+                } else if let onCreateSpace, let onExplore {
+                    StarterActionsSection(onNewMessage: { showNewMessage = true },
+                                          onCreateSpace: onCreateSpace, onExplore: onExplore)
+                }
             }
             if !roomList.isLoaded {
                 ForEach(0..<8, id: \.self) { _ in
                     SkeletonRow().listRowBackground(Color.clear).listRowSeparator(.hidden)
                 }
             } else if rooms.isEmpty {
-                Text(search.isEmpty ? emptyText : "nav.noMatches")
-                    .font(.wizard(WZ.FontSize.md))
-                    .foregroundStyle(theme.textMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, WZ.Space.space9)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                if search.isEmpty, selection != .dms {
+                    if !groups.contains(where: { if case .rooms = $0.kind { true } else { false } }) {
+                        let group = RoomGroup(kind: .rooms, rooms: [])
+                        Section {
+                            if !isCollapsed(group) {
+                                emptyNote(emptyText, padding: WZ.Space.space6)
+                            }
+                        } header: {
+                            groupHeader(group, in: [group])
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 8))
+                        }
+                    }
+                } else {
+                    emptyNote(search.isEmpty ? emptyText : "nav.noMatches", padding: WZ.Space.space9)
+                }
             }
             let groups = groups
             if selection == .dms, groups.count == 1, case .rooms = groups[0].kind {
@@ -89,6 +106,9 @@ struct RoomListScreen: View {
                 ForEach(groups) { group in
                     Section {
                         if !isCollapsed(group) || reordering {
+                            if case .rooms = group.kind, group.rooms.isEmpty, search.isEmpty {
+                                emptyNote(emptyText, padding: WZ.Space.space6)
+                            }
                             ForEach(group.rooms) { roomRow($0) }
                                 .onMove(perform: canReorder(group) ? { moveRooms(group, from: $0, to: $1) } : nil)
                         }
@@ -193,6 +213,16 @@ struct RoomListScreen: View {
                 if let room = leaving { Task { await roomList.leave(room) } }
             }
         }
+    }
+
+    private func emptyNote(_ text: LocalizedStringKey, padding: CGFloat) -> some View {
+        Text(text)
+            .font(.wizard(WZ.FontSize.md))
+            .foregroundStyle(theme.textMuted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, padding)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 
     private func roomRow(_ room: RoomSummary) -> some View {

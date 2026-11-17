@@ -95,7 +95,13 @@ import androidx.compose.ui.text.font.FontStyle
 import org.wizardchat.android.matrix.title
 
 @Composable
-fun RoomListScreen(roomList: RoomListModel, selection: SidebarSelection, onOpenInbox: (() -> Unit)?) {
+fun RoomListScreen(
+    roomList: RoomListModel,
+    selection: SidebarSelection,
+    onOpenInbox: (() -> Unit)?,
+    onCreateSpace: (() -> Unit)? = null,
+    onExplore: (() -> Unit)? = null,
+) {
     val prefs = LocalPrefs.current
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
@@ -200,15 +206,41 @@ fun RoomListScreen(roomList: RoomListModel, selection: SidebarSelection, onOpenI
                 }
                 if (selection == SidebarSelection.Home && search.isBlank() && roomList.isLoaded) {
                     item(key = "active-now") { ActiveNowSection(roomList) }
+                    val recent = recentRooms(roomList.joinedRooms)
+                    if (recent.isNotEmpty()) {
+                        item(key = "jump-back-in") { JumpBackInSection(recent) }
+                    } else if (onCreateSpace != null && onExplore != null) {
+                        item(key = "starter-actions") {
+                            StarterActionsSection({ showNewMessage = true }, onCreateSpace, onExplore)
+                        }
+                    }
                 }
                 if (!roomList.isLoaded) {
                     items(8) { Box(Modifier.padding(horizontal = WZ.Space.space6)) { SkeletonRow() } }
                 } else if (rooms.isEmpty()) {
-                    item(key = "empty") {
-                        Note(
-                            tr(if (selection == SidebarSelection.Dms) "nav.noDirectMessagesYet" else "nav.noRoomsHereYet"),
-                            Modifier.padding(vertical = WZ.Space.space9),
-                        )
+                    val emptyRooms = RoomGroup(RoomGroup.Kind.Rooms, emptyList())
+                    val sectioned = selection != SidebarSelection.Dms && search.isBlank()
+                    val hasRoomsGroup = groups.any { it.kind == RoomGroup.Kind.Rooms }
+                    if (sectioned && !hasRoomsGroup) {
+                        item(key = "header-empty") {
+                            GroupHeader(
+                                emptyRooms,
+                                listOf(emptyRooms.id),
+                                closed = collapseKey(emptyRooms) in collapsed,
+                                onToggle = { toggle(emptyRooms) },
+                                onRename = {},
+                                onMove = {},
+                                onDelete = {},
+                            )
+                        }
+                    }
+                    if (!sectioned || (!hasRoomsGroup && collapseKey(emptyRooms) !in collapsed)) {
+                        item(key = "empty") {
+                            Note(
+                                tr(if (selection == SidebarSelection.Dms) "nav.noDirectMessagesYet" else "nav.noRoomsHereYet"),
+                                Modifier.padding(vertical = if (sectioned) WZ.Space.space6 else WZ.Space.space9),
+                            )
+                        }
                     }
                 }
                 val headers = selection != SidebarSelection.Dms
@@ -226,7 +258,13 @@ fun RoomListScreen(roomList: RoomListModel, selection: SidebarSelection, onOpenI
                             )
                         }
                     }
-                    val shown = if (headers && collapseKey(group) in collapsed && !reordering) emptyList() else group.rooms
+                    val closed = headers && collapseKey(group) in collapsed && !reordering
+                    if (headers && !closed && group.kind == RoomGroup.Kind.Rooms && group.rooms.isEmpty() && search.isBlank()) {
+                        item(key = "empty-${group.id}") {
+                            Note(tr("nav.noRoomsHereYet"), Modifier.padding(vertical = WZ.Space.space6))
+                        }
+                    }
+                    val shown = if (closed) emptyList() else group.rooms
                     itemsIndexed(shown, key = { _, room -> room.id }) { index, room ->
                         SwipeableRoomRow(
                             room,

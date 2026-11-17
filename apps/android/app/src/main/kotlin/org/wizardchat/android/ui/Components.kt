@@ -391,7 +391,7 @@ fun GroupedSection(
     Column(modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6)) {
         if (header != null) {
             Text(
-                header.uppercase(),
+                header,
                 Modifier.padding(start = WZ.Space.space5, bottom = WZ.Space.space3, top = WZ.Space.space6),
                 style = wizardFont(WZ.FontSize.sm),
                 color = theme.textMuted,

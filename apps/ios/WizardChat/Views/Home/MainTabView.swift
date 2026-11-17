@@ -174,7 +174,8 @@ struct MainTabView: View {
             NavigationStack(path: binding(for: item)) {
                 Group {
                     switch item {
-                    case .home: RoomListScreen(roomList: roomList, selection: .home) { showInbox = true }
+                    case .home: RoomListScreen(roomList: roomList, selection: .home, onOpenInbox: { showInbox = true },
+                                               onCreateSpace: { showCreateSpace = true }, onExplore: { showExplore = true })
                     case .dms: RoomListScreen(roomList: roomList, selection: .dms) { showInbox = true }
                     default: SpacesScreen(roomList: roomList, onCreateSpace: { showCreateSpace = true },
                                           onExplore: { showExplore = true })

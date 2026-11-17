@@ -6,6 +6,7 @@ struct ActiveNowSection: View {
     @EnvironmentObject private var session: MatrixSession
     @EnvironmentObject private var calls: CallManager
     @Environment(\.theme) private var theme
+    @Environment(\.roomOpener) private var roomOpener
 
     private struct Card: Identifiable {
         let room: RoomSummary
@@ -23,7 +24,6 @@ struct ActiveNowSection: View {
         var id: String { userId }
     }
 
-    private static let peopleLimit = 5
 
     private var cards: [Card] {
         let known = Dictionary(roomList.joinedRooms.filter(\.isDirect).compactMap { room in
@@ -53,90 +53,150 @@ struct ActiveNowSection: View {
                 Text(String(localized: "nav.activeNow"))
                     .font(.wizard(WZ.FontSize.sm, .semibold))
                     .foregroundStyle(theme.textMuted)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: WZ.Space.space4) {
-                        ForEach(cards) { card($0) }
+                    .padding(.horizontal, WZ.Space.space6)
+                if cards.count == 1 {
+                    wideCard(cards[0]).padding(.horizontal, WZ.Space.space6)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: WZ.Space.space4) {
+                            ForEach(cards) { card in
+                                compactCard(card)
+                                    .frame(maxHeight: .infinity, alignment: .top)
+                                    .containerRelativeFrame(.horizontal, count: 2, spacing: WZ.Space.space4)
+                            }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .scrollTargetLayout()
                     }
+                    .contentMargins(.horizontal, WZ.Space.space6, for: .scrollContent)
+                    .scrollTargetBehavior(.viewAligned)
+                    .scrollDisabled(cards.count == 2)
                 }
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: WZ.Space.space2, leading: WZ.Space.space6, bottom: WZ.Space.space4, trailing: 0))
+            .listRowInsets(EdgeInsets(top: WZ.Space.space2, leading: 0, bottom: WZ.Space.space4, trailing: 0))
         }
     }
 
-    private func card(_ card: Card) -> some View {
-        let shown = card.people.prefix(Self.peopleLimit)
-        return VStack(alignment: .leading, spacing: WZ.Space.space4) {
-            VStack(alignment: .leading, spacing: WZ.Space.space1) {
-                HStack(spacing: WZ.Space.space2) {
-                    Image("ph-speaker-high-regular")
-                        .font(.system(size: WZ.SizeIcon.xs))
-                        .foregroundStyle(theme.success)
-                    Text(card.room.displayName)
-                        .font(.wizard(WZ.FontSize.md, .semibold))
-                        .foregroundStyle(theme.textPrimary)
+    private func names(_ card: Card, limit: Int) -> String {
+        let known = card.people.filter(\.known).map { $0.name ?? String($0.userId.dropFirst().split(separator: ":").first ?? "") }
+        let shown = known.prefix(limit).joined(separator: ", ")
+        let rest = card.people.count - min(known.count, limit)
+        return rest > 0 ? "\(shown) \(L10n.format("nav.morePeople", rest))" : shown
+    }
+
+    private func title(_ card: Card) -> some View {
+        HStack(spacing: WZ.Space.space2) {
+            Image("ph-speaker-high-regular")
+                .font(.system(size: WZ.SizeIcon.xs))
+                .foregroundStyle(theme.success)
+            Text(card.room.displayName)
+                .font(.wizard(WZ.FontSize.md, .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private func spaceName(_ card: Card) -> some View {
+        if let space = roomList.space(containing: card.room.id) {
+            Text(space.name)
+                .font(.wizard(WZ.FontSize.xs))
+                .foregroundStyle(theme.textMuted)
+                .lineLimit(1)
+        }
+    }
+
+    private func faces(_ card: Card, limit: Int, overflow: Bool = false) -> some View {
+        let extra = card.people.count - limit
+        let shown = card.people.prefix(overflow && extra > 0 ? limit - 1 : limit)
+        return HStack(spacing: -WZ.Space.space3) {
+            ForEach(shown) { person in
+                ActiveFace(person: person.userId, name: person.name, avatarUrl: person.avatarUrl, roomId: card.room.id)
+            }
+            if overflow, extra > 0 {
+                Text("+\(card.people.count - shown.count)")
+                    .font(.wizard(WZ.FontSize.xs, .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .frame(width: WZ.SizeAvatar.sm, height: WZ.SizeAvatar.sm)
+                    .background(theme.fill, in: Circle())
+                    .overlay(Circle().stroke(theme.bgSecondary, lineWidth: WZ.Space.space1))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(names(card, limit: card.people.count))
+    }
+
+    private func joinButton(_ card: Card, fill: Bool) -> some View {
+        Button {
+            if !card.includesMe { Task { await calls.join(card.room, session: session) } }
+            roomOpener.open(card.room.id, false)
+        } label: {
+            Text(String(localized: card.includesMe ? "common.open" : "common.join"))
+                .font(.wizard(WZ.FontSize.sm, .semibold))
+                .foregroundStyle(card.includesMe ? theme.textPrimary : theme.textOnAccent)
+                .padding(.horizontal, WZ.Space.space7)
+                .frame(maxWidth: fill ? .infinity : nil, minHeight: WZ.SizeControl.md)
+                .background(card.includesMe ? theme.fill : theme.accent, in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private func wideCard(_ card: Card) -> some View {
+        HStack(spacing: WZ.Space.space5) {
+            VStack(alignment: .leading, spacing: WZ.Space.space3) {
+                VStack(alignment: .leading, spacing: WZ.Space.space1) {
+                    title(card)
+                    spaceName(card)
+                }
+                HStack(spacing: WZ.Space.space3) {
+                    faces(card, limit: 4)
+                    Text(names(card, limit: 2))
+                        .font(.wizard(WZ.FontSize.sm))
+                        .foregroundStyle(theme.textSecondary)
                         .lineLimit(1)
                 }
-                if let space = roomList.space(containing: card.room.id) {
-                    Text(space.name)
-                        .font(.wizard(WZ.FontSize.xs))
-                        .foregroundStyle(theme.textMuted)
-                        .lineLimit(1)
-                }
             }
-            VStack(alignment: .leading, spacing: WZ.Space.space2) {
-                ForEach(shown) { person in
-                    ActivePerson(person: person.userId, name: person.name, avatarUrl: person.avatarUrl,
-                                 roomId: card.room.id, known: person.known)
-                }
-                if card.people.count > shown.count {
-                    Text(L10n.format("nav.morePeople", card.people.count - shown.count))
-                        .font(.wizard(WZ.FontSize.xs))
-                        .foregroundStyle(theme.textMuted)
-                }
-            }
-            Spacer(minLength: WZ.Space.space0)
-            NavigationLink(value: Route.room(card.room.id)) {
-                Text(String(localized: card.includesMe ? "common.open" : "common.join"))
-                    .font(.wizard(WZ.FontSize.sm, .semibold))
-                    .foregroundStyle(card.includesMe ? theme.textPrimary : theme.textOnAccent)
-                    .frame(maxWidth: .infinity, minHeight: WZ.SizeControl.md)
-                    .background(card.includesMe ? theme.fill : theme.accent, in: Capsule())
-            }
-            .simultaneousGesture(TapGesture().onEnded {
-                guard !card.includesMe else { return }
-                Task { await calls.join(card.room, session: session) }
-            })
+            .frame(maxWidth: .infinity, alignment: .leading)
+            joinButton(card, fill: false)
         }
         .padding(WZ.Space.space5)
-        .frame(width: WZ.Size.sidebar * 0.75, alignment: .topLeading)
-        .frame(minHeight: WZ.Size.sidebar * 0.75)
+        .background(theme.bgSecondary, in: RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
+    }
+
+    private func compactCard(_ card: Card) -> some View {
+        VStack(alignment: .leading, spacing: WZ.Space.space4) {
+            VStack(alignment: .leading, spacing: WZ.Space.space1) {
+                title(card)
+                spaceName(card)
+            }
+            faces(card, limit: 4, overflow: true)
+            Spacer(minLength: WZ.Space.space0)
+            joinButton(card, fill: true)
+        }
+        .padding(WZ.Space.space5)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.bgSecondary, in: RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
     }
 }
 
-private struct ActivePerson: View {
+private struct ActiveFace: View {
     let person: String
     let name: String?
     let avatarUrl: String?
     let roomId: String
-    let known: Bool
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
     @State private var profile: MemberDirectory.Profile?
 
     var body: some View {
-        HStack(spacing: WZ.Space.space3) {
-            AvatarView(name: name ?? profile?.name ?? person, url: avatarUrl ?? profile?.avatarUrl, size: WZ.SizeAvatar.xs)
-            Text(name ?? profile?.name ?? person)
-                .font(.wizard(WZ.FontSize.sm, known ? .semibold : .regular))
-                .foregroundStyle(known ? theme.textPrimary : theme.textMuted)
-                .lineLimit(1)
-        }
-        .task(id: person) {
-            guard name == nil else { return }
-            profile = await session.memberProfile(person, in: roomId)
-        }
+        AvatarView(name: name ?? profile?.name ?? person, url: avatarUrl ?? profile?.avatarUrl, size: WZ.SizeAvatar.sm)
+            .overlay(Circle().stroke(theme.bgSecondary, lineWidth: WZ.Space.space1))
+            .task(id: person) {
+                guard name == nil else { return }
+                profile = await session.memberProfile(person, in: roomId)
+            }
     }
 }

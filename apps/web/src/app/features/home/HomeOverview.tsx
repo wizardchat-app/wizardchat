@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import type { WizardClient } from '@wizardchat/core';
@@ -37,26 +38,43 @@ export function HomeOverview({ client }: { client: WizardClient }) {
   const setGetAppsOpen = useSetAtom(getAppsOpenAtom);
 
   const name = profile?.displayName || formatUserId(myId);
+  const { heroRef, titleRef, actionsRef, compact } = useCompactActions(name);
+  const inboxLabel = t('inbox.title');
+  const whatsNewLabel = t('whatsNew.title');
 
   return (
     <div className={css.page}>
       <div className={css.content}>
-        <section className={css.hero}>
+        <section ref={heroRef} className={css.hero}>
           <LogoHover size={64} />
           <div className={css.heroText}>
-            <h1 className={css.heroTitle}>{t('home.welcome', { name })}</h1>
+            <h1 ref={titleRef} className={css.heroTitle}>
+              {t('home.welcome', { name })}
+            </h1>
           </div>
-          <div className={css.heroActions}>
-            <button type="button" className={css.heroButton} onClick={() => setInboxOpen(true)}>
+          <div ref={actionsRef} className={css.heroActions}>
+            <button
+              type="button"
+              className={compact ? css.heroIconButton : css.heroButton}
+              aria-label={compact ? inboxLabel : undefined}
+              title={compact ? inboxLabel : undefined}
+              onClick={() => setInboxOpen(true)}
+            >
               <TrayIcon size={16} />
-              {t('inbox.title')}
+              {!compact && inboxLabel}
               {inboxBadge.show && (
                 <span className={inboxBadge.mention ? css.dotMention : css.dot} />
               )}
             </button>
-            <button type="button" className={css.heroButton} onClick={() => setWhatsNewOpen(true)}>
+            <button
+              type="button"
+              className={compact ? css.heroIconButton : css.heroButton}
+              aria-label={compact ? whatsNewLabel : undefined}
+              title={compact ? whatsNewLabel : undefined}
+              onClick={() => setWhatsNewOpen(true)}
+            >
               <SparkleIcon size={16} />
-              {t('whatsNew.title')}
+              {!compact && whatsNewLabel}
             </button>
           </div>
         </section>
@@ -99,4 +117,33 @@ export function HomeOverview({ client }: { client: WizardClient }) {
       </div>
     </div>
   );
+}
+
+function useCompactActions(name: string) {
+  const heroRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const labelledWidth = useRef(0);
+  const compactRef = useRef(false);
+  const [compact, setCompact] = useState(false);
+
+  useLayoutEffect(() => {
+    const hero = heroRef.current;
+    const title = titleRef.current;
+    const actions = actionsRef.current;
+    const text = title?.parentElement;
+    if (!hero || !title || !actions || !text) return;
+    const update = () => {
+      if (!compactRef.current) labelledWidth.current = actions.offsetWidth;
+      const room = text.clientWidth + actions.offsetWidth - labelledWidth.current;
+      compactRef.current = title.scrollWidth > room;
+      setCompact(compactRef.current);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, [name]);
+
+  return { heroRef, titleRef, actionsRef, compact };
 }

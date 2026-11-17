@@ -2060,6 +2060,7 @@
     "searchRooms": "Räume suchen"
   },
   "home": {
+    "jumpBackIn": "Zuletzt aktiv",
     "overview": "Übersicht",
     "welcome": "Willkommen, {{name}}",
     "exploreCommunities": "Communitys entdecken",

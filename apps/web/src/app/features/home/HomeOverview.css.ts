@@ -22,7 +22,6 @@ export const content = style({
 export const hero = style({
   display: 'flex',
   alignItems: 'center',
-  flexWrap: 'wrap',
   gap: '18px',
   padding: '24px 28px',
   borderRadius: vars.radius.lg,
@@ -32,7 +31,7 @@ export const hero = style({
 
 export const heroText = style({
   flex: 1,
-  minWidth: '180px',
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
   gap: '4px',
@@ -48,7 +47,7 @@ export const heroTitle = style({
   whiteSpace: 'nowrap',
 });
 
-export const heroActions = style({ display: 'flex', gap: '8px' });
+export const heroActions = style({ display: 'flex', flexShrink: 0, gap: '8px' });
 
 export const heroButton = style({
   position: 'relative',
@@ -67,6 +66,8 @@ export const heroButton = style({
   transition: `background-color ${fast}`,
   ':hover': { backgroundColor: vars.color.bgHover },
 });
+
+export const heroIconButton = style([heroButton, { padding: '8px' }]);
 
 export const dot = style({
   position: 'absolute',

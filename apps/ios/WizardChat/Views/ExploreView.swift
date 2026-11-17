@@ -175,9 +175,8 @@ private struct ResultsList: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: WZ.Space.space4) {
-                Text(title.uppercased())
-                    .font(.wizard(WZ.FontSize.sm, .bold))
-                    .kerning(0.5)
+                Text(title)
+                    .font(.wizard(WZ.FontSize.sm, .semibold))
                     .foregroundStyle(theme.textMuted)
                 if let error = errorMessage ?? model.error.map({ L10n.format("explore.fetchError", "\($0)") }) {
                     Text(error)
