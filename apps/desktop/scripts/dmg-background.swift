@@ -4,7 +4,7 @@ let width: CGFloat = 660
 let height: CGFloat = 420
 let app = CGPoint(x: 170, y: 200)
 let folder = CGPoint(x: 490, y: 200)
-let scale: CGFloat = 2
+let scale = CGFloat(Double(CommandLine.arguments.dropFirst(2).first ?? "2") ?? 2)
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
     CGColor(srgbRed: CGFloat((hex >> 16) & 0xff) / 255, green: CGFloat((hex >> 8) & 0xff) / 255,
@@ -43,17 +43,18 @@ var random = Random(state: 0x5eed)
 for _ in 0..<90 {
     let p = CGPoint(x: random.next() * width, y: random.next() * height)
     let r = 0.35 + random.next() * 0.85
+    if abs(p.y - 59) < 14 && abs(p.x - width / 2) < 160 { continue }
     ctx.setFillColor(color(0xffffff, 0.08 + random.next() * 0.3))
     ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
 }
 
 for p in [app, folder] {
     nebula(p, 100, 0x8b5cf6, 0.2)
-    ctx.saveGState()
-    ctx.translateBy(x: p.x, y: p.y + 78)
-    ctx.scaleBy(x: 1, y: 0.32)
-    nebula(.zero, 90, 0x9d8cf0, 0.8)
-    ctx.restoreGState()
+    let chip = CGRect(x: p.x - 58, y: p.y + 84 - 12, width: 116, height: 24)
+    nebula(CGPoint(x: chip.midX, y: chip.midY), 70, 0xa78bfa, 0.25)
+    ctx.addPath(CGPath(roundedRect: chip, cornerWidth: 12, cornerHeight: 12, transform: nil))
+    ctx.setFillColor(color(0xece7ff))
+    ctx.fillPath()
 }
 
 func lavenderSparkle(_ p: CGPoint, _ size: CGFloat) {
@@ -122,7 +123,7 @@ let attributes: [NSAttributedString.Key: Any] = [
 let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
 let bounds = CTLineGetImageBounds(line, ctx)
 ctx.saveGState()
-ctx.translateBy(x: (width - bounds.width) / 2, y: 362)
+ctx.translateBy(x: (width - bounds.width) / 2, y: 64)
 ctx.scaleBy(x: 1, y: -1)
 ctx.textPosition = .zero
 CTLineDraw(line, ctx)

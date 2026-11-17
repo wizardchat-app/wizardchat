@@ -59,6 +59,8 @@ build-desktop-mac:
       fi
     - npm run tokens
     - npm run build:release -w @wizardchat/desktop -- --target "$TARGET"
+    - python3 -m venv .dmgbuild && .dmgbuild/bin/pip install --quiet "dmgbuild>=1.6.7"
+    - DMGBUILD=.dmgbuild/bin/dmgbuild apps/desktop/scripts/make-dmg.sh "$TARGET"
     - sccache --show-stats
   after_script:
     - security delete-keychain "$CI_PROJECT_DIR/.apple/signing.keychain-db" 2>/dev/null || true

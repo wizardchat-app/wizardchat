@@ -36,7 +36,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis", "appimage", "deb", "rpm"],
+    "targets": ["app", "nsis", "appimage", "deb", "rpm"],
     "publisher": "WizardChat",
     "homepage": "https://wizardchat.org",
     "category": "SocialNetworking",
@@ -53,12 +53,6 @@
       "infoPlist": "Info.plist",
       "entitlements": "entitlements.plist",
       "hardenedRuntime": true,
-      "dmg": {
-        "background": "dmg/background.png",
-        "windowSize": { "width": 660, "height": 420 },
-        "appPosition": { "x": 170, "y": 200 },
-        "applicationFolderPosition": { "x": 490, "y": 200 }
-      },
       "signingIdentity": "-",
       "files": {
         "Resources/Assets.car": "icons/Assets.car"

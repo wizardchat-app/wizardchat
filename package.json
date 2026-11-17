@@ -20,6 +20,7 @@
     "desktop": "npm run tokens && npm run dev -w @wizardchat/desktop",
     "desktop:build": "npm run tokens && npm run build -w @wizardchat/desktop",
     "desktop:release": "npm run tokens && npm run build:release -w @wizardchat/desktop",
+    "desktop:dmg": "apps/desktop/scripts/make-dmg.sh",
     "ios": "npm run assets && npm run ios:core && cd apps/ios && xcodegen generate && open WizardChat.xcodeproj",
     "ios:build": "npm run assets && apps/ios/scripts/build-core.sh && cd apps/ios && xcodegen generate && xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Release -destination generic/platform=iOS -derivedDataPath build -allowProvisioningUpdates build",
     "ios:core": "apps/ios/scripts/build-core.sh --debug",
