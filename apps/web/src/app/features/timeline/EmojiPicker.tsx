@@ -202,6 +202,12 @@ export function EmojiPicker({
   }, [searchQuery]);
 
   useEffect(() => {
+    if (embedded || picker) return;
+    setSearchQuery('');
+    setActiveNav(RECENT_ID);
+  }, [embedded, picker]);
+
+  useEffect(() => {
     if (ctx && !coarse) {
       searchRef.current?.focus();
     }
