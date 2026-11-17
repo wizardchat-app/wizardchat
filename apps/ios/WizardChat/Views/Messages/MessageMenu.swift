@@ -3,7 +3,18 @@ import SwiftUI
 struct MessageMenuTarget: Identifiable {
     let entry: ChatEntry
     let frame: CGRect
+    let drag: MessageMenuDrag
     var id: String { entry.id }
+}
+
+/// The finger of the long-press that opened the menu, so it can slide straight onto an option
+@Observable
+final class MessageMenuDrag {
+    let start: CGPoint
+    var location: CGPoint?
+    var released = false
+
+    init(start: CGPoint) { self.start = start }
 }
 
 private struct MessageMenuItem: Identifiable {
@@ -29,6 +40,10 @@ struct MessageMenuOverlay: View {
     @State private var capsuleHeight: CGFloat = 0
     @State private var contentHeight: CGFloat = 0
     @State private var previewHeight: CGFloat = 0
+    @State private var rowFrames: [Int: CGRect] = [:]
+    @State private var hoveredRow: Int?
+    @State private var optionsOrigin: CGPoint = .zero
+    @State private var pressMoved = false
 
     private var entry: ChatEntry { target.entry }
     private var canReact: Bool { entry.itemKey != nil }
@@ -72,6 +87,16 @@ struct MessageMenuOverlay: View {
                 .opacity(shown ? 1 : 0)
             }
         }
+        .onChange(of: target.drag.location) { _, location in
+            guard let location else { return }
+            if !pressMoved, hypot(location.x - target.drag.start.x, location.y - target.drag.start.y) < WZ.Space.space5 { return }
+            pressMoved = true
+            hover(at: local(location))
+        }
+        .onChange(of: target.drag.released) { _, released in
+            guard released, pressMoved, let location = target.drag.location else { return }
+            choose(at: local(location))
+        }
         .onAppear {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             withAnimation(.spring(duration: WZ.MotionDuration.slow)) { shown = true }
@@ -108,10 +133,13 @@ struct MessageMenuOverlay: View {
     }
 
     private var options: some View {
-        VStack(spacing: WZ.Space.space0) {
+        let sections = sections
+        return VStack(spacing: WZ.Space.space0) {
             ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
-                if index > 0 { Divider().padding(.vertical, WZ.Space.space2) }
-                ForEach(section) { item in
+                if index > 0 { Divider().padding(.vertical, WZ.Space.space2).padding(.horizontal, WZ.Space.space4) }
+                let offset = sections[..<index].reduce(0) { $0 + $1.count }
+                ForEach(Array(section.enumerated()), id: \.offset) { position, item in
+                    let row = offset + position
                     Button { close(then: item.action) } label: {
                         HStack(spacing: WZ.Space.space5) {
                             Image(item.icon)
@@ -121,17 +149,58 @@ struct MessageMenuOverlay: View {
                             Spacer(minLength: 0)
                         }
                         .foregroundStyle(item.destructive ? theme.danger : theme.textPrimary)
-                        .padding(.horizontal, WZ.Space.space6)
+                        .padding(.horizontal, WZ.Space.space4)
                         .frame(height: WZ.Size.touchTarget)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.optionsSpace)) } action: { rowFrames[row] = $0 }
                 }
             }
         }
-        .padding(.vertical, WZ.Space.space3)
+        .background(alignment: .topLeading) {
+            if let hoveredRow, let frame = rowFrames[hoveredRow] {
+                Capsule()
+                    .fill(theme.fill)
+                    .frame(width: frame.width, height: frame.height)
+                    .offset(x: frame.minX, y: frame.minY)
+            }
+        }
+        .animation(.spring(duration: WZ.MotionDuration.fast), value: hoveredRow)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.optionsSpace))
+                .onChanged { hover(at: $0.location) }
+                .onEnded { choose(at: $0.location) }
+        )
+        .coordinateSpace(.named(Self.optionsSpace))
+        .onGeometryChange(for: CGPoint.self) { $0.frame(in: .global).origin } action: { optionsOrigin = $0 }
+        .padding(WZ.Space.space4)
         .frame(width: WZ.Size.sidebar)
-        .floatingGlass(in: RoundedRectangle(cornerRadius: WZ.Radius.xl, style: .continuous))
+        .floatingGlass(in: RoundedRectangle(cornerRadius: WZ.Size.touchTarget / 2 + WZ.Space.space4, style: .continuous))
+    }
+
+    private static let optionsSpace = "messageMenuOptions"
+
+    private func local(_ global: CGPoint) -> CGPoint {
+        CGPoint(x: global.x - optionsOrigin.x, y: global.y - optionsOrigin.y)
+    }
+
+    private func row(at point: CGPoint) -> Int? {
+        rowFrames.first { $0.value.contains(point) }?.key
+    }
+
+    private func hover(at point: CGPoint) {
+        let row = row(at: point)
+        guard row != hoveredRow else { return }
+        if row != nil { UISelectionFeedbackGenerator().selectionChanged() }
+        hoveredRow = row
+    }
+
+    private func choose(at point: CGPoint) {
+        let items = sections.flatMap { $0 }
+        hoveredRow = nil
+        if let row = row(at: point), items.indices.contains(row) { close(then: items[row].action) }
     }
 
     private var sections: [[MessageMenuItem]] {

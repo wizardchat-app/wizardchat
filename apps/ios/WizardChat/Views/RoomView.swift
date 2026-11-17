@@ -366,11 +366,11 @@ struct RoomView: View {
             },
             linkPreviews: linkPreviews,
             retry: { timeline.retrySending() },
-            openMenu: { entry, frame in
+            openMenu: { entry, frame, drag in
                 // The menu fades in by itself; the cover's own slide-up would fight it
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
-                withTransaction(transaction) { menuTarget = MessageMenuTarget(entry: entry, frame: frame) }
+                withTransaction(transaction) { menuTarget = MessageMenuTarget(entry: entry, frame: frame, drag: drag) }
             }
         )
     }
@@ -1049,7 +1049,7 @@ struct MessageRow: View {
 }
 
 private struct MenuPressGesture: UIGestureRecognizerRepresentable {
-    let action: () -> Void
+    let action: (MessageMenuDrag) -> Void
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
 
@@ -1061,13 +1061,42 @@ private struct MenuPressGesture: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UILongPressGestureRecognizer, context: Context) {
-        if recognizer.state == .began { action() }
+        let coordinator = context.coordinator
+        let point = recognizer.location(in: nil)
+        switch recognizer.state {
+        case .began:
+            // Stop the timeline scrolling while the finger slides over the menu
+            for pan in coordinator.pans.allObjects where pan.isEnabled {
+                pan.isEnabled = false
+                pan.isEnabled = true
+            }
+            let drag = MessageMenuDrag(start: point)
+            coordinator.drag = drag
+            action(drag)
+        case .changed:
+            coordinator.drag?.location = point
+        case .ended:
+            coordinator.drag?.location = point
+            coordinator.drag?.released = true
+            coordinator.drag = nil
+        case .cancelled, .failed:
+            coordinator.drag?.location = nil
+            coordinator.drag?.released = true
+            coordinator.drag = nil
+        default:
+            break
+        }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var drag: MessageMenuDrag?
+        let pans = NSHashTable<UIGestureRecognizer>.weakObjects()
+
         func gestureRecognizer(_ recognizer: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-            other is UIPanGestureRecognizer
+            guard other is UIPanGestureRecognizer else { return false }
+            pans.add(other)
+            return true
         }
     }
 }
@@ -1117,7 +1146,7 @@ private struct MessageContextMenu: ViewModifier {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { [frame] in frame.value = $0 }
-                .gesture(MenuPressGesture { [frame] in actions.openMenu(entry, frame.value) })
+                .gesture(MenuPressGesture { [frame] drag in actions.openMenu(entry, frame.value, drag) })
         } else {
             content
         }
@@ -1148,7 +1177,7 @@ struct MessageActions {
     /// Set only in unencrypted rooms (see `LinkPreviewLoader`).
     var linkPreviews: LinkPreviewLoader?
     var retry: () -> Void = {}
-    var openMenu: (ChatEntry, CGRect) -> Void = { _, _ in }
+    var openMenu: (ChatEntry, CGRect, MessageMenuDrag) -> Void = { _, _, _ in }
 }
 
 enum MessageText {
