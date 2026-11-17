@@ -18,6 +18,7 @@ struct VoiceVideoSettings: View {
     @AppStorage("voice.inputUID") private var inputUID = ""
     @AppStorage("voice.outputVolume") private var outputVolume = 1.0
     @AppStorage("voice.cameraPosition") private var cameraPosition = "front"
+    @AppStorage(CallPictureInPicture.enabledKey) private var pictureInPicture = false
     @AppStorage(NoiseFilterMode.defaultsKey) private var noiseFilter = NoiseFilterMode.standard.rawValue
     @State private var inputs: [AVAudioSessionPortDescription] = []
     @State private var output = Self.currentOutput()
@@ -76,6 +77,8 @@ struct VoiceVideoSettings: View {
                 ToggleRow(label: "settings.keybinds.pushToTalk", note: "settings.voiceVideo.pushToTalkNote", isOn: $prefs.pushToTalk)
             }
             SettingsSection(title: "settings.voiceVideo.video") {
+                ToggleRow(label: "settings.voiceVideo.pictureInPicture", note: "settings.voiceVideo.pictureInPictureNote",
+                          isOn: $pictureInPicture)
                 Picker(selection: $cameraPosition) {
                     Text(String(localized: "call.frontCamera")).tag("front")
                     Text(String(localized: "call.backCamera")).tag("back")

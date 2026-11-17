@@ -1,5 +1,6 @@
 package org.wizardchat.android.ui.settings
 
+import org.wizardchat.android.ui.voice.PIP_PREF
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -71,6 +72,7 @@ internal fun VoiceVideoSettings(onBack: () -> Unit) {
     val context = LocalContext.current
     val calls = CallManager.shared
     val defaults = remember { context.getSharedPreferences("calls", Context.MODE_PRIVATE) }
+    var pictureInPicture by remember { mutableStateOf(defaults.getBoolean(PIP_PREF, false)) }
     var outputDevice by remember { mutableStateOf(defaults.getInt("voice.outputDevice", -1)) }
     var outputVolume by remember { mutableFloatStateOf(defaults.getFloat("voice.outputVolume", 1f)) }
     var cameraPosition by remember { mutableStateOf(defaults.getString("voice.cameraPosition", "front") ?: "front") }
@@ -137,6 +139,16 @@ internal fun VoiceVideoSettings(onBack: () -> Unit) {
             )
         }
         SettingsSection(tr("settings.voiceVideo.video")) {
+            ToggleRow(
+                tr("settings.voiceVideo.pictureInPicture"),
+                pictureInPicture,
+                {
+                    pictureInPicture = it
+                    defaults.edit().putBoolean(PIP_PREF, it).apply()
+                },
+                note = tr("settings.voiceVideo.pictureInPictureNote"),
+            )
+            SettingsDivider()
             PickerRow(
                 tr("call.camera"),
                 cameraPosition,

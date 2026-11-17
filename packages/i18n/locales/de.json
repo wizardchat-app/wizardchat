@@ -1636,6 +1636,8 @@
         "title": "Soundboard",
         "volume": "Soundboard-Lautstärke"
       },
+      "pictureInPicture": "Bild-in-Bild (experimentell)",
+      "pictureInPictureNote": "Zeigt einen Anruf in einem kleinen Fenster, wenn du die App verlässt.",
       "pushToTalkNote": "Halte in Anrufen die Mikrofontaste gedrückt, um zu sprechen. Sonst bist du still."
     },
     "emojisStickers": {

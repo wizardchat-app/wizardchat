@@ -39,6 +39,8 @@ import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.tokens.WZ
 
+const val PIP_PREF = "call.pictureInPicture"
+
 // The call stage leaves the Watch Together player to the picture-in-picture window, so only one plays
 val LocalInPip = compositionLocalOf { false }
 

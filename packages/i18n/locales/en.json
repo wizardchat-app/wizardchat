@@ -1636,6 +1636,8 @@
         "title": "Soundboard",
         "volume": "Soundboard volume"
       },
+      "pictureInPicture": "Picture-in-picture (experimental)",
+      "pictureInPictureNote": "Keep a call in a small window when you leave the app.",
       "pushToTalkNote": "In calls, hold the mic button to talk. You're silent the rest of the time."
     },
     "emojisStickers": {

@@ -3,6 +3,7 @@ package org.wizardchat.android
 import org.wizardchat.android.matrix.deviceId
 import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
@@ -59,6 +60,7 @@ import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
 import org.wizardchat.android.ui.voice.CallPipContent
 import org.wizardchat.android.ui.voice.LocalInPip
+import org.wizardchat.android.ui.voice.PIP_PREF
 import org.wizardchat.android.ui.voice.pipWatching
 import org.wizardchat.android.ui.voice.pipFeatured
 import org.wizardchat.tokens.WZ
@@ -66,9 +68,16 @@ import org.wizardchat.tokens.WZ
 class MainActivity : AppCompatActivity() {
     private val app get() = application as WizardApplication
     private var inPip by mutableStateOf(false)
+    private var pipEnabled by mutableStateOf(false)
+    private val pipPrefs by lazy { getSharedPreferences("calls", MODE_PRIVATE) }
+    private val pipListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+        if (key == PIP_PREF) pipEnabled = prefs.getBoolean(PIP_PREF, false)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pipEnabled = pipPrefs.getBoolean(PIP_PREF, false)
+        pipPrefs.registerOnSharedPreferenceChangeListener(pipListener)
         enableEdgeToEdge()
         handle(intent)
         setContent {
@@ -90,7 +99,7 @@ class MainActivity : AppCompatActivity() {
             val calls = CallManager.shared
             val joined = calls.state == CallManager.State.Joined
             val screen = pipWatching(calls) || pipFeatured(calls.participants)?.screen == true
-            LaunchedEffect(joined, screen) { setPictureInPictureParams(pipParams(joined, screen)) }
+            LaunchedEffect(joined, screen, pipEnabled) { setPictureInPictureParams(pipParams(joined, screen)) }
             CompositionLocalProvider(LocalSession provides app.session, LocalPrefs provides app.prefs, LocalInPip provides inPip) {
                 WizardThemeRoot(app.prefs.theme) {
                     Box(Modifier.fillMaxSize()) {
@@ -114,14 +123,14 @@ class MainActivity : AppCompatActivity() {
     private fun pipParams(joined: Boolean, landscape: Boolean): PictureInPictureParams =
         PictureInPictureParams.Builder()
             .setAspectRatio(if (landscape) Rational(16, 9) else Rational(9, 16))
-            .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAutoEnterEnabled(joined) }
+            .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAutoEnterEnabled(joined && pipEnabled) }
             .build()
 
     // Android 12+ enters picture-in-picture by itself (setAutoEnterEnabled); older versions need the leave hint
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         val calls = CallManager.shared
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && calls.state == CallManager.State.Joined) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && calls.state == CallManager.State.Joined && pipEnabled) {
             enterPictureInPictureMode(pipParams(true, pipWatching(calls) || pipFeatured(calls.participants)?.screen == true))
         }
     }
@@ -135,6 +144,11 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handle(intent)
+    }
+
+    override fun onDestroy() {
+        pipPrefs.unregisterOnSharedPreferenceChangeListener(pipListener)
+        super.onDestroy()
     }
 
     override fun onResume() {

@@ -9,6 +9,7 @@ struct CallPictureInPictureSource: UIViewRepresentable {
     @Environment(\.theme) private var theme
     @Environment(\.mediaLoader) private var mediaLoader
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(CallPictureInPicture.enabledKey) private var pictureInPicture = false
 
     func makeCoordinator() -> CallPictureInPicture { CallPictureInPicture() }
 
@@ -26,7 +27,7 @@ struct CallPictureInPictureSource: UIViewRepresentable {
             .environmentObject(prefs)
             .environment(\.theme, theme)
             .environment(\.mediaLoader, mediaLoader)
-        context.coordinator.update(content: AnyView(content), enabled: calls.state == .joined,
+        context.coordinator.update(content: AnyView(content), enabled: pictureInPicture && calls.state == .joined,
                                    active: scenePhase == .active,
                                    landscape: CallPictureInPicture.watching(calls) != nil
                                        || CallPictureInPicture.featured(calls.participants)?.screen == true)
@@ -41,7 +42,10 @@ final class CallPictureInPicture: NSObject, AVPictureInPictureControllerDelegate
         var track: VideoTrack? { screen ? participant.screenTrack : participant.cameraTrack }
     }
 
+    static let enabledKey = "call.pictureInPicture"
+
     private var controller: AVPictureInPictureController?
+    private weak var source: UIView?
     private let window = AVPictureInPictureVideoCallViewController()
     private let host = UIHostingController(rootView: AnyView(EmptyView()))
     private weak var calls: CallManager?
@@ -75,18 +79,30 @@ final class CallPictureInPicture: NSObject, AVPictureInPictureControllerDelegate
             host.view.bottomAnchor.constraint(equalTo: window.view.bottomAnchor),
         ])
         host.didMove(toParent: window)
-        let controller = AVPictureInPictureController(
-            contentSource: .init(activeVideoCallSourceView: source, contentViewController: window))
-        controller.delegate = self
-        self.controller = controller
+        self.source = source
     }
 
     func update(content: AnyView, enabled: Bool, active: Bool, landscape: Bool) {
-        guard let controller else { return }
+        guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
         host.rootView = content
         window.preferredContentSize = landscape ? CGSize(width: 1920, height: 1080) : CGSize(width: 1080, height: 1920)
-        controller.canStartPictureInPictureAutomaticallyFromInline = enabled
-        if controller.isPictureInPictureActive, !enabled || active {
+        guard enabled else {
+            if let controller {
+                controller.canStartPictureInPictureAutomaticallyFromInline = false
+                if controller.isPictureInPictureActive { controller.stopPictureInPicture() }
+                self.controller = nil
+            }
+            return
+        }
+        if controller == nil, let source {
+            let controller = AVPictureInPictureController(
+                contentSource: .init(activeVideoCallSourceView: source, contentViewController: window))
+            controller.delegate = self
+            self.controller = controller
+        }
+        guard let controller else { return }
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        if controller.isPictureInPictureActive, active {
             controller.stopPictureInPicture()
         }
     }
@@ -96,7 +112,7 @@ final class CallPictureInPicture: NSObject, AVPictureInPictureControllerDelegate
         restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
     ) {
         Task { @MainActor in
-            calls?.showCallScreen = true
+            if calls?.isInCall == true { calls?.showCallScreen = true }
             completionHandler(true)
         }
     }
