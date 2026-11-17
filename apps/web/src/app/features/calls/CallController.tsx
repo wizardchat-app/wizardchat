@@ -13,6 +13,7 @@ import {
   callPanelAtom,
   pendingCallRoomIdAtom,
   leavingCallRoomIdAtom,
+  noiseFilterAtom,
   pushToTalkModeAtom,
   showNonVideoParticipantsAtom,
   showOwnScreenShareAtom,
@@ -156,6 +157,7 @@ export function CallController() {
             deafened,
             devices: store.get(callDevicesAtom),
             inputVolume: store.get(callVolumesAtom).input,
+            noiseFilter: store.get(noiseFilterAtom),
             pushToTalk: store.get(pushToTalkModeAtom),
             outputVolume: store.get(callVolumesAtom).output,
             ring: !!opts.ring,
@@ -207,6 +209,11 @@ export function CallController() {
   useEffect(() => {
     session?.setPushToTalk(pushToTalkMode);
   }, [session, pushToTalkMode]);
+
+  const noiseFilter = useAtomValue(noiseFilterAtom);
+  useEffect(() => {
+    void session?.setNoiseFilter(noiseFilter).catch(() => {});
+  }, [session, noiseFilter]);
 
   useEffect(() => {
     if (!session) return;

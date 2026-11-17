@@ -3,12 +3,27 @@ import { useAtomValue, useStore } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/app/components/Button';
 import { callActionsAtom, callUiAtom } from '@/app/store/atoms/call';
+import type { NoiseFilter } from '@/call/media';
+import {
+  createDenoiseNode,
+  createMicAudioContext,
+  denoiseSupported,
+  stopDenoiseNode,
+} from '@/call/denoise/denoise';
 import * as layoutCss from '../Settings.css';
 import * as css from './VoiceVideo.css';
 
 const FLOOR_DB = -60;
 
-export function MicTest({ deviceId, volume }: { deviceId?: string; volume: number }) {
+export function MicTest({
+  deviceId,
+  volume,
+  noiseFilter,
+}: {
+  deviceId?: string;
+  volume: number;
+  noiseFilter: NoiseFilter;
+}) {
   const { t } = useTranslation();
   const store = useStore();
   const callActions = useAtomValue(callActionsAtom);
@@ -32,6 +47,7 @@ export function MicTest({ deviceId, volume }: { deviceId?: string; volume: numbe
     let cancelled = false;
     let stream: MediaStream | null = null;
     let context: AudioContext | null = null;
+    let denoise: AudioWorkletNode | null = null;
     let frame = 0;
 
     void (async () => {
@@ -41,7 +57,7 @@ export function MicTest({ deviceId, volume }: { deviceId?: string; volume: numbe
             deviceId: deviceId ? { exact: deviceId } : undefined,
             autoGainControl: true,
             echoCancellation: true,
-            noiseSuppression: true,
+            noiseSuppression: noiseFilter === 'standard',
           },
         });
       } catch {
@@ -56,13 +72,22 @@ export function MicTest({ deviceId, volume }: { deviceId?: string; volume: numbe
         return;
       }
       setFailed(false);
-      context = new AudioContext();
+      context = noiseFilter === 'enhanced' ? createMicAudioContext() : new AudioContext();
       const gain = context.createGain();
       gain.gain.value = volumeRef.current;
       gainRef.current = gain;
       const analyser = context.createAnalyser();
       analyser.fftSize = 1024;
-      context.createMediaStreamSource(stream).connect(gain).connect(analyser);
+      const source = context.createMediaStreamSource(stream);
+      if (noiseFilter === 'enhanced' && denoiseSupported(context)) {
+        try {
+          denoise = await createDenoiseNode(context);
+        } catch {
+          denoise = null;
+        }
+        if (cancelled) return;
+      }
+      (denoise ? source.connect(denoise) : source).connect(gain).connect(analyser);
       const samples = new Float32Array(analyser.fftSize);
       const tick = () => {
         analyser.getFloatTimeDomainData(samples);
@@ -79,13 +104,14 @@ export function MicTest({ deviceId, volume }: { deviceId?: string; volume: numbe
       cancelled = true;
       cancelAnimationFrame(frame);
       stream?.getTracks().forEach((track) => track.stop());
+      if (denoise) stopDenoiseNode(denoise);
       void context?.close();
       gainRef.current = null;
       setLevel(0);
       const now = store.get(callUiAtom);
       if (mutedCall && now.roomId === mutedCall && now.isMuted) callActions?.setMicrophone(true);
     };
-  }, [testing, deviceId, store, callActions]);
+  }, [testing, deviceId, noiseFilter, store, callActions]);
 
   return (
     <>

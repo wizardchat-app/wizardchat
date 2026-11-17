@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/wasm", "crates/ffi", "crates/uniffi-bindgen", "apps/desktop/src-tauri"]
+members = ["crates/core", "crates/wasm", "crates/ffi", "crates/denoise", "crates/uniffi-bindgen", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,3 +12,12 @@ repository = "https://gitlab.com/wizardchat/wizardchat"
 lto = true
 opt-level = "z"
 codegen-units = 1
+
+[profile.release.package.nnnoiseless]
+opt-level = 3
+
+[profile.release.package.rustfft]
+opt-level = 3
+
+[profile.release.package.wizardchat-denoise]
+opt-level = 3

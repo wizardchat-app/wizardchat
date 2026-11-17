@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { createReadStream, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,6 +47,56 @@ function soundsPlugin(): Plugin {
   };
 }
 
+// The enhanced noise filter (crates/denoise as wasm, and its AudioWorklet) at /assets/denoise/
+const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+const denoiseFiles: Record<string, string> = {
+  'denoise.wasm': join(
+    process.env.CARGO_TARGET_DIR ?? join(repoRoot, 'target'),
+    'wasm32-unknown-unknown/release/wizardchat_denoise.wasm'
+  ),
+  'worklet.js': fileURLToPath(new URL('./src/call/denoise/worklet.js', import.meta.url)),
+};
+function denoisePlugin(): Plugin {
+  let serve = false;
+  return {
+    name: 'denoise',
+    configResolved(config) {
+      serve = config.command === 'serve';
+    },
+    buildStart() {
+      const args = ['build', '-q', '-p', 'wizardchat-denoise', '--release'];
+      const result = spawnSync('cargo', [...args, '--target', 'wasm32-unknown-unknown'], {
+        cwd: repoRoot,
+        stdio: 'inherit',
+      });
+      if (result.status === 0) return;
+      if (serve) this.warn('crates/denoise did not build, so the enhanced noise filter is off');
+      else this.error('crates/denoise did not build (rustup target add wasm32-unknown-unknown?)');
+    },
+    configureServer(server) {
+      server.middlewares.use('/assets/denoise', (req, res, next) => {
+        const name = basename(decodeURIComponent((req.url ?? '').split('?')[0]));
+        const file = denoiseFiles[name];
+        if (!file || !existsSync(file)) return next();
+        res.setHeader(
+          'Content-Type',
+          name.endsWith('.wasm') ? 'application/wasm' : 'text/javascript'
+        );
+        createReadStream(file).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const [name, file] of Object.entries(denoiseFiles)) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `assets/denoise/${name}`,
+          source: readFileSync(file),
+        });
+      }
+    },
+  };
+}
+
 // livekit-client encrypts data packets without stamping their encryption type, so the other
 // LiveKit SDKs (and itself) report them as unencrypted and our encrypted calls drop them
 const LIVEKIT_ENCRYPTED_PACKET = /new EncryptedPacket\(\{(\s*)encryptedValue:/;
@@ -76,6 +127,7 @@ export default defineConfig(({ mode }) => {
       vanillaExtractPlugin(),
       versionFilePlugin(),
       soundsPlugin(),
+      denoisePlugin(),
       livekitDataEncryptionPlugin(),
     ],
     resolve: {

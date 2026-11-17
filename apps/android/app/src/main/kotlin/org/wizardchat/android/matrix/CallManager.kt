@@ -18,6 +18,7 @@ import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
 import io.livekit.android.RoomOptions
 import io.livekit.android.annotations.Beta
+import io.livekit.android.audio.AudioProcessorOptions
 import io.livekit.android.audio.NoAudioHandler
 import io.livekit.android.e2ee.BaseKeyProvider
 import io.livekit.android.e2ee.E2EEOptions
@@ -65,6 +66,8 @@ import livekit.org.webrtc.RtpParameters
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.matrix.rtc.CallActivityState
 import org.wizardchat.android.matrix.rtc.CallNotificationController
+import org.wizardchat.android.matrix.rtc.NoiseFilter
+import org.wizardchat.android.matrix.rtc.NoiseFilterMode
 import org.wizardchat.android.matrix.rtc.Soundboard
 import org.wizardchat.android.matrix.rtc.SoundboardFlash
 import org.wizardchat.android.matrix.rtc.CallSounds
@@ -205,6 +208,8 @@ class CallManager {
     private val micPublished: Boolean
         get() = if (pushToTalk) !micTesting && !deafened else micEnabled
     private val outputVolume: Double get() = defaults.getFloat("voice.outputVolume", 1f).toDouble()
+    private val noiseFilterMode: NoiseFilterMode get() = NoiseFilterMode.from(defaults.getString(NoiseFilterMode.PREF, null))
+    private val noiseFilter = NoiseFilter()
     var cameraBack by mutableStateOf(defaults.getString("voice.cameraPosition", "front") == "back")
         private set
     private val cameraOptions: LocalVideoTrackOptions
@@ -586,7 +591,11 @@ class CallManager {
             adaptiveStream = true,
             dynacast = true,
             e2eeOptions = keyProvider?.let { E2EEOptions(keyProvider = it) },
-            audioTrackCaptureDefaults = LocalAudioTrackOptions(noiseSuppression = true, echoCancellation = true, autoGainControl = true),
+            audioTrackCaptureDefaults = LocalAudioTrackOptions(
+                noiseSuppression = noiseFilterMode == NoiseFilterMode.STANDARD,
+                echoCancellation = true,
+                autoGainControl = true,
+            ),
             videoTrackCaptureDefaults = cameraOptions,
             screenShareTrackCaptureDefaults = LocalVideoTrackOptions(isScreencast = true, captureParams = VideoPreset169.H1080.capture),
             // No RED (redundant audio): browsers can't decrypt RED-wrapped frames
@@ -601,7 +610,11 @@ class CallManager {
         // Only the publishing connection manages audio routing and focus, so another call
         // server's connection going away doesn't reset it
         val overrides = if (publisher) {
-            LiveKitOverrides()
+            val processing = AudioProcessorOptions(
+                capturePostProcessor = noiseFilter,
+                capturePostBypass = noiseFilterMode != NoiseFilterMode.ENHANCED,
+            )
+            LiveKitOverrides(audioOptions = AudioOptions(audioProcessorOptions = processing))
         } else {
             LiveKitOverrides(audioOptions = AudioOptions(audioHandler = NoAudioHandler(), disableCommunicationModeWorkaround = true))
         }
@@ -790,6 +803,10 @@ class CallManager {
             }
             refresh()
         }
+    }
+
+    fun applyNoiseFilter() {
+        publisher?.audioProcessingController?.setBypassForCapturePostProcessing(noiseFilterMode != NoiseFilterMode.ENHANCED)
     }
 
     fun setOutputVolume(volume: Double) {

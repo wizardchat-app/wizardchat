@@ -462,7 +462,7 @@ final class CallManager: NSObject, ObservableObject {
             defaultCameraCaptureOptions: cameraOptions,
             defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(dimensions: .h1080_169, fps: 30),
             defaultAudioCaptureOptions: AudioCaptureOptions(echoCancellation: true, autoGainControl: true,
-                                                            noiseSuppression: true),
+                                                            noiseSuppression: NoiseFilterMode.current == .standard),
             // VP8 is encoded in software on iPhone, so keep the resolution and give it enough
             // bitrate instead of letting WebRTC scale it down under load
             defaultVideoPublishOptions: VideoPublishOptions(encoding: VideoEncoding(maxBitrate: 2_500_000, maxFps: 30),
@@ -474,6 +474,7 @@ final class CallManager: NSObject, ObservableObject {
             adaptiveStream: true,
             dynacast: true,
             encryptionOptions: keyProvider.map { EncryptionOptions(keyProvider: $0) })
+        if publisher { NoiseFilter.apply() }
         let livekit = LiveKit.Room(delegate: self, roomOptions: options)
         do {
             // Screen shares are only subscribed once you choose to watch them, like on the web

@@ -1,17 +1,28 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import {
+  CaretLeftIcon,
   CaretRightIcon,
   CaretUpIcon,
   CheckIcon,
+  GearIcon,
   MicrophoneIcon,
   SpeakerHighIcon,
+  VideoCameraIcon,
 } from '@phosphor-icons/react';
-import { listDevices as listMediaDevices, type DeviceKind } from '@/call/media';
+import { listDevices as listMediaDevices, type DeviceKind, type NoiseFilter } from '@/call/media';
 import { Popover } from '@/app/components/Popover';
+import { Toggle } from '@/app/components/Toggle';
 import { Tooltip } from '@/app/components/Tooltip';
-import { callDevicesAtom, callSessionAtom, callVolumesAtom } from '@/app/store/atoms/call';
+import {
+  callDevicesAtom,
+  callSessionAtom,
+  callVolumesAtom,
+  noiseFilterAtom,
+} from '@/app/store/atoms/call';
+import { keybindsAtom, pushToTalkEnabledAtom } from '@/app/store/atoms/settings';
+import { settingsHighlightAtom, settingsOpenAtom, settingsPageAtom } from '@/app/store/atoms';
 import { VolumeSlider } from './VolumeSlider';
 import * as css from './DeviceMenu.css';
 
@@ -106,32 +117,33 @@ export function deviceChoices(all: MediaDeviceInfo[], active: string | undefined
   return { list, selected };
 }
 
-function DeviceRow({
-  kind,
-  devices,
+interface Choice {
+  value: string;
+  label: string;
+}
+
+function ChoiceRow({
+  heading,
+  options,
   selected,
   open,
   onOpen,
   onLeave,
   onSelect,
 }: {
-  kind: DeviceKind;
-  devices: MediaDeviceInfo[];
+  heading: string;
+  options: Choice[];
   selected: string | undefined;
   open: boolean;
   onOpen: () => void;
   onLeave: () => void;
-  onSelect: (deviceId: string) => void;
+  onSelect: (value: string) => void;
 }) {
   const { t } = useTranslation();
   const rowRef = useRef<HTMLButtonElement>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
-  const nameOf = (device: MediaDeviceInfo, i: number) =>
-    device.label || `${t(HEADINGS[kind])} ${i + 1}`;
-  const selectedIndex = devices.findIndex((d) => d.deviceId === selected);
-  const currentName =
-    selectedIndex >= 0 ? nameOf(devices[selectedIndex], selectedIndex) : t('call.noDevices');
+  const currentName = options.find((o) => o.value === selected)?.label ?? t('call.noDevices');
 
   useLayoutEffect(() => {
     if (!open || !rowRef.current || !flyoutRef.current) {
@@ -150,7 +162,7 @@ function DeviceRow({
       Math.min(row.top - 6, window.innerHeight - height - FLYOUT_EDGE)
     );
     setPosition({ left, top });
-  }, [open, devices.length]);
+  }, [open, options.length]);
 
   return (
     <div className={css.rowWrap} onMouseEnter={onOpen} onMouseLeave={onLeave}>
@@ -161,37 +173,37 @@ function DeviceRow({
         aria-haspopup="menu"
         aria-expanded={open}
         className={open ? `${css.item} ${css.itemOpen}` : css.item}
-        disabled={devices.length === 0}
+        disabled={options.length === 0}
         onClick={onOpen}
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight') onOpen();
         }}
       >
         <span className={css.rowText}>
-          <span className={css.itemLabel}>{t(HEADINGS[kind])}</span>
+          <span className={css.itemLabel}>{heading}</span>
           <span className={css.rowCurrent}>{currentName}</span>
         </span>
         <CaretRightIcon size={14} weight="bold" className={css.rowArrow} />
       </button>
-      {open && devices.length > 0 && (
+      {open && options.length > 0 && (
         <div
           ref={flyoutRef}
           className={css.flyout}
           role="menu"
-          aria-label={t(HEADINGS[kind])}
+          aria-label={heading}
           style={position ?? { visibility: 'hidden' }}
         >
-          {devices.map((device, i) => (
+          {options.map((option) => (
             <button
-              key={device.deviceId}
+              key={option.value}
               type="button"
               role="menuitemradio"
-              aria-checked={device.deviceId === selected}
+              aria-checked={option.value === selected}
               className={css.item}
-              onClick={() => onSelect(device.deviceId)}
+              onClick={() => onSelect(option.value)}
             >
-              <span className={css.itemLabel}>{nameOf(device, i)}</span>
-              {device.deviceId === selected ? (
+              <span className={css.itemLabel}>{option.label}</span>
+              {option.value === selected ? (
                 <CheckIcon size={16} weight="bold" className={css.check} />
               ) : (
                 <span className={css.checkSpacer} />
@@ -204,53 +216,239 @@ function DeviceRow({
   );
 }
 
-function DeviceList({ kinds, onDone }: { kinds: DeviceKind[]; onDone: () => void }) {
-  const devices = useDevices(kinds);
-  const { select, current } = useSelectDevice();
-  const [openKind, setOpenKind] = useState<DeviceKind | null>(null);
+function useFlyout() {
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelClose = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     closeTimer.current = null;
   };
   useEffect(() => cancelClose, []);
+  return (key: string) => ({
+    open: openKey === key,
+    onOpen: () => {
+      cancelClose();
+      setOpenKey(key);
+    },
+    onLeave: () => {
+      cancelClose();
+      closeTimer.current = setTimeout(() => setOpenKey((k) => (k === key ? null : k)), 200);
+    },
+  });
+}
+
+function useDeviceChoices(kind: DeviceKind, devices: MediaDeviceInfo[]) {
+  const { t } = useTranslation();
+  const { current } = useSelectDevice();
+  const { list, selected } = deviceChoices(devices, current(kind));
+  const options = list.map((device, i) => ({
+    value: device.deviceId,
+    label: device.label || `${t(HEADINGS[kind])} ${i + 1}`,
+  }));
+  return { options, selected };
+}
+
+function DeviceChoiceRow({
+  kind,
+  devices,
+  flyout,
+  onDone,
+}: {
+  kind: DeviceKind;
+  devices: MediaDeviceInfo[];
+  flyout: ReturnType<ReturnType<typeof useFlyout>>;
+  onDone?: () => void;
+}) {
+  const { t } = useTranslation();
+  const { select } = useSelectDevice();
+  const { options, selected } = useDeviceChoices(kind, devices);
+  if (kind === 'audiooutput' && options.length === 0) return null;
+  return (
+    <ChoiceRow
+      heading={t(HEADINGS[kind])}
+      options={options}
+      selected={selected}
+      {...flyout}
+      onSelect={(deviceId) => {
+        select(kind, deviceId);
+        onDone?.();
+      }}
+    />
+  );
+}
+
+const NOISE_FILTERS: NoiseFilter[] = ['off', 'standard', 'enhanced'];
+
+function NoiseFilterRow({ flyout }: { flyout: ReturnType<ReturnType<typeof useFlyout>> }) {
+  const { t } = useTranslation();
+  const [filter, setFilter] = useAtom(noiseFilterAtom);
+  return (
+    <ChoiceRow
+      heading={t('settings.voiceVideo.noiseFilter.title')}
+      options={NOISE_FILTERS.map((value) => ({
+        value,
+        label: t(`settings.voiceVideo.noiseFilter.${value}`),
+      }))}
+      selected={filter}
+      {...flyout}
+      onSelect={(value) => setFilter(value as NoiseFilter)}
+    />
+  );
+}
+
+function PushToTalkRow() {
+  const { t } = useTranslation();
+  const [enabled, setEnabled] = useAtom(pushToTalkEnabledAtom);
+  const keybinds = useAtomValue(keybindsAtom);
+  const label = t('settings.keybinds.pushToTalk');
+  return (
+    <label className={css.item}>
+      <span className={css.rowText}>
+        <span className={css.itemLabel}>{label}</span>
+        {enabled && !keybinds.pushToTalk && (
+          <span className={css.rowCurrent}>{t('settings.voiceVideo.noKey')}</span>
+        )}
+      </span>
+      <Toggle size="sm" checked={enabled} onChange={setEnabled} ariaLabel={label} />
+    </label>
+  );
+}
+
+function SettingsLink({ video, onDone }: { video: boolean; onDone: () => void }) {
+  const { t } = useTranslation();
+  const setPage = useSetAtom(settingsPageAtom);
+  const setHighlight = useSetAtom(settingsHighlightAtom);
+  const setOpen = useSetAtom(settingsOpenAtom);
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      className={css.item}
+      onClick={() => {
+        onDone();
+        setPage('voice-video');
+        setHighlight(video ? t('settings.voiceVideo.video') : null);
+        setOpen(true);
+      }}
+    >
+      <GearIcon size={16} className={css.itemIcon} />
+      <span className={css.itemLabel}>
+        {video ? t('call.videoSettings') : t('call.voiceSettings')}
+      </span>
+    </button>
+  );
+}
+
+function MenuCameraPreview({ deviceId }: { deviceId: string | undefined }) {
+  const { t } = useTranslation();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    void navigator.mediaDevices
+      ?.getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId } } : true })
+      .then((s) => {
+        stream = s;
+        if (cancelled) {
+          s.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        setFailed(false);
+        if (video) video.srcObject = s;
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((track) => track.stop());
+      if (video) video.srcObject = null;
+    };
+  }, [deviceId]);
+
+  return (
+    <div className={css.previewFrame}>
+      {failed ? (
+        <span className={css.previewError}>{t('settings.voiceVideo.cameraFailed')}</span>
+      ) : (
+        <video ref={videoRef} className={css.previewVideo} autoPlay muted playsInline />
+      )}
+    </div>
+  );
+}
+
+function CameraPreviewPanel({
+  devices,
+  onBack,
+}: {
+  devices: MediaDeviceInfo[];
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  const flyout = useFlyout();
+  const { selected } = useDeviceChoices('videoinput', devices);
+  return (
+    <div className={css.menu}>
+      <button type="button" className={css.item} onClick={onBack}>
+        <CaretLeftIcon size={14} weight="bold" className={css.itemIcon} />
+        <span className={css.itemLabel}>{t('settings.voiceVideo.previewCamera')}</span>
+      </button>
+      <MenuCameraPreview deviceId={selected} />
+      <DeviceChoiceRow kind="videoinput" devices={devices} flyout={flyout('videoinput')} />
+    </div>
+  );
+}
+
+function DeviceList({ kinds, onDone }: { kinds: DeviceKind[]; onDone: () => void }) {
+  const { t } = useTranslation();
+  const devices = useDevices(kinds);
+  const flyout = useFlyout();
+  const [previewing, setPreviewing] = useState(false);
+  const hasVideo = kinds.includes('videoinput');
+
+  if (previewing) {
+    return (
+      <CameraPreviewPanel devices={devices.videoinput ?? []} onBack={() => setPreviewing(false)} />
+    );
+  }
 
   return (
     <div className={css.menu}>
-      {kinds.map((kind, index) => {
-        const { list, selected } = deviceChoices(devices[kind] ?? [], current(kind));
-        const showRow = !(kind === 'audiooutput' && list.length === 0);
-        return (
-          <Fragment key={kind}>
-            {index > 0 && <div className={css.divider} role="separator" />}
-            {showRow && (
-              <DeviceRow
-                kind={kind}
-                devices={list}
-                selected={selected}
-                open={openKind === kind}
-                onOpen={() => {
-                  cancelClose();
-                  setOpenKind(kind);
-                }}
-                onLeave={() => {
-                  cancelClose();
-                  closeTimer.current = setTimeout(
-                    () => setOpenKind((k) => (k === kind ? null : k)),
-                    200
-                  );
-                }}
-                onSelect={(deviceId) => {
-                  select(kind, deviceId);
-                  onDone();
-                }}
-              />
-            )}
-            {kind === 'audioinput' && <VolumeRow kind="input" />}
-            {kind === 'audiooutput' && <VolumeRow kind="output" />}
-          </Fragment>
-        );
-      })}
+      {kinds.map((kind, index) => (
+        <Fragment key={kind}>
+          {index > 0 && <div className={css.divider} role="separator" />}
+          <DeviceChoiceRow
+            kind={kind}
+            devices={devices[kind] ?? []}
+            flyout={flyout(kind)}
+            onDone={onDone}
+          />
+          {kind === 'audioinput' && (
+            <>
+              <VolumeRow kind="input" />
+              <NoiseFilterRow flyout={flyout('noise')} />
+              <PushToTalkRow />
+            </>
+          )}
+          {kind === 'audiooutput' && <VolumeRow kind="output" />}
+          {kind === 'videoinput' && (
+            <button
+              type="button"
+              role="menuitem"
+              className={css.item}
+              onClick={() => setPreviewing(true)}
+            >
+              <VideoCameraIcon size={16} className={css.itemIcon} />
+              <span className={css.itemLabel}>{t('settings.voiceVideo.previewCamera')}</span>
+            </button>
+          )}
+        </Fragment>
+      ))}
+      <div className={css.divider} role="separator" />
+      <SettingsLink video={hasVideo} onDone={onDone} />
     </div>
   );
 }

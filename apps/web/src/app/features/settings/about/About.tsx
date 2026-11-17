@@ -157,6 +157,24 @@ export function About() {
             />
           </span>
         </div>
+        <div className={css.settingRow}>
+          <span className={css.settingLabel}>
+            <Trans
+              i18nKey="settings.about.rnnoise"
+              components={{
+                rnnoiseLink: (
+                  // eslint-disable-next-line jsx-a11y/anchor-has-content
+                  <a
+                    href="https://github.com/xiph/rnnoise"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={css.externalLink}
+                  />
+                ),
+              }}
+            />
+          </span>
+        </div>
         <SoundCredits />
       </div>
 

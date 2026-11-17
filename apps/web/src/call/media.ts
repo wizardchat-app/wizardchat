@@ -29,7 +29,8 @@ import type {
   Subscription,
   WizardClient,
 } from '@wizardchat/core';
-import { GainProcessor } from './gainProcessor';
+import { createMicAudioContext, DENOISE_SAMPLE_RATE } from './denoise/denoise';
+import { MicProcessor } from './micProcessor';
 import { MatrixKeyProvider } from './keyProvider';
 import {
   parseSoundboardPlay,
@@ -57,6 +58,7 @@ export type { CallStatus };
 export type LeaveReason = 'hangup' | 'switch' | 'unload' | 'signedOut' | 'alone';
 export type DeviceKind = 'audioinput' | 'videoinput' | 'audiooutput';
 export type PreferredDevices = Partial<Record<DeviceKind, string>>;
+export type NoiseFilter = 'off' | 'standard' | 'enhanced';
 
 /** Something that can show a track: `track.attach(videoElement)` */
 export interface TrackHandle {
@@ -124,6 +126,7 @@ export interface JoinOptions {
   devices: PreferredDevices;
   pushToTalk: boolean;
   inputVolume: number;
+  noiseFilter: NoiseFilter;
   outputVolume: number;
   /** Notify the others when nobody is in the call yet (rings in direct chats) */
   ring: boolean;
@@ -202,6 +205,7 @@ const KEY_CHECK_MS = 2000;
 
 function roomOptions(
   devices: PreferredDevices,
+  noiseFilter: NoiseFilter,
   e2ee?: { keyProvider: MatrixKeyProvider; worker: Worker }
 ): RoomOptions {
   return {
@@ -227,7 +231,7 @@ function roomOptions(
       deviceId: devices.audioinput,
       autoGainControl: true,
       echoCancellation: true,
-      noiseSuppression: true,
+      noiseSuppression: noiseFilter === 'standard',
     },
     ...(e2ee ? { encryption: { keyProvider: e2ee.keyProvider, worker: e2ee.worker } } : {}),
   };
@@ -291,8 +295,9 @@ export class CallMedia {
   private pushToTalk = false;
   private transmitting = false;
   private inputVolume = 1;
+  private noiseFilter: NoiseFilter = 'standard';
   private outputVolume = 1;
-  private gain?: GainProcessor;
+  private mic?: MicProcessor;
   private audioContext?: AudioContext;
   /** Raised hands: identity -> the membership they were raised on */
   private hands = new Map<string, string | null>();
@@ -346,6 +351,7 @@ export class CallMedia {
     this.micWanted = options.microphone && !options.deafened;
     this.pushToTalk = options.pushToTalk;
     this.inputVolume = options.inputVolume;
+    this.noiseFilter = options.noiseFilter;
     this.outputVolume = options.outputVolume;
     this.joinStartedAt = Date.now();
     try {
@@ -444,7 +450,7 @@ export class CallMedia {
     if (this.micWanted && !this.deafened) {
       try {
         await local.setMicrophoneEnabled(true);
-        await this.applyInputVolume();
+        await this.applyMicProcessing();
         this.log('mic', `on device=${this.devices.audioinput ?? 'default'}`);
       } catch (error) {
         if (connection.room.state !== ConnectionState.Connected) throw error;
@@ -509,7 +515,7 @@ export class CallMedia {
     if (local) {
       try {
         await local.setMicrophoneEnabled(enabled);
-        if (enabled) await this.applyInputVolume();
+        if (enabled) await this.applyMicProcessing();
       } catch (error) {
         this.log('mic', `failed: ${errorText(error)}`);
         if (enabled) this.micWanted = false;
@@ -543,7 +549,7 @@ export class CallMedia {
 
   async setInputVolume(volume: number) {
     this.inputVolume = Math.min(Math.max(volume, 0), 2);
-    await this.applyInputVolume();
+    await this.applyMicProcessing();
   }
 
   setOutputVolume(volume: number) {
@@ -551,19 +557,53 @@ export class CallMedia {
     this.applyAudio();
   }
 
-  private async applyInputVolume() {
-    const track = this.localParticipant?.getTrackPublication(Track.Source.Microphone)
-      ?.audioTrack as LocalAudioTrack | undefined;
+  async setNoiseFilter(filter: NoiseFilter) {
+    if (filter === this.noiseFilter) return;
+    const standardChanged = (filter === 'standard') !== (this.noiseFilter === 'standard');
+    this.noiseFilter = filter;
+    this.log('noise filter', filter);
+    if (standardChanged) {
+      for (const { room } of this.connections.values()) {
+        room.options.audioCaptureDefaults = {
+          ...room.options.audioCaptureDefaults,
+          noiseSuppression: filter === 'standard',
+        };
+      }
+      const track = this.micTrack;
+      if (track) {
+        await track.restartTrack({
+          ...this.publisher?.room.options.audioCaptureDefaults,
+          deviceId: this.getActiveDevice('audioinput'),
+        });
+        this.applyGate();
+      }
+    }
+    await this.applyMicProcessing();
+  }
+
+  private get micTrack() {
+    return this.localParticipant?.getTrackPublication(Track.Source.Microphone)?.audioTrack as
+      LocalAudioTrack | undefined;
+  }
+
+  private async applyMicProcessing() {
+    const track = this.micTrack;
     if (!track) return;
-    if (this.gain && track.getProcessor() === this.gain) {
-      this.gain.setGain(this.inputVolume);
+    const denoise = this.noiseFilter === 'enhanced';
+    if (this.mic && track.getProcessor() === this.mic) {
+      this.mic.setGain(this.inputVolume);
+      await this.mic.setDenoise(denoise);
       return;
     }
-    if (this.inputVolume === 1) return;
-    this.audioContext ??= new AudioContext();
-    this.gain = new GainProcessor(this.inputVolume);
+    if (this.inputVolume === 1 && !denoise) return;
+    this.audioContext ??= createMicAudioContext();
+    if (denoise && this.audioContext.sampleRate !== DENOISE_SAMPLE_RATE)
+      this.log('noise filter', `unavailable at ${this.audioContext.sampleRate} Hz`);
+    this.mic = new MicProcessor(this.inputVolume, denoise, (error) =>
+      this.log('noise filter', `failed: ${errorText(error)}`)
+    );
     await track.setAudioContext(this.audioContext);
-    await track.setProcessor(this.gain);
+    await track.setProcessor(this.mic);
     this.applyGate();
   }
 
@@ -860,7 +900,11 @@ export class CallMedia {
     const keyProvider = this.encrypted ? await this.newKeyProvider() : undefined;
     const worker = keyProvider ? new E2EEWorker() : undefined;
     const room = new LivekitRoom(
-      roomOptions(this.devices, keyProvider && worker ? { keyProvider, worker } : undefined)
+      roomOptions(
+        this.devices,
+        this.noiseFilter,
+        keyProvider && worker ? { keyProvider, worker } : undefined
+      )
     );
     const connection: Connection = {
       serviceUrl,
@@ -1229,7 +1273,7 @@ export class CallMedia {
     this.soundboardPlaying.clear();
     void this.audioContext?.close();
     this.audioContext = undefined;
-    this.gain = undefined;
+    this.mic = undefined;
   }
 
   private patch(partial: Partial<CallSnapshot>) {

@@ -517,6 +517,7 @@ internal fun AboutSettings(onBack: () -> Unit) {
             SettingsItem {
                 Credit("matrix-rust-sdk", "https://github.com/matrix-org/matrix-rust-sdk", tr("settings.about.creditMatrix"))
                 Credit("Roboto", "https://fonts.google.com/specimen/Roboto", tr("settings.about.creditRoboto"))
+                Credit("RNNoise", "https://github.com/xiph/rnnoise", tr("settings.about.creditRnnoise"))
             }
             SoundCredits()
         }
