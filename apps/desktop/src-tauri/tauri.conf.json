@@ -38,6 +38,7 @@
     "active": true,
     "targets": ["app", "nsis", "appimage", "deb", "rpm"],
     "publisher": "WizardChat",
+    "copyright": "© WizardChat",
     "homepage": "https://wizardchat.org",
     "category": "SocialNetworking",
     "shortDescription": "Simple, Secure, Magical",
@@ -61,7 +62,10 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
+        "template": "nsis/installer.nsi",
         "installerIcon": "icons/icon.ico",
+        "headerImage": "nsis/header.bmp",
+        "languages": ["English", "German"],
         "startMenuFolder": "WizardChat"
       }
     },
@@ -80,7 +84,7 @@
     "updater": {
       "pubkey": "",
       "windows": {
-        "installMode": "passive"
+        "installMode": "quiet"
       }
     }
   }
