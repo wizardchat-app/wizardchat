@@ -176,7 +176,6 @@ private struct MediaPage: View {
     @Environment(\.mediaLoader) private var mediaLoader
     @Environment(\.theme) private var theme
     @State private var image: UIImage?
-    @State private var scale: CGFloat = 1
     @State private var loadingVideo = false
 
     var body: some View {
@@ -186,9 +185,7 @@ private struct MediaPage: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .scaleEffect(scale)
-                    .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }
-                        .onEnded { _ in withAnimation { scale = 1 } })
+                    .zoomable()
             } else {
                 ProgressView().tint(theme.textOnAccent)
             }

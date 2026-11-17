@@ -22,6 +22,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -394,27 +399,54 @@ fun ImageViewer(
     }
 }
 
-/** Pinch to zoom; springs back on release */
+private const val MAX_ZOOM = 5f
+private const val DOUBLE_TAP_ZOOM = 2.5f
+
 @Composable
 internal fun ZoomableBox(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    fun clamp(value: Offset, zoom: Float): Offset {
+        val maxX = size.width * (zoom - 1) / 2
+        val maxY = size.height * (zoom - 1) / 2
+        return Offset(value.x.coerceIn(-maxX, maxX), value.y.coerceIn(-maxY, maxY))
+    }
     Box(
         modifier
             .clipToBounds()
+            .onSizeChanged { size = it }
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = { tap ->
+                    if (scale > 1f) {
+                        scale = 1f
+                        offset = Offset.Zero
+                    } else {
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        scale = DOUBLE_TAP_ZOOM
+                        offset = clamp((center - tap) * (DOUBLE_TAP_ZOOM - 1), DOUBLE_TAP_ZOOM)
+                    }
+                })
+            }
             .pointerInput(Unit) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     do {
                         val event = awaitPointerEvent()
-                        if (event.changes.size > 1) {
-                            scale = maxOf(1f, scale * event.calculateZoom())
-                            event.changes.forEach { it.consume() }
+                        if (event.changes.size > 1 || scale > 1f) {
+                            val zoom = (scale * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
+                            offset = clamp(offset + event.calculatePan(), zoom)
+                            scale = zoom
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
                         }
                     } while (event.changes.any { it.pressed })
-                    scale = 1f
+                    if (scale < 1.05f) {
+                        scale = 1f
+                        offset = Offset.Zero
+                    }
                 }
             }
-            .graphicsLayer(scaleX = scale, scaleY = scale),
+            .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y),
         contentAlignment = Alignment.Center,
         content = content,
     )

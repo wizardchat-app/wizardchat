@@ -109,7 +109,6 @@ struct ImageViewer: View {
     var animates = false
     var loader: MediaLoader?
     @Environment(\.dismiss) private var dismiss
-    @State private var scale: CGFloat = 1
     @State private var full: UIImage?
 
     private var shown: UIImage? { full ?? image }
@@ -120,16 +119,12 @@ struct ImageViewer: View {
                 theme.overlay.ignoresSafeArea()
                 if let full, full.images != nil {
                     AnimatedImageView(image: full, contentMode: .scaleAspectFit)
-                        .scaleEffect(scale)
-                        .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }
-                            .onEnded { _ in withAnimation { scale = 1 } })
+                        .zoomable()
                 } else if let image = shown {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
-                        .scaleEffect(scale)
-                        .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }
-                            .onEnded { _ in withAnimation { scale = 1 } })
+                        .zoomable()
                 }
             }
             .task {
