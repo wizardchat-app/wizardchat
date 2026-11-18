@@ -519,9 +519,13 @@ pub fn sniff_mime_type(bytes: &[u8]) -> Option<&'static str> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+const SQLITE_POOL_SIZE: usize = 8;
+
+#[cfg(not(target_arch = "wasm32"))]
 fn sqlite_config(store: &StoreConfig) -> matrix_sdk::SqliteStoreConfig {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    let config = matrix_sdk::SqliteStoreConfig::new(&store.location);
+    let config =
+        matrix_sdk::SqliteStoreConfig::new(&store.location).pool_max_size(SQLITE_POOL_SIZE);
     let Some(passphrase) = store.passphrase.as_deref() else {
         return config;
     };
