@@ -160,7 +160,7 @@ export function ClientLayout() {
   const currentRoomId = roomMatch ? decodeURIComponent(roomMatch[1]) : null;
   const sidebarRoomId = spaceOverviewSpaceId ?? currentRoomId;
 
-  const setCurrentRoomId = useSetAtom(currentRoomIdAtom);
+  const [selectedRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom);
 
   // Extract stable values from mutable location.state
   const navState = location.state as
@@ -394,7 +394,9 @@ export function ClientLayout() {
 
   useEffect(() => {
     if (!roomChatOpen || !roomChatRoomId) return;
-    const room = currentRoomId ? roomsById.get(currentRoomId) : null;
+    // The atom, not the URL: the router applies navigations in a transition, so the URL can
+    // still show the previous room for a render after the chat was opened for the new one
+    const room = selectedRoomId ? roomsById.get(selectedRoomId) : null;
     const sameRoom = !!room && room.id === roomChatRoomId;
     // Voice rooms have no timeline, so the panel is always the chat surface there.
     const voiceRoomChat = !!room && isVoiceRoom(room);
@@ -404,7 +406,7 @@ export function ClientLayout() {
   }, [
     roomChatOpen,
     roomChatRoomId,
-    currentRoomId,
+    selectedRoomId,
     roomsById,
     callRoomId,
     callView,
