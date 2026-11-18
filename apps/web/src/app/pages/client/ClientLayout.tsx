@@ -19,6 +19,8 @@ import {
   roomChatPanelOpenAtom,
   roomChatRoomIdAtom,
   closeRoomChatAtom,
+  setSidePanelContextAtom,
+  openRoomChatAtom,
   isInCallAtom,
   callActionsAtom,
   callRoomIdAtom,
@@ -319,6 +321,12 @@ export function ClientLayout() {
     return () => setCommandActions(null);
   }, [placeCall, joinVoiceRoom, hangupCall, setCommandActions]);
 
+  const setSidePanelContext = useSetAtom(setSidePanelContextAtom);
+  const inVoiceRoom = isVoiceRoom(selectedRoomId ? roomsById.get(selectedRoomId) : null);
+  useLayoutEffect(() => {
+    setSidePanelContext({ context: inVoiceRoom ? 'voice' : 'room', roomId: selectedRoomId });
+  }, [inVoiceRoom, selectedRoomId, setSidePanelContext]);
+
   // Keyboard shortcuts
   const [membersPanelOpen, setMembersPanelOpen] = useAtom(membersPanelOpenAtom);
   const [spaceMembersPanelOpen, setSpaceMembersPanelOpen] = useAtom(spaceMembersPanelOpenAtom);
@@ -362,6 +370,7 @@ export function ClientLayout() {
   const roomChatOpen = useAtomValue(roomChatPanelOpenAtom);
   const roomChatRoomId = useAtomValue(roomChatRoomIdAtom);
   const closeRoomChat = useSetAtom(closeRoomChatAtom);
+  const openRoomChat = useSetAtom(openRoomChatAtom);
   const callRoomId = useAtomValue(callRoomIdAtom);
   const callView = useAtomValue(callEffectiveViewAtom);
   const [roomChatClosing, setRoomChatClosing] = useState(false);
@@ -402,7 +411,9 @@ export function ClientLayout() {
     const voiceRoomChat = !!room && isVoiceRoom(room);
     // Normal rooms keep their own timeline visible except while a fullscreen call covers it.
     const callCoversTimeline = callRoomId === roomChatRoomId && callView === 'fullscreen';
-    if (!sameRoom || (!voiceRoomChat && !callCoversTimeline)) closeRoomChatPanel();
+    // Moving between voice rooms keeps the chat open, now for the new room
+    if (room && voiceRoomChat && !sameRoom) openRoomChat(room.id);
+    else if (!sameRoom || (!voiceRoomChat && !callCoversTimeline)) closeRoomChatPanel();
   }, [
     roomChatOpen,
     roomChatRoomId,
@@ -411,6 +422,7 @@ export function ClientLayout() {
     callRoomId,
     callView,
     closeRoomChatPanel,
+    openRoomChat,
   ]);
 
   const threadPanelRoomIdRef = useRef<string | null>(null);

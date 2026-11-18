@@ -387,9 +387,38 @@ export const openRoomChatAtom = atom(null, (get, set, roomId: string) => {
 });
 
 export const closeRoomChatAtom = atom(null, (get, set) => {
-  const panel = get(sidePanelAtom);
-  if (panel.kind === 'roomChat') set(sidePanelAtom, panel.under);
+  if (get(sidePanelAtom).kind === 'roomChat') set(sidePanelAtom, { kind: 'none' });
 });
+
+type SidePanelContext = 'room' | 'voice';
+const sidePanelContextAtom = atom<SidePanelContext>('room');
+// chat rooms and voice rooms each keep their own side panel; voice rooms start with none open
+const savedSidePanelsAtom = atom<Record<SidePanelContext, SidePanel>>({
+  room: { kind: 'none' },
+  voice: { kind: 'none' },
+});
+
+export const setSidePanelContextAtom = atom(
+  null,
+  (get, set, { context: next, roomId }: { context: SidePanelContext; roomId: string | null }) => {
+    const current = get(sidePanelContextAtom);
+    if (current === next) return;
+    const panel = get(sidePanelAtom);
+    const saved = get(savedSidePanelsAtom);
+    set(sidePanelContextAtom, next);
+    if (panel.kind === 'roomChat' && next === 'voice' && panel.roomId === roomId) {
+      set(savedSidePanelsAtom, { ...saved, [current]: panel.under });
+      set(sidePanelAtom, { ...panel, under: { kind: 'none' } });
+      return;
+    }
+    set(savedSidePanelsAtom, { ...saved, [current]: panel });
+    const restored = saved[next];
+    set(
+      sidePanelAtom,
+      restored.kind === 'roomChat' && roomId !== null ? { ...restored, roomId } : restored
+    );
+  }
+);
 export const threadPanelExpandedAtom = atom(false);
 
 export const THREAD_PANEL_WIDTH_MIN = 450;
