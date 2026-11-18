@@ -67,6 +67,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
+import org.wizardchat.android.ui.room.FullScreenDialog
+import org.wizardchat.android.ui.settings.CallServerSection
+import org.wizardchat.android.ui.settings.SettingsPage
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.CallManager
@@ -166,6 +169,7 @@ private fun Lobby(room: RoomSummary, onOpenChat: () -> Unit, modifier: Modifier 
             val failed = calls.state as? CallManager.State.Failed
             if (failed != null && (failed.roomId == room.id || failed.roomId == null)) {
                 Text(failed.message, style = wizardFont(WZ.FontSize.sm), color = theme.error, textAlign = TextAlign.Center)
+                if (failed.noCallServer) CallServerButton()
             }
 
             LabelButton(tr("call.joinVoice"), "speaker-high", { calls.launchJoin(room, session) })
@@ -644,6 +648,8 @@ fun JoinCallBar(room: RoomSummary, modifier: Modifier = Modifier) {
 fun CallErrorBanner(modifier: Modifier = Modifier) {
     val calls = CallManager.shared
     val session = LocalSession.current
+    var showCallServer by remember { mutableStateOf(false) }
+    if (showCallServer) CallServerPage { showCallServer = false }
     val failed = calls.state as? CallManager.State.Failed
     val inVoiceRoom = failed?.roomId?.let { session.roomList?.room(it)?.isVoice } == true
     val shown = if (inVoiceRoom) null else failed
@@ -665,7 +671,10 @@ fun CallErrorBanner(modifier: Modifier = Modifier) {
             Modifier
                 .padding(horizontal = WZ.Space.space5)
                 .floatingGlass(RoundedCornerShape(WZ.Radius.xl))
-                .clickable { last?.let(calls::dismissFailure) }
+                .clickable {
+                    if (last?.noCallServer == true) showCallServer = true
+                    last?.let(calls::dismissFailure)
+                }
                 .padding(horizontal = WZ.Space.space5, vertical = WZ.Space.space4),
             horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
             verticalAlignment = Alignment.CenterVertically,
@@ -704,5 +713,19 @@ fun PushToTalkButton(size: Dp = WZ.Space.space10, iconSize: Dp = WZ.SizeIcon.sm)
         contentAlignment = Alignment.Center,
     ) {
         PhIcon("microphone", size = iconSize, tint = if (talking) theme.textOnAccent else theme.textPrimary)
+    }
+}
+
+@Composable
+private fun CallServerButton() {
+    var open by remember { mutableStateOf(false) }
+    LabelButton(tr("call.setCallServer"), "gear", { open = true }, primary = false)
+    if (open) CallServerPage { open = false }
+}
+
+@Composable
+private fun CallServerPage(onClose: () -> Unit) {
+    FullScreenDialog(onClose) {
+        SettingsPage(tr("settings.voiceVideo.callServer.title"), onClose) { CallServerSection() }
     }
 }

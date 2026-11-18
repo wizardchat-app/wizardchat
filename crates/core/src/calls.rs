@@ -609,8 +609,27 @@ async fn post(url: String, body: &Value) -> Result<reqwest::Response> {
         .map_err(|e| Error::Call(format!("the call server can't be reached: {e}")))
 }
 
-fn token_refused(status: reqwest::StatusCode) -> Error {
-    Error::Call(format!("SFU token request failed ({})", status.as_u16()))
+fn token_refused(status: reqwest::StatusCode, error: &Value) -> Error {
+    let reason = [error.get("errcode"), error.get("error")]
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if reason.is_empty() {
+        Error::Call(format!("SFU token request failed ({})", status.as_u16()))
+    } else {
+        Error::Call(format!(
+            "SFU token request failed ({} {reason})",
+            status.as_u16()
+        ))
+    }
+}
+
+async fn token_refused_by(response: reqwest::Response) -> Error {
+    let status = response.status();
+    let error = response.json().await.unwrap_or_default();
+    token_refused(status, &error)
 }
 
 async fn legacy_token(request: &TokenRequest<'_>, openid: &Value) -> Result<Value> {
@@ -626,12 +645,12 @@ async fn legacy_token(request: &TokenRequest<'_>, openid: &Value) -> Result<Valu
     if response.status() == reqwest::StatusCode::BAD_REQUEST && request.delay.is_some() {
         let error: Value = response.json().await.unwrap_or_default();
         if error.get("errcode").and_then(Value::as_str) != Some("M_BAD_JSON") {
-            return Err(token_refused(reqwest::StatusCode::BAD_REQUEST));
+            return Err(token_refused(reqwest::StatusCode::BAD_REQUEST, &error));
         }
         response = post(url, &base).await?;
     }
     if !response.status().is_success() {
-        return Err(token_refused(response.status()));
+        return Err(token_refused_by(response).await);
     }
     response.json().await.map_err(call_error)
 }
@@ -650,7 +669,7 @@ async fn matrix2_token(request: &TokenRequest<'_>, openid: &Value) -> Result<Val
     delay_parts(&mut body, &request.delay);
     let response = post(format!("{}/get_token", request.service_url), &body).await?;
     if !response.status().is_success() {
-        return Err(token_refused(response.status()));
+        return Err(token_refused_by(response).await);
     }
     response.json().await.map_err(call_error)
 }

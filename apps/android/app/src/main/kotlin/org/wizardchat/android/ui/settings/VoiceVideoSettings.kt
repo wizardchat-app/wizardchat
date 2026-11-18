@@ -33,6 +33,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -42,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import kotlin.math.log10
@@ -50,6 +52,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.wizardchat.android.LocalPrefs
+import org.wizardchat.android.LocalSession
+import org.wizardchat.android.ui.WizardTextField
 import org.wizardchat.android.matrix.CallManager
 import org.wizardchat.android.matrix.rtc.CallSounds
 import org.wizardchat.android.matrix.rtc.NoiseFilterMode
@@ -183,6 +187,113 @@ internal fun VoiceVideoSettings(onBack: () -> Unit) {
             }
         }
         SoundboardSettingsSection()
+        CallServerSection()
+    }
+}
+
+private enum class CallServerChoice { homeserver, matrixOrg, custom }
+
+private fun validCallServer(url: String): Boolean = url.isEmpty() || runCatching {
+    val uri = java.net.URI(url)
+    (uri.scheme == "https" || uri.scheme == "http") && !uri.host.isNullOrEmpty()
+}.getOrDefault(false)
+
+/** Which LiveKit service calls use: the homeserver's, matrix.org's or one the user enters */
+@Composable
+internal fun CallServerSection() {
+    val calls = CallManager.shared
+    val client = LocalSession.current.client
+    val userId = client?.userId
+    var override by remember(userId) { mutableStateOf(calls.callServer(userId)) }
+    var homeserver by remember { mutableStateOf<String?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    var customPicked by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(client) {
+        homeserver = runCatching { client?.rtcServiceUrl() }.getOrNull()
+        loaded = true
+    }
+
+    val choice = when {
+        customPicked || (override != null && override != CallManager.MATRIX_ORG_CALL_SERVER) -> CallServerChoice.custom
+        override != null -> CallServerChoice.matrixOrg
+        else -> CallServerChoice.homeserver
+    }
+    val value = draft ?: override ?: homeserver ?: ""
+    val trimmed = value.trim().trimEnd('/')
+    val valid = validCallServer(trimmed)
+
+    fun store(url: String?) {
+        override = url
+        calls.setCallServer(userId, url)
+    }
+
+    fun pick(next: CallServerChoice) {
+        draft = null
+        customPicked = next == CallServerChoice.custom
+        when (next) {
+            CallServerChoice.homeserver -> store(null)
+            CallServerChoice.matrixOrg -> store(CallManager.MATRIX_ORG_CALL_SERVER)
+            CallServerChoice.custom -> {}
+        }
+    }
+
+    fun saveCustom() {
+        if (draft == null || !valid) return
+        if (trimmed.isEmpty()) {
+            pick(CallServerChoice.homeserver)
+            return
+        }
+        store(trimmed.takeIf { it != homeserver })
+        customPicked = trimmed != homeserver
+        draft = null
+    }
+
+    val save by rememberUpdatedState(::saveCustom)
+    DisposableEffect(Unit) { onDispose { save() } }
+
+    val homeserverHost = homeserver?.let { runCatching { java.net.URI(it).host }.getOrNull() }
+    SettingsSection(
+        note = if (choice == CallServerChoice.homeserver && loaded && homeserver == null) {
+            tr("settings.voiceVideo.callServer.noHomeserver")
+        } else {
+            null
+        },
+    ) {
+        PickerRow(
+            tr("settings.voiceVideo.callServer.title"),
+            choice,
+            listOf(
+                CallServerChoice.homeserver to if (homeserverHost != null) {
+                    tr("settings.voiceVideo.callServer.homeserverOption", homeserverHost)
+                } else {
+                    tr("settings.voiceVideo.callServer.homeserverNone")
+                },
+                CallServerChoice.matrixOrg to "matrix.org",
+                CallServerChoice.custom to tr("settings.voiceVideo.callServer.custom"),
+            ),
+            ::pick,
+        )
+        if (choice == CallServerChoice.custom) {
+            SettingsDivider()
+            Column(Modifier.padding(WZ.Space.space4)) {
+                WizardTextField(
+                    value,
+                    { draft = it },
+                    "https://livekit-jwt.example.org",
+                    keyboardType = KeyboardType.Uri,
+                    onSubmit = ::saveCustom,
+                )
+                if (!valid) {
+                    Text(
+                        tr("settings.voiceVideo.callServer.invalid"),
+                        style = wizardFont(WZ.FontSize.sm),
+                        color = theme.error,
+                        modifier = Modifier.padding(top = WZ.Space.space2),
+                    )
+                }
+            }
+        }
     }
 }
 

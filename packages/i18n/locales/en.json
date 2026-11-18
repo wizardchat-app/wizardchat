@@ -1246,6 +1246,7 @@
     "callAgain": "Call again",
     "inProgress": "Call in progress",
     "noSfu": "This homeserver has no call server (LiveKit) configured, so built-in calls can't connect.",
+    "noSfuBackup": "This homeserver has no call server (LiveKit) configured. Ask your homeserver admin to add one, or set a backup call server.",
     "unsupported": "Calls aren't supported here. Use the web app instead.",
     "unsupportedEncryption": "Encrypted calls aren't supported here. Use the web app instead.",
     "handRaised": "Hand raised",
@@ -1262,8 +1263,8 @@
     "showMembers": "Show members",
     "screenShareOf": "{{name}}'s screen share",
     "ownScreenHidden": "Your screen share preview is hidden",
-    "homeserverUnsupported": "Your homeserver does not support MatrixRTC calls. Ask your homeserver administrator to enable it.",
-    "tryAnyway": "Try anyway",
+    "homeserverUnsupported": "Your homeserver doesn't support MatrixRTC calls. Ask your homeserver admin to enable it, or set a backup call server.",
+    "setCallServer": "Set call server",
     "startFailed": "Could not start the call: {{error}}",
     "errorAuth": "the call server refused to let you in",
     "errorConnection": "the call server can't be reached",
@@ -1638,7 +1639,16 @@
       },
       "pictureInPicture": "Picture-in-picture (experimental)",
       "pictureInPictureNote": "Keep a call in a small window when you leave the app.",
-      "pushToTalkNote": "In calls, hold the mic button to talk. You're silent the rest of the time."
+      "pushToTalkNote": "In calls, hold the mic button to talk. You're silent the rest of the time.",
+      "callServer": {
+        "title": "Call server",
+        "noHomeserver": "Your homeserver doesn't offer a call server, so calls can't connect. Pick matrix.org or your own.",
+        "homeserverOption": "Your homeserver ({{host}})",
+        "homeserverNone": "Your homeserver (none)",
+        "custom": "Custom",
+        "customLabel": "Call server address",
+        "invalid": "Enter a web address starting with https://"
+      }
     },
     "emojisStickers": {
       "title": "Emojis & Stickers",

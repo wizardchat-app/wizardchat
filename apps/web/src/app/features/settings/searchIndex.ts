@@ -73,6 +73,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ...SOUNDS.map((id): SettingsIndexEntry => ['voice-video', `settings.voiceVideo.sound.${id}`]),
   ['voice-video', 'settings.voiceVideo.soundboard.title'],
   ['voice-video', 'settings.voiceVideo.soundboard.volume'],
+  ['voice-video', 'settings.voiceVideo.callServer.title'],
   ['soundboard', 'settings.soundboard.defaultPack', 'settings.soundboard.defaultPackNote'],
   ['soundboard', 'settings.soundboard.favoritePacks', 'settings.soundboard.favoritePacksNote'],
 

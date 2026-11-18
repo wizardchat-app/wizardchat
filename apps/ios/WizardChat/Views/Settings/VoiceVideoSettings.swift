@@ -113,6 +113,7 @@ struct VoiceVideoSettings: View {
                 }
             }
             SoundboardSettingsSection()
+            CallServerSection()
         }
         .onAppear { inputs = Self.availableInputs() }
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification).receive(on: RunLoop.main)) { _ in
@@ -308,6 +309,125 @@ struct SoundboardSettingsSection: View {
                 Slider(value: $volume, in: 0...1)
                     .accessibilityLabel(String(localized: "settings.voiceVideo.soundboard.volume"))
             }
+        }
+    }
+}
+
+/// Which LiveKit service calls use: the homeserver's, matrix.org's or one the user enters
+struct CallServerSection: View {
+    private enum Choice: Hashable { case homeserver, matrixOrg, custom }
+
+    @EnvironmentObject private var session: MatrixSession
+    @Environment(\.theme) private var theme
+    @State private var override: String?
+    @State private var homeserver: String?
+    @State private var loaded = false
+    @State private var customPicked = false
+    @State private var draft: String?
+    @FocusState private var editing: Bool
+
+    private var userId: String? { session.client?.userId }
+
+    private var choice: Choice {
+        if customPicked || (override != nil && override != CallManager.matrixOrgCallServer) { return .custom }
+        return override == nil ? .homeserver : .matrixOrg
+    }
+
+    private var value: String { draft ?? override ?? homeserver ?? "" }
+    private var trimmed: String {
+        var url = value.trimmingCharacters(in: .whitespaces)
+        while url.hasSuffix("/") { url.removeLast() }
+        return url
+    }
+
+    private var valid: Bool {
+        guard !trimmed.isEmpty else { return true }
+        guard let url = URL(string: trimmed), let scheme = url.scheme, url.host() != nil else { return false }
+        return scheme == "https" || scheme == "http"
+    }
+
+    var body: some View {
+        SettingsSection(note: choice == .homeserver && loaded && homeserver == nil
+                        ? "settings.voiceVideo.callServer.noHomeserver" : nil) {
+            Picker(selection: Binding(get: { choice }, set: pick)) {
+                Text(homeserverLabel).tag(Choice.homeserver)
+                Text(verbatim: "matrix.org").tag(Choice.matrixOrg)
+                Text(String(localized: "settings.voiceVideo.callServer.custom")).tag(Choice.custom)
+            } label: {
+                Text(String(localized: "settings.voiceVideo.callServer.title")).foregroundStyle(theme.textPrimary)
+            }
+            .pickerStyle(.menu)
+            .tint(theme.textMuted)
+            if choice == .custom {
+                VStack(alignment: .leading, spacing: WZ.Space.space2) {
+                    TextField("", text: Binding(get: { value }, set: { draft = $0 }),
+                              prompt: Text(verbatim: "https://livekit-jwt.example.org").foregroundColor(theme.textMuted))
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($editing)
+                        .onSubmit(saveCustom)
+                    if !valid {
+                        Text(String(localized: "settings.voiceVideo.callServer.invalid"))
+                            .font(.wizard(WZ.FontSize.sm))
+                            .foregroundStyle(theme.error)
+                    }
+                }
+            }
+        }
+        .onChange(of: editing) { _, focused in if !focused { saveCustom() } }
+        .onDisappear(perform: saveCustom)
+        .task(id: userId) {
+            override = CallManager.callServer(for: userId)
+            homeserver = try? await session.client?.rtcServiceUrl()
+            loaded = true
+        }
+    }
+
+    private var homeserverLabel: String {
+        if let homeserver, let host = URL(string: homeserver)?.host() {
+            return L10n.format("settings.voiceVideo.callServer.homeserverOption", host)
+        }
+        return String(localized: "settings.voiceVideo.callServer.homeserverNone")
+    }
+
+    private func store(_ url: String?) {
+        override = url
+        CallManager.setCallServer(url, for: userId)
+    }
+
+    private func pick(_ next: Choice) {
+        draft = nil
+        customPicked = next == .custom
+        switch next {
+        case .homeserver: store(nil)
+        case .matrixOrg: store(CallManager.matrixOrgCallServer)
+        case .custom: break
+        }
+    }
+
+    private func saveCustom() {
+        guard draft != nil, valid else { return }
+        guard !trimmed.isEmpty else { return pick(.homeserver) }
+        let url = trimmed
+        store(url == homeserver ? nil : url)
+        customPicked = url != homeserver
+        draft = nil
+    }
+}
+
+/// The call server choice on its own, from a call that failed for lack of one
+struct CallServerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            SettingsPage(title: "settings.voiceVideo.callServer.title") { CallServerSection() }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(String(localized: "common.done")) { dismiss() }
+                    }
+                }
         }
     }
 }

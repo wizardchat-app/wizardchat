@@ -71,6 +71,9 @@ final class CallManager: NSObject, ObservableObject {
     @Published var showCallScreen = false
     /// A failed DM or group call; voice rooms show their failure in the lobby
     @Published var alert: String?
+    /// The last failure was the homeserver having no call server, so picking one can help
+    @Published private(set) var failureNeedsCallServer = false
+    static let matrixOrgCallServer = "https://livekit-jwt.call.matrix.org"
     private var ringback: CallSounds.Loop?
     private var ringtone: CallSounds.Loop?
     private var onMissedCall: ((IncomingCall) -> Void)?
@@ -190,9 +193,10 @@ final class CallManager: NSObject, ObservableObject {
             callKit.start(id, name: room.displayName, video: intent == "video")
         }
         do {
-            guard try await client.rtcServiceUrl() != nil else { throw JoinFailure.noSfu }
+            let callServer = Self.callServer(for: client.userId)
+            if callServer == nil, try await client.rtcServiceUrl() == nil { throw JoinFailure.noSfu }
             guard attempt == current else { return }
-            let session = try await client.joinCall(roomId: room.id, video: intent == "video", ring: ring)
+            let session = try await client.joinCall(roomId: room.id, video: intent == "video", ring: ring, serviceUrl: callServer)
             guard attempt == current else {
                 try? await session.leave()
                 return
@@ -231,13 +235,23 @@ final class CallManager: NSObject, ObservableObject {
             guard attempt == current else { return }
             switch error {
             case is CancellationError: await fail(nil, room: room)
-            case JoinFailure.noSfu: await fail(String(localized: "call.noSfu"), room: room)
+            case JoinFailure.noSfu: await fail(String(localized: "call.noSfuBackup"), room: room, noCallServer: true)
             default: await fail(L10n.format("call.failed", error.localizedDescription), room: room)
             }
         }
     }
 
     private enum JoinFailure: Error { case noSfu }
+
+    /// The LiveKit service this account picked over its homeserver's
+    static func callServer(for userId: String?) -> String? {
+        userId.flatMap { UserDefaults.standard.string(forKey: "voice.callServer.\($0)") }
+    }
+
+    static func setCallServer(_ url: String?, for userId: String?) {
+        guard let userId else { return }
+        UserDefaults.standard.set(url, forKey: "voice.callServer.\(userId)")
+    }
 
     func leave(reason: String = "hangup") {
         Task { await leaveAndWait(reason: reason) }
@@ -321,7 +335,7 @@ final class CallManager: NSObject, ObservableObject {
     }
 
     /// Ends the call; `message` nil means it was cancelled and ends quietly
-    private func fail(_ message: String?, room failedRoom: RoomSummary?, leave: Bool = true) async {
+    private func fail(_ message: String?, room failedRoom: RoomSummary?, leave: Bool = true, noCallServer: Bool = false) async {
         attempt += 1
         let session = session
         let wasShowingScreen = showCallScreen
@@ -337,6 +351,7 @@ final class CallManager: NSObject, ObservableObject {
             state = .idle
             return
         }
+        failureNeedsCallServer = noCallServer
         state = .failed(message)
         guard failedRoom?.isVoice != true else { return }
         // The call screen is still animating away; an alert presented now would be dropped

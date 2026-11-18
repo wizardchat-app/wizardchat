@@ -12,9 +12,15 @@ import {
 import { ToggleRow } from '@/app/components/Toggle';
 import { Button } from '@/app/components/Button';
 import { Select } from '@/app/components/Select';
+import { Input } from '@/app/components/Input';
 import { KeyCaps } from '@/app/components/KeyCaps';
 import { VolumeSlider } from '@/app/features/calls/VolumeSlider';
-import { noiseFilterAtom } from '@/app/store/atoms/call';
+import {
+  callServerOverrideAtom,
+  MATRIX_ORG_CALL_SERVER,
+  noiseFilterAtom,
+} from '@/app/store/atoms/call';
+import { getMatrixClientOrNull } from '@/client/initMatrix';
 import {
   deviceChoices,
   useCallVolume,
@@ -244,6 +250,114 @@ function Sounds() {
   );
 }
 
+function validCallServer(value: string) {
+  if (!value) return true;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+type CallServerChoice = 'homeserver' | 'matrixOrg' | 'custom';
+
+function CallServer() {
+  const { t } = useTranslation();
+  const [override, setOverride] = useAtom(callServerOverrideAtom);
+  const [homeserver, setHomeserver] = useState<string | null | undefined>(undefined);
+  const [customPicked, setCustomPicked] = useState(false);
+  const [draft, setDraft] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getMatrixClientOrNull()
+      ?.rtcServiceUrl()
+      .catch(() => null)
+      .then((url) => {
+        if (!cancelled) setHomeserver(url ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const choice: CallServerChoice =
+    customPicked || (override && override !== MATRIX_ORG_CALL_SERVER)
+      ? 'custom'
+      : override
+        ? 'matrixOrg'
+        : 'homeserver';
+  const value = draft ?? override ?? homeserver ?? '';
+  const trimmed = value.trim().replace(/\/+$/, '');
+  const valid = validCallServer(trimmed);
+  const label = t('settings.voiceVideo.callServer.title');
+
+  const pick = (next: CallServerChoice) => {
+    setDraft(null);
+    setCustomPicked(next === 'custom');
+    if (next === 'homeserver') setOverride(null);
+    if (next === 'matrixOrg') setOverride(MATRIX_ORG_CALL_SERVER);
+  };
+
+  const saveCustom = () => {
+    if (draft === null || !valid) return;
+    if (!trimmed) {
+      pick('homeserver');
+      return;
+    }
+    setOverride(trimmed === homeserver ? null : trimmed);
+    setCustomPicked(trimmed !== homeserver);
+    setDraft(null);
+  };
+
+  const homeserverHost = homeserver ? new URL(homeserver).host : null;
+
+  return (
+    <div className={layoutCss.section}>
+      <h3 className={layoutCss.sectionTitle}>{label}</h3>
+      <div className={css.field}>
+        <Select
+          label={label}
+          value={choice}
+          options={[
+            {
+              value: 'homeserver',
+              label: homeserverHost
+                ? t('settings.voiceVideo.callServer.homeserverOption', { host: homeserverHost })
+                : t('settings.voiceVideo.callServer.homeserverNone'),
+            },
+            { value: 'matrixOrg', label: 'matrix.org' },
+            { value: 'custom', label: t('settings.voiceVideo.callServer.custom') },
+          ]}
+          onChange={pick}
+        />
+        {choice === 'custom' && (
+          <Input
+            aria-label={t('settings.voiceVideo.callServer.customLabel')}
+            value={value}
+            placeholder="https://livekit-jwt.example.org"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            error={valid ? undefined : t('settings.voiceVideo.callServer.invalid')}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={saveCustom}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveCustom();
+            }}
+          />
+        )}
+        {choice === 'homeserver' && homeserver === null && (
+          <span className={layoutCss.settingNote}>
+            {t('settings.voiceVideo.callServer.noHomeserver')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Soundboard() {
   const { t } = useTranslation();
   const [volume, setVolume] = useAtom(soundboardVolumeAtom);
@@ -313,6 +427,9 @@ export function VoiceVideo() {
 
       <div className={layoutCss.divider} />
       <Soundboard />
+
+      <div className={layoutCss.divider} />
+      <CallServer />
     </div>
   );
 }

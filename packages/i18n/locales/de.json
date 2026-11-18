@@ -1246,6 +1246,7 @@
     "callAgain": "Erneut anrufen",
     "inProgress": "Anruf läuft",
     "noSfu": "Auf diesem Homeserver ist kein Anrufserver (LiveKit) eingerichtet, daher können integrierte Anrufe keine Verbindung herstellen.",
+    "noSfuBackup": "Auf diesem Homeserver ist kein Anrufserver (LiveKit) eingerichtet. Bitte die Administration deines Homeservers, einen einzurichten, oder lege einen Ersatz-Anrufserver fest.",
     "unsupported": "Anrufe werden hier nicht unterstützt. Nutze stattdessen die Web-App.",
     "unsupportedEncryption": "Verschlüsselte Anrufe werden hier nicht unterstützt. Nutze stattdessen die Web-App.",
     "handRaised": "Hand gehoben",
@@ -1262,8 +1263,8 @@
     "showMembers": "Mitglieder einblenden",
     "screenShareOf": "Bildschirmübertragung von {{name}}",
     "ownScreenHidden": "Die Vorschau deiner Bildschirmübertragung ist ausgeblendet",
-    "homeserverUnsupported": "Dein Homeserver unterstützt MatrixRTC Anrufe nicht. Bitte wende dich an die Administration deines Homeservers.",
-    "tryAnyway": "Trotzdem versuchen",
+    "homeserverUnsupported": "Dein Homeserver unterstützt keine MatrixRTC Anrufe. Bitte die Administration deines Homeservers, sie zu aktivieren, oder lege einen Ersatz-Anrufserver fest.",
+    "setCallServer": "Anrufserver festlegen",
     "startFailed": "Der Anruf konnte nicht gestartet werden: {{error}}",
     "errorAuth": "Der Anrufserver hat den Zutritt verweigert",
     "errorConnection": "Der Anrufserver ist nicht erreichbar",
@@ -1638,7 +1639,16 @@
       },
       "pictureInPicture": "Bild-in-Bild (experimentell)",
       "pictureInPictureNote": "Zeigt einen Anruf in einem kleinen Fenster, wenn du die App verlässt.",
-      "pushToTalkNote": "Halte in Anrufen die Mikrofontaste gedrückt, um zu sprechen. Sonst bist du still."
+      "pushToTalkNote": "Halte in Anrufen die Mikrofontaste gedrückt, um zu sprechen. Sonst bist du still.",
+      "callServer": {
+        "title": "Anrufserver",
+        "noHomeserver": "Dein Homeserver bietet keinen Anrufserver an, daher können Anrufe keine Verbindung herstellen. Wähle matrix.org oder einen eigenen.",
+        "homeserverOption": "Dein Homeserver ({{host}})",
+        "homeserverNone": "Dein Homeserver (keiner)",
+        "custom": "Eigener",
+        "customLabel": "Adresse des Anrufservers",
+        "invalid": "Gib eine Webadresse ein, die mit https:// beginnt"
+      }
     },
     "emojisStickers": {
       "title": "Emojis & Sticker",

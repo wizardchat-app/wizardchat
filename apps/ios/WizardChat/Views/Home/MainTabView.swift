@@ -11,6 +11,7 @@ struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.theme) private var theme
 
+    @State private var showCallServer = false
     @State private var tab: Tab = .home
     @State private var paths: [Tab: [Route]] = [:]
     @State private var profileIcon: UIImage?
@@ -69,8 +70,12 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $calls.showCallScreen) { DMCallScreen() }
         .alert(calls.alert ?? "", isPresented: Binding(get: { calls.alert != nil && !calls.showCallScreen },
                                                        set: { if !$0 { calls.alert = nil } })) {
+            if calls.failureNeedsCallServer {
+                Button(String(localized: "call.setCallServer")) { showCallServer = true }
+            }
             Button(String(localized: "common.ok"), role: .cancel) {}
         }
+        .sheet(isPresented: $showCallServer) { CallServerSheet() }
         .onChange(of: totalUnread, initial: true) { _, count in notifier.updateBadge(count) }
         .onChange(of: readRooms, initial: true) { _, _ in notifier.clearRead(roomList.joinedRooms) }
         .onChange(of: roomList.joinedRooms.map(\.id), initial: true) { _, _ in ShareSender.publishRooms(roomList) }

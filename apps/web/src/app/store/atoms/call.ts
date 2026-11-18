@@ -7,7 +7,7 @@ import {
   STORAGE_KEY_CALL_VOLUMES,
   STORAGE_KEY_NOISE_FILTER,
   STORAGE_KEY_SHARE_SCREEN_AUDIO,
-  STORAGE_KEY_CALL_RTC_OVERRIDE,
+  STORAGE_KEY_CALL_SERVER,
   STORAGE_KEY_CALL_USER_AUDIO,
 } from '@/const/storageKeys';
 import { atomWithAccountStorage } from './accountStorage';
@@ -145,29 +145,12 @@ export interface CallActions {
 
 export const callActionsAtom = atom<CallActions | null>(null);
 
-const sessionOverrideStorage = {
-  getItem: (key: string, init: string | null) => {
-    try {
-      const raw = sessionStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as string | null) : init;
-    } catch {
-      return init;
-    }
-  },
-  setItem: (key: string, value: string | null) => {
-    if (value === null) {
-      sessionStorage.removeItem(key);
-    } else {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    }
-  },
-  removeItem: (key: string) => sessionStorage.removeItem(key),
-};
+export const MATRIX_ORG_CALL_SERVER = 'https://livekit-jwt.call.matrix.org';
 
-export const callRtcOverrideDomainAtom = atomWithStorage<string | null>(
-  STORAGE_KEY_CALL_RTC_OVERRIDE,
-  null,
-  sessionOverrideStorage
+// A LiveKit service the user picked, used instead of the homeserver's
+export const callServerOverrideAtom = atomWithAccountStorage<string | null>(
+  STORAGE_KEY_CALL_SERVER,
+  null
 );
 
 export interface CommandActions {

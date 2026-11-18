@@ -12,6 +12,7 @@ struct VoiceRoomView: View {
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
     @State private var showInfo = false
+    @State private var showCallServer = false
     @State private var barWidth: CGFloat = 0
 
     private var inThisCall: Bool { calls.isInCall(roomId: room.id) }
@@ -50,6 +51,7 @@ struct VoiceRoomView: View {
                     .accessibilityLabel(String(localized: "room.openChat"))
             }
         }
+        .sheet(isPresented: $showCallServer) { CallServerSheet() }
         .sheet(isPresented: $showInfo) {
             RoomInfoView(room: room, client: client) { eventId in
                 showInfo = false
@@ -93,6 +95,12 @@ struct VoiceRoomView: View {
 
                 if case .failed(let message) = calls.state, calls.room?.id == room.id || calls.room == nil {
                     Text(message).font(.wizard(WZ.FontSize.sm)).foregroundStyle(theme.error).multilineTextAlignment(.center)
+                    if calls.failureNeedsCallServer {
+                        Button { showCallServer = true } label: {
+                            Label(String(localized: "call.setCallServer"), image: "ph-gear-regular")
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                    }
                 }
 
                 if room.inCallElsewhere {

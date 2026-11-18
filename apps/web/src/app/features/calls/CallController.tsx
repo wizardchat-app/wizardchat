@@ -3,7 +3,7 @@ import { useAtomValue, useSetAtom, useStore } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { CallMedia, type CallSnapshot, type LeaveReason } from '@/call/media';
 import {
-  callRtcOverrideDomainAtom,
+  callServerOverrideAtom,
   callDevicesAtom,
   callVolumesAtom,
   callUserAudioAtom,
@@ -20,6 +20,7 @@ import {
   type CallPresentation,
 } from '@/app/store/atoms/call';
 import { currentRoomIdAtom } from '@/app/store/atoms/rooms';
+import { settingsHighlightAtom, settingsOpenAtom, settingsPageAtom } from '@/app/store/atoms/ui';
 import { deafenedAtom, micMutedAtom, soundboardVolumeAtom } from '@/app/store/atoms/settings';
 import { useToast } from '@/app/hooks/useToast';
 import { loopVoiceSound, playVoiceSound, type VoiceSound } from '@/app/features/voice/voiceSounds';
@@ -79,7 +80,14 @@ export function CallController() {
   const setUi = useSetAtom(callUiAtom);
   const setActions = useSetAtom(callActionsAtom);
   const setPanel = useSetAtom(callPanelAtom);
-  const setOverrideDomain = useSetAtom(callRtcOverrideDomainAtom);
+  const openSettings = useSetAtom(settingsOpenAtom);
+  const setSettingsPage = useSetAtom(settingsPageAtom);
+  const setSettingsHighlight = useSetAtom(settingsHighlightAtom);
+  const openCallServerSettings = useCallback(() => {
+    setSettingsPage('voice-video');
+    setSettingsHighlight(t('settings.voiceVideo.callServer.title'));
+    openSettings(true);
+  }, [setSettingsPage, setSettingsHighlight, openSettings, t]);
   const currentRoomId = useAtomValue(currentRoomIdAtom);
   const sessionRef = useRef(session);
   const startingRef = useRef(false);
@@ -163,6 +171,7 @@ export function CallController() {
             pushToTalk: store.get(pushToTalkModeAtom),
             outputVolume: store.get(callVolumesAtom).output,
             ring: !!opts.ring,
+            serviceUrl: store.get(callServerOverrideAtom) ?? undefined,
           });
         } catch {
           // Reported through the session snapshot (phase 'error')
@@ -172,20 +181,15 @@ export function CallController() {
       if (startingRef.current || sessionRef.current?.roomId === roomId) return;
       startingRef.current = true;
       try {
-        const domain = client.userId()?.split(':').slice(1).join(':') || null;
-        const overrideDomain = store.get(callRtcOverrideDomainAtom);
         store.set(pendingCallRoomIdAtom, roomId);
         const supported =
-          overrideDomain === domain || (await client.rtcSupported().catch(() => false));
+          !!store.get(callServerOverrideAtom) || (await client.rtcSupported().catch(() => false));
         if (!supported) {
           store.set(pendingCallRoomIdAtom, null);
           toast.error(t('call.homeserverUnsupported'), {
             duration: 10000,
-            actionLabel: t('call.tryAnyway'),
-            onClick: () => {
-              if (domain) setOverrideDomain(domain);
-              void runStart();
-            },
+            actionLabel: t('call.setCallServer'),
+            onClick: openCallServerSettings,
           });
           return;
         }
@@ -194,7 +198,7 @@ export function CallController() {
         startingRef.current = false;
       }
     },
-    [store, setSession, setUi, setOverrideDomain, toast, t]
+    [store, setSession, setUi, openCallServerSettings, toast, t]
   );
 
   const copyCallLog = useCallback(() => {
@@ -246,7 +250,7 @@ export function CallController() {
           })();
           const message =
             snap.errorKind === 'noSfu'
-              ? t('call.noSfu')
+              ? t('call.noSfuBackup')
               : snap.errorKind === 'unsupported'
                 ? t('call.unsupported')
                 : snap.errorKind === 'unsupportedEncryption'
@@ -264,8 +268,9 @@ export function CallController() {
                             : t('call.startFailed', { error: reason });
           toast.error(message, {
             duration: 10000,
-            actionLabel: t('call.copyLog'),
-            onClick: copyCallLog,
+            ...(snap.errorKind === 'noSfu'
+              ? { actionLabel: t('call.setCallServer'), onClick: openCallServerSettings }
+              : { actionLabel: t('call.copyLog'), onClick: copyCallLog }),
           });
         }
         if (sessionRef.current === session) {
@@ -311,7 +316,7 @@ export function CallController() {
       unsubscribe();
       stopRingback?.();
     };
-  }, [session, setSession, setUi, resetUi, toast, t, copyCallLog]);
+  }, [session, setSession, setUi, resetUi, toast, t, copyCallLog, openCallServerSettings]);
 
   const endCall = useCallback(
     (reason: LeaveReason) => {

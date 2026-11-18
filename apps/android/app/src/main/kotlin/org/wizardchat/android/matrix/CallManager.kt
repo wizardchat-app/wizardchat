@@ -154,7 +154,7 @@ class CallManager {
         data object Idle : State
         data object Joining : State
         data object Joined : State
-        data class Failed(val message: String, val roomId: String? = null) : State
+        data class Failed(val message: String, val roomId: String? = null, val noCallServer: Boolean = false) : State
     }
 
     enum class RingState { ringing, declined, unanswered }
@@ -189,6 +189,14 @@ class CallManager {
 
     private val context: Context get() = WizardApplication.instance
     private val defaults = WizardApplication.instance.getSharedPreferences("calls", Context.MODE_PRIVATE)
+
+    /** The LiveKit service this account picked over its homeserver's */
+    fun callServer(userId: String?): String? = userId?.let { defaults.getString("voice.callServer.$it", null) }
+
+    fun setCallServer(userId: String?, url: String?) {
+        if (userId == null) return
+        defaults.edit().apply { if (url == null) remove("voice.callServer.$userId") else putString("voice.callServer.$userId", url) }.apply()
+    }
 
     private var micMutedState by mutableStateOf(defaults.getBoolean("voice.micMuted", false))
     var micMuted: Boolean
@@ -312,7 +320,13 @@ class CallManager {
         state = State.Joining
         var call: CallSession? = null
         try {
-            val joined = client.joinCall(room.id, video = intent == "video", ring = ring)
+            val callServer = callServer(client.userId)
+            if (callServer == null && runCatching { client.rtcServiceUrl() }.getOrNull() == null) {
+                failJoin(current, null, L10n.format("call.noSfuBackup"), noCallServer = true)
+                return
+            }
+            if (attempt != current) return
+            val joined = client.joinCall(room.id, video = intent == "video", ring = ring, serviceUrl = callServer)
             call = joined
             if (attempt != current) {
                 runCatching { joined.leave() }
@@ -360,14 +374,14 @@ class CallManager {
         }
     }
 
-    private suspend fun failJoin(current: Int, call: CallSession?, message: String?) {
+    private suspend fun failJoin(current: Int, call: CallSession?, message: String?, noCallServer: Boolean = false) {
         if (attempt != current) return
         val roomId = room?.id
         if (message != null) log("failed", message)
         tearDown()
         runCatching { call?.leave() }
         room = null
-        state = if (message == null) State.Idle else State.Failed(message, roomId)
+        state = if (message == null) State.Idle else State.Failed(message, roomId, noCallServer)
     }
 
     private fun log(event: String, detail: String = "") {
@@ -1196,6 +1210,7 @@ class CallManager {
     }
 
     companion object {
+        const val MATRIX_ORG_CALL_SERVER = "https://livekit-jwt.call.matrix.org"
         private const val TAG = "WZCALL"
         private const val STREAM_WATCH_TOPIC = "org.wizardchat.stream-watch"
         private const val REACTION_VISIBLE_MILLIS = 3000L
