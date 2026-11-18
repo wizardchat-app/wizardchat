@@ -68,6 +68,7 @@ import { useConnectionStatusWatcher } from '@/app/hooks/useConnectionStatus';
 import { useCustomStatusSync } from '@/app/features/status/customStatus';
 import { UpdateButton } from '@/app/components/UpdateButton/UpdateButton';
 import { EncryptionWarningButton } from '@/app/components/EncryptionWarningButton/EncryptionWarningButton';
+import { HelpButton } from '@/app/components/HelpButton/HelpButton';
 import { SpacesList } from './SpacesList';
 import { MobileTabBar } from './MobileTabBar';
 import { useMobileListOpen } from './hooks/useMobileListOpen';
@@ -504,6 +505,7 @@ export function ClientLayout() {
                   <UpdateButton />
                   <EncryptionWarningButton />
                   <Inbox />
+                  <HelpButton />
                 </>
               }
             />

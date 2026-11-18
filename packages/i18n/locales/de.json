@@ -1866,7 +1866,8 @@
     "search": "Räume und Nachrichten durchsuchen...",
     "minimize": "Minimieren",
     "maximize": "Maximieren",
-    "restore": "Wiederherstellen"
+    "restore": "Wiederherstellen",
+    "help": "Hilfe-Center"
   },
   "search": {
     "global": {

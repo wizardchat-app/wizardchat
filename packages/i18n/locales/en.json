@@ -1866,7 +1866,8 @@
     "search": "Search rooms and messages...",
     "minimize": "Minimize",
     "maximize": "Maximize",
-    "restore": "Restore"
+    "restore": "Restore",
+    "help": "Help center"
   },
   "search": {
     "global": {
