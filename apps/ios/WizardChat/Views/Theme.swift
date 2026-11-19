@@ -7,7 +7,8 @@ enum ThemeSetting: Hashable, Identifiable {
     case fixed(WZ.Theme)
 
     static let allCases: [ThemeSetting] = [.system] + [
-        WZ.Theme.carbon, .pewter, .umbra, .eclipse, .parrot, .hallow, .garnet, .ethereal, .blossom,
+        WZ.Theme.carbon, .pewter, .umbra, .eclipse, .prism, .parrot, .hallow, .garnet, .ethereal,
+        .blossom, .opaline,
     ].map(ThemeSetting.fixed)
 
     init?(rawValue: String) {

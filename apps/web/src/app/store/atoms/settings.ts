@@ -26,6 +26,8 @@ export type ThemeName =
   | 'Garnet'
   | 'Ethereal'
   | 'Blossom'
+  | 'Opaline'
+  | 'Prism'
   | 'Custom';
 export type MediaVisibility = 'always' | 'private' | 'never';
 export type StreamerMode = 'always' | 'screenshare' | 'off';

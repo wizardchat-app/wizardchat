@@ -48,11 +48,13 @@ const THEME_NAMES: ThemeName[] = [
   'Pewter',
   'Umbra',
   'Eclipse',
+  'Prism',
   'Parrot',
   'Hallow',
   'Garnet',
   'Ethereal',
   'Blossom',
+  'Opaline',
 ];
 
 const PREVIEW_OTHER_NAME = 'Merlin';

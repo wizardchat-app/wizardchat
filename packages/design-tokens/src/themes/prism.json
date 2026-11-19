@@ -1,0 +1,202 @@
+{
+  "$description": "Prism (all six colours of the spectrum)",
+  "$extensions": {
+    "org.wizardchat.theme": {
+      "id": "prism",
+      "name": "Prism",
+      "scheme": "dark"
+    }
+  },
+  "color": {
+    "$type": "color",
+    "bg": {
+      "app": {
+        "$value": "#0e0d12",
+        "$description": "Chat and main background"
+      },
+      "surface": {
+        "$value": "#15141b",
+        "$description": "Room list, space rail, panels"
+      },
+      "raised": {
+        "$value": "#1e1c26",
+        "$description": "Cards, menus, popovers"
+      },
+      "input": {
+        "$value": "#121117"
+      },
+      "hover": {
+        "$value": "#ffffff0b"
+      },
+      "active": {
+        "$value": "#8b5cf633"
+      },
+      "overlay": {
+        "$value": "#000000a6",
+        "$description": "Dialog backdrop"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "#e3e3e8"
+      },
+      "secondary": {
+        "$value": "#b7b7c0"
+      },
+      "muted": {
+        "$value": "#8b8b98"
+      },
+      "disabled": {
+        "$value": "#686875"
+      },
+      "onAccent": {
+        "$value": "#ffffff"
+      },
+      "link": {
+        "$value": "#4ea8ff"
+      }
+    },
+    "accent": {
+      "default": {
+        "$value": "#8b5cf6"
+      },
+      "hover": {
+        "$value": "#7643e0"
+      },
+      "soft": {
+        "$value": "#8b5cf626",
+        "$description": "Tinted backgrounds, selected rows"
+      },
+      "glow1": {
+        "$value": "#e403030d",
+        "$description": "Background glow behind the app"
+      },
+      "glow2": {
+        "$value": "#004dff0d"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "#26232f"
+      },
+      "strong": {
+        "$value": "#403b4c"
+      },
+      "focus": {
+        "$value": "#b39afa"
+      }
+    },
+    "status": {
+      "danger": {
+        "$value": "#c93b3b"
+      },
+      "error": {
+        "$value": "#ff6b6b"
+      },
+      "success": {
+        "$value": "#3ba55d"
+      },
+      "warning": {
+        "$value": "#ff9d00"
+      },
+      "info": {
+        "$value": "#58a6ff"
+      },
+      "mention": {
+        "$value": "#f06428"
+      }
+    },
+    "presence": {
+      "online": {
+        "$value": "#4ade80"
+      },
+      "away": {
+        "$value": "#facc15"
+      },
+      "busy": {
+        "$value": "#ef4444"
+      },
+      "offline": {
+        "$value": "#6b7280"
+      }
+    },
+    "role": {
+      "founder": {
+        "$value": "#a855f7"
+      },
+      "admin": {
+        "$value": "#ef4444"
+      },
+      "moderator": {
+        "$value": "#eab308"
+      },
+      "member": {
+        "$value": "#3b82f6"
+      }
+    },
+    "logo": {
+      "p0": {
+        "$value": "#008026"
+      },
+      "p1": {
+        "$value": "#004dff"
+      },
+      "p2": {
+        "$value": "#732982"
+      },
+      "p3": {
+        "$value": "#ff8c00"
+      },
+      "p4": {
+        "$value": "#ffed00"
+      },
+      "p5": {
+        "$value": "#e40303"
+      },
+      "hover": {
+        "$value": "#ff5a5a"
+      },
+      "hoverGlow": {
+        "$value": "#ff5a5a99"
+      }
+    },
+    "message": {
+      "mine": {
+        "$value": "#3b2a6b"
+      },
+      "other": {
+        "$value": "#1e1c26"
+      },
+      "highlight": {
+        "$value": "#f0642826",
+        "$description": "Messages that mention you"
+      }
+    },
+    "username": {
+      "c1": {
+        "$value": "#4ea8ff"
+      },
+      "c2": {
+        "$value": "#d66bd1"
+      },
+      "c3": {
+        "$value": "#2bd4a0"
+      },
+      "c4": {
+        "$value": "#ff6b92"
+      },
+      "c5": {
+        "$value": "#ff9a4d"
+      },
+      "c6": {
+        "$value": "#3fd3d6"
+      },
+      "c7": {
+        "$value": "#8c87ff"
+      },
+      "c8": {
+        "$value": "#8fdb4a"
+      }
+    }
+  }
+}

@@ -47,6 +47,14 @@ export const THEME_LOGO_ASSETS: Record<ThemeName, ThemeLogoAssets> = {
     logo: '/assets/images/logo_blossom.svg',
     notification: '/assets/images/logo-notification_blossom.svg',
   },
+  Opaline: {
+    logo: '/assets/images/logo_opaline.svg',
+    notification: '/assets/images/logo-notification_opaline.svg',
+  },
+  Prism: {
+    logo: '/assets/images/logo_prism.svg',
+    notification: '/assets/images/logo-notification_prism.svg',
+  },
 };
 
 export function hasThemedLogo(theme: ThemeName): boolean {

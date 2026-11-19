@@ -92,7 +92,7 @@ targets:
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 'WizardChat lets you choose photos and videos from your library to send in chats.'
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: 'WizardChat uses your location only when you share it in a chat.'
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: 'AppIcon-Parrot AppIcon-Hallow AppIcon-Ethereal AppIcon-Pewter AppIcon-Umbra AppIcon-Eclipse AppIcon-Garnet AppIcon-Blossom'
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: 'AppIcon-Parrot AppIcon-Hallow AppIcon-Ethereal AppIcon-Pewter AppIcon-Umbra AppIcon-Eclipse AppIcon-Garnet AppIcon-Blossom AppIcon-Opaline AppIcon-Prism'
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         ENABLE_USER_SCRIPT_SANDBOXING: NO
 

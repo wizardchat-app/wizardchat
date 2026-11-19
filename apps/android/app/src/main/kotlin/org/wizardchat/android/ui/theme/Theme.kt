@@ -43,8 +43,9 @@ sealed interface ThemeSetting {
 
     companion object {
         val allCases: List<ThemeSetting> = listOf(System) + listOf(
-            WZ.Theme.CARBON, WZ.Theme.PEWTER, WZ.Theme.UMBRA, WZ.Theme.ECLIPSE, WZ.Theme.PARROT,
-            WZ.Theme.HALLOW, WZ.Theme.GARNET, WZ.Theme.ETHEREAL, WZ.Theme.BLOSSOM,
+            WZ.Theme.CARBON, WZ.Theme.PEWTER, WZ.Theme.UMBRA, WZ.Theme.ECLIPSE, WZ.Theme.PRISM,
+            WZ.Theme.PARROT, WZ.Theme.HALLOW, WZ.Theme.GARNET, WZ.Theme.ETHEREAL, WZ.Theme.BLOSSOM,
+            WZ.Theme.OPALINE,
         ).map(::Fixed)
 
         fun from(raw: String?): ThemeSetting = when (raw) {

@@ -163,6 +163,28 @@ const BLOSSOM_LOGO: ThemeLogoTokens['logo'] = {
   hoverGlow: '#F097B699',
 };
 
+const OPALINE_LOGO: ThemeLogoTokens['logo'] = {
+  p0: '#EE97A9',
+  p1: '#5BCEFA',
+  p2: '#EE97A9',
+  p3: '#F5A9B8',
+  p4: '#E9EEF2',
+  p5: '#5BCEFA',
+  hover: '#7DD8FB',
+  hoverGlow: '#7DD8FB99',
+};
+
+const PRISM_LOGO: ThemeLogoTokens['logo'] = {
+  p0: '#008026',
+  p1: '#004DFF',
+  p2: '#732982',
+  p3: '#FF8C00',
+  p4: '#FFED00',
+  p5: '#E40303',
+  hover: '#FF5A5A',
+  hoverGlow: '#FF5A5A99',
+};
+
 export const THEME_TOKENS: Record<string, ThemeColorTokens> = {
   Carbon: {
     logo: BASE_LOGO,
@@ -443,6 +465,68 @@ export const THEME_TOKENS: Record<string, ThemeColorTokens> = {
     radius: { sm: '4px', md: '8px', lg: '18px' },
     font: { body: "'Roboto', sans-serif" },
   },
+  Opaline: {
+    logo: OPALINE_LOGO,
+    color: {
+      bgPrimary: '#ffffff',
+      bgSecondary: '#eef8fe',
+      bgTertiary: '#fdeaef',
+      bgInput: '#ffffff',
+      bgHover: 'rgba(31, 138, 192, 0.07)',
+      bgActive: 'rgba(31, 138, 192, 0.14)',
+      accent: '#1f8ac0',
+      accentRgb: '31, 138, 192',
+      accentHover: '#1a76a6',
+      link: '#C23D6A',
+      textPrimary: '#1d2733',
+      textMuted: '#6e7f93',
+      textSecondary: '#a3b1c0',
+      border: '#d6ecf8',
+      msgMineBg: '#d5effd',
+      msgOtherBg: '#fdeaef',
+      mention: '#f06428',
+      error: '#dc2626',
+      danger: '#b91c1c',
+      success: '#16a34a',
+      warning: '#d97706',
+      bgAccentGlow1: 'rgba(91, 206, 250, 0.12)',
+      bgAccentGlow2: 'rgba(245, 169, 184, 0.1)',
+    },
+    username: LIGHT_USERNAME,
+    radius: { sm: '4px', md: '8px', lg: '18px' },
+    font: { body: "'Roboto', sans-serif" },
+  },
+  Prism: {
+    logo: PRISM_LOGO,
+    color: {
+      bgPrimary: '#0e0d12',
+      bgSecondary: '#15141b',
+      bgTertiary: '#1e1c26',
+      bgInput: '#121117',
+      bgHover: 'rgba(255, 255, 255, 0.045)',
+      bgActive: 'rgba(139, 92, 246, 0.2)',
+      accent: '#8b5cf6',
+      accentRgb: '139, 92, 246',
+      accentHover: '#7643e0',
+      link: '#4EA8FF',
+      textPrimary: '#e3e3e8',
+      textMuted: '#8b8b98',
+      textSecondary: '#686875',
+      border: '#26232f',
+      msgMineBg: '#3b2a6b',
+      msgOtherBg: '#1e1c26',
+      mention: '#f06428',
+      error: '#ff6b6b',
+      danger: '#c93b3b',
+      success: '#3ba55d',
+      warning: '#ff9d00',
+      bgAccentGlow1: 'rgba(228, 3, 3, 0.05)',
+      bgAccentGlow2: 'rgba(0, 77, 255, 0.05)',
+    },
+    username: DARK_USERNAME,
+    radius: { sm: '4px', md: '8px', lg: '18px' },
+    font: { body: "'Roboto', sans-serif" },
+  },
 };
 
-export const LIGHT_THEMES: ReadonlySet<string> = new Set(['Ethereal', 'Blossom']);
+export const LIGHT_THEMES: ReadonlySet<string> = new Set(['Ethereal', 'Blossom', 'Opaline']);

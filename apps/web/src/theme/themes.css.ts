@@ -34,6 +34,8 @@ export const THEMES: Record<string, string> = {
   Eclipse: themeClass('eclipse'),
   Garnet: themeClass('garnet'),
   Blossom: themeClass('blossom'),
+  Opaline: themeClass('opaline'),
+  Prism: themeClass('prism'),
   Custom: style({}),
 };
 

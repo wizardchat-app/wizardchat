@@ -1,0 +1,202 @@
+{
+  "$description": "Opaline (pastel blue, pink and white)",
+  "$extensions": {
+    "org.wizardchat.theme": {
+      "id": "opaline",
+      "name": "Opaline",
+      "scheme": "light"
+    }
+  },
+  "color": {
+    "$type": "color",
+    "bg": {
+      "app": {
+        "$value": "#ffffff",
+        "$description": "Chat and main background"
+      },
+      "surface": {
+        "$value": "#eef8fe",
+        "$description": "Room list, space rail, panels"
+      },
+      "raised": {
+        "$value": "#fdeaef",
+        "$description": "Cards, menus, popovers"
+      },
+      "input": {
+        "$value": "#ffffff"
+      },
+      "hover": {
+        "$value": "#1f8ac012"
+      },
+      "active": {
+        "$value": "#1f8ac024"
+      },
+      "overlay": {
+        "$value": "#1d273366",
+        "$description": "Dialog backdrop"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "#1d2733"
+      },
+      "secondary": {
+        "$value": "#46566a"
+      },
+      "muted": {
+        "$value": "#6e7f93"
+      },
+      "disabled": {
+        "$value": "#a3b1c0"
+      },
+      "onAccent": {
+        "$value": "#ffffff"
+      },
+      "link": {
+        "$value": "#c23d6a"
+      }
+    },
+    "accent": {
+      "default": {
+        "$value": "#1f8ac0"
+      },
+      "hover": {
+        "$value": "#1a76a6"
+      },
+      "soft": {
+        "$value": "#1f8ac01f",
+        "$description": "Tinted backgrounds, selected rows"
+      },
+      "glow1": {
+        "$value": "#5bcefa1f",
+        "$description": "Background glow behind the app"
+      },
+      "glow2": {
+        "$value": "#f5a9b81a"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "#d6ecf8"
+      },
+      "strong": {
+        "$value": "#b6cfde"
+      },
+      "focus": {
+        "$value": "#1a76a6"
+      }
+    },
+    "status": {
+      "danger": {
+        "$value": "#b91c1c"
+      },
+      "error": {
+        "$value": "#dc2626"
+      },
+      "success": {
+        "$value": "#16a34a"
+      },
+      "warning": {
+        "$value": "#d97706"
+      },
+      "info": {
+        "$value": "#2563eb"
+      },
+      "mention": {
+        "$value": "#f06428"
+      }
+    },
+    "presence": {
+      "online": {
+        "$value": "#22c55e"
+      },
+      "away": {
+        "$value": "#eab308"
+      },
+      "busy": {
+        "$value": "#dc2626"
+      },
+      "offline": {
+        "$value": "#9ca3af"
+      }
+    },
+    "role": {
+      "founder": {
+        "$value": "#a855f7"
+      },
+      "admin": {
+        "$value": "#ef4444"
+      },
+      "moderator": {
+        "$value": "#eab308"
+      },
+      "member": {
+        "$value": "#3b82f6"
+      }
+    },
+    "logo": {
+      "p0": {
+        "$value": "#ee97a9"
+      },
+      "p1": {
+        "$value": "#5bcefa"
+      },
+      "p2": {
+        "$value": "#ee97a9"
+      },
+      "p3": {
+        "$value": "#f5a9b8"
+      },
+      "p4": {
+        "$value": "#e9eef2"
+      },
+      "p5": {
+        "$value": "#5bcefa"
+      },
+      "hover": {
+        "$value": "#7dd8fb"
+      },
+      "hoverGlow": {
+        "$value": "#7dd8fb99"
+      }
+    },
+    "message": {
+      "mine": {
+        "$value": "#d5effd"
+      },
+      "other": {
+        "$value": "#fdeaef"
+      },
+      "highlight": {
+        "$value": "#f064281f",
+        "$description": "Messages that mention you"
+      }
+    },
+    "username": {
+      "c1": {
+        "$value": "#1f6fd1"
+      },
+      "c2": {
+        "$value": "#a3329f"
+      },
+      "c3": {
+        "$value": "#0a8f68"
+      },
+      "c4": {
+        "$value": "#d23f69"
+      },
+      "c5": {
+        "$value": "#c75a12"
+      },
+      "c6": {
+        "$value": "#14898c"
+      },
+      "c7": {
+        "$value": "#4f49e0"
+      },
+      "c8": {
+        "$value": "#4a8f12"
+      }
+    }
+  }
+}
