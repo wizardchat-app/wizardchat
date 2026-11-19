@@ -7,8 +7,12 @@ import android.os.Build
 import android.util.LruCache
 import java.io.File
 import java.net.URLEncoder
-import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -24,7 +28,9 @@ class MediaLoader(val client: WizardClient) {
     private val animatedData = object : LruCache<String, ByteArray>(32 * 1024 * 1024) {
         override fun sizeOf(key: String, value: ByteArray) = value.size
     }
-    private val inFlight = HashMap<String, CompletableDeferred<Bitmap?>>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val inFlight = HashMap<String, Deferred<Bitmap?>>()
+    private val stillImages = HashSet<String>()
     private val files = File(WizardApplication.instance.cacheDir, "media")
 
     fun cachedThumbnail(key: String): Bitmap? = cache.get(key)
@@ -41,6 +47,7 @@ class MediaLoader(val client: WizardClient) {
         if (cached != null && (thumbnailSizes[url] ?: 0) >= pixels) return cached
         val image = load("$url|$pixels", pixels) { it.thumbnail(url, pixels.toLong(), pixels.toLong(), if (pixels == 96) true else null) }
         if (image != null && (thumbnailSizes[url] ?: 0) < pixels) {
+            cache.remove("$url|$pixels")
             store(image, url)
             thumbnailSizes[url] = pixels
         }
@@ -54,15 +61,19 @@ class MediaLoader(val client: WizardClient) {
         }
 
     /** A playing GIF/WebP (Android 9+); null if the image isn't animated */
-    suspend fun animated(source: MediaSource): Drawable? {
+    suspend fun animated(source: MediaSource, size: Int? = null): Drawable? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
         val key = key(source)
+        if (key in stillImages) return null
         val data = animatedData.get(key) ?: runCatching { client.media(source) }.getOrNull() ?: return null
         // Each view gets its own drawable: one shared instance only animates in the view that took it last
         val drawable = withContext(Dispatchers.Default) {
-            MediaMetadata.decodeDrawable(data)
+            MediaMetadata.decodeDrawable(data, size)
         } ?: return null
-        if (drawable !is AnimatedImageDrawable) return null
+        if (drawable !is AnimatedImageDrawable) {
+            stillImages.add(key)
+            return null
+        }
         animatedData.put(key, data)
         return drawable
     }
@@ -82,16 +93,18 @@ class MediaLoader(val client: WizardClient) {
 
     private suspend fun load(key: String, size: Int?, fetch: suspend (WizardClient) -> ByteArray): Bitmap? {
         cache.get(key)?.let { return it }
-        inFlight[key]?.let { return it.await() }
-        val deferred = CompletableDeferred<Bitmap?>()
-        inFlight[key] = deferred
-        val image = runCatching { fetch(client) }.getOrNull()?.let { data ->
-            withContext(Dispatchers.Default) { MediaMetadata.decodeImage(data, size) }
+        val pending = inFlight.getOrPut(key) {
+            scope.async(start = CoroutineStart.LAZY) {
+                try {
+                    runCatching { fetch(client) }.getOrNull()
+                        ?.let { data -> withContext(Dispatchers.Default) { MediaMetadata.decodeImage(data, size) } }
+                        ?.also { store(it, key) }
+                } finally {
+                    inFlight.remove(key)
+                }
+            }
         }
-        inFlight.remove(key)
-        if (image != null) store(image, key)
-        deferred.complete(image)
-        return image
+        return pending.await()
     }
 
     companion object {

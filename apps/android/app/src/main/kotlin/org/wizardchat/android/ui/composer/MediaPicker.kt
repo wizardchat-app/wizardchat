@@ -367,11 +367,11 @@ private fun StickerGrid(packs: List<ImagePack>, loading: Boolean, onPick: (PackI
 fun PackThumb(url: String, modifier: Modifier = Modifier, animated: Boolean = false, rounded: Boolean = true) {
     val media = LocalMedia.current
     val animates = animated || LocalPrefs.current.autoplayGifs
-    var image by remember(url) { mutableStateOf<Bitmap?>(null) }
+    var image by remember(url) { mutableStateOf(media?.cachedThumbnail(url)) }
     var playing by remember(url) { mutableStateOf<Drawable?>(null) }
     LaunchedEffect(url, media, animates) {
         image = media?.thumbnail(url, 160)
-        playing = if (animates) media?.animated(JsonObject(mapOf("url" to JsonPrimitive(url)))) else null
+        playing = if (animates) media?.animated(JsonObject(mapOf("url" to JsonPrimitive(url))), 320) else null
     }
     Box(if (rounded) modifier.clip(RoundedCornerShape(WZ.Radius.md)) else modifier) {
         val bitmap = image

@@ -95,7 +95,13 @@ object MediaMetadata {
         if (Build.VERSION.SDK_INT >= 28) {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(data))) { decoder, info, _ ->
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                decoder.setTargetSampleSize(sampleSize(maxOf(info.size.width, info.size.height), size))
+                val longest = maxOf(info.size.width, info.size.height)
+                if (size != null && longest > size) {
+                    val scale = size.toFloat() / longest
+                    decoder.setTargetSize(maxOf(1, (info.size.width * scale).toInt()), maxOf(1, (info.size.height * scale).toInt()))
+                } else {
+                    decoder.setTargetSampleSize(sampleSize(longest, size))
+                }
             }
         } else {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -106,9 +112,9 @@ object MediaMetadata {
     }.getOrNull()
 
     @RequiresApi(Build.VERSION_CODES.P)
-    fun decodeDrawable(data: ByteArray): Drawable? = runCatching {
+    fun decodeDrawable(data: ByteArray, size: Int? = null): Drawable? = runCatching {
         ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(data))) { decoder, info, _ ->
-            decoder.setTargetSampleSize(sampleSize(maxOf(info.size.width, info.size.height), null))
+            decoder.setTargetSampleSize(sampleSize(maxOf(info.size.width, info.size.height), size))
         }
     }.getOrNull()
 

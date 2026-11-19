@@ -1,5 +1,8 @@
 package org.wizardchat.android.ui
 
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.window.PopupPositionProvider
@@ -207,8 +210,14 @@ fun WizardSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Un
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = theme.bgPrimary,
         contentColor = theme.textPrimary,
-        content = content,
-    )
+    ) {
+        Column(Modifier.fillMaxWidth().nestedScroll(KeepFlingInSheet), content = content)
+    }
+}
+
+private object KeepFlingInSheet : NestedScrollConnection {
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity) =
+        if (available.y < 0) available else Velocity.Zero
 }
 
 /** An item in a menu (long-press menus, "+" menus) */
