@@ -6,6 +6,7 @@ import '@wizardchat/design-tokens/tokens.css';
 import { App } from './App';
 import { SessionProvider } from '@/app/SessionProvider';
 import { handleAuthCallbackPopup, loadCore } from '@/core/client';
+import { loadClientConfig } from '@/client/config';
 import { registerNotificationServiceWorker } from '@/app/hooks/useNotifications';
 import { installNativeAppHooks } from '@/util/nativeApp';
 import { installDesktopHooks } from '@/bridge/desktop';
@@ -68,15 +69,17 @@ if (sharePicker) {
 
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
-  createRoot(root).render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <SessionProvider>
-            <App />
-          </SessionProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </StrictMode>
+  void loadClientConfig().then(() =>
+    createRoot(root).render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <SessionProvider>
+              <App />
+            </SessionProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </StrictMode>
+    )
   );
 }

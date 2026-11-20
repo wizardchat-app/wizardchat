@@ -6,7 +6,7 @@ import { useSetAtom } from 'jotai';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ResetPasswordForm } from './ResetPasswordForm';
-import { PRESET_SERVERS } from '@/app/features/sso/presetServers';
+import { CUSTOM_SERVER, initialHomeserver } from '@/client/config';
 import {
   discoverAuthCapabilities,
   DiscoveryStatus,
@@ -56,15 +56,16 @@ function WelcomeContent({ canGoBack }: { canGoBack: boolean }) {
     void loadCore();
   }, []);
 
-  const [serverSelect, setServerSelect] = useState(homeserver ? 'custom' : PRESET_SERVERS[0].value);
-  const [customUrl, setCustomUrl] = useState(homeserver ?? '');
+  const [initial] = useState(() => initialHomeserver(homeserver));
+  const [serverSelect, setServerSelect] = useState(initial.select);
+  const [customUrl, setCustomUrl] = useState(initial.customUrl);
   const [version, setVersion] = useState(import.meta.env.APP_VERSION ?? 'unknown');
 
   useEffect(() => {
     window.desktopAPI?.getAppVersion?.().then((v) => v && setVersion(v));
   }, []);
 
-  const rawServerUrl = serverSelect === 'custom' ? customUrl : serverSelect;
+  const rawServerUrl = serverSelect === CUSTOM_SERVER ? customUrl : serverSelect;
   const serverUrl = normalizeUrl(rawServerUrl);
 
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);

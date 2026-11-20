@@ -118,9 +118,10 @@ With a free Apple account, push notifications, the share sheet and widgets may n
 - [Working on the codebase](docs/CODEBASE.md): where code goes and the conventions
 - [Contributing](CONTRIBUTING.md): reporting bugs, suggesting features and contributing code
 
-### Using Docker
+## Self-hosting
 
-- Just pull the newest docker image from [Gitlab Container Registry](https://gitlab.com/wizardchat/wizardchat/container_registry/)
+Host the web app yourself with the Docker image or any web server:
+see [Self-hosting](docs/SELFHOSTING.md).
 
 ## License
 

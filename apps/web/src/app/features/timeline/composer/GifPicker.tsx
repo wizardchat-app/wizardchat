@@ -13,9 +13,10 @@ import { sendRawEvent, type ReplyTarget } from './sendMessageContent';
 import { useComposerTimeline } from './composerTimeline';
 import { getErrorMessage } from '@/util/error';
 import { GIF_FAVOURITES_CAP, useGifFavourites } from '@/app/hooks/useGifFavourites';
+import { clientConfig } from '@/client/config';
 import * as css from './GifPicker.css';
 
-const GIF_API = `${import.meta.env.GIF_API_URL}/v1/gifs`;
+const gifApi = () => `${clientConfig().gifApiUrl}/v1/gifs`;
 
 interface GiphyImage {
   url: string;
@@ -102,7 +103,7 @@ export function GifPicker({
     mounted.current = true;
     (async () => {
       try {
-        const res = await fetch(`${GIF_API}/trending?limit=30`);
+        const res = await fetch(`${gifApi()}/trending?limit=30`);
         const data = await res.json();
         setTrending(data.data || []);
       } catch {
@@ -120,7 +121,7 @@ export function GifPicker({
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(`${GIF_API}/search?q=${encodeURIComponent(query)}&limit=30`);
+        const res = await fetch(`${gifApi()}/search?q=${encodeURIComponent(query)}&limit=30`);
         const data = await res.json();
         setResults(data.data || []);
       } catch {

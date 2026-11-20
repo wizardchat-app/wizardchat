@@ -16,7 +16,7 @@ import {
   DiscoveryStatus,
   type AuthCapabilities,
 } from '@/app/features/sso/sso';
-import { PRESET_SERVERS } from '@/app/features/sso/presetServers';
+import { CUSTOM_SERVER, homeserverOptions } from '@/client/config';
 import { SpinnerOverlay, Spinner } from '@/app/components/Spinner';
 import { Button } from '@/app/components/Button';
 import { Input } from '@/app/components/Input';
@@ -78,7 +78,7 @@ export function RegisterForm({
   const [statusType, setStatusType] = useState<'error' | 'success'>('error');
   const [loading, setLoading] = useState(false);
 
-  const serverName = serverNameOf(serverSelect === 'custom' ? customUrl : serverSelect);
+  const serverName = serverNameOf(serverSelect === CUSTOM_SERVER ? customUrl : serverSelect);
   const localpart = username.trim().replace(/^@/, '');
   const fullId = localpart && serverName ? `@${localpart}:${serverName}` : '';
   const strength = password ? passwordStrength(password) : null;
@@ -236,10 +236,10 @@ export function RegisterForm({
         <Select
           aria-label={t('auth.customServer')}
           value={serverSelect}
-          options={[...PRESET_SERVERS, { value: 'custom', label: t('auth.customServer') }]}
+          options={homeserverOptions(t('auth.customServer'))}
           onChange={onServerSelect}
         />
-        {serverSelect === 'custom' && (
+        {serverSelect === CUSTOM_SERVER && (
           <Input
             type="text"
             placeholder={t('auth.serverUrl')}

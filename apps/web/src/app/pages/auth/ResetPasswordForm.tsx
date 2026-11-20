@@ -11,7 +11,7 @@ import {
   completePasswordReset,
   type AuthCapabilities,
 } from '@/app/features/sso/sso';
-import { PRESET_SERVERS } from '@/app/features/sso/presetServers';
+import { CUSTOM_SERVER, homeserverOptions } from '@/client/config';
 import { SpinnerOverlay, Spinner } from '@/app/components/Spinner';
 import { Button } from '@/app/components/Button';
 import { Input } from '@/app/components/Input';
@@ -145,11 +145,11 @@ export function ResetPasswordForm({
         <Select
           aria-label={t('auth.customServer')}
           value={serverSelect}
-          options={[...PRESET_SERVERS, { value: 'custom', label: t('auth.customServer') }]}
+          options={homeserverOptions(t('auth.customServer'))}
           onChange={onServerSelect}
           disabled={step !== 'email'}
         />
-        {serverSelect === 'custom' && (
+        {serverSelect === CUSTOM_SERVER && (
           <Input
             type="text"
             placeholder={t('auth.serverUrl')}
