@@ -24,6 +24,7 @@ import {
   settingsOpenAtom,
 } from '@/app/store/atoms';
 import type { RoomMessageMatch } from '@/app/store/atoms';
+import { mergeHomeAndDmsAtom } from '@/app/store/atoms/settings';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useRoom, useSpaceGraph } from '@/app/data';
 import { findParentSpaceId } from '@/util/matrix';
@@ -97,6 +98,7 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
   const keyboardHints = useKeyboardHints();
   const navigate = useNavigate();
   const switchContext = useSwitchContext();
+  const mergeHomeAndDms = useAtomValue(mergeHomeAndDmsAtom);
   const client = getMatrixClientOrNull();
   const entries = useRoomEntries();
   const graph = useSpaceGraph();
@@ -149,7 +151,7 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
       .trim()
       .toLowerCase();
 
-    const places: Item[] = [
+    const allPlaces: Item[] = [
       {
         kind: 'place',
         key: 'place:home',
@@ -179,6 +181,9 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
         run: () => setSettingsOpen(true),
       },
     ];
+    const places = mergeHomeAndDms
+      ? allPlaces.filter((item) => item.key !== 'place:dms')
+      : allPlaces;
     const asItems = (list: RoomEntry[]): Item[] =>
       list.map((entry) => ({ kind: 'room', key: entry.roomId, entry }));
 
@@ -263,6 +268,7 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
     messageRoomName,
     t,
     switchContext,
+    mergeHomeAndDms,
     setExploreOpen,
     setSettingsOpen,
   ]);

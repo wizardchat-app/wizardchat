@@ -5,6 +5,7 @@ import type { WizardClient } from '@wizardchat/core';
 import { applyDiffs } from '@/core/listDiff';
 import { invalidateImagePacks } from '@/app/hooks/useUserPacks';
 import {
+  roomSectionOrderAtom,
   roomSectionsAtom,
   roomsAtom,
   roomTagNamesAtom,
@@ -35,6 +36,7 @@ export function DataSync({ client }: { client: WizardClient }) {
   const setSyncState = useSetAtom(syncStateAtom);
   const setReady = useSetAtom(syncReadyAtom);
   const setSections = useSetAtom(roomSectionsAtom);
+  const setSectionOrder = useSetAtom(roomSectionOrderAtom);
   const setTagNames = useSetAtom(roomTagNamesAtom);
   const queryClient = useQueryClient();
 
@@ -66,6 +68,7 @@ export function DataSync({ client }: { client: WizardClient }) {
         refreshGraph();
       }),
       client.watchRoomSections(setSections),
+      client.watchRoomSectionOrder(setSectionOrder),
       client.watchRoomAccountData('m.tag', (pairs) =>
         setTagNames(
           new Map(
@@ -98,6 +101,7 @@ export function DataSync({ client }: { client: WizardClient }) {
     setSyncState,
     setReady,
     setSections,
+    setSectionOrder,
     setTagNames,
     queryClient,
   ]);

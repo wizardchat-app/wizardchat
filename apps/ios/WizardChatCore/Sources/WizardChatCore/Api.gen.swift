@@ -3590,6 +3590,13 @@ public final class WizardClient: Remote, @unchecked Sendable {
         watch("WizardClient.watchRoomSections", [.listener([RoomSection].self, listener)])
     }
 
+    /// Calls `listener` with the whole room list order (section tags, `chats` and
+    /// `im.vector.fake.direct`), now and on every change.
+    @discardableResult
+    public func watchRoomSectionOrder(listener: @escaping @Sendable ([String]) -> Void) -> Subscription {
+        watch("WizardClient.watchRoomSectionOrder", [.listener([String].self, listener)])
+    }
+
     /// Adds a room list section (Element compatible); returns its tag.
     public func createRoomSection(name: String, spaceId: String) async throws -> String {
         try await call("WizardClient.createRoomSection", [.value(name), .value(spaceId)])

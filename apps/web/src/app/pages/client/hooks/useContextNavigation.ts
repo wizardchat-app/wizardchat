@@ -9,6 +9,7 @@ import {
   lastRoomByContextAtom,
   sidebarViewAtom,
 } from '@/app/store/atoms';
+import { mergeHomeAndDmsAtom } from '@/app/store/atoms/settings';
 import type { SidebarView } from '@/app/store/atoms';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import {
@@ -37,10 +38,11 @@ interface NavData {
   rooms: RoomSummary[];
   byId: Map<string, RoomSummary>;
   graph: SpaceNode[];
+  mergeDms: boolean;
 }
 
-function navData(rooms: RoomSummary[], graph: SpaceNode[]): NavData {
-  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])), graph };
+function navData(rooms: RoomSummary[], graph: SpaceNode[], mergeDms: boolean): NavData {
+  return { rooms, byId: new Map(rooms.map((r) => [r.id, r])), graph, mergeDms };
 }
 
 function childIds(data: NavData, spaceId: string): string[] {
@@ -84,7 +86,7 @@ function isRememberable(data: NavData, key: string, roomId: string): boolean {
   const room = data.byId.get(roomId);
   if (!room || room.isInvite || room.isTombstoned) return false;
   if (key === 'dms') return room.isDirect;
-  if (room.isDirect) return false;
+  if (room.isDirect) return key === 'home' && data.mergeDms;
   if (key === 'home') return !isInAnySpace(data.graph, roomId);
   return spaceRooms(data, key).some((level) => level.some((r) => r.id === roomId));
 }
@@ -155,6 +157,7 @@ export function useRecordLastRoom() {
   const currentSpaceId = useAtomValue(currentSpaceIdAtom);
   const currentRoomId = useAtomValue(currentRoomIdAtom);
   const setLastRooms = useSetAtom(lastRoomByContextAtom);
+  const mergeDms = useAtomValue(mergeHomeAndDmsAtom);
 
   useEffect(() => {
     const key = contextKey(sidebarView, currentSpaceId);
@@ -166,14 +169,26 @@ export function useRecordLastRoom() {
       if (decodeURIComponent(overviewMatch[1]) === key) value = OVERVIEW;
     } else if (location.pathname === '/' && key === 'home') {
       value = OVERVIEW;
-    } else if (currentRoomId && isRememberable(navData(rooms, graph), key, currentRoomId)) {
+    } else if (
+      currentRoomId &&
+      isRememberable(navData(rooms, graph, mergeDms), key, currentRoomId)
+    ) {
       value = currentRoomId;
     }
     if (!value) return;
 
     const stored = value;
     setLastRooms((prev) => (prev[key] === stored ? prev : { ...prev, [key]: stored }));
-  }, [rooms, graph, location.pathname, sidebarView, currentSpaceId, currentRoomId, setLastRooms]);
+  }, [
+    rooms,
+    graph,
+    mergeDms,
+    location.pathname,
+    sidebarView,
+    currentSpaceId,
+    currentRoomId,
+    setLastRooms,
+  ]);
 }
 
 export function useSwitchContext() {
@@ -193,7 +208,7 @@ export function useSwitchContext() {
         return;
       }
       const target = resolveTarget(
-        navData(store.get(roomsAtom), store.get(spaceGraphAtom)),
+        navData(store.get(roomsAtom), store.get(spaceGraphAtom), store.get(mergeHomeAndDmsAtom)),
         view,
         spaceId,
         store.get(lastRoomByContextAtom),

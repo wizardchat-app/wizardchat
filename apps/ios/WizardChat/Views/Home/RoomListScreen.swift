@@ -109,6 +109,9 @@ struct RoomListScreen: View {
                             if case .rooms = group.kind, group.rooms.isEmpty, search.isEmpty {
                                 emptyNote(emptyText, padding: WZ.Space.space6)
                             }
+                            if case .dms = group.kind, group.rooms.isEmpty, search.isEmpty {
+                                emptyNote("nav.noDirectMessagesYet", padding: WZ.Space.space6)
+                            }
                             ForEach(group.rooms) { roomRow($0) }
                                 .onMove(perform: canReorder(group) ? { moveRooms(group, from: $0, to: $1) } : nil)
                         }
@@ -405,6 +408,7 @@ struct RoomListScreen: View {
         case .favourites: String(localized: "nav.favourites")
         case .section(let section): section.name
         case .rooms: String(localized: "nav.rooms")
+        case .dms: String(localized: "room.dm.directMessages")
         }
     }
 
@@ -413,7 +417,7 @@ struct RoomListScreen: View {
         switch group.kind {
         case .favourites: return true
         case .rooms: return selection == .home
-        case .section: return false
+        case .section, .dms: return false
         }
     }
 

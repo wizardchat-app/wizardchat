@@ -92,6 +92,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['appearance', 'settings.appearance.prettifyLinks', 'settings.appearance.prettifyLinksNote'],
   ['appearance', 'settings.appearance.themedAppIcon'],
   ['appearance', 'settings.appearance.showRoomAvatars'],
+  ['appearance', 'settings.appearance.mergeHomeAndDms'],
   [
     'appearance',
     'settings.appearance.showPresenceDots',

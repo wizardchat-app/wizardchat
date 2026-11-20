@@ -30,6 +30,7 @@ import {
 } from '@/app/store/atoms';
 import { commandActionsAtom } from '@/app/store/atoms/call';
 import type { SidebarView } from '@/app/store/atoms';
+import { mergeHomeAndDmsAtom } from '@/app/store/atoms/settings';
 import { useSyncReady } from '@/app/hooks/useSync';
 import { useMatrixToLinks } from '@/app/hooks/useMatrixToLinks';
 import { useSettingsSync } from '@/app/hooks/useSettingsSync';
@@ -229,6 +230,11 @@ export function ClientLayout() {
     setCurrentSpaceId,
     setCurrentRoomId,
   ]);
+
+  const mergeHomeAndDms = useAtomValue(mergeHomeAndDmsAtom);
+  useLayoutEffect(() => {
+    if (mergeHomeAndDms && sidebarView === 'dms') setSidebarView('home');
+  }, [mergeHomeAndDms, sidebarView, setSidebarView]);
 
   const openGlobalSearch = useSetAtom(globalSearchOpenAtom);
   useEffect(() => {

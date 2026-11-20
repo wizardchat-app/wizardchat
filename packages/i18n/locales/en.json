@@ -1503,7 +1503,8 @@
       "showProfileChanges": "Show name and avatar changes",
       "chat": "Chat",
       "interface": "Interface",
-      "showLastMessage": "Show message previews"
+      "showLastMessage": "Show message previews",
+      "mergeHomeAndDms": "Show direct messages in Home"
     },
     "accessibility": {
       "title": "Accessibility",

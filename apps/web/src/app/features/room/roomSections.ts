@@ -4,6 +4,7 @@ export type { RoomSection };
 
 export const HOME_SPACE = 'home-space';
 export const ROOMS_ANCHOR = 'chats';
+export const PEOPLE_ANCHOR = 'im.vector.fake.direct';
 
 export function getRoomSectionTag(
   tags: readonly string[] | undefined,

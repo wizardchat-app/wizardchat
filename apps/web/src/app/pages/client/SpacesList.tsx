@@ -46,7 +46,7 @@ import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useAllRooms, useSpaceGraph } from '@/app/data';
 import { useToast } from '@/app/hooks/useToast';
 import { useRoomActions } from './hooks/useRoomActions';
-import { sendReadReceiptsAtom } from '@/app/store/atoms/settings';
+import { mergeHomeAndDmsAtom, sendReadReceiptsAtom } from '@/app/store/atoms/settings';
 import { buildSpaceMenu, markSpaceAsRead, buildHomeMenu, buildDmsMenu } from './spaceContextMenu';
 import {
   applyPendingOrder,
@@ -162,6 +162,7 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
   const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
+  const mergeHomeAndDms = useAtomValue(mergeHomeAndDmsAtom);
   const client = getMatrixClientOrNull();
   const rooms = useAllRooms();
   const graph = useSpaceGraph();
@@ -223,8 +224,15 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
   );
 
   const buildHomeMenuCb = useCallback(() => {
-    return buildHomeMenu({ t, client, rooms, graph, sendReadReceipts });
-  }, [t, client, rooms, graph, sendReadReceipts]);
+    return buildHomeMenu({
+      t,
+      client,
+      rooms,
+      graph,
+      sendReadReceipts,
+      includeDms: mergeHomeAndDms,
+    });
+  }, [t, client, rooms, graph, sendReadReceipts, mergeHomeAndDms]);
 
   const buildDmsMenuCb = useCallback(() => {
     return buildDmsMenu({ t, client, rooms, graph, sendReadReceipts });
@@ -257,7 +265,7 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
       e.preventDefault();
       const contexts: { view: SidebarView; spaceId: string | null }[] = [
         { view: 'home', spaceId: null },
-        { view: 'dms', spaceId: null },
+        ...(mergeHomeAndDms ? [] : [{ view: 'dms' as const, spaceId: null }]),
         ...orderedSpaces.map((s) => ({ view: 'space' as const, spaceId: s.roomId })),
       ];
       const current = contexts.findIndex(
@@ -275,7 +283,7 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [orderedSpaces, sidebarView, currentSpaceId, onSelectView]);
+  }, [orderedSpaces, sidebarView, currentSpaceId, onSelectView, mergeHomeAndDms]);
 
   useEffect(() => {
     if (!pendingOrder) return;
@@ -385,30 +393,31 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
             </button>
           </Tooltip>
 
-          {/* DMs button */}
-          <Tooltip placement="right" content={t('room.dm.directMessages')}>
-            <button
-              type="button"
-              className={sidebarView === 'dms' ? css.spaceBarBtnActive : css.spaceBarBtn}
-              style={{
-                color: sidebarView !== 'dms' && dmsHasNotif ? vars.color.textPrimary : undefined,
-              }}
-              aria-label={t('room.dm.directMessages')}
-              onClick={() => onSelectView('dms', null)}
-              {...dmMenuTrigger}
-            >
-              <span className={css.spacePill} />
-              <ChatCircleIcon size={20} weight={sidebarView === 'dms' ? 'fill' : 'regular'} />
-              {dmsHasCall && (
-                <span className={css.callBadge}>
-                  <SpeakerHighIcon size={12} weight="fill" />
-                </span>
-              )}
-              {dmsHasNotif && (
-                <span className={dmsHasMention ? css.notifDotMention : css.notifDot} />
-              )}
-            </button>
-          </Tooltip>
+          {!mergeHomeAndDms && (
+            <Tooltip placement="right" content={t('room.dm.directMessages')}>
+              <button
+                type="button"
+                className={sidebarView === 'dms' ? css.spaceBarBtnActive : css.spaceBarBtn}
+                style={{
+                  color: sidebarView !== 'dms' && dmsHasNotif ? vars.color.textPrimary : undefined,
+                }}
+                aria-label={t('room.dm.directMessages')}
+                onClick={() => onSelectView('dms', null)}
+                {...dmMenuTrigger}
+              >
+                <span className={css.spacePill} />
+                <ChatCircleIcon size={20} weight={sidebarView === 'dms' ? 'fill' : 'regular'} />
+                {dmsHasCall && (
+                  <span className={css.callBadge}>
+                    <SpeakerHighIcon size={12} weight="fill" />
+                  </span>
+                )}
+                {dmsHasNotif && (
+                  <span className={dmsHasMention ? css.notifDotMention : css.notifDot} />
+                )}
+              </button>
+            </Tooltip>
+          )}
 
           {orderedSpaces.length > 0 && <div className={css.spacesSeparator} />}
         </>

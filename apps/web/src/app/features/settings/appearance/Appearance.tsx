@@ -8,6 +8,7 @@ import {
   markdownAtom,
   showRoomAvatarsAtom,
   showLastMessageAtom,
+  mergeHomeAndDmsAtom,
   showPresenceDotsAtom,
   colorUsernamesAtom,
   groupImagesAtom,
@@ -210,6 +211,7 @@ export function Appearance() {
   const [markdown, setMarkdown] = useAtom(markdownAtom);
   const [showRoomAvatars, setShowRoomAvatars] = useAtom(showRoomAvatarsAtom);
   const [showLastMessage, setShowLastMessage] = useAtom(showLastMessageAtom);
+  const [mergeHomeAndDms, setMergeHomeAndDms] = useAtom(mergeHomeAndDmsAtom);
   const [showPresenceDots, setShowPresenceDots] = useAtom(showPresenceDotsAtom);
   const [colorUsernames, setColorUsernames] = useAtom(colorUsernamesAtom);
   const [groupImages, setGroupImages] = useAtom(groupImagesAtom);
@@ -415,6 +417,11 @@ export function Appearance() {
           label={t('settings.appearance.showLastMessage')}
           checked={showLastMessage}
           onChange={setShowLastMessage}
+        />
+        <ToggleRow
+          label={t('settings.appearance.mergeHomeAndDms')}
+          checked={mergeHomeAndDms}
+          onChange={setMergeHomeAndDms}
         />
         <ToggleRow
           label={t('settings.appearance.showPresenceDots')}

@@ -164,6 +164,19 @@ impl WizardClient {
         .await
     }
 
+    /// Calls `on_change` with the whole list order: section tags plus `chats` for the rooms
+    /// in no section and `im.vector.fake.direct` for the direct chats in none.
+    pub async fn watch_room_section_order(
+        &self,
+        mut on_change: impl FnMut(Vec<String>),
+    ) -> Result<()> {
+        self.watch_account_data(WEB_SETTINGS_EVENT, |content| {
+            let settings = as_settings(content);
+            on_change(read_order(&settings, &read_data(&settings)))
+        })
+        .await
+    }
+
     /// Adds a section right above the rooms that are in none; returns its tag.
     pub async fn create_room_section(&self, name: &str, space_id: &str) -> Result<String> {
         let tag = format!("{SECTION_TAG_PREFIX}{}", random_uuid()?);

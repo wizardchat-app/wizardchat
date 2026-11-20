@@ -258,9 +258,13 @@ fun RoomListScreen(
                         }
                     }
                     val closed = headers && collapseKey(group) in collapsed && !reordering
-                    if (headers && !closed && group.kind == RoomGroup.Kind.Rooms && group.rooms.isEmpty() && search.isBlank()) {
+                    val builtIn = group.kind == RoomGroup.Kind.Rooms || group.kind == RoomGroup.Kind.Dms
+                    if (headers && !closed && builtIn && group.rooms.isEmpty() && search.isBlank()) {
                         item(key = "empty-${group.id}") {
-                            Note(tr("nav.noRoomsHereYet"), Modifier.padding(vertical = WZ.Space.space6))
+                            Note(
+                                tr(if (group.kind == RoomGroup.Kind.Dms) "nav.noDirectMessagesYet" else "nav.noRoomsHereYet"),
+                                Modifier.padding(vertical = WZ.Space.space6),
+                            )
                         }
                     }
                     val shown = if (closed) emptyList() else group.rooms
@@ -560,6 +564,7 @@ private fun GroupHeader(
         RoomGroup.Kind.Favourites -> tr("nav.favourites")
         is RoomGroup.Kind.Section -> kind.section.name
         RoomGroup.Kind.Rooms -> tr("nav.rooms")
+        RoomGroup.Kind.Dms -> tr("room.dm.directMessages")
     }
     val rotation by androidx.compose.animation.core.animateFloatAsState(if (closed) 0f else 90f, label = "chevron")
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current

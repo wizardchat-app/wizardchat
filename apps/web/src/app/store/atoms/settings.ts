@@ -60,6 +60,7 @@ export interface Preferences {
   markdown: boolean;
   showRoomAvatars: boolean;
   showLastMessage: boolean;
+  mergeHomeAndDms: boolean;
   showPresenceDots: boolean;
   colorUsernames: boolean;
   groupImages: boolean;
@@ -105,6 +106,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   markdown: true,
   showRoomAvatars: true,
   showLastMessage: false,
+  mergeHomeAndDms: false,
   showPresenceDots: true,
   colorUsernames: true,
   groupImages: true,
@@ -153,6 +155,7 @@ export const prettifyLinksAtom = preferenceFieldAtom('prettifyLinks');
 export const markdownAtom = preferenceFieldAtom('markdown');
 export const showRoomAvatarsAtom = preferenceFieldAtom('showRoomAvatars');
 export const showLastMessageAtom = preferenceFieldAtom('showLastMessage');
+export const mergeHomeAndDmsAtom = preferenceFieldAtom('mergeHomeAndDms');
 export const showPresenceDotsAtom = preferenceFieldAtom('showPresenceDots');
 export const colorUsernamesAtom = preferenceFieldAtom('colorUsernames');
 export const groupImagesAtom = preferenceFieldAtom('groupImages');

@@ -1503,7 +1503,8 @@
       "showProfileChanges": "Namens- und Avataränderungen anzeigen",
       "chat": "Chat",
       "interface": "Oberfläche",
-      "showLastMessage": "Nachrichtenvorschau anzeigen"
+      "showLastMessage": "Nachrichtenvorschau anzeigen",
+      "mergeHomeAndDms": "Direktnachrichten in Home anzeigen"
     },
     "accessibility": {
       "title": "Barrierefreiheit",

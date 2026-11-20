@@ -32,6 +32,7 @@ final class AppPreferences: ObservableObject {
     @Published var themedAppIcon: Bool { didSet { save("themedAppIcon", themedAppIcon) } }
     @Published var showRoomAvatars: Bool { didSet { save("showRoomAvatars", showRoomAvatars) } }
     @Published var showLastMessage: Bool { didSet { save("showLastMessage", showLastMessage) } }
+    @Published var mergeHomeAndDms: Bool { didSet { save("mergeHomeAndDms", mergeHomeAndDms); syncIfNeeded() } }
     @Published var reducedMotion: ReducedMotion { didSet { save("reducedMotion", reducedMotion.rawValue) } }
     @Published var autoplayGifs: Bool { didSet { save("autoplayGifs", autoplayGifs) } }
     @Published var typingIndicators: Bool { didSet { save("typingIndicators", typingIndicators); syncIfNeeded() } }
@@ -64,6 +65,7 @@ final class AppPreferences: ObservableObject {
         themedAppIcon = d.bool(forKey: "themedAppIcon")
         showRoomAvatars = d.object(forKey: "showRoomAvatars") as? Bool ?? true
         showLastMessage = d.bool(forKey: "showLastMessage")
+        mergeHomeAndDms = d.bool(forKey: "mergeHomeAndDms")
         reducedMotion = ReducedMotion(rawValue: d.string(forKey: "reducedMotion") ?? "") ?? .system
         autoplayGifs = d.object(forKey: "autoplayGifs") as? Bool ?? true
         typingIndicators = d.object(forKey: "typingIndicators") as? Bool ?? true
@@ -111,6 +113,7 @@ final class AppPreferences: ObservableObject {
             "emoticonsToEmoji": .bool(emoticonsToEmoji),
             "showJoinLeave": .bool(showJoinLeave),
             "showProfileChanges": .bool(showProfileChanges),
+            "mergeHomeAndDms": .bool(mergeHomeAndDms),
         ]
     }
 
@@ -132,6 +135,7 @@ final class AppPreferences: ObservableObject {
         if case .bool(let value) = json["emoticonsToEmoji"], value != emoticonsToEmoji { emoticonsToEmoji = value }
         if case .bool(let value) = json["showJoinLeave"], value != showJoinLeave { showJoinLeave = value }
         if case .bool(let value) = json["showProfileChanges"], value != showProfileChanges { showProfileChanges = value }
+        if case .bool(let value) = json["mergeHomeAndDms"], value != mergeHomeAndDms { mergeHomeAndDms = value }
     }
 
     private func syncIfNeeded() {
