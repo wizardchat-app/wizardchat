@@ -739,12 +739,12 @@
       "access": "Who can join this space?"
     },
     "join": {
-      "title": "Join Space",
+      "title": "Join space or room",
       "titleShort": "Join",
-      "spaceId": "Space ID, Alias or Link",
-      "spaceIdPlaceholder": "#spacename:server.org, !abc123:server.org or matrix.to link",
-      "failed": "Failed to join space: {{error}}",
-      "discoverSpaces": "Don't have a link? Discover Spaces"
+      "spaceId": "Address or link",
+      "spaceIdPlaceholder": "#name:server.org, !id:server.org or matrix.to link",
+      "discoverSpaces": "No link? Browse public spaces and rooms",
+      "createRoomInstead": "Want to create a room instead?"
     },
     "settings": {
       "general": {
@@ -756,7 +756,7 @@
     "overview": "Space Overview",
     "setSuggested": "Set Suggested",
     "unsetSuggested": "Unset Suggested",
-    "chooseCreateJoin": "Create or Join Space",
+    "chooseCreateJoin": "Create or join",
     "suggested": "Suggested",
     "createSubspace": "Create Sub-space",
     "addExistingRooms": "Add existing rooms",
@@ -768,7 +768,7 @@
     "settingsTitle": "Space Settings",
     "addSpace": "Add a Space",
     "addSpaceHint": "Group rooms together for a community, team or project.",
-    "joinHint": "Join with a space address, ID or matrix.to link."
+    "joinHint": "Paste an invite link or the address of a space or room."
   },
   "composer": {
     "typeMessage": "Type your message...",
@@ -1690,7 +1690,7 @@
       "groupNavigation": "Navigation",
       "openInbox": "Open inbox",
       "openPinned": "Open pinned messages",
-      "createJoinSpace": "Create or join a space",
+      "createJoinSpace": "Create or join a space or room",
       "navigateRooms": "Navigate between rooms",
       "navigateSpaces": "Navigate between spaces",
       "editMessage": "Navigate between messages to edit",
@@ -2059,6 +2059,7 @@
     "startDmMessage": "Start a direct message with {{user}}?",
     "startDm": "Start chat",
     "joinTitle": "Join room?",
+    "joinSpaceTitle": "Join space?",
     "joinMessage": "Join {{room}}?",
     "failed": "Couldn't open the link: {{error}}"
   },

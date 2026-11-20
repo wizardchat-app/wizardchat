@@ -3,6 +3,7 @@ package org.wizardchat.android.ui.home
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -192,10 +194,16 @@ private enum class CreateSpaceMode { choose, create, join }
 
 /** Create a new space or join one by address */
 @Composable
-fun CreateSpaceSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
+fun CreateSpaceSheet(
+    onDismiss: () -> Unit,
+    onCreated: (String) -> Unit,
+    startInJoin: Boolean = false,
+    onJoined: ((String, Boolean) -> Unit)? = null,
+    onCreateRoom: (() -> Unit)? = null,
+) {
     val session = LocalSession.current
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf(CreateSpaceMode.choose) }
+    var mode by remember { mutableStateOf(if (startInJoin) CreateSpaceMode.join else CreateSpaceMode.choose) }
     var joinTarget by remember { mutableStateOf("") }
     var isWorking by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -210,8 +218,14 @@ fun CreateSpaceSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
             isWorking = true
             errorMessage = null
             try {
-                val spaceId = session.joinTarget(joinTarget)
-                onCreated(spaceId)
+                val roomId = session.joinTarget(joinTarget)
+                if (onJoined != null) {
+                    val isSpace = runCatching { session.requireClient.roomDetails(roomId).isSpace }.getOrNull()
+                        ?: (session.roomList?.allSpaces?.any { it.id == roomId } == true)
+                    onJoined(roomId, isSpace)
+                } else {
+                    onCreated(roomId)
+                }
                 onDismiss()
             } catch (e: Exception) {
                 errorMessage = L10n.format("common.joinFailed", e.message ?: e.toString())
@@ -225,7 +239,7 @@ fun CreateSpaceSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
         SheetTopBar(
             tr(if (mode == CreateSpaceMode.join) "space.join.title" else "space.addSpace"),
             leading = {
-                if (mode == CreateSpaceMode.choose) {
+                if (mode == CreateSpaceMode.choose || startInJoin) {
                     BarTextButton(tr("common.cancel"), onDismiss)
                 } else {
                     BarTextButton(tr("common.back"), {
@@ -251,13 +265,26 @@ fun CreateSpaceSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
                     RowDivider()
                     Choice("link-simple", tr("space.join.title"), tr("space.joinHint")) { mode = CreateSpaceMode.join }
                 }
+                if (onCreateRoom != null) {
+                    Text(
+                        tr("space.join.createRoomInstead"),
+                        Modifier
+                            .padding(horizontal = WZ.Space.space6)
+                            .clickable {
+                                onDismiss()
+                                onCreateRoom()
+                            },
+                        style = wizardFont(WZ.FontSize.sm).copy(textDecoration = TextDecoration.Underline),
+                        color = theme.accent,
+                    )
+                }
             } else {
                 Column(Modifier.padding(horizontal = WZ.Space.space6), verticalArrangement = Arrangement.spacedBy(WZ.Space.space6)) {
                     Field(tr("space.join.spaceId")) {
                         WizardTextField(
                             joinTarget,
                             { joinTarget = it },
-                            "#spacename:server.org",
+                            tr("space.join.spaceIdPlaceholder"),
                             keyboardType = KeyboardType.Uri,
                             onSubmit = { if (!isWorking && joinTarget.isNotBlank()) join() },
                         )
@@ -267,6 +294,7 @@ fun CreateSpaceSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit) {
                         ::join,
                         enabled = !isWorking && joinTarget.isNotBlank(),
                     )
+                    Text(tr("space.joinHint"), style = wizardFont(WZ.FontSize.sm), color = theme.textMuted)
                 }
             }
             errorMessage?.let {

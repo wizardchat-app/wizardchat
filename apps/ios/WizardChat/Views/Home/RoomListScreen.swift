@@ -12,7 +12,7 @@ struct RoomListScreen: View {
     @ObservedObject var roomList: RoomListModel
     let selection: SidebarSelection
     var onOpenInbox: (() -> Void)?
-    var onCreateSpace: (() -> Void)?
+    var onJoin: (() -> Void)?
     var onExplore: (() -> Void)?
 
     @EnvironmentObject private var prefs: AppPreferences
@@ -72,9 +72,9 @@ struct RoomListScreen: View {
                 let recent = JumpBackInSection.recent(roomList.joinedRooms)
                 if !recent.isEmpty {
                     JumpBackInSection(rooms: recent)
-                } else if let onCreateSpace, let onExplore {
+                } else if let onJoin, let onExplore {
                     StarterActionsSection(onNewMessage: { showNewMessage = true },
-                                          onCreateSpace: onCreateSpace, onExplore: onExplore)
+                                          onJoin: onJoin, onExplore: onExplore)
                 }
             }
             if !roomList.isLoaded {
@@ -146,6 +146,9 @@ struct RoomListScreen: View {
                     }
                     if selection != .dms {
                         Button { showNewRoom = true } label: { Label(menu: String(localized: "nav.newRoom"), icon: "ph-hash-straight-regular") }
+                        if let onJoin {
+                            Button(action: onJoin) { Label(menu: String(localized: "space.join.title"), icon: "ph-link-simple-regular") }
+                        }
                     }
                     if selection != .dms {
                         Button { startNewSection(for: nil) } label: { Label(menu: String(localized: "room.sections.new"), icon: "ph-list-bullets-regular") }

@@ -8,7 +8,7 @@ import {
   DevicesIcon,
   ArrowRightIcon,
   SparkleIcon,
-  StackIcon,
+  LinkIcon,
   TrayIcon,
 } from '@phosphor-icons/react';
 import { LogoHover } from '@/app/components/AppLoading';
@@ -89,10 +89,10 @@ export function HomeOverview({ client }: { client: WizardClient }) {
             <button
               type="button"
               className={css.action}
-              onClick={() => setCreateSpaceOpen({ open: true })}
+              onClick={() => setCreateSpaceOpen({ open: true, view: 'join' })}
             >
-              <StackIcon size={24} className={css.actionIcon} />
-              {t('space.chooseCreateJoin')}
+              <LinkIcon size={24} className={css.actionIcon} />
+              {t('space.join.title')}
             </button>
             <button type="button" className={css.action} onClick={() => setExploreOpen(true)}>
               <CompassIcon size={24} className={css.actionIcon} />

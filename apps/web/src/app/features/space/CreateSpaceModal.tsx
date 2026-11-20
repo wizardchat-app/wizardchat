@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { StackIcon, StackPlusIcon, LinkIcon, CompassIcon } from '@phosphor-icons/react';
-import { createSpaceOpenAtom } from '@/app/store/atoms';
+import { createRoomOpenAtom, createSpaceOpenAtom, currentRoomIdAtom } from '@/app/store/atoms';
+import { useSwitchContext } from '@/app/pages/client/hooks/useContextNavigation';
 import { getMatrixClient, getMatrixClientOrNull } from '@/client/initMatrix';
 import { useToast } from '@/app/hooks/useToast';
 import { getErrorMessage } from '@/util/error';
@@ -45,9 +47,13 @@ export function CreateSpaceModal() {
   const { t } = useTranslation();
   const [state, setState] = useAtom(createSpaceOpenAtom);
   const setExploreOpen = useSetAtom(exploreOpenAtom);
+  const setCurrentRoomId = useSetAtom(currentRoomIdAtom);
+  const setCreateRoomOpen = useSetAtom(createRoomOpenAtom);
+  const switchContext = useSwitchContext();
+  const navigate = useNavigate();
   const toast = useToast();
 
-  const { open, parentSpaceId, parentSpaceName } = state;
+  const { open, parentSpaceId, parentSpaceName, view: initialView } = state;
 
   const [view, setView] = useState<View>('choose');
   const [name, setName] = useState('');
@@ -63,7 +69,8 @@ export function CreateSpaceModal() {
   // When creating a subspace, skip the create/join chooser and go straight to the create form.
   useEffect(() => {
     if (open && parentSpaceId) setView('create');
-  }, [open, parentSpaceId]);
+    else if (open && initialView === 'join') setView('join');
+  }, [open, parentSpaceId, initialView]);
 
   const resetAndClose = () => {
     setState({ open: false });
@@ -131,10 +138,21 @@ export function CreateSpaceModal() {
       const domain = client.userId()?.split(':').slice(1).join(':') ?? null;
       const derived = viaServersFor(target.roomIdOrAlias, domain).viaServers;
       const viaServers = target.viaServers.length > 0 ? target.viaServers : derived;
-      await client.join(target.roomIdOrAlias, viaServers.length > 0 ? viaServers : null);
+      const roomId = await client.join(
+        target.roomIdOrAlias,
+        viaServers.length > 0 ? viaServers : null
+      );
+      const details = await client.roomDetails(roomId).catch(() => null);
       resetAndClose();
+      const id = encodeURIComponent(roomId);
+      if (details?.isSpace) {
+        navigate(`/space/${id}`);
+      } else {
+        setCurrentRoomId(roomId);
+        navigate(details?.isDirect ? `/dm/${id}` : `/r/${id}`);
+      }
     } catch (err) {
-      toast.error(t('space.join.failed', { error: getErrorMessage(err) }));
+      toast.error(t('common.joinFailed', { error: getErrorMessage(err) }));
     } finally {
       setJoinLoading(false);
     }
@@ -216,6 +234,17 @@ export function CreateSpaceModal() {
             <LinkIcon size={14} className={css.iconMargin} />
             {t('space.join.title')}
           </Button>
+          <button
+            type="button"
+            className={css.textLink}
+            onClick={() => {
+              resetAndClose();
+              switchContext('home', null);
+              setCreateRoomOpen({ open: true, spaceId: null, spaceName: null });
+            }}
+          >
+            {t('space.join.createRoomInstead')}
+          </button>
         </div>
       )}
 

@@ -2,6 +2,7 @@ package org.wizardchat.android.ui.home
 
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import org.wizardchat.android.ui.people.CreateRoomSheet
 import org.wizardchat.android.matrix.SessionStore
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -131,6 +132,8 @@ fun MainScreen(roomList: RoomListModel) {
     val paths = remember { mutableStateMapOf<Tab, List<Route>>() }
     var showInbox by remember { mutableStateOf(false) }
     var showCreateSpace by remember { mutableStateOf(false) }
+    var createSpaceStartsInJoin by remember { mutableStateOf(false) }
+    var showNewRoom by remember { mutableStateOf(false) }
     var showExplore by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var whatsNew by remember { mutableStateOf<org.wizardchat.android.ui.settings.WhatsNew.Entry?>(null) }
@@ -253,7 +256,14 @@ fun MainScreen(roomList: RoomListModel) {
                         paths[tab].orEmpty(),
                         roomList,
                         onOpenInbox = { showInbox = true },
-                        onCreateSpace = { showCreateSpace = true },
+                        onCreateSpace = {
+                            createSpaceStartsInJoin = false
+                            showCreateSpace = true
+                        },
+                        onJoin = {
+                            createSpaceStartsInJoin = true
+                            showCreateSpace = true
+                        },
                         onExplore = { showExplore = true },
                     )
                 }
@@ -297,7 +307,20 @@ fun MainScreen(roomList: RoomListModel) {
             }
         }
         if (showInbox) InboxSheet(roomList, { showInbox = false }, onOpenRoom = ::show, onOpenSpace = ::showSpace, onOpenThread = ::showThread)
-        if (showCreateSpace) CreateSpaceSheet({ showCreateSpace = false }, onCreated = ::showSpace)
+        if (showCreateSpace) {
+            CreateSpaceSheet(
+                { showCreateSpace = false },
+                onCreated = ::showSpace,
+                startInJoin = createSpaceStartsInJoin,
+                onJoined = { id, isSpace -> if (isSpace) showSpace(id) else show(id) },
+                onCreateRoom = {
+                    tab = Tab.home
+                    paths[Tab.home] = emptyList()
+                    showNewRoom = true
+                },
+            )
+        }
+        if (showNewRoom) CreateRoomSheet(null, onDismiss = { showNewRoom = false })
         if (showExplore) {
             ExploreSheet(roomList, { showExplore = false }) { roomId ->
                 if (roomList.room(roomId) != null) show(roomId) else showSpace(roomId)
@@ -316,6 +339,7 @@ private fun TabContent(
     roomList: RoomListModel,
     onOpenInbox: () -> Unit,
     onCreateSpace: () -> Unit,
+    onJoin: () -> Unit,
     onExplore: () -> Unit,
 ) {
     if (tab == Tab.me) {
@@ -340,11 +364,11 @@ private fun TabContent(
         stateHolder.SaveableStateProvider(route?.toString() ?: "root-$tab") {
             when (route) {
                 null -> when (tab) {
-                    Tab.home -> RoomListScreen(roomList, SidebarSelection.Home, onOpenInbox, onCreateSpace, onExplore)
+                    Tab.home -> RoomListScreen(roomList, SidebarSelection.Home, onOpenInbox, onJoin, onExplore)
                     Tab.dms -> RoomListScreen(roomList, SidebarSelection.Dms, onOpenInbox)
                     else -> SpacesScreen(roomList, onCreateSpace = onCreateSpace, onExplore = onExplore)
                 }
-                is Route.Space -> RoomListScreen(roomList, SidebarSelection.Space(route.id), null)
+                is Route.Space -> RoomListScreen(roomList, SidebarSelection.Space(route.id), null, onJoin)
                 is Route.Room, is Route.Chat -> {
                     val id = if (route is Route.Room) route.id else (route as Route.Chat).id
                     val room = roomList.room(id)

@@ -63,14 +63,14 @@ struct JumpBackInSection: View {
 
 struct StarterActionsSection: View {
     let onNewMessage: () -> Void
-    let onCreateSpace: () -> Void
+    let onJoin: () -> Void
     let onExplore: () -> Void
     @Environment(\.theme) private var theme
 
     var body: some View {
         HStack(spacing: WZ.Space.space4) {
             tile("chat-circle", "common.newDm", onNewMessage)
-            tile("stack", "nav.createOrJoin", onCreateSpace)
+            tile("link-simple", "space.join.title", onJoin)
             tile("compass", "explore.title", onExplore)
         }
         .listRowBackground(Color.clear)

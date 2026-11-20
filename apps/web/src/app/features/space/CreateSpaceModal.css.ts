@@ -67,3 +67,21 @@ export const hint = style({
 export const iconMargin = style({
   marginRight: '6px',
 });
+
+export const textLink = style({
+  alignSelf: 'center',
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  font: 'inherit',
+  fontSize: '0.85rem',
+  color: vars.color.link,
+  textDecoration: 'underline',
+  ':hover': { color: vars.color.textPrimary },
+  ':focus-visible': {
+    outline: `2px solid ${vars.color.accent}`,
+    outlineOffset: '2px',
+    borderRadius: '2px',
+  },
+});

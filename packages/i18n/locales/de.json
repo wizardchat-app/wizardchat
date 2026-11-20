@@ -739,12 +739,12 @@
       "access": "Wer kann diesem Space beitreten?"
     },
     "join": {
-      "title": "Space beitreten",
+      "title": "Space oder Raum beitreten",
       "titleShort": "Beitreten",
-      "spaceId": "Space-ID, Alias oder Link",
-      "spaceIdPlaceholder": "#spacename:server.org, !abc123:server.org oder matrix.to-Link",
-      "failed": "Fehler beim Beitreten des Spaces: {{error}}",
-      "discoverSpaces": "Keinen Link? Spaces entdecken"
+      "spaceId": "Adresse oder Link",
+      "spaceIdPlaceholder": "#name:server.org, !id:server.org oder matrix.to-Link",
+      "discoverSpaces": "Keinen Link? Öffentliche Spaces und Räume durchsuchen",
+      "createRoomInstead": "Lieber einen Raum erstellen?"
     },
     "settings": {
       "general": {
@@ -756,7 +756,7 @@
     "overview": "Space-Übersicht",
     "setSuggested": "Als vorgeschlagen markieren",
     "unsetSuggested": "Vorschlag entfernen",
-    "chooseCreateJoin": "Space erstellen oder beitreten",
+    "chooseCreateJoin": "Erstellen oder beitreten",
     "suggested": "Vorgeschlagen",
     "createSubspace": "Unterraum erstellen",
     "addExistingRooms": "Vorhandene Räume hinzufügen",
@@ -768,7 +768,7 @@
     "settingsTitle": "Space-Einstellungen",
     "addSpace": "Space hinzufügen",
     "addSpaceHint": "Fasse Räume für eine Community, ein Team oder ein Projekt zusammen.",
-    "joinHint": "Tritt mit einer Space-Adresse, ID oder einem matrix.to-Link bei."
+    "joinHint": "Füge einen Einladungslink oder die Adresse eines Space oder Raums ein."
   },
   "composer": {
     "typeMessage": "Schreibe eine Nachricht...",
@@ -1690,7 +1690,7 @@
       "groupNavigation": "Navigation",
       "openInbox": "Posteingang öffnen",
       "openPinned": "Angeheftete Nachrichten öffnen",
-      "createJoinSpace": "Space erstellen oder beitreten",
+      "createJoinSpace": "Space oder Raum erstellen oder beitreten",
       "navigateRooms": "Zwischen Räumen navigieren",
       "navigateSpaces": "Zwischen Spaces navigieren",
       "editMessage": "Zwischen Nachrichten zum Bearbeiten navigieren",
@@ -2059,6 +2059,7 @@
     "startDmMessage": "Direktnachricht mit {{user}} starten?",
     "startDm": "Chat starten",
     "joinTitle": "Raum beitreten?",
+    "joinSpaceTitle": "Space beitreten?",
     "joinMessage": "{{room}} beitreten?",
     "failed": "Link konnte nicht geöffnet werden: {{error}}"
   },

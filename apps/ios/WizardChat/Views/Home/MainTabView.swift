@@ -18,6 +18,9 @@ struct MainTabView: View {
     @State private var profileIcon: UIImage?
     @State private var settingsPopToRoot = 0
     @State private var showCreateSpace = false
+    @State private var createSpaceStartsInJoin = false
+    @State private var showNewRoom = false
+    @State private var newRoomAfterSheet = false
     @State private var showInbox = false
     @State private var showExplore = false
     @State private var whatsNew: WhatsNew.Entry?
@@ -120,9 +123,20 @@ struct MainTabView: View {
         .sheet(isPresented: $showInbox) {
             InboxView(roomList: roomList, onOpenRoom: show, onOpenSpace: showSpace, onOpenThread: showThread)
         }
-        .sheet(isPresented: $showCreateSpace) {
-            CreateSpaceView { spaceId in showSpace(spaceId) }
+        .sheet(isPresented: $showCreateSpace, onDismiss: {
+            guard newRoomAfterSheet else { return }
+            newRoomAfterSheet = false
+            showNewRoom = true
+        }) {
+            CreateSpaceView(startInJoin: createSpaceStartsInJoin, onDone: showSpace,
+                            onJoined: { id, isSpace in if isSpace { showSpace(id) } else { show(id) } },
+                            onCreateRoom: {
+                                tab = .home
+                                paths[.home] = []
+                                newRoomAfterSheet = true
+                            })
         }
+        .sheet(isPresented: $showNewRoom) { CreateRoomView(spaceId: nil) }
         .sheet(isPresented: $showExplore) {
             ExploreView(roomList: roomList) { roomId in
                 if roomList.room(id: roomId) != nil { show(roomId) } else { showSpace(roomId) }
@@ -186,9 +200,9 @@ struct MainTabView: View {
                 Group {
                     switch item {
                     case .home: RoomListScreen(roomList: roomList, selection: .home, onOpenInbox: { showInbox = true },
-                                               onCreateSpace: { showCreateSpace = true }, onExplore: { showExplore = true })
+                                               onJoin: openJoin, onExplore: { showExplore = true })
                     case .dms: RoomListScreen(roomList: roomList, selection: .dms) { showInbox = true }
-                    default: SpacesScreen(roomList: roomList, onCreateSpace: { showCreateSpace = true },
+                    default: SpacesScreen(roomList: roomList, onCreateSpace: openCreateOrJoin,
                                           onExplore: { showExplore = true })
                     }
                 }
@@ -208,7 +222,7 @@ struct MainTabView: View {
                         }
                         .toolbar(.hidden, for: .tabBar)
                     case .space(let id):
-                        RoomListScreen(roomList: roomList, selection: .space(id))
+                        RoomListScreen(roomList: roomList, selection: .space(id), onJoin: openJoin)
                     case .thread(let id, let root):
                         Group {
                             if let room = roomList.room(id: id) {
@@ -275,6 +289,16 @@ struct MainTabView: View {
     private func showThread(_ roomId: String, root: String) {
         show(roomId)
         paths[tab, default: []].append(.thread(roomId, root))
+    }
+
+    private func openJoin() {
+        createSpaceStartsInJoin = true
+        showCreateSpace = true
+    }
+
+    private func openCreateOrJoin() {
+        createSpaceStartsInJoin = false
+        showCreateSpace = true
     }
 
     private func showSpace(_ spaceId: String) {

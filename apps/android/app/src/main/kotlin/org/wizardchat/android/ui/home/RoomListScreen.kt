@@ -99,7 +99,7 @@ fun RoomListScreen(
     roomList: RoomListModel,
     selection: SidebarSelection,
     onOpenInbox: (() -> Unit)?,
-    onCreateSpace: (() -> Unit)? = null,
+    onJoin: (() -> Unit)? = null,
     onExplore: (() -> Unit)? = null,
 ) {
     val prefs = LocalPrefs.current
@@ -173,6 +173,7 @@ fun RoomListScreen(
                     buildList {
                         if (spaceId == null) add(MenuItem(tr("common.newDm"), "chat-circle") { showNewMessage = true })
                         if (selection != SidebarSelection.Dms) add(MenuItem(tr("nav.newRoom"), "hash-straight") { showNewRoom = true })
+                        if (selection != SidebarSelection.Dms && onJoin != null) add(MenuItem(tr("space.join.title"), "link-simple", onClick = onJoin))
                         if (selection != SidebarSelection.Dms) {
                             add(MenuItem(tr("room.sections.new"), "list-bullets") { newSectionFor = "" })
                             add(MenuItem(tr("nav.reorderRooms"), "caret-up-down") { reordering = true })
@@ -208,9 +209,9 @@ fun RoomListScreen(
                     val recent = recentRooms(roomList.joinedRooms)
                     if (recent.isNotEmpty()) {
                         item(key = "jump-back-in") { JumpBackInSection(recent) }
-                    } else if (onCreateSpace != null && onExplore != null) {
+                    } else if (onJoin != null && onExplore != null) {
                         item(key = "starter-actions") {
-                            StarterActionsSection({ showNewMessage = true }, onCreateSpace, onExplore)
+                            StarterActionsSection({ showNewMessage = true }, onJoin, onExplore)
                         }
                     }
                 }

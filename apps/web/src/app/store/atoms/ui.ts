@@ -90,6 +90,7 @@ export interface CreateSpaceState {
   open: boolean;
   parentSpaceId?: string | null;
   parentSpaceName?: string | null;
+  view?: 'join';
 }
 export const createSpaceOpenAtom = atom<CreateSpaceState>({ open: false });
 export interface InviteModalState {

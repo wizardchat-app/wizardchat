@@ -103,13 +103,13 @@ fun JumpBackInSection(rooms: List<RoomSummary>) {
 }
 
 @Composable
-fun StarterActionsSection(onNewMessage: () -> Unit, onCreateSpace: () -> Unit, onExplore: () -> Unit) {
+fun StarterActionsSection(onNewMessage: () -> Unit, onJoin: () -> Unit, onExplore: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = WZ.Space.space6, vertical = WZ.Space.space2),
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
         StarterTile("chat-circle", tr("common.newDm"), onNewMessage, Modifier.weight(1f))
-        StarterTile("stack", tr("nav.createOrJoin"), onCreateSpace, Modifier.weight(1f))
+        StarterTile("link-simple", tr("space.join.title"), onJoin, Modifier.weight(1f))
         StarterTile("compass", tr("explore.title"), onExplore, Modifier.weight(1f))
     }
 }

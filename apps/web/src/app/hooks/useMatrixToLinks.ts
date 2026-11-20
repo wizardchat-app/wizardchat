@@ -92,7 +92,7 @@ export function useMatrixToLinks(client: WizardClient | null): void {
         if (!roomId) {
           const known = roomsRef.current.find((r) => r.id === targetId);
           const ok = await confirm({
-            title: t('link.joinTitle'),
+            title: known?.isSpace ? t('link.joinSpaceTitle') : t('link.joinTitle'),
             message: t('link.joinMessage', { room: known?.name || roomIdOrAlias }),
             confirmLabel: t('common.join'),
           });
