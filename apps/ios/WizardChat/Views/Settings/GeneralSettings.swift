@@ -126,6 +126,8 @@ struct AppearanceSettings: View {
                 ToggleRow(label: "settings.appearance.showRoomAvatars", isOn: $prefs.showRoomAvatars)
                 SettingsDivider()
                 ToggleRow(label: "settings.appearance.showLastMessage", isOn: $prefs.showLastMessage)
+                SettingsDivider()
+                ToggleRow(label: "settings.appearance.mergeHomeAndDms", isOn: $prefs.mergeHomeAndDms)
             }
         }
     }

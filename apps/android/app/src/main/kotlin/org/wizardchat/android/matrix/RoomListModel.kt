@@ -67,6 +67,9 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
         private set
     var homeOrder by mutableStateOf(listOf<String>())
         private set
+    var sectionOrder by mutableStateOf(listOf<String>())
+        private set
+    private val mergesDms get() = WizardApplication.instance.prefs.mergeHomeAndDms
 
     private var rooms = mutableListOf<RoomSummary>()
     private val spaceList = mutableListOf<SpaceSummary>()
@@ -77,6 +80,7 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
         subscriptions = listOf(
             client.watchRooms(5000) { diffs -> apply(diffs) },
             client.watchRoomSections { sections = it },
+            client.watchRoomSectionOrder { sectionOrder = it },
             client.watchRoomAccountData("m.tag") { pairs -> applyTags(pairs) },
             client.watchAccountData(HOME_ORDER_EVENT) { content ->
                 homeOrder = ((content as? JsonObject)?.get("rooms") as? JsonArray)
@@ -152,7 +156,7 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
     fun rooms(selection: SidebarSelection): List<RoomSummary> = when (selection) {
         SidebarSelection.Home -> {
             val inSpaces = spaceRooms.values.flatten().toSet()
-            joinedRooms.filter { !it.isDirect && it.id !in inSpaces }
+            joinedRooms.filter { if (it.isDirect) mergesDms else it.id !in inSpaces }
         }
         SidebarSelection.Dms -> joinedRooms.filter { it.isDirect }
         is SidebarSelection.Space -> {
@@ -182,6 +186,23 @@ class RoomListModel(val client: WizardClient, private val scope: CoroutineScope)
             ).map { it.value }.toMutableList()
         }
         val visible = sections.filter { it.tag in bySection || it.spaceId == context }
+        if (selection == SidebarSelection.Home && mergesDms) {
+            val dms = rest.filter { it.isDirect }
+            val others = rest.filter { !it.isDirect }
+            val order = sectionOrder.ifEmpty { listOf(PEOPLE_ANCHOR) + visible.map { it.tag } + ROOMS_ANCHOR }
+            return buildList {
+                if (favourites.isNotEmpty()) add(RoomGroup(RoomGroup.Kind.Favourites, favourites))
+                for (anchor in order) {
+                    when (anchor) {
+                        PEOPLE_ANCHOR -> add(RoomGroup(RoomGroup.Kind.Dms, dms))
+                        ROOMS_ANCHOR -> add(RoomGroup(RoomGroup.Kind.Rooms, others))
+                        else -> visible.firstOrNull { it.tag == anchor }?.let {
+                            add(RoomGroup(RoomGroup.Kind.Section(it), bySection[it.tag].orEmpty()))
+                        }
+                    }
+                }
+            }
+        }
         fun block(above: Boolean) = visible.filter { it.aboveRooms == above }
             .map { RoomGroup(RoomGroup.Kind.Section(it), bySection[it.tag].orEmpty()) }
         return buildList {
@@ -274,6 +295,7 @@ data class RoomGroup(val kind: Kind, val rooms: List<RoomSummary>) {
         data object Favourites : Kind
         data class Section(val section: RoomSection) : Kind
         data object Rooms : Kind
+        data object Dms : Kind
     }
 
     val id: String
@@ -281,9 +303,11 @@ data class RoomGroup(val kind: Kind, val rooms: List<RoomSummary>) {
             Kind.Favourites -> "favourites"
             is Kind.Section -> kind.section.tag
             Kind.Rooms -> ROOMS_ANCHOR
+            Kind.Dms -> PEOPLE_ANCHOR
         }
 }
 
 const val ROOMS_ANCHOR = "chats"
+const val PEOPLE_ANCHOR = "im.vector.fake.direct"
 const val HOME_SPACE = "home-space"
 private const val HOME_ORDER_EVENT = "org.wizardchat.home_order"

@@ -3,6 +3,7 @@ import { useAtomValue } from 'jotai';
 import type { InviteInfo, RoomSummary, SpaceNode } from '@wizardchat/core';
 import { useHomeOrder, sortByHomeOrder } from './roomOrder';
 import { pinnedSubSpacesAtom } from '@/app/store/atoms/rooms';
+import { mergeHomeAndDmsAtom } from '@/app/store/atoms/settings';
 import { callRoomIdAtom } from '@/app/store/atoms/call';
 import {
   childrenOf,
@@ -108,6 +109,7 @@ export function useSpaces() {
   const graph = useSpaceGraph();
   const topLevel = useJoinedSpaces();
   const pinnedSubSpacesArr = useAtomValue(pinnedSubSpacesAtom);
+  const mergeHomeAndDms = useAtomValue(mergeHomeAndDmsAtom);
   const callRoomId = useAtomValue(callRoomIdAtom);
 
   const pinnedJoined = useMemo(() => {
@@ -193,12 +195,12 @@ export function useSpaces() {
 
     return {
       spaces,
-      homeHasNotif,
-      homeHasMention,
+      homeHasNotif: homeHasNotif || (mergeHomeAndDms && dmsHasNotif),
+      homeHasMention: homeHasMention || (mergeHomeAndDms && dmsHasMention),
       dmsHasNotif,
       dmsHasMention,
-      homeHasCall,
+      homeHasCall: homeHasCall || (mergeHomeAndDms && dmsHasCall),
       dmsHasCall,
     };
-  }, [allRooms, graph, topLevel, pinnedJoined, spaceInfo, callRoomId]);
+  }, [allRooms, graph, topLevel, pinnedJoined, spaceInfo, callRoomId, mergeHomeAndDms]);
 }

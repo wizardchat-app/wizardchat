@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { mergeHomeAndDmsAtom } from '@/app/store/atoms/settings';
 import {
   ChatCircleIcon,
   HouseIcon,
@@ -68,6 +69,7 @@ export function MobileTabBar() {
   const client = getMatrixClientOrNull();
   const userId = useAtomValue(userIdAtom);
   const sidebarView = useAtomValue(sidebarViewAtom);
+  const mergeHomeAndDms = useAtomValue(mergeHomeAndDmsAtom);
   const currentSpaceId = useAtomValue(currentSpaceIdAtom);
   const [lastSpaceId, setLastSpaceId] = useAtom(mobileLastSpaceIdAtom);
   const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
@@ -126,16 +128,18 @@ export function MobileTabBar() {
         call={homeHasCall}
         onClick={() => open('home', null)}
       />
-      <Tab
-        id="dms"
-        label={t('nav.dms')}
-        active={activeTab === 'dms'}
-        icon={<ChatCircleIcon size={22} weight={activeTab === 'dms' ? 'fill' : 'regular'} />}
-        notif={dmsHasNotif}
-        mention={dmsHasMention}
-        call={dmsHasCall}
-        onClick={() => open('dms', null)}
-      />
+      {!mergeHomeAndDms && (
+        <Tab
+          id="dms"
+          label={t('nav.dms')}
+          active={activeTab === 'dms'}
+          icon={<ChatCircleIcon size={22} weight={activeTab === 'dms' ? 'fill' : 'regular'} />}
+          notif={dmsHasNotif}
+          mention={dmsHasMention}
+          call={dmsHasCall}
+          onClick={() => open('dms', null)}
+        />
+      )}
       <Tab
         id="spaces"
         label={t('nav.spaces')}

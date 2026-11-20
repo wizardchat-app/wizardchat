@@ -24,6 +24,7 @@ const SYNCED_PREFERENCES = {
   prettifyLinks: isBoolean,
   markdown: isBoolean,
   showRoomAvatars: isBoolean,
+  mergeHomeAndDms: isBoolean,
   showPresenceDots: isBoolean,
   colorUsernames: isBoolean,
   groupImages: isBoolean,

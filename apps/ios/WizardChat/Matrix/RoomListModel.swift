@@ -23,6 +23,7 @@ struct RoomGroup: Identifiable {
         case favourites
         case section(RoomSection)
         case rooms
+        case dms
     }
 
     let kind: Kind
@@ -35,6 +36,7 @@ struct RoomGroup: Identifiable {
         case .favourites: "favourites"
         case .section(let section): section.tag
         case .rooms: RoomListModel.roomsAnchor
+        case .dms: RoomListModel.peopleAnchor
         }
     }
 }
@@ -58,12 +60,15 @@ final class RoomListModel: ObservableObject {
     @Published private(set) var spaceRooms: [String: Set<String>] = [:]
     @Published private(set) var isLoaded = false
     @Published private(set) var sections: [RoomSection] = []
+    @Published private(set) var sectionOrder: [String] = []
+    private var mergesDms: Bool { prefs?.mergeHomeAndDms ?? false }
     @Published private(set) var roomTags: [String: Set<String>] = [:]
     @Published private(set) var favouriteOrder: [String: Double] = [:]
     @Published private(set) var homeOrder: [String] = []
     weak var prefs: AppPreferences?
 
     static let roomsAnchor = "chats"
+    nonisolated static let peopleAnchor = "im.vector.fake.direct"
     static let homeSpace = "home-space"
     private static let homeOrderEvent = "org.wizardchat.home_order"
 
@@ -85,6 +90,9 @@ final class RoomListModel: ObservableObject {
             },
             client.watchRoomSections { [weak self] sections in
                 MainActor.assumeIsolated { self?.sections = sections }
+            },
+            client.watchRoomSectionOrder { [weak self] order in
+                MainActor.assumeIsolated { self?.sectionOrder = order }
             },
             client.watchRoomAccountData(eventType: "m.tag") { [weak self] pairs in
                 MainActor.assumeIsolated { self?.applyTags(pairs) }
@@ -188,7 +196,7 @@ final class RoomListModel: ObservableObject {
         switch selection {
         case .home:
             let inSpaces = spaceRooms.values.reduce(into: Set<String>()) { $0.formUnion($1) }
-            return joinedRooms.filter { !$0.isDirect && !inSpaces.contains($0.id) }
+            return joinedRooms.filter { $0.isDirect ? mergesDms : !inSpaces.contains($0.id) }
         case .dms:
             return joinedRooms.filter(\.isDirect)
         case .space(let id):
@@ -226,6 +234,22 @@ final class RoomListModel: ObservableObject {
             }.map(\.element)
         }
         let visible = sections.filter { bySection[$0.tag] != nil || $0.spaceId == context }
+        if selection == .home, mergesDms {
+            let order = sectionOrder.isEmpty ? [Self.peopleAnchor] + visible.map(\.tag) + [Self.roomsAnchor] : sectionOrder
+            var groups: [RoomGroup] = []
+            if !favourites.isEmpty { groups.append(RoomGroup(kind: .favourites, rooms: favourites)) }
+            for anchor in order {
+                switch anchor {
+                case Self.peopleAnchor: groups.append(RoomGroup(kind: .dms, rooms: rest.filter(\.isDirect)))
+                case Self.roomsAnchor: groups.append(RoomGroup(kind: .rooms, rooms: rest.filter { !$0.isDirect }))
+                default:
+                    if let section = visible.first(where: { $0.tag == anchor }) {
+                        groups.append(RoomGroup(kind: .section(section), rooms: bySection[section.tag] ?? []))
+                    }
+                }
+            }
+            return groups
+        }
         func block(above: Bool) -> [RoomGroup] {
             visible.filter { $0.aboveRooms == above }.map { RoomGroup(kind: .section($0), rooms: bySection[$0.tag] ?? []) }
         }

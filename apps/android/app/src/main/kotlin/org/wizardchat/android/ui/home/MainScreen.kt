@@ -143,7 +143,7 @@ fun MainScreen(roomList: RoomListModel) {
         val room = roomList.room(roomId)
         val space = roomList.spaceContaining(roomId)
         when {
-            room?.isDirect == true -> {
+            room?.isDirect == true && !prefs.mergeHomeAndDms -> {
                 tab = Tab.dms
                 paths[Tab.dms] = listOf(Route.Room(roomId))
             }
@@ -166,6 +166,10 @@ fun MainScreen(roomList: RoomListModel) {
     fun showSpace(spaceId: String) {
         tab = Tab.spaces
         paths[Tab.spaces] = listOf(Route.Space(spaceId))
+    }
+
+    LaunchedEffect(prefs.mergeHomeAndDms) {
+        if (prefs.mergeHomeAndDms && tab == Tab.dms) tab = Tab.home
     }
 
     fun select(item: Tab) {
@@ -372,9 +376,10 @@ private fun TabIsland(roomList: RoomListModel, selected: Tab, onSelect: (Tab) ->
     }
     Surface(modifier.fillMaxWidth(), shape = CircleShape, color = theme.bgTertiary.copy(alpha = 0.96f), shadowElevation = 8.dp) {
         BoxWithConstraints(Modifier.padding(WZ.Space.space2)) {
-            val itemWidth = maxWidth / Tab.entries.size
+            val tabs = if (LocalPrefs.current.mergeHomeAndDms) Tab.entries - Tab.dms else Tab.entries
+            val itemWidth = maxWidth / tabs.size
             val indicator by animateDpAsState(
-                itemWidth * Tab.entries.indexOf(selected),
+                itemWidth * tabs.indexOf(selected).coerceAtLeast(0),
                 spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
                 label = "tab",
             )
@@ -390,7 +395,9 @@ private fun TabIsland(roomList: RoomListModel, selected: Tab, onSelect: (Tab) ->
             }
             Row {
                 TabItem(Tab.home, selected, tr("nav.home"), "house", roomList.unreadState(SidebarSelection.Home), onSelect)
-                TabItem(Tab.dms, selected, tr("search.switcher.prefixDms"), "chat-circle", roomList.unreadState(SidebarSelection.Dms), onSelect)
+                if (Tab.dms in tabs) {
+                    TabItem(Tab.dms, selected, tr("search.switcher.prefixDms"), "chat-circle", roomList.unreadState(SidebarSelection.Dms), onSelect)
+                }
                 TabItem(Tab.spaces, selected, tr("room.settings.permissions.groups.spaces"), "stack", spacesUnread, onSelect)
                 val isSelected = selected == Tab.me
                 val youLabel = tr("nav.you")

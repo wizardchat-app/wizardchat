@@ -49,11 +49,14 @@ export interface ViewMenuDeps {
   onNewDm?: () => void;
   onCreateRoom?: () => void;
   onCreateSection?: () => void;
+  includeDms?: boolean;
 }
 
 export function buildHomeMenu(deps: ViewMenuDeps): ContextMenuItem[] {
   const { t, client, rooms, graph, sendReadReceipts, onCreateRoom, onCreateSection } = deps;
-  const homeIds = getHomeRoomIds(rooms, graph);
+  const homeIds = deps.includeDms
+    ? [...getHomeRoomIds(rooms, graph), ...getDmRoomIds(rooms)]
+    : getHomeRoomIds(rooms, graph);
   const items: ContextMenuItem[] = [];
   items.push({
     label: t('common.markRead'),
@@ -67,6 +70,13 @@ export function buildHomeMenu(deps: ViewMenuDeps): ContextMenuItem[] {
       label: t('room.create.title'),
       icon: <PlusIcon size={14} />,
       onClick: onCreateRoom,
+    });
+  }
+  if (deps.includeDms && deps.onNewDm) {
+    items.push({
+      label: t('room.dm.newDm'),
+      icon: <ChatCircleIcon size={14} />,
+      onClick: deps.onNewDm,
     });
   }
   if (onCreateSection) {

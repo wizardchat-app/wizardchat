@@ -32,6 +32,7 @@ export interface ReorderRow {
   group: string | null;
   section: string | null;
   anchor?: string;
+  blockedGroup?: string;
 }
 
 interface InsertLine {
@@ -144,7 +145,9 @@ export function RoomReorderProvider({
           line: { id: to.id, position: a < b ? 'after' : 'before' },
         };
       }
-      if (to.group && to.group !== from.group) return { kind: 'move', group: to.group };
+      if (to.group && to.group !== from.group && to.group !== from.blockedGroup) {
+        return { kind: 'move', group: to.group };
+      }
       return null;
     },
     [byId, rows, anchors, anchorOf, anchorRow]

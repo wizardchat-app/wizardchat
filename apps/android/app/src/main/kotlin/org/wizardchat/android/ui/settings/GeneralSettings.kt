@@ -211,6 +211,8 @@ internal fun AppearanceSettings(onBack: () -> Unit) {
             ToggleRow(tr("settings.appearance.showRoomAvatars"), prefs.showRoomAvatars, { prefs.showRoomAvatars = it })
             SettingsDivider()
             ToggleRow(tr("settings.appearance.showLastMessage"), prefs.showLastMessage, { prefs.showLastMessage = it })
+            SettingsDivider()
+            ToggleRow(tr("settings.appearance.mergeHomeAndDms"), prefs.mergeHomeAndDms, { prefs.mergeHomeAndDms = it })
         }
     }
 }

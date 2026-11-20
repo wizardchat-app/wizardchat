@@ -8,6 +8,7 @@ struct MainTabView: View {
     @EnvironmentObject private var notifier: MessageNotifier
     @EnvironmentObject private var calls: CallManager
     @EnvironmentObject private var session: MatrixSession
+    @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.theme) private var theme
 
@@ -26,7 +27,9 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: Binding(get: { tab }, set: select)) {
             tabItem(.home, title: "nav.home", icon: "house", unread: roomList.unreadState(of: .home))
-            tabItem(.dms, title: "search.switcher.prefixDms", icon: "chat-circle", unread: roomList.unreadState(of: .dms))
+            if !prefs.mergeHomeAndDms {
+                tabItem(.dms, title: "search.switcher.prefixDms", icon: "chat-circle", unread: roomList.unreadState(of: .dms))
+            }
             tabItem(.spaces, title: "room.settings.permissions.groups.spaces", icon: "stack", unread: spacesUnread)
             SwiftUI.Tab(value: Tab.me) {
                 tabContent(.me).tint(theme.control)
@@ -79,6 +82,9 @@ struct MainTabView: View {
         .onChange(of: totalUnread, initial: true) { _, count in notifier.updateBadge(count) }
         .onChange(of: readRooms, initial: true) { _, _ in notifier.clearRead(roomList.joinedRooms) }
         .onChange(of: roomList.joinedRooms.map(\.id), initial: true) { _, _ in ShareSender.publishRooms(roomList) }
+        .onChange(of: prefs.mergeHomeAndDms, initial: true) { _, merged in
+            if merged, tab == .dms { tab = .home }
+        }
         .fullScreenCover(isPresented: Binding(get: {
             session.needsEncryptionSetup || encryptionSetup.recoveryKey != nil
                 || (session.needsVerification && skippedVerificationDevice != (session.deviceId ?? ""))
@@ -254,7 +260,7 @@ struct MainTabView: View {
 
     private func show(_ roomId: String) {
         let room = roomList.room(id: roomId)
-        if room?.isDirect == true {
+        if room?.isDirect == true, !prefs.mergeHomeAndDms {
             tab = .dms
             paths[.dms] = [.room(roomId)]
         } else if let space = roomList.space(containing: roomId) {

@@ -19,6 +19,7 @@ import {
   markRoomLeftAtom,
   roomsAtom,
   roomSectionsAtom,
+  roomSectionOrderAtom,
   roomsByIdAtom,
   roomTagNamesAtom,
   spaceGraphAtom,
@@ -56,6 +57,7 @@ export function useRoom(roomId: string | null | undefined): RoomSummary | null {
 
 /** The room list sections in list order, live */
 export const useRoomSections = () => useAtomValue(roomSectionsAtom);
+export const useRoomSectionOrder = () => useAtomValue(roomSectionOrderAtom);
 /** Each room's tag names, live */
 export const useRoomTagNames = () => useAtomValue(roomTagNamesAtom);
 

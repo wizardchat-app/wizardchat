@@ -2313,6 +2313,14 @@ export class WizardClient extends Remote {
     return runtime.watch('WizardClient.watchRoomSections', this, [listener], Subscription);
   }
 
+  /**
+   * Calls `listener` with the whole room list order (section tags, `chats` and
+   * `im.vector.fake.direct`), now and on every change.
+   */
+  watchRoomSectionOrder(listener: (value: Array<string>) => void): Subscription {
+    return runtime.watch('WizardClient.watchRoomSectionOrder', this, [listener], Subscription);
+  }
+
   /** Adds a room list section (Element compatible); returns its tag. */
   createRoomSection(name: string, spaceId: string): Promise<string> {
     return runtime.call('WizardClient.createRoomSection', this, [name, spaceId]) as Promise<string>;

@@ -39,6 +39,7 @@ class AppPreferences(context: Context) {
     var themedAppIcon by pref(defaults.getBoolean("themedAppIcon", false)) { putBoolean("themedAppIcon", it) }
     var showRoomAvatars by pref(defaults.getBoolean("showRoomAvatars", true)) { putBoolean("showRoomAvatars", it) }
     var showLastMessage by pref(defaults.getBoolean("showLastMessage", false)) { putBoolean("showLastMessage", it) }
+    var mergeHomeAndDms by pref(defaults.getBoolean("mergeHomeAndDms", false), synced = true) { putBoolean("mergeHomeAndDms", it) }
     var reducedMotion by pref(enumPref("reducedMotion", ReducedMotion.system)) { putString("reducedMotion", it.name) }
     var autoplayGifs by pref(defaults.getBoolean("autoplayGifs", true)) { putBoolean("autoplayGifs", it) }
     var typingIndicators by pref(defaults.getBoolean("typingIndicators", true), synced = true) { putBoolean("typingIndicators", it) }
@@ -94,6 +95,7 @@ class AppPreferences(context: Context) {
             "emoticonsToEmoji" to JsonPrimitive(emoticonsToEmoji),
             "showJoinLeave" to JsonPrimitive(showJoinLeave),
             "showProfileChanges" to JsonPrimitive(showProfileChanges),
+            "mergeHomeAndDms" to JsonPrimitive(mergeHomeAndDms),
         )
 
     fun applySynced(json: Map<String, JsonElement>) {
@@ -112,6 +114,7 @@ class AppPreferences(context: Context) {
             (json["emoticonsToEmoji"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != emoticonsToEmoji) emoticonsToEmoji = it }
             (json["showJoinLeave"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showJoinLeave) showJoinLeave = it }
             (json["showProfileChanges"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showProfileChanges) showProfileChanges = it }
+            (json["mergeHomeAndDms"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != mergeHomeAndDms) mergeHomeAndDms = it }
         } finally {
             isApplyingRemote = false
         }

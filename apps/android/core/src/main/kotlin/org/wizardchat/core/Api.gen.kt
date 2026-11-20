@@ -2476,6 +2476,13 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     fun watchRoomSections(listener: (List<RoomSection>) -> Unit): Subscription =
         Runtime.watch("WizardClient.watchRoomSections", handle, listOf(Arg.listener<List<RoomSection>>(listener)), ::Subscription)
 
+    /**
+     * Calls `listener` with the whole room list order (section tags, `chats` and
+     * `im.vector.fake.direct`), now and on every change.
+     */
+    fun watchRoomSectionOrder(listener: (List<String>) -> Unit): Subscription =
+        Runtime.watch("WizardClient.watchRoomSectionOrder", handle, listOf(Arg.listener<List<String>>(listener)), ::Subscription)
+
     /** Adds a room list section (Element compatible); returns its tag. */
     suspend fun createRoomSection(name: String, spaceId: String): String =
         Runtime.call("WizardClient.createRoomSection", handle, listOf(Arg.value<String>(name), Arg.value<String>(spaceId)))

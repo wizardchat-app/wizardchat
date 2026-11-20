@@ -56,6 +56,16 @@ rpc_methods! {
             }))
         }
 
+        /// Calls `listener` with the whole room list order (section tags, `chats` and
+        /// `im.vector.fake.direct`), now and on every change.
+        watch fn watchRoomSectionOrder(listener: Listener<Vec<String>>) -> Subscription {
+            Ok(listener.clone().watch(async move {
+                if let Err(error) = this.watch_room_section_order(|o| listener.emit(&o)).await {
+                    tracing::error!("room section order stream failed: {error}");
+                }
+            }))
+        }
+
         /// Adds a room list section (Element compatible); returns its tag.
         call fn createRoomSection(name: String, space_id: String) -> String {
             this.create_room_section(&name, &space_id).await

@@ -73,6 +73,7 @@ export const knockedRoomIdsAtom = atom(
 export const syncStateAtom = atom<SyncState>('idle');
 /** The room list sections in list order */
 export const roomSectionsAtom = atom<RoomSection[]>([]);
+export const roomSectionOrderAtom = atom<string[]>([]);
 /** Each room's tag names (`m.tag`) */
 export const roomTagNamesAtom = atom<ReadonlyMap<string, string[]>>(new Map());
 /** Set once the first sync finished */
