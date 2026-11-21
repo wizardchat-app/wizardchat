@@ -8452,6 +8452,7 @@ dependencies = [
  "block2",
  "device_query",
  "dispatch2",
+ "gtk",
  "jpeg-encoder",
  "keepawake",
  "macos-accessibility-client",

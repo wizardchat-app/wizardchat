@@ -1,5 +1,6 @@
 #![recursion_limit = "256"]
 
+mod clipboard;
 mod global_keys;
 mod keep_awake;
 mod links;
@@ -178,6 +179,7 @@ pub fn run() {
             rpc::rpc_release,
             rpc::rpc_cancel,
             core_delete_store,
+            clipboard::clipboard_files,
             set_background_color,
             set_unread,
             loopback::loopback_listen,

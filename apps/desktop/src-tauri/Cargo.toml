@@ -45,6 +45,7 @@ dispatch2 = "0.3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "2.0", features = ["v2_40"] }
+gtk = "0.18"
 x11rb = { version = "0.13", features = ["randr", "shm", "xfixes"] }
 rustix = { version = "1", features = ["mm"] }
 

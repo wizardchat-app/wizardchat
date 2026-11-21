@@ -63,6 +63,7 @@ interface DesktopAPI {
   setWindowSettings?: (patch: Partial<DesktopWindowSettings>) => Promise<DesktopWindowSettings>;
   setTrayState?: (state: DesktopTrayState) => void;
   onTrayAction?: (cb: (action: string) => void) => () => void;
+  readClipboardFiles?: () => Promise<File[]>;
 }
 
 interface DesktopTrayState {

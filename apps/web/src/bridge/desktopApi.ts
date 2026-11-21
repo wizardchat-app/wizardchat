@@ -33,6 +33,22 @@ async function pngOf(url: string, size = 256): Promise<string> {
   return canvas.toDataURL('image/png').split(',')[1] ?? '';
 }
 
+interface ClipboardFile {
+  name: string;
+  mime: string;
+  data: string;
+}
+
+async function readClipboardFiles(): Promise<File[]> {
+  const files = await invoke<ClipboardFile[]>('clipboard_files');
+  return files.map(({ name, mime, data }) => {
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], name, { type: mime });
+  });
+}
+
 const takePendingRoom = () => invoke<string | null>('take_pending_room');
 
 export const desktopApi: DesktopAPI = {
@@ -89,4 +105,5 @@ export const desktopApi: DesktopAPI = {
   selectDesktopSource,
   screenShareAudioSupported,
   startScreenShare,
+  readClipboardFiles: platform() === 'linux' ? readClipboardFiles : undefined,
 };

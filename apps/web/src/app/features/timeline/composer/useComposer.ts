@@ -540,11 +540,35 @@ export function useComposer({
         const file = item.getAsFile();
         if (file) files.push(file);
       }
-      if (files.length === 0) return;
+      if (files.length > 0) {
+        e.preventDefault();
+        addFilesToPreview(files);
+        return;
+      }
+      const readNative = window.desktopAPI?.readClipboardFiles;
+      if (!readNative) return;
+      const data = e.clipboardData;
+      const text = data.getData('text/plain');
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      const looksLikeFiles =
+        /^file:\/\//m.test(data.getData('text/uri-list')) ||
+        data.types.some((type) => type.startsWith('image/')) ||
+        lines.length === 0 ||
+        lines.every((line) => /^(file:\/\/|\/)/.test(line.trim()));
+      if (!looksLikeFiles) return;
       e.preventDefault();
-      addFilesToPreview(files);
+      void readNative()
+        .catch(() => [])
+        .then((nativeFiles) => {
+          if (nativeFiles.length > 0) addFilesToPreview(nativeFiles);
+          else if (text) {
+            const replay = new DataTransfer();
+            replay.setData('text/plain', text);
+            editor.insertData(replay);
+          }
+        });
     },
-    [addFilesToPreview]
+    [addFilesToPreview, editor]
   );
 
   const uploadOne = useCallback(
