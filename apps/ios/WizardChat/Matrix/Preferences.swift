@@ -15,9 +15,13 @@ final class AppPreferences: ObservableObject {
 
     private let defaults = UserDefaults.standard
 
-    // Per device like the system's light and dark mode, so not synced with the web; a new key
-    // because the old one held whatever the web had synced
-    @Published var theme: ThemeSetting { didSet { save("theme.device", theme.rawValue) } }
+    // Per device like the system's light and dark mode, so not synced with the web
+    @Published var themeMode: ThemeMode { didSet { save("themeMode", themeMode.rawValue) } }
+    @Published var lightTheme: ThemeChoice { didSet { save("theme.light", lightTheme.rawValue) } }
+    @Published var darkTheme: ThemeChoice { didSet { save("theme.dark", darkTheme.rawValue) } }
+    @Published private(set) var customThemes: [CustomTheme] {
+        didSet { defaults.set(try? JSONEncoder().encode(customThemes), forKey: "customThemes") }
+    }
     @Published var messageLayout: MessageLayout { didSet { save("messageLayout", messageLayout.rawValue) } }
     @Published var chatFontSize: Double { didSet { save("chatFontSize", chatFontSize) } }
     @Published var chatDensity: Density { didSet { save("chatDensity", chatDensity.rawValue) } }
@@ -47,10 +51,20 @@ final class AppPreferences: ObservableObject {
 
     var onSyncedSettingsChange: (([String: JSONValue]) -> Void)?
     private var isApplyingRemote = false
+    private var syncedSubscription: Subscription?
 
     init() {
         let d = UserDefaults.standard
-        theme = ThemeSetting(rawValue: d.string(forKey: "theme.device") ?? "") ?? .system
+        let legacyTheme = d.string(forKey: "theme.device").flatMap(WZ.Theme.init(rawValue:))
+        let storedMode = d.string(forKey: "themeMode").flatMap(ThemeMode.init(rawValue:))
+        themeMode = storedMode ?? legacyTheme.map { $0.colorScheme == .light ? .light : .dark } ?? .system
+        func slot(_ key: String, _ scheme: ColorScheme) -> ThemeChoice {
+            d.string(forKey: key).flatMap(ThemeChoice.init(rawValue:))
+                ?? .builtin(legacyTheme.flatMap { $0.colorScheme == scheme ? $0 : nil } ?? .fallback(for: scheme))
+        }
+        lightTheme = slot("theme.light", .light)
+        darkTheme = slot("theme.dark", .dark)
+        customThemes = d.data(forKey: "customThemes").flatMap { try? JSONDecoder().decode([CustomTheme].self, from: $0) } ?? []
         messageLayout = MessageLayout(rawValue: d.string(forKey: "messageLayout") ?? "") ?? .modern
         chatFontSize = d.object(forKey: "chatFontSize") as? Double ?? Self.defaultChatFontSize
         chatDensity = Density(rawValue: d.string(forKey: "chatDensity") ?? "") ?? .default
@@ -77,6 +91,43 @@ final class AppPreferences: ObservableObject {
         language = d.string(forKey: "language") ?? ""
         pushToTalk = d.bool(forKey: "pushToTalk")
         developerMode = d.bool(forKey: "developerMode")
+        if storedMode == nil {
+            save("themeMode", themeMode.rawValue)
+            save("theme.light", lightTheme.rawValue)
+            save("theme.dark", darkTheme.rawValue)
+            d.removeObject(forKey: "theme.device")
+        }
+    }
+
+    func choice(for scheme: ColorScheme) -> ThemeChoice { scheme == .light ? lightTheme : darkTheme }
+
+    func setChoice(_ choice: ThemeChoice, for scheme: ColorScheme) {
+        if scheme == .light { lightTheme = choice } else { darkTheme = choice }
+    }
+
+    func customThemes(for scheme: ColorScheme) -> [CustomTheme] { customThemes.filter { $0.scheme == scheme } }
+
+    func theme(for scheme: ColorScheme) -> WizardTheme {
+        switch choice(for: scheme) {
+        case .builtin(let theme): return WizardTheme(theme)
+        case .custom(let id):
+            if let custom = customThemes(for: scheme).first(where: { $0.id == id }) { return WizardTheme(custom: custom) }
+            return WizardTheme(.fallback(for: scheme))
+        }
+    }
+
+    func watchSynced(_ client: WizardClient) {
+        syncedSubscription?.cancel()
+        syncedSubscription = client.watchAccountData(eventType: Self.syncedAccountDataType) { [weak self] content in
+            MainActor.assumeIsolated {
+                if case .object(let json)? = content { self?.applySynced(json) }
+            }
+        }
+    }
+
+    func stopWatchingSynced() {
+        syncedSubscription?.cancel()
+        syncedSubscription = nil
     }
 
     var chatScale: CGFloat { CGFloat(chatFontSize / Self.defaultChatFontSize) }
@@ -136,6 +187,10 @@ final class AppPreferences: ObservableObject {
         if case .bool(let value) = json["showJoinLeave"], value != showJoinLeave { showJoinLeave = value }
         if case .bool(let value) = json["showProfileChanges"], value != showProfileChanges { showProfileChanges = value }
         if case .bool(let value) = json["mergeHomeAndDms"], value != mergeHomeAndDms { mergeHomeAndDms = value }
+        if case .array(let list) = json["customThemes"] {
+            let themes = list.compactMap(CustomTheme.init(json:))
+            if themes != customThemes { customThemes = themes }
+        }
     }
 
     private func syncIfNeeded() {

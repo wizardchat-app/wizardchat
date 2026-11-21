@@ -13,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,7 +98,7 @@ class ShareActivity : ComponentActivity() {
         lifecycleScope.launch { load(intent) }
         setContent {
             CompositionLocalProvider(LocalSession provides app.session, LocalPrefs provides app.prefs) {
-                WizardThemeRoot(app.prefs.theme) {
+                WizardThemeRoot(app.prefs.theme(app.prefs.themeMode.isDark(isSystemInDarkTheme()))) {
                     CompositionLocalProvider(LocalMedia provides app.session.media) {
                         ShareScreen(
                             files.size,

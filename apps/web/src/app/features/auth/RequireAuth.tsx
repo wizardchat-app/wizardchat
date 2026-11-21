@@ -6,7 +6,6 @@ import {
   credentialsAtom,
   userIdAtom,
   serverUploadLimitAtom,
-  themeAtom,
   messageLayoutAtom,
   languageAtom,
   preferencesAtom,
@@ -33,14 +32,12 @@ type Status = 'pending' | 'syncing' | 'hiding' | 'ready' | 'unauthenticated' | '
 
 /** Applies the account's synced settings as this device stored them, before the app shows */
 function useApplyStoredSettings() {
-  const setTheme = useSetAtom(themeAtom);
   const setMessageLayout = useSetAtom(messageLayoutAtom);
   const setLanguage = useSetAtom(languageAtom);
   const setPreferences = useSetAtom(preferencesAtom);
   return async (client: WizardClient) => {
     const content = await client.cachedAccountData(SETTINGS_ACCOUNT_DATA_TYPE).catch(() => null);
     const settings = parseSettings(content);
-    if (settings.theme) setTheme(settings.theme);
     if (settings.messageLayout) setMessageLayout(settings.messageLayout);
     if (settings.language && SUPPORTED_LANGUAGES.some((l) => l.code === settings.language)) {
       setLanguage(settings.language);

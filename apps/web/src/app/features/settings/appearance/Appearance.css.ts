@@ -64,10 +64,8 @@ export const slotEdit = style({
   backgroundColor: vars.color.bgTertiary,
   color: vars.color.textPrimary,
   cursor: 'pointer',
-  opacity: 0,
-  transition: `opacity ${fast}, transform ${fast}`,
+  transition: `background-color ${fast}, color ${fast}, transform ${fast}`,
   selectors: {
-    [`${slot}:hover &, ${slot}:focus-within &`]: { opacity: 1 },
     '&:hover': { transform: 'scale(1.12)', backgroundColor: vars.color.accent, color: '#ffffff' },
   },
 });
@@ -89,3 +87,52 @@ export const addSwatch = style([
     },
   },
 ]);
+
+export const addSwatchDisabled = style([
+  addSwatch,
+  {
+    opacity: 0.45,
+    cursor: 'not-allowed',
+    ':hover': { color: vars.color.textMuted, borderColor: vars.color.border },
+  },
+]);
+
+export const modeSegmented = style({
+  display: 'inline-grid',
+  gridTemplateColumns: 'repeat(3, auto)',
+  gap: '4px',
+  padding: '4px',
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.color.bgPrimary,
+  border: `1px solid ${vars.color.border}`,
+});
+
+export const modeSegment = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  height: '32px',
+  padding: '0 12px',
+  border: 'none',
+  borderRadius: vars.radius.sm,
+  backgroundColor: 'transparent',
+  color: vars.color.textMuted,
+  fontSize: '0.875rem',
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: `background-color ${fast}, color ${fast}`,
+  ':hover': { backgroundColor: vars.color.bgHover, color: vars.color.textPrimary },
+  ':focus-visible': { outline: `2px solid ${vars.color.accent}`, outlineOffset: '1px' },
+});
+
+export const modeSegmentActive = style([
+  modeSegment,
+  { backgroundColor: vars.color.bgTertiary, color: vars.color.textPrimary },
+]);
+
+export const slotUnused = style({
+  opacity: 0.55,
+  transition: `opacity ${fast}`,
+  ':hover': { opacity: 1 },
+  selectors: { '&:has(:focus-visible)': { opacity: 1 } },
+});

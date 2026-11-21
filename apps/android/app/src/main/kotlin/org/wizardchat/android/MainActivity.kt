@@ -82,7 +82,8 @@ class MainActivity : AppCompatActivity() {
         handle(intent)
         setContent {
             // Status and navigation bar icons follow the app's theme, not the system's
-            val dark = app.prefs.theme.resolved(isSystemInDarkTheme()).isDark
+            val active = app.prefs.theme(app.prefs.themeMode.isDark(isSystemInDarkTheme()))
+            val dark = active.isDark
             LaunchedEffect(dark) {
                 val style = if (dark) {
                     SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -101,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             val screen = pipWatching(calls) || pipFeatured(calls.participants)?.screen == true
             LaunchedEffect(joined, screen, pipEnabled) { setPictureInPictureParams(pipParams(joined, screen)) }
             CompositionLocalProvider(LocalSession provides app.session, LocalPrefs provides app.prefs, LocalInPip provides inPip) {
-                WizardThemeRoot(app.prefs.theme) {
+                WizardThemeRoot(active) {
                     Box(Modifier.fillMaxSize()) {
                         Root()
                         if (inPip && inCall) CallPipContent()

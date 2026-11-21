@@ -21,7 +21,7 @@ struct WizardChatApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ThemedRoot(setting: prefs.theme) { theme in
+            ThemedRoot(prefs: prefs) { theme in
             Group {
                 switch session.state {
                 case .restoring:
@@ -79,8 +79,6 @@ struct WizardChatApp: App {
             }
             .task(id: session.state == .loggedIn ? session.userId : nil) { await onLoginChanged() }
             .onChange(of: notifier.accountToOpen) { _, _ in openNotificationAccount() }
-            .onChange(of: prefs.theme, initial: true) { _, _ in applyAppIcon() }
-            .onChange(of: prefs.themedAppIcon) { _, _ in applyAppIcon() }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -103,6 +101,7 @@ struct WizardChatApp: App {
         verificationRequests.stop()
         MemberDirectory.shared.reset()
         prefs.onSyncedSettingsChange = nil
+        prefs.stopWatchingSynced()
         guard session.state == .loggedIn, session.client != nil else { return }
         if openNotificationAccount() { return }
         if let synced = await session.loadSyncedSettings() {
@@ -111,6 +110,7 @@ struct WizardChatApp: App {
         prefs.onSyncedSettingsChange = { [weak session] settings in
             Task { await session?.saveSyncedSettings(settings) }
         }
+        if let client = session.client { prefs.watchSynced(client) }
         await session.applyPresence(prefs.showPresence)
         if let roomList = session.roomList {
             roomList.prefs = prefs
@@ -138,28 +138,26 @@ struct WizardChatApp: App {
         Task { await session.switchAccount(to: userId) }
         return true
     }
-
-    private func applyAppIcon() {
-        let name = prefs.themedAppIcon ? prefs.theme.appIcon : nil
-        guard UIApplication.shared.supportsAlternateIcons,
-              UIApplication.shared.alternateIconName != name else { return }
-        UIApplication.shared.setAlternateIconName(name)
-    }
 }
 
 private struct ThemedRoot<Content: View>: View {
-    let setting: ThemeSetting
+    @ObservedObject var prefs: AppPreferences
     @ViewBuilder let content: (WizardTheme) -> Content
     @Environment(\.colorScheme) private var systemScheme
 
     var body: some View {
-        let theme = WizardTheme(setting.resolved(systemScheme))
+        let theme = prefs.theme(for: prefs.themeMode.forcedScheme ?? systemScheme)
         content(theme)
             .environment(\.theme, theme)
             .tint(theme.control)
             .toggleStyle(SwitchToggleStyle(tint: theme.accent))
-            .preferredColorScheme(setting == .system ? nil : theme.colorScheme)
+            .preferredColorScheme(prefs.themeMode.forcedScheme)
             .background(theme.bgPrimary.ignoresSafeArea())
             .onChange(of: theme.id, initial: true) { _, id in ShareInbox.saveTheme(id.rawValue) }
+            .onChange(of: prefs.themedAppIcon && theme.custom == nil ? theme.id.appIcon : nil, initial: true) { _, name in
+                guard UIApplication.shared.supportsAlternateIcons,
+                      UIApplication.shared.alternateIconName != name else { return }
+                UIApplication.shared.setAlternateIconName(name)
+            }
     }
 }

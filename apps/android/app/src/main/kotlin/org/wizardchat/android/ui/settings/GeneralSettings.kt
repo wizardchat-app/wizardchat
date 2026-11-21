@@ -19,6 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -30,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -41,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -66,7 +72,9 @@ import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.WizardLogo
 import org.wizardchat.android.ui.room.MentionColors
 import org.wizardchat.android.ui.room.MessageText
-import org.wizardchat.android.ui.theme.ThemeSetting
+import org.wizardchat.android.ui.theme.ThemeChoice
+import org.wizardchat.android.ui.theme.ThemeMode
+import org.wizardchat.android.ui.theme.themeOptions
 import org.wizardchat.android.ui.theme.WizardTheme
 import org.wizardchat.android.ui.theme.nameColor
 import org.wizardchat.android.ui.theme.theme
@@ -78,39 +86,17 @@ import org.wizardchat.core.SoundCredit
 @Composable
 internal fun AppearanceSettings(onBack: () -> Unit) {
     val prefs = LocalPrefs.current
-    val themeHasIcon = (prefs.theme as? ThemeSetting.Fixed)?.theme != WZ.Theme.CARBON && prefs.theme is ThemeSetting.Fixed
+    val themeHasIcon = theme.custom == null && theme.id != WZ.Theme.CARBON
 
     SettingsPage(tr("settings.appearance.title"), onBack) {
         SettingsSection { ChatPreview() }
 
         SettingsSection {
-            // Ten themes don't fit beside the label, so it sits above them
-            SettingsItem {
-                Text(tr("settings.appearance.theme"), style = wizardFont(WZ.FontSize.md), color = theme.textPrimary)
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
-                ) {
-                    ThemeSetting.allCases.forEach { setting ->
-                        val selected = prefs.theme == setting
-                        val label = setting.label()
-                        Box(
-                            Modifier
-                                .padding(WZ.Space.space1)
-                                .size(WZ.Space.space9)
-                                .clip(CircleShape)
-                                .background(swatch(setting))
-                                .border(if (selected) 2.5.dp else 1.dp, if (selected) theme.accent else theme.border, CircleShape)
-                                .clickable { prefs.theme = setting }
-                                .semantics {
-                                    contentDescription = label
-                                    this.selected = selected
-                                    role = Role.RadioButton
-                                },
-                        )
-                    }
-                }
-            }
+            ThemeModeControl()
+            SettingsDivider()
+            ThemePicker(tr("settings.appearance.lightTheme"), dark = false)
+            SettingsDivider()
+            ThemePicker(tr("settings.appearance.darkTheme"), dark = true)
             SettingsDivider()
             ToggleRow(
                 tr("settings.appearance.themedAppIcon"),
@@ -224,12 +210,101 @@ private fun densityOptions() = listOf(
     Density.spacious to tr("settings.appearance.densitySpacious"),
 )
 
-private fun swatch(setting: ThemeSetting): Brush {
-    val (first, second) = when (setting) {
-        ThemeSetting.System -> WizardTheme(setting.resolved(false)).bgSecondary to WizardTheme(setting.resolved(true)).bgSecondary
-        is ThemeSetting.Fixed -> WizardTheme(setting.theme).let { it.bgSecondary to it.accent }
-    }
+private fun swatch(option: WZ.Theme): Brush {
+    val (first, second) = WizardTheme(option).let { it.bgSecondary to it.accent }
     return Brush.linearGradient(0f to first, 0.5f to first, 0.5f to second, 1f to second)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeModeControl() {
+    val prefs = LocalPrefs.current
+    val modes = listOf(
+        ThemeMode.system to tr("settings.appearance.themeModeSystem"),
+        ThemeMode.light to tr("settings.appearance.themeModeLight"),
+        ThemeMode.dark to tr("settings.appearance.themeModeDark"),
+    )
+    SettingsItem {
+        Text(tr("settings.appearance.themeMode"), style = wizardFont(WZ.FontSize.md), color = theme.textPrimary)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            modes.forEachIndexed { index, (mode, label) ->
+                SegmentedButton(
+                    selected = prefs.themeMode == mode,
+                    onClick = { prefs.themeMode = mode },
+                    shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = theme.bgTertiary,
+                        activeContentColor = theme.textPrimary,
+                        inactiveContainerColor = theme.fill,
+                        inactiveContentColor = theme.textMuted,
+                        activeBorderColor = theme.border,
+                        inactiveBorderColor = theme.border,
+                    ),
+                    icon = {},
+                ) {
+                    Text(label, style = wizardFont(WZ.FontSize.sm, FontWeight.Medium))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemePicker(label: String, dark: Boolean) {
+    val prefs = LocalPrefs.current
+    val current = prefs.theme(dark)
+    val customs = prefs.customThemes(dark)
+    val inUse = theme.isDark == dark
+    SettingsItem(Modifier.alpha(if (inUse) 1f else 0.55f)) {
+        val inUseLabel = tr("settings.appearance.themeInUse")
+        Text(
+            label,
+            style = wizardFont(WZ.FontSize.md),
+            color = theme.textPrimary,
+            modifier = Modifier.semantics { if (inUse) stateDescription = inUseLabel },
+        )
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+        ) {
+            themeOptions(dark).forEach { option ->
+                ThemeSwatch(swatch(option), option.label, current.custom == null && current.id == option) {
+                    prefs.setChoice(ThemeChoice.Builtin(option), dark)
+                }
+            }
+            if (customs.isNotEmpty()) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterVertically)
+                        .size(width = 1.dp, height = WZ.Space.space7)
+                        .background(theme.border),
+                )
+            }
+            customs.forEach { custom ->
+                ThemeSwatch(custom.gradient, custom.name, current.custom?.id == custom.id) {
+                    prefs.setChoice(ThemeChoice.Custom(custom.id), dark)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeSwatch(fill: Brush, label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .padding(WZ.Space.space1)
+            .size(WZ.Space.space9)
+            .clip(CircleShape)
+            .background(fill)
+            .border(if (selected) 2.5.dp else 1.dp, if (selected) theme.accent else theme.border, CircleShape)
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = label
+                this.selected = selected
+                role = Role.RadioButton
+            },
+    )
 }
 
 /** Two sample messages in the current theme, text size, density and layout */
