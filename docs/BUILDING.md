@@ -33,6 +33,8 @@ everything. Only when all builds pass does it publish, and the tag is created la
   (`apps/desktop/scripts/package-linux.mjs`). Like the web app, stable installs only get stable releases and next
   installs only next ones. The `PKGBUILD` gets `pkgrel=1`; when the package of a release has to change, run the
   pipeline on the release's tag with `PKGREL=2` (then 3, ...), which rebuilds and republishes that release
+- repackages the Linux tarball as a Flatpak bundle on the GNOME runtime (`packaging/flatpak/`, x86_64 only), which
+  installs the runtime from Flathub and, like the tarball, points to the new release.
 - builds two signed Android APKs (arm64) and lists them with the installers, for people who don't use Google Play: the
   `gplay` flavor (`WizardChat_<version>_arm64.apk`) and the `fdroid` flavor without Google code
   (`WizardChat_<version>_arm64_foss.apk`). Both also go to a fixed link per channel

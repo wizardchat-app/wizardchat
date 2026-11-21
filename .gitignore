@@ -40,3 +40,10 @@ apps/android/.idea/
 apps/android/**/*.iml
 apps/android/**/.cxx/
 apps/android/captures/
+
+# Local Flatpak builds
+packaging/flatpak/shared-modules/
+packaging/flatpak/build/
+packaging/flatpak/repo/
+packaging/flatpak/.flatpak-builder/
+packaging/flatpak/*.tar.gz

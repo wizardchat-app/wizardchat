@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=WizardChat
+Comment=Simple, secure, magical Matrix client
+Exec=wizardchat %u
+Icon=org.wizardchat.WizardChat
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+Keywords=Matrix;Chat;Messenger;
+MimeType=x-scheme-handler/org.wizardchat.desktop;
+StartupNotify=true

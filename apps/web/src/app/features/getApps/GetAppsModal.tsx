@@ -65,6 +65,7 @@ const DESKTOP: {
       { asset: 'deb', labelKey: 'getApps.deb' },
       { asset: 'rpm', labelKey: 'getApps.rpm' },
       { asset: 'arch', labelKey: 'getApps.arch' },
+      { asset: 'flatpak', labelKey: 'getApps.flatpak' },
       { asset: 'tarball', labelKey: 'getApps.tarball' },
     ],
   },

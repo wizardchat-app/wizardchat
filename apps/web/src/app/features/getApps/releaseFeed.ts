@@ -11,7 +11,7 @@ export const ANDROID_OPTIONS_URL = `${GITLAB_URL}#android`;
 export const IOS_OPTIONS_URL = `${GITLAB_URL}#ios`;
 
 export type DesktopAsset =
-  'windows' | 'mac-arm' | 'mac-intel' | 'appimage' | 'deb' | 'rpm' | 'arch' | 'tarball';
+  'windows' | 'mac-arm' | 'mac-intel' | 'appimage' | 'deb' | 'rpm' | 'arch' | 'flatpak' | 'tarball';
 
 export interface ReleaseAssets {
   version: string;
@@ -38,6 +38,7 @@ function assetsFrom(feed: Feed): ReleaseAssets {
       deb: url('linux-x86_64-deb') ?? RELEASES_URL,
       rpm: url('linux-x86_64-rpm') ?? RELEASES_URL,
       arch: `${dir}wizardchat-bin-${v.replace(/-/g, '_')}-1-x86_64.pkg.tar.zst`,
+      flatpak: `${dir}wizardchat-${v}-linux-x86_64.flatpak`,
       tarball: `${dir}wizardchat-${v}-linux-x86_64.tar.gz`,
     },
   };

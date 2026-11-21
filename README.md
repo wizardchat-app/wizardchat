@@ -39,7 +39,7 @@ macOS and Linux, and as a native app for iOS and Android. All apps share one Rus
 ### Desktop
 
 Download the installer for your system from [wizardchat.org][desktop]: Windows, macOS (Apple Silicon or Intel) and Linux
-(AppImage, `.deb` or `.rpm`). On Arch Linux, install [`wizardchat-bin`](https://aur.archlinux.org/packages/wizardchat-bin)
+(AppImage, `.deb`, `.rpm` or Flatpak bundle). On Arch Linux, install [`wizardchat-bin`](https://aur.archlinux.org/packages/wizardchat-bin)
 from the AUR:
 
 ```sh

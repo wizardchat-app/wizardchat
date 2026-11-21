@@ -103,6 +103,28 @@ build-desktop-arch:
       - target/release/bundle/arch/*.pkg.tar.zst
     expire_in: 1 day
 
+build-desktop-flatpak:
+  stage: build
+  extends: .release-rules
+  image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+  needs: [build-desktop-linux]
+  variables:
+    SHARED_MODULES_COMMIT: c91a81101cf9bcf9fc8132e8c3ebed741ad8bae6
+  script:
+    - tarball=$(ls target/release/bundle/tarball/wizardchat-*-linux-x86_64.tar.gz)
+    - bundle="$CI_PROJECT_DIR/target/release/bundle/flatpak/$(basename "$tarball" .tar.gz).flatpak"
+    - cp "$tarball" packaging/flatpak/wizardchat-linux-x86_64.tar.gz
+    - cd packaging/flatpak
+    - git clone --quiet https://github.com/flathub/shared-modules.git
+    - git -C shared-modules checkout --quiet "$SHARED_MODULES_COMMIT"
+    - flatpak-builder --disable-rofiles-fuse --force-clean --repo=repo build org.wizardchat.WizardChat.yml
+    - mkdir -p "$(dirname "$bundle")"
+    - flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo repo "$bundle" org.wizardchat.WizardChat
+  artifacts:
+    paths:
+      - target/release/bundle/flatpak/*.flatpak
+    expire_in: 1 day
+
 build-desktop-win:
   extends: .desktop-build
   image: node:22-trixie
@@ -145,6 +167,7 @@ publish-desktop:
     - build-desktop-linux
     - build-desktop-win
     - build-desktop-arch
+    - build-desktop-flatpak
     - build-android
     - build-ios
     - job: build-fdroid

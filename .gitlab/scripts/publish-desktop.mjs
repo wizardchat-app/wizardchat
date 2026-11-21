@@ -71,6 +71,7 @@ const installers = [
   find('dmg', '.dmg', macBundle('x86_64')),
   find('tarball', '.tar.gz'),
   find('arch', '.pkg.tar.zst'),
+  find('flatpak', '.flatpak'),
   ...findAll('android', '.apk', 'target'),
   find('ios', '.ipa', 'target'),
 ];

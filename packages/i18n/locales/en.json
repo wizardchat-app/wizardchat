@@ -1949,6 +1949,7 @@
     "deb": ".deb",
     "rpm": ".rpm",
     "arch": "Arch package",
+    "flatpak": "Flatpak",
     "tarball": ".tar.gz",
     "androidNote": "Get it on Google Play, or from F-Droid or Obtainium without Google.",
     "joinBeta": "Google Play",
