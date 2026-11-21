@@ -15,6 +15,7 @@ export const STORAGE_KEY_OIDC_PENDING = 'wz_oidc_pending';
 
 // Settings
 export const STORAGE_KEY_THEME = 'wz_theme';
+export const STORAGE_KEY_THEME_MODE = 'wz_theme_mode';
 export const STORAGE_KEY_MESSAGE_LAYOUT = 'wz_message_layout';
 export const STORAGE_KEY_PREFERENCES = 'wz_preferences';
 export const STORAGE_KEY_KEYBINDS = 'wz_keybinds';

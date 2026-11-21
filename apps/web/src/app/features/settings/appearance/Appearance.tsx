@@ -1,5 +1,6 @@
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { CustomThemes } from './CustomThemes';
+import { ThemeModeControl, ThemeSlotPicker } from './ThemeSlotPicker';
 import { useTranslation } from 'react-i18next';
 import {
   themeAtom,
@@ -21,14 +22,12 @@ import {
   chatDensityAtom,
   uiDensityAtom,
   uiScaleAtom,
-  type ThemeName,
   type MessageLayout,
   type ChatDensity,
   type UiDensity,
   type UiScale,
 } from '@/app/store/atoms';
 import { CHAT_FONT_SIZES, DEFAULT_CHAT_FONT_SIZE } from '@/app/hooks/useChatDisplaySync';
-import { THEME_TOKENS } from '@/theme/themeTokens';
 import { hasThemedLogo } from '@/theme/themeLogos';
 import { useMemo } from 'react';
 import { useProfile } from '@/app/data';
@@ -37,26 +36,11 @@ import { Avatar } from '@/app/components/Avatar';
 import { Select } from '@/app/components/Select';
 import { Slider } from '@/app/components/Slider';
 import { ToggleRow } from '@/app/components/Toggle';
-import { Tooltip } from '@/app/components/Tooltip';
 import { markdownToHtml } from '@/util/markdownToHtml';
 import * as timelineCss from '@/app/features/timeline/Timeline.css';
 import * as css from './Appearance.css';
 import * as layoutCss from '../Settings.css';
 import { useUsernameColor } from '@/app/hooks/useUsernameColor';
-
-const THEME_NAMES: ThemeName[] = [
-  'Carbon',
-  'Pewter',
-  'Umbra',
-  'Eclipse',
-  'Prism',
-  'Parrot',
-  'Hallow',
-  'Garnet',
-  'Ethereal',
-  'Blossom',
-  'Opaline',
-];
 
 const PREVIEW_OTHER_NAME = 'Merlin';
 const PREVIEW_OTHER_ID = '@merlin:wizardchat.org';
@@ -205,7 +189,7 @@ function ChatPreview({ layout, prettifyLinks }: { layout: MessageLayout; prettif
 
 export function Appearance() {
   const { t } = useTranslation();
-  const [theme, setTheme] = useAtom(themeAtom);
+  const theme = useAtomValue(themeAtom);
   const [layout, setLayout] = useAtom(messageLayoutAtom);
   const [prettifyLinks, setPrettifyLinks] = useAtom(prettifyLinksAtom);
   const [markdown, setMarkdown] = useAtom(markdownAtom);
@@ -233,37 +217,9 @@ export function Appearance() {
       <div className={layoutCss.section}>
         <ChatPreview layout={layout} prettifyLinks={prettifyLinks} />
 
-        <div className={layoutCss.settingRow}>
-          <div className={layoutCss.settingInfo}>
-            <span className={layoutCss.settingLabel}>{t('settings.appearance.theme')}</span>
-          </div>
-          <div
-            className={css.swatchRow}
-            role="radiogroup"
-            aria-label={t('settings.appearance.theme')}
-          >
-            {THEME_NAMES.map((name) => {
-              const { color } = THEME_TOKENS[name];
-              const isActive = theme === name;
-              return (
-                <Tooltip key={name} content={name}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    aria-label={name}
-                    onClick={() => setTheme(name)}
-                    className={isActive ? css.swatchActive : css.swatch}
-                    style={{
-                      background: `linear-gradient(135deg, ${color.bgSecondary} calc(50% - 0.5px), ${color.accent} calc(50% + 0.5px))`,
-                    }}
-                  />
-                </Tooltip>
-              );
-            })}
-          </div>
-        </div>
-
+        <ThemeModeControl />
+        <ThemeSlotPicker mode="light" />
+        <ThemeSlotPicker mode="dark" />
         <CustomThemes />
         <ToggleRow
           label={t('settings.appearance.themedAppIcon')}

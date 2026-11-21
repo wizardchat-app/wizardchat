@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import {
-  themeAtom,
   messageLayoutAtom,
   languageAtom,
   preferencesAtom,
@@ -25,7 +24,6 @@ import {
 const PUSH_DEBOUNCE_MS = 500;
 
 export function useSettingsSync(client: MatrixClient | null): void {
-  const [theme, setTheme] = useAtom(themeAtom);
   const [messageLayout, setMessageLayout] = useAtom(messageLayoutAtom);
   const [language, setLanguage] = useAtom(languageAtom);
   const [preferences, setPreferences] = useAtom(preferencesAtom);
@@ -36,7 +34,6 @@ export function useSettingsSync(client: MatrixClient | null): void {
 
   const applyRemote = useCallback(
     (settings: Partial<SyncedSettings>) => {
-      if (settings.theme) setTheme(settings.theme);
       if (settings.messageLayout) setMessageLayout(settings.messageLayout);
       if (settings.language && SUPPORTED_LANGUAGES.some((l) => l.code === settings.language)) {
         setLanguage(settings.language);
@@ -47,7 +44,7 @@ export function useSettingsSync(client: MatrixClient | null): void {
         setPreferences((prev) => ({ ...prev, ...remotePreferences }));
       }
     },
-    [setTheme, setMessageLayout, setLanguage, setPreferences]
+    [setMessageLayout, setLanguage, setPreferences]
   );
 
   // Pull: server -> local, live via account data
@@ -81,7 +78,7 @@ export function useSettingsSync(client: MatrixClient | null): void {
   useEffect(() => {
     if (!client || !syncReady || !remoteKnown) return;
     const timer = setTimeout(() => {
-      const next: SyncedSettings = { theme, messageLayout, language, ...syncedPreferences };
+      const next: SyncedSettings = { messageLayout, language, ...syncedPreferences };
       const current = remoteRef.current;
       if (settingsEqual(next, current)) return;
       const changed = Object.fromEntries(
@@ -96,5 +93,5 @@ export function useSettingsSync(client: MatrixClient | null): void {
         });
     }, PUSH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [client, syncReady, remoteKnown, theme, messageLayout, language, syncedPreferences]);
+  }, [client, syncReady, remoteKnown, messageLayout, language, syncedPreferences]);
 }

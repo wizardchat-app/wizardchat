@@ -1,5 +1,5 @@
 import { DEFAULT_THEME } from './themes.css';
-import { STORAGE_KEY_PREFERENCES, STORAGE_KEY_THEME } from '@/const/storageKeys';
+import { STORAGE_KEY_PREFERENCES } from '@/const/storageKeys';
 import type { ThemeName } from '@/app/store/atoms/settings';
 
 export interface ThemeLogoAssets {
@@ -75,7 +75,7 @@ function readThemedAppIcon(): boolean {
 }
 
 export function getThemeLogoAssets(): ThemeLogoAssets {
-  const stored = localStorage.getItem(STORAGE_KEY_THEME);
-  const theme = stored && stored in THEME_LOGO_ASSETS ? (stored as ThemeName) : DEFAULT_THEME;
+  const shown = document.documentElement.dataset.wzTheme;
+  const theme = shown && shown in THEME_LOGO_ASSETS ? (shown as ThemeName) : DEFAULT_THEME;
   return resolveLogoAssets(theme, readThemedAppIcon());
 }

@@ -209,6 +209,7 @@ fun MainScreen(roomList: RoomListModel) {
         val client = session.client ?: return@LaunchedEffect
         session.loadSyncedSettings()?.let(prefs::applySynced)
         prefs.onSyncedSettingsChange = { settings -> session.saveSyncedSettings(settings) }
+        prefs.watchSynced(client)
         session.applyPresence(prefs.showPresence)
         notifier.start(roomList, prefs)
         calls.watchIncoming(client)
@@ -222,6 +223,7 @@ fun MainScreen(roomList: RoomListModel) {
             RecentEmoji.shared.stop()
             VerificationRequests.shared.stop()
             prefs.onSyncedSettingsChange = null
+            prefs.stopWatchingSynced()
         }
     }
     LaunchedEffect(notifier.roomToOpen, notifier.accountToOpen, roomList.isLoaded) {

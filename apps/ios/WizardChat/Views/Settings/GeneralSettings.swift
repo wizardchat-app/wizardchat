@@ -8,22 +8,76 @@ struct AppearanceSettings: View {
     @Environment(\.theme) private var theme
     @State private var iconError: String?
 
-    private var themeHasIcon: Bool { prefs.theme.appIcon != nil }
+    private var themeHasIcon: Bool { theme.custom == nil && theme.id.appIcon != nil }
 
-    private static func swatch(for setting: ThemeSetting) -> LinearGradient {
-        let first: Color
-        let second: Color
-        switch setting {
-        case .system:
-            first = WizardTheme(setting.resolved(.light)).bgSecondary
-            second = WizardTheme(setting.resolved(.dark)).bgSecondary
-        case .fixed(let fixed):
-            let theme = WizardTheme(fixed)
-            first = theme.bgSecondary
-            second = theme.accent
-        }
-        return LinearGradient(stops: [.init(color: first, location: 0.5), .init(color: second, location: 0.5)],
+    private static func swatch(for option: WZ.Theme) -> LinearGradient {
+        let colors = WizardTheme(option)
+        return LinearGradient(stops: [.init(color: colors.bgSecondary, location: 0.5), .init(color: colors.accent, location: 0.5)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func swatchButton(_ fill: LinearGradient, label: String, selected: Bool,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Circle()
+                .fill(fill)
+                .frame(width: WZ.Space.space9, height: WZ.Space.space9)
+                .overlay(Circle().stroke(selected ? theme.accent : theme.border, lineWidth: selected ? 2.5 : 1))
+                .padding(WZ.Space.space1)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var modeControl: some View {
+        VStack(alignment: .leading, spacing: WZ.Space.space3) {
+            Text(String(localized: "settings.appearance.themeMode"))
+                .font(.wizard(WZ.FontSize.md))
+                .foregroundStyle(theme.textPrimary)
+            Picker(String(localized: "settings.appearance.themeMode"), selection: $prefs.themeMode) {
+                Text(String(localized: "settings.appearance.themeModeSystem")).tag(ThemeMode.system)
+                Text(String(localized: "settings.appearance.themeModeLight")).tag(ThemeMode.light)
+                Text(String(localized: "settings.appearance.themeModeDark")).tag(ThemeMode.dark)
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(.vertical, WZ.Space.space4)
+    }
+
+    private func themePicker(_ label: String.LocalizationValue, scheme: ColorScheme) -> some View {
+        let selected = prefs.theme(for: scheme)
+        let customs = prefs.customThemes(for: scheme)
+        let inUse = theme.colorScheme == scheme
+        return VStack(alignment: .leading, spacing: WZ.Space.space4) {
+            Text(String(localized: label))
+                .font(.wizard(WZ.FontSize.md))
+                .foregroundStyle(theme.textPrimary)
+                .accessibilityValue(inUse ? String(localized: "settings.appearance.themeInUse") : "")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: WZ.Space.space4) {
+                    ForEach(WZ.Theme.options(for: scheme), id: \.self) { option in
+                        swatchButton(Self.swatch(for: option), label: option.name,
+                                     selected: selected.custom == nil && selected.id == option) {
+                            prefs.setChoice(.builtin(option), for: scheme)
+                        }
+                    }
+                    if !customs.isEmpty {
+                        Rectangle()
+                            .fill(theme.border)
+                            .frame(width: 1, height: WZ.Space.space7)
+                            .accessibilityHidden(true)
+                    }
+                    ForEach(customs) { custom in
+                        swatchButton(custom.gradient, label: custom.name, selected: selected.custom?.id == custom.id) {
+                            prefs.setChoice(.custom(custom.id), for: scheme)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.vertical, WZ.Space.space4)
+        .opacity(inUse ? 1 : 0.55)
     }
 
     var body: some View {
@@ -32,32 +86,11 @@ struct AppearanceSettings: View {
                 .settingsCard()
 
             SettingsSection {
-                // Ten themes don't fit beside the label, so it sits above them
-                VStack(alignment: .leading, spacing: WZ.Space.space4) {
-                    Text(String(localized: "settings.appearance.theme"))
-                        .font(.wizard(WZ.FontSize.md))
-                        .foregroundStyle(theme.textPrimary)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: WZ.Space.space4) {
-                            ForEach(ThemeSetting.allCases) { name in
-                                Button {
-                                    prefs.theme = name
-                                } label: {
-                                    Circle()
-                                        .fill(Self.swatch(for: name))
-                                        .frame(width: WZ.Space.space9, height: WZ.Space.space9)
-                                        .overlay(Circle().stroke(prefs.theme == name ? theme.accent : theme.border,
-                                                                 lineWidth: prefs.theme == name ? 2.5 : 1))
-                                        .padding(WZ.Space.space1)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(name.label)
-                                .accessibilityAddTraits(prefs.theme == name ? .isSelected : [])
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, WZ.Space.space4)
+                modeControl
+                SettingsDivider()
+                themePicker("settings.appearance.lightTheme", scheme: .light)
+                SettingsDivider()
+                themePicker("settings.appearance.darkTheme", scheme: .dark)
                 SettingsDivider()
                 ToggleRow(label: "settings.appearance.themedAppIcon",
                           isOn: Binding(get: { themeHasIcon && prefs.themedAppIcon },

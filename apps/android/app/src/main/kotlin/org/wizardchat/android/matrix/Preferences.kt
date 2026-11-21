@@ -12,7 +12,20 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
-import org.wizardchat.android.ui.theme.ThemeSetting
+import org.wizardchat.android.ui.theme.ThemeMode
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import org.wizardchat.android.ui.theme.CustomTheme
+import org.wizardchat.android.ui.theme.ThemeChoice
+import org.wizardchat.android.ui.theme.WizardTheme
+import org.wizardchat.android.ui.theme.fallbackTheme
+import org.wizardchat.android.ui.theme.themeFrom
+import org.wizardchat.core.Subscription
+import org.wizardchat.core.WizardClient
+import org.wizardchat.tokens.WZ
 
 enum class MessageLayout { modern, classic, compact }
 enum class Density { compact, default, spacious }
@@ -24,7 +37,16 @@ class AppPreferences(context: Context) {
     private val defaults = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
 
     // Per device like the system's light and dark mode, so not synced with the web
-    var theme by pref(ThemeSetting.from(defaults.getString("theme.device", null))) { putString("theme.device", it.rawValue) }
+    private val legacyTheme = themeFrom(defaults.getString("theme.device", null))
+    var themeMode by pref(enumPref("themeMode", legacyTheme?.let { if (it.isDark) ThemeMode.dark else ThemeMode.light } ?: ThemeMode.system)) {
+        putString("themeMode", it.name)
+    }
+    var lightTheme by pref(themeSlot("theme.light", dark = false)) { putString("theme.light", it.rawValue) }
+    var darkTheme by pref(themeSlot("theme.dark", dark = true)) { putString("theme.dark", it.rawValue) }
+    var customThemes by pref(
+        runCatching { Json.decodeFromString<List<CustomTheme>>(defaults.getString("customThemes", null) ?: "[]") }.getOrDefault(emptyList()),
+    ) { putString("customThemes", Json.encodeToString(it)) }
+        private set
     var messageLayout by pref(enumPref("messageLayout", MessageLayout.modern)) { putString("messageLayout", it.name) }
     var chatFontSize by pref(defaults.getFloat("chatFontSize", DEFAULT_CHAT_FONT_SIZE)) { putFloat("chatFontSize", it) }
     var chatDensity by pref(enumPref("chatDensity", Density.default)) { putString("chatDensity", it.name) }
@@ -61,8 +83,51 @@ class AppPreferences(context: Context) {
         putBoolean("verificationBannerDismissed", it)
     }
 
+    init {
+        if (!defaults.contains("themeMode")) {
+            defaults.edit()
+                .putString("themeMode", themeMode.name)
+                .putString("theme.light", lightTheme.rawValue)
+                .putString("theme.dark", darkTheme.rawValue)
+                .remove("theme.device")
+                .apply()
+        }
+    }
+
+    fun choice(dark: Boolean) = if (dark) darkTheme else lightTheme
+
+    fun setChoice(choice: ThemeChoice, dark: Boolean) {
+        if (dark) darkTheme = choice else lightTheme = choice
+    }
+
+    fun customThemes(dark: Boolean) = customThemes.filter { it.isDark == dark }
+
+    fun theme(dark: Boolean): WizardTheme = when (val choice = choice(dark)) {
+        is ThemeChoice.Builtin -> WizardTheme(choice.theme)
+        is ThemeChoice.Custom -> customThemes(dark).firstOrNull { it.id == choice.id }?.let { WizardTheme(it) }
+            ?: WizardTheme(fallbackTheme(dark))
+    }
+
+    fun watchSynced(client: WizardClient) {
+        syncedSubscription?.cancel()
+        syncedSubscription = client.watchAccountData(SYNCED_ACCOUNT_DATA_TYPE) { content ->
+            scope.launch { (content as? JsonObject)?.let(::applySynced) }
+        }
+    }
+
+    fun stopWatchingSynced() {
+        syncedSubscription?.cancel()
+        syncedSubscription = null
+    }
+
+    private fun themeSlot(key: String, dark: Boolean): ThemeChoice =
+        ThemeChoice.from(defaults.getString(key, null))
+            ?: ThemeChoice.Builtin(legacyTheme?.takeIf { it.isDark == dark } ?: fallbackTheme(dark))
+
     var onSyncedSettingsChange: ((Map<String, JsonElement>) -> Unit)? = null
     private var isApplyingRemote = false
+    private val scope = MainScope()
+    private var syncedSubscription: Subscription? = null
 
     val chatScale: Float get() = chatFontSize / DEFAULT_CHAT_FONT_SIZE
 
@@ -115,6 +180,7 @@ class AppPreferences(context: Context) {
             (json["showJoinLeave"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showJoinLeave) showJoinLeave = it }
             (json["showProfileChanges"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showProfileChanges) showProfileChanges = it }
             (json["mergeHomeAndDms"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != mergeHomeAndDms) mergeHomeAndDms = it }
+            (json["customThemes"] as? JsonArray)?.mapNotNull(CustomTheme::from)?.let { if (it != customThemes) customThemes = it }
         } finally {
             isApplyingRemote = false
         }

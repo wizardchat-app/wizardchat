@@ -12,13 +12,14 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import {
-  activeCustomThemeIdAtom,
   customThemesAtom,
+  darkThemeAtom,
+  lightThemeAtom,
   settingsOpenAtom,
   settingsPageAtom,
-  themeAtom,
   themeEditorAtom,
 } from '@/app/store/atoms';
+import { DEFAULT_SLOTS } from '@/theme/themeSlots';
 import { Button } from '@/app/components/Button/Button';
 import { Slider } from '@/app/components/Slider';
 import { Tooltip } from '@/app/components/Tooltip';
@@ -44,8 +45,8 @@ export function ThemeEditorPanel() {
   const { t } = useTranslation();
   const [editingId, setEditingId] = useAtom(themeEditorAtom);
   const [themes, setThemes] = useAtom(customThemesAtom);
-  const setActiveId = useSetAtom(activeCustomThemeIdAtom);
-  const setTheme = useSetAtom(themeAtom);
+  const [lightTheme, setLightTheme] = useAtom(lightThemeAtom);
+  const [darkTheme, setDarkTheme] = useAtom(darkThemeAtom);
   const openSettings = useSetAtom(settingsOpenAtom);
   const setSettingsPage = useSetAtom(settingsPageAtom);
   const [selected, setSelected] = useState(0);
@@ -61,17 +62,24 @@ export function ThemeEditorPanel() {
   const setColor = (value: string) =>
     update({ colors: theme.colors.map((c, i) => (i === index ? value : c)) });
 
-  const close = () => setEditingId(null);
   const backToSettings = () => {
-    close();
+    setEditingId(null);
     setSettingsPage('appearance');
     openSettings(true);
   };
+  const releaseSlot = () => {
+    if (lightTheme === theme.id) setLightTheme(DEFAULT_SLOTS.light);
+    if (darkTheme === theme.id) setDarkTheme(DEFAULT_SLOTS.dark);
+  };
+  const setMode = (mode: CustomTheme['mode']) => {
+    if (mode === theme.mode) return;
+    releaseSlot();
+    (mode === 'light' ? setLightTheme : setDarkTheme)(theme.id);
+    update({ mode });
+  };
   const remove = () => {
-    const rest = themes.filter((th) => th.id !== theme.id);
-    setThemes(rest);
-    setActiveId(rest[0]?.id ?? null);
-    if (rest.length === 0) setTheme('Carbon');
+    setThemes(themes.filter((th) => th.id !== theme.id));
+    releaseSlot();
     backToSettings();
   };
 
@@ -82,14 +90,16 @@ export function ThemeEditorPanel() {
     >
       <div className={sidePanelCss.sidePanelHeader}>
         <span className={sidePanelCss.sidePanelTitle}>{t('themeEditor.title')}</span>
-        <button
-          type="button"
-          className={sidePanelCss.sidePanelClose}
-          onClick={close}
-          aria-label={t('common.close')}
-        >
-          <XIcon size={16} />
-        </button>
+        <Tooltip content={t('common.close')}>
+          <button
+            type="button"
+            className={sidePanelCss.sidePanelClose}
+            onClick={backToSettings}
+            aria-label={t('common.close')}
+          >
+            <XIcon size={16} />
+          </button>
+        </Tooltip>
       </div>
 
       <div className={css.body}>
@@ -117,7 +127,7 @@ export function ThemeEditorPanel() {
                   aria-checked={theme.mode === mode}
                   aria-label={t(`themeEditor.${mode}`)}
                   className={theme.mode === mode ? css.segmentActive : css.segment}
-                  onClick={() => update({ mode })}
+                  onClick={() => setMode(mode)}
                 >
                   {mode === 'dark' ? (
                     <MoonIcon size={16} weight="fill" />

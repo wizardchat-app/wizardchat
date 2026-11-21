@@ -78,6 +78,9 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['soundboard', 'settings.soundboard.favoritePacks', 'settings.soundboard.favoritePacksNote'],
 
   ['appearance', 'settings.appearance.theme'],
+  ['appearance', 'settings.appearance.themeMode'],
+  ['appearance', 'settings.appearance.lightTheme'],
+  ['appearance', 'settings.appearance.darkTheme'],
   ['appearance', 'settings.appearance.messageLayout'],
   ['appearance', 'settings.appearance.textSize'],
   ['appearance', 'settings.appearance.density'],

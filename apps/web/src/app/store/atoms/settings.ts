@@ -2,10 +2,19 @@ import { atom } from 'jotai';
 import type { CustomTheme } from '@/theme/customTheme';
 import type { UiDensity, UiScale } from '@/theme/uiDensity';
 import { atomWithStorage } from 'jotai/utils';
-import { DEFAULT_THEME } from '@/theme/themes.css';
 import { MOD_MODIFIER } from '@/app/util/platform';
 import {
+  DEFAULT_SLOTS,
+  legacyThemeSlot,
+  resolveSlot,
+  slotKey,
+  type ColorMode,
+  type ThemeMode,
+} from '@/theme/themeSlots';
+import { themeEditorAtom } from './ui';
+import {
   STORAGE_KEY_THEME,
+  STORAGE_KEY_THEME_MODE,
   STORAGE_KEY_MESSAGE_LAYOUT,
   STORAGE_KEY_PREFERENCES,
   STORAGE_KEY_KEYBINDS,
@@ -34,6 +43,7 @@ export type StreamerMode = 'always' | 'screenshare' | 'off';
 export type ReducedMotion = 'system' | 'on' | 'off';
 export type ChatDensity = 'compact' | 'default' | 'spacious';
 export type { UiDensity, UiScale } from '@/theme/uiDensity';
+export type { ColorMode, ThemeMode } from '@/theme/themeSlots';
 
 export interface Keybinds {
   toggleMute: string;
@@ -71,7 +81,8 @@ export interface Preferences {
   showJoinLeave: boolean;
   showProfileChanges: boolean;
   customThemes: CustomTheme[];
-  activeCustomTheme: string | null;
+  lightTheme: string;
+  darkTheme: string;
   autoplayGifs: boolean;
   mediaVisibility: MediaVisibility;
   streamerMode: StreamerMode;
@@ -88,7 +99,63 @@ export interface Preferences {
   soundboardVolume: number;
 }
 
-export const themeAtom = atomWithStorage<ThemeName>(STORAGE_KEY_THEME, DEFAULT_THEME as ThemeName);
+function migrateLegacyTheme() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_THEME);
+    if (raw === null || localStorage.getItem(STORAGE_KEY_THEME_MODE) !== null) return;
+    let legacy: unknown = raw;
+    try {
+      legacy = JSON.parse(raw);
+    } catch {
+      // Stored unquoted by older settings sync
+    }
+    const prefs = JSON.parse(localStorage.getItem(STORAGE_KEY_PREFERENCES) ?? '{}') ?? {};
+    const customThemes = Array.isArray(prefs.customThemes) ? prefs.customThemes : [];
+    const slot = legacyThemeSlot(legacy, prefs.activeCustomTheme, customThemes);
+    const mode: ThemeMode = !slot || slot.wasDefault ? 'system' : slot.mode;
+    localStorage.setItem(STORAGE_KEY_THEME_MODE, JSON.stringify(mode));
+    if (slot)
+      localStorage.setItem(
+        STORAGE_KEY_PREFERENCES,
+        JSON.stringify({ ...prefs, [slotKey(slot.mode)]: slot.value })
+      );
+    localStorage.removeItem(STORAGE_KEY_THEME);
+  } catch {
+    // Unreadable legacy values: start from the defaults
+  }
+}
+migrateLegacyTheme();
+
+export const themeModeAtom = atomWithStorage<ThemeMode>(
+  STORAGE_KEY_THEME_MODE,
+  'system',
+  undefined,
+  {
+    getOnInit: true,
+  }
+);
+
+const darkQuery = () =>
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+
+export const systemColorModeAtom = atom<ColorMode>(
+  darkQuery()?.matches === false ? 'light' : 'dark'
+);
+systemColorModeAtom.onMount = (set) => {
+  const query = darkQuery();
+  if (!query) return;
+  const update = () => set(query.matches ? 'dark' : 'light');
+  update();
+  query.addEventListener('change', update);
+  return () => query.removeEventListener('change', update);
+};
+
+export const colorModeAtom = atom<ColorMode>((get) => {
+  const mode = get(themeModeAtom);
+  return mode === 'system' ? get(systemColorModeAtom) : mode;
+});
 
 export const messageLayoutAtom = atomWithStorage<MessageLayout>(
   STORAGE_KEY_MESSAGE_LAYOUT,
@@ -117,7 +184,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showJoinLeave: true,
   showProfileChanges: false,
   customThemes: [],
-  activeCustomTheme: null,
+  lightTheme: DEFAULT_SLOTS.light,
+  darkTheme: DEFAULT_SLOTS.dark,
   autoplayGifs: false,
   mediaVisibility: 'always',
   streamerMode: 'screenshare',
@@ -166,12 +234,25 @@ export const emoticonsToEmojiAtom = preferenceFieldAtom('emoticonsToEmoji');
 export const showJoinLeaveAtom = preferenceFieldAtom('showJoinLeave');
 export const showProfileChangesAtom = preferenceFieldAtom('showProfileChanges');
 export const customThemesAtom = preferenceFieldAtom('customThemes');
-export const activeCustomThemeIdAtom = preferenceFieldAtom('activeCustomTheme');
-export const activeCustomThemeAtom = atom((get) => {
-  if (get(themeAtom) !== 'Custom') return null;
+export const lightThemeAtom = preferenceFieldAtom('lightTheme');
+export const darkThemeAtom = preferenceFieldAtom('darkTheme');
+export const themeSlotAtom = (mode: ColorMode) =>
+  mode === 'light' ? lightThemeAtom : darkThemeAtom;
+
+const activeThemeAtom = atom((get) => {
   const themes = get(customThemesAtom);
-  const id = get(activeCustomThemeIdAtom);
-  return themes.find((t) => t.id === id) ?? themes[0] ?? null;
+  const editing = themes.find((t) => t.id === get(themeEditorAtom));
+  if (editing) return editing;
+  const mode = get(colorModeAtom);
+  return resolveSlot(get(themeSlotAtom(mode)), mode, themes);
+});
+export const themeAtom = atom<ThemeName>((get) => {
+  const active = get(activeThemeAtom);
+  return typeof active === 'string' ? active : 'Custom';
+});
+export const activeCustomThemeAtom = atom((get) => {
+  const active = get(activeThemeAtom);
+  return typeof active === 'string' ? null : active;
 });
 export const autoplayGifsAtom = preferenceFieldAtom('autoplayGifs');
 export const mediaVisibilityAtom = preferenceFieldAtom('mediaVisibility');

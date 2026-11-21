@@ -1,11 +1,10 @@
-import type { MessageLayout, Preferences, ThemeName } from '@/app/store/atoms';
-import { THEMES } from '@/theme/themes.css';
-import { isCustomThemeList } from '@/theme/customTheme';
+import type { MessageLayout, Preferences } from '@/app/store/atoms';
+import { isCustomThemeList, type CustomTheme } from '@/theme/customTheme';
+import { legacyThemeSlot, slotKey } from '@/theme/themeSlots';
 import {
   STORAGE_KEY_LANGUAGE,
   STORAGE_KEY_MESSAGE_LAYOUT,
   STORAGE_KEY_PREFERENCES,
-  STORAGE_KEY_THEME,
 } from '@/const/storageKeys';
 
 export const SETTINGS_ACCOUNT_DATA_TYPE = 'org.wizardchat.settings';
@@ -15,6 +14,9 @@ const oneOf =
   (...allowed: string[]) =>
   (value: unknown) =>
     typeof value === 'string' && allowed.includes(value);
+
+const isThemeSlot = (value: unknown) =>
+  typeof value === 'string' && value.length > 0 && value.length <= 64;
 
 const SYNCED_PREFERENCES = {
   typingIndicators: isBoolean,
@@ -35,7 +37,8 @@ const SYNCED_PREFERENCES = {
   showJoinLeave: isBoolean,
   showProfileChanges: isBoolean,
   customThemes: isCustomThemeList,
-  activeCustomTheme: (value: unknown) => value === null || typeof value === 'string',
+  lightTheme: isThemeSlot,
+  darkTheme: isThemeSlot,
   themedAppIcon: isBoolean,
   chatFontSize: (value: unknown) =>
     typeof value === 'number' && Number.isInteger(value) && value >= 8 && value <= 48,
@@ -48,7 +51,6 @@ export const SYNCED_PREFERENCE_KEYS = Object.keys(SYNCED_PREFERENCES) as SyncedP
 export type SyncedPreferences = Pick<Preferences, SyncedPreferenceKey>;
 
 export interface SyncedSettings extends SyncedPreferences {
-  theme: ThemeName;
   messageLayout: MessageLayout;
   language: string;
 }
@@ -59,10 +61,6 @@ export function parseSettings(raw: unknown): Partial<SyncedSettings> {
   if (!raw || typeof raw !== 'object') return {};
   const content = raw as Record<string, unknown>;
   const settings: Partial<SyncedSettings> = {};
-
-  if (typeof content.theme === 'string' && content.theme in THEMES) {
-    settings.theme = content.theme as ThemeName;
-  }
 
   if (
     typeof content.messageLayout === 'string' &&
@@ -79,6 +77,12 @@ export function parseSettings(raw: unknown): Partial<SyncedSettings> {
     if (SYNCED_PREFERENCES[key](content[key])) {
       (settings as Record<string, unknown>)[key] = content[key];
     }
+  }
+
+  if (settings.lightTheme === undefined && settings.darkTheme === undefined) {
+    const customThemes: CustomTheme[] = settings.customThemes ?? [];
+    const slot = legacyThemeSlot(content.theme, content.activeCustomTheme, customThemes);
+    if (slot) settings[slotKey(slot.mode)] = slot.value;
   }
 
   return settings;
@@ -100,7 +104,6 @@ export function readSettingsFromContent(content: unknown): Partial<SyncedSetting
 }
 
 export function writeSettingsToLocalStorage(settings: Partial<SyncedSettings>): void {
-  if (settings.theme) localStorage.setItem(STORAGE_KEY_THEME, settings.theme);
   if (settings.messageLayout)
     localStorage.setItem(STORAGE_KEY_MESSAGE_LAYOUT, settings.messageLayout);
   if (settings.language) localStorage.setItem(STORAGE_KEY_LANGUAGE, settings.language);
@@ -117,11 +120,6 @@ export function writeSettingsToLocalStorage(settings: Partial<SyncedSettings>): 
 }
 
 export function settingsEqual(a: Partial<SyncedSettings>, b: Partial<SyncedSettings>): boolean {
-  const keys: (keyof SyncedSettings)[] = [
-    'theme',
-    'messageLayout',
-    'language',
-    ...SYNCED_PREFERENCE_KEYS,
-  ];
+  const keys: (keyof SyncedSettings)[] = ['messageLayout', 'language', ...SYNCED_PREFERENCE_KEYS];
   return keys.every((key) => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
 }
