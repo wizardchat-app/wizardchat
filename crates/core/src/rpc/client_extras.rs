@@ -4,10 +4,10 @@ use serde_json::Value;
 
 use super::{Bytes, Handle, Listener, Obj, Subscription};
 use crate::{
-    CallMember, CallSession, IncomingCallEvent, Notification, PusherConfig, QrLoginControl,
-    QrLoginStatus, RedactedEvent, ResolvedAlias, RoomSection, RoomSoundPacks, RoomTag,
-    ServerFeatures, SfuConfig, SoundCredit, SoundPack, SoundboardSound, SpaceNode, StateChange,
-    WizardClient,
+    CallMember, CallSession, IncomingCall, IncomingCallEvent, Notification, PushedEvent,
+    PusherConfig, QrLoginControl, QrLoginStatus, RedactedEvent, ResolvedAlias, RoomSection,
+    RoomSoundPacks, RoomTag, ServerFeatures, SfuConfig, SoundCredit, SoundPack, SoundboardSound,
+    SpaceNode, StateChange, WizardClient,
 };
 
 rpc_methods! {
@@ -264,6 +264,14 @@ rpc_methods! {
 
         call fn pushedNotification(room_id: String, event_id: String) -> Option<Notification> {
             this.pushed_notification(&room_id, &event_id).await
+        }
+
+        call fn pushedEvent(room_id: String, event_id: String) -> Option<PushedEvent> {
+            this.pushed_event(&room_id, &event_id).await
+        }
+
+        call fn expectRing(room_id: String, event_id: String) -> Option<IncomingCall> {
+            this.expect_ring(&room_id, &event_id).await
         }
 
         call fn readRooms(room_ids: Vec<String>) -> Vec<String> {

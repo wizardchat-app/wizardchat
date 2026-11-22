@@ -39,6 +39,7 @@ import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcons
 import org.wizardchat.android.ui.PhWeight
+import org.wizardchat.core.IncomingCall
 import org.wizardchat.core.Notification
 import org.wizardchat.core.NotificationKind
 import org.wizardchat.core.NotificationMode
@@ -319,7 +320,29 @@ class MessageNotifier {
         refreshSummary(userId)
     }
 
-    /** A ring that ended without any of the user's devices answering */
+    fun incomingCall(userId: String, call: IncomingCall) {
+        val prefs = prefs ?: WizardApplication.instance.prefs
+        if (!(prefs.notificationBanners || prefs.notificationSounds) || !canPost()) return
+        val sound = prefs.notificationSounds
+        val caller = call.senderName ?: call.sender
+        val builder = NotificationCompat.Builder(context, if (sound) CHANNEL_MESSAGES else CHANNEL_SILENT)
+            .setSmallIcon(smallIcon())
+            .setColor(brandColor)
+            .setContentTitle(call.roomName ?: caller)
+            .setContentText(L10n.format("call.isCalling", caller))
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setSilent(!sound)
+            .setAutoCancel(true)
+            .setTimeoutAfter((call.expiresAt - System.currentTimeMillis()).coerceAtLeast(1000))
+            .setGroup(group(userId))
+            .setContentIntent(openIntent(call.roomId, userId, null))
+        try {
+            manager.notify("$userId|${call.roomId}", "ring|${call.roomId}".hashCode(), builder.build())
+        } catch (_: SecurityException) {
+        }
+        refreshSummary(userId)
+    }
+
     fun missedCall(roomId: String, callerName: String, roomName: String?) {
         val prefs = prefs ?: return
         if (!(prefs.notificationBanners || prefs.notificationSounds) || !canPost()) return

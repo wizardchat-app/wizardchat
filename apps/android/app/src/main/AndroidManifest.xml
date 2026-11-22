@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".WizardApplication"
@@ -76,7 +80,26 @@
         <service
             android:name=".matrix.rtc.CallService"
             android:exported="false"
-            android:foregroundServiceType="microphone|camera" />
+            android:foregroundServiceType="microphone|camera|phoneCall" />
+
+        <!-- Someone calling: rings over the lock screen and keeps the app alive meanwhile -->
+        <activity
+            android:name=".ui.voice.IncomingCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:taskAffinity="org.wizardchat.android.ringing"
+            android:turnScreenOn="true" />
+
+        <service
+            android:name=".matrix.rtc.RingService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
+
+        <receiver
+            android:name=".matrix.rtc.DeclineCallReceiver"
+            android:exported="false" />
 
         <!-- Keeps the app language on Android 12 and older -->
         <service

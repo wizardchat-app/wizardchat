@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Job
@@ -128,8 +129,11 @@ class CallService : Service() {
                     types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                     if (calls.cameraOn && granted(Manifest.permission.CAMERA)) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
                 }
-                runCatching { ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, types) }
+                val withCall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) types or ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL else 0
+                runCatching { ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, withCall) }
+                    .recoverCatching { ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, types) }
                     .recoverCatching { ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, 0) }
+                IncomingCallNotifier.stop()
                 if (CallNotificationController.current?.state == null) stopSelf()
             }
         }
@@ -188,8 +192,10 @@ class CallService : Service() {
             val open = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
                 PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             }
+            val person = Person.Builder().setName(controller.roomName.ifEmpty { L10n.format("call.wizardchatCall") }).build()
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(PhIcons.id("phone", PhWeight.regular))
+                .setStyle(NotificationCompat.CallStyle.forOngoingCall(person, action(context, ACTION_LEAVE, 3)))
                 .setContentTitle(controller.roomName)
                 .setContentText(status)
                 .setContentIntent(open)
@@ -212,7 +218,6 @@ class CallService : Service() {
                     L10n.format(if (state.deafened) "call.undeafen" else "call.deafen"),
                     action(context, ACTION_TOGGLE_DEAFEN, 2),
                 )
-                .addAction(PhIcons.id("phone-x"), L10n.format("common.leave"), action(context, ACTION_LEAVE, 3))
                 .build()
         }
 

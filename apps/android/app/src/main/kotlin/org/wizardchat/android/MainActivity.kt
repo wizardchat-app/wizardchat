@@ -98,6 +98,8 @@ class MainActivity : AppCompatActivity() {
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
             val calls = CallManager.shared
+            val overLockScreen = inCall && calls.showCallScreen
+            LaunchedEffect(overLockScreen) { showWhenLocked(overLockScreen) }
             val joined = calls.state == CallManager.State.Joined
             val screen = pipWatching(calls) || pipFeatured(calls.participants)?.screen == true
             LaunchedEffect(joined, screen, pipEnabled) { setPictureInPictureParams(pipParams(joined, screen)) }
@@ -112,13 +114,27 @@ class MainActivity : AppCompatActivity() {
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
-                lifecycleScope.launch { app.session.pauseSync(keepRunning = CallManager.shared.isInCall) }
+                val calls = CallManager.shared
+                calls.leftApp()
+                lifecycleScope.launch { app.session.pauseSync(keepRunning = calls.isInCall || calls.isRinging) }
             }
 
             override fun onStart(owner: LifecycleOwner) {
                 lifecycleScope.launch { app.session.resumeSync() }
             }
         })
+    }
+
+    private fun showWhenLocked(on: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(on)
+        } else if (on) {
+            @Suppress("DEPRECATION")
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+        } else {
+            @Suppress("DEPRECATION")
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+        }
     }
 
     private fun pipParams(joined: Boolean, landscape: Boolean): PictureInPictureParams =

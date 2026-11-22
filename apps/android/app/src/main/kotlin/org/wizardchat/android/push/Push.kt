@@ -4,19 +4,23 @@ import android.content.Context
 import android.util.Log
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.wizardchat.android.BuildConfig
 import org.wizardchat.android.WizardApplication
+import org.wizardchat.android.matrix.CallManager
 import org.wizardchat.android.matrix.MatrixSession
 import org.wizardchat.android.matrix.MessageNotifier
 import org.wizardchat.android.matrix.SessionClients
 import org.wizardchat.android.matrix.SessionStore
 import org.wizardchat.android.matrix.StoredSession
+import org.wizardchat.core.PushedEvent
 import org.wizardchat.core.PusherConfig
 import org.wizardchat.core.SyncState
 
@@ -103,8 +107,11 @@ object Push {
         if (syncing) return
         try {
             val client = SessionClients.restore(stored)
-            val notification = withTimeout(FETCH_TIMEOUT_MS) { client.pushedNotification(roomId, eventId) }
-            if (notification != null) MessageNotifier.shared.show(notification, client)
+            when (val event = withTimeout(FETCH_TIMEOUT_MS) { client.pushedEvent(roomId, eventId) }) {
+                is PushedEvent.Message -> MessageNotifier.shared.show(event.notification, client)
+                is PushedEvent.Call -> withContext(Dispatchers.Main) { CallManager.shared.ringPushed(userId, event.call) }
+                null -> {}
+            }
         } catch (_: Exception) {
             MessageNotifier.shared.showPlaceholder(userId, roomId, eventId)
         }

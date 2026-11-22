@@ -92,9 +92,10 @@ class Soundboard(private val client: WizardClient, private val scope: CoroutineS
             }
             val player = runCatching {
                 MediaPlayer().apply {
+                    // The call's own stream: its volume and output, and not muted with the ringer like signalling tones
                     setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING)
+                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build(),
                     )

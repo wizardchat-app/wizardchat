@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +46,7 @@ import org.wizardchat.android.matrix.ManagedRule
 import org.wizardchat.android.matrix.NotifLevel
 import org.wizardchat.android.matrix.PushRuleSets
 import org.wizardchat.android.matrix.PushRules
+import org.wizardchat.android.matrix.rtc.IncomingCallNotifier
 import org.wizardchat.android.push.Push
 import org.wizardchat.android.push.PushProvider
 import org.wizardchat.android.push.PushSetup
@@ -79,9 +81,11 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var bannersDenied by remember { mutableStateOf(false) }
     var pushSetup by remember { mutableStateOf(PushProvider.setup()) }
+    var fullScreenDenied by remember { mutableStateOf(!IncomingCallNotifier.canUseFullScreen()) }
 
     LifecycleResumeEffect(Unit) {
         pushSetup = PushProvider.setup()
+        fullScreenDenied = !IncomingCallNotifier.canUseFullScreen()
         val registering = if (pushSetup is PushSetup.OpenDistributor) {
             scope.launch {
                 Push.register()
@@ -186,6 +190,14 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
             LinkRow(tr("common.settings")) {
                 val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { context.startActivity(intent) }
+            }
+        }
+        if (fullScreenDenied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            StatusText(tr("settings.notifications.fullScreenCallsAndroid"))
+            LinkRow(tr("common.settings")) {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.fromParts("package", context.packageName, null))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 runCatching { context.startActivity(intent) }
             }

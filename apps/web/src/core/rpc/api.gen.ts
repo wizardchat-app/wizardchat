@@ -668,6 +668,12 @@ export type PublicRoomsPage = {
   total: number | null;
 };
 
+/**
+ * What a push was about
+ */
+export type PushedEvent =
+  { type: 'message'; notification: Notification } | { type: 'call'; call: IncomingCall };
+
 export type PusherConfig = {
   appId: string;
   pushkey: string;
@@ -2550,6 +2556,22 @@ export class WizardClient extends Remote {
       roomId,
       eventId,
     ]) as Promise<Notification | null>;
+  }
+
+  /** A message to show or a ring to report, for a push's event */
+  pushedEvent(roomId: string, eventId: string): Promise<PushedEvent | null> {
+    return runtime.call('WizardClient.pushedEvent', this, [
+      roomId,
+      eventId,
+    ]) as Promise<PushedEvent | null>;
+  }
+
+  /** Checks a pushed ring and lets `watchIncomingCalls` report it and how it ends */
+  expectRing(roomId: string, eventId: string): Promise<IncomingCall | null> {
+    return runtime.call('WizardClient.expectRing', this, [
+      roomId,
+      eventId,
+    ]) as Promise<IncomingCall | null>;
   }
 
   readRooms(roomIds: Array<string>): Promise<Array<string>> {
