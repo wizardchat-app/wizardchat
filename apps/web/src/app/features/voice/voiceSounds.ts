@@ -61,12 +61,42 @@ function isEnabled(type: VoiceSound): boolean {
 
 const VOLUME = 0.5;
 
+// If http(s) isnt available (the desktop apps own URL scheme), play through blob: URLs for WebKitGTK
+const NEEDS_BLOB = !/^https?:$/.test(window.location.protocol);
+const blobSources = new Map<VoiceSound, Promise<string>>();
+
+function blobSource(type: VoiceSound): Promise<string> {
+  let source = blobSources.get(type);
+  if (!source) {
+    source = fetch(SOUND_MAP[type])
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => URL.createObjectURL(blob));
+    source.catch(() => blobSources.delete(type));
+    blobSources.set(type, source);
+  }
+  return source;
+}
+
+function startSound(type: VoiceSound, loop: boolean): HTMLAudioElement {
+  const audio = new Audio();
+  audio.loop = loop;
+  audio.volume = VOLUME;
+  const play = (src: string) => {
+    audio.src = src;
+    audio.play().catch(() => {});
+  };
+  if (NEEDS_BLOB) blobSource(type).then(play, () => {});
+  else play(SOUND_MAP[type]);
+  return audio;
+}
+
 export function playVoiceSound(type: VoiceSound): void {
   if (!isEnabled(type)) return;
   try {
-    const audio = new Audio(SOUND_MAP[type]);
-    audio.volume = VOLUME;
-    audio.play().catch(() => {});
+    startSound(type, false);
   } catch {
     // ignore
   }
@@ -76,15 +106,15 @@ export function loopVoiceSound(type: VoiceSound): () => void {
   let audio: HTMLAudioElement | null = null;
   if (!isEnabled(type)) return () => {};
   try {
-    audio = new Audio(SOUND_MAP[type]);
-    audio.loop = true;
-    audio.volume = VOLUME;
-    audio.play().catch(() => {});
+    audio = startSound(type, true);
   } catch {
     // ignore
   }
   return () => {
-    audio?.pause();
+    if (!audio) return;
+    audio.loop = false;
+    audio.muted = true;
+    audio.pause();
     audio = null;
   };
 }

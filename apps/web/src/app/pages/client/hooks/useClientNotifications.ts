@@ -11,6 +11,8 @@ import { useAllRooms } from '@/app/data';
 import { formatUserId } from '@/util/matrix';
 import { useSyncReady } from '@/app/hooks/useSync';
 
+const appInView = () => document.visibilityState === 'visible' && document.hasFocus();
+
 export function useClientNotifications() {
   const { t } = useTranslation();
   const client = getMatrixClientOrNull();
@@ -43,7 +45,7 @@ export function useClientNotifications() {
     const myId = mx?.userId();
     if (notification.sender === myId) return;
 
-    const isWindowVisible = document.visibilityState === 'visible';
+    const isWindowVisible = appInView();
     const isCurrentRoom = notification.roomId === currentRoomIdRef.current;
     if (isWindowVisible && isCurrentRoom) return;
 
@@ -136,7 +138,7 @@ export function useClientNotifications() {
 
           const msg = t('invite.receivedInviteSimple', { user: inviterName });
 
-          if (document.visibilityState !== 'visible' && notificationBannersRef.current) {
+          if (!appInView() && notificationBannersRef.current) {
             showBrowserNotification(t('invite.newInvite'), msg);
           }
           playNotificationSound(notificationSoundsRef.current);

@@ -167,7 +167,7 @@ export const keybindsAtom = atomWithStorage<Keybinds>(STORAGE_KEY_KEYBINDS, DEFA
 export const DEFAULT_PREFERENCES: Preferences = {
   typingIndicators: true,
   notificationSounds: true,
-  notificationBanners: false,
+  notificationBanners: import.meta.env.DESKTOP,
   sendReadReceipts: true,
   prettifyLinks: false,
   markdown: true,
