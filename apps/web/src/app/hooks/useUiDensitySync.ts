@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { touchUiAtom, uiDensityAtom, uiScaleAtom } from '@/app/store/atoms';
+import { touchUiAtom, uiZoomAtom } from '@/app/store/atoms';
 import {
+  DESKTOP_SIZES,
   TOUCH_SIZES,
-  UI_DENSITY_SIZES,
-  uiDensityVarName,
-  type UiDensitySizes,
+  UI_SCALE_VAR,
+  uiSizeVarName,
+  type UiSizes,
 } from '@/theme/uiDensity';
 import { useMediaQuery } from './useMediaQuery';
 
@@ -13,28 +14,33 @@ export function useTouchUi(): boolean {
   return useAtomValue(touchUiAtom);
 }
 
-export function useUiDensitySizes(): UiDensitySizes {
-  const density = useAtomValue(uiDensityAtom);
-  const table = useTouchUi() ? TOUCH_SIZES : UI_DENSITY_SIZES;
-  return table[density] ?? table.default;
+export function useUiDensitySizes(): UiSizes {
+  const base = useTouchUi() ? TOUCH_SIZES : DESKTOP_SIZES;
+  const scale = useAtomValue(uiZoomAtom) / 100;
+  return useMemo(() => {
+    const scaled = { ...base };
+    for (const key of Object.keys(scaled) as (keyof UiSizes)[]) {
+      if (key !== 'spaceGap') scaled[key] = Math.round(base[key] * scale);
+    }
+    return scaled;
+  }, [base, scale]);
 }
 
 export function useUiDensitySync(): void {
-  const scale = useAtomValue(uiScaleAtom);
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const touch = scale === 'touch' || (scale === 'auto' && isMobile);
+  const touch = useMediaQuery('(max-width: 768px)');
   const setTouch = useSetAtom(touchUiAtom);
-  const sizes = useUiDensitySizes();
+  const zoom = useAtomValue(uiZoomAtom);
 
   useEffect(() => {
     setTouch(touch);
-    document.documentElement.dataset.uiScale = touch ? 'touch' : 'desktop';
+    const root = document.documentElement;
+    root.dataset.uiScale = touch ? 'touch' : 'desktop';
+    for (const [key, value] of Object.entries(touch ? TOUCH_SIZES : DESKTOP_SIZES)) {
+      root.style.setProperty(uiSizeVarName(key as keyof UiSizes), `${value}px`);
+    }
   }, [touch, setTouch]);
 
   useEffect(() => {
-    const root = document.documentElement.style;
-    for (const [key, value] of Object.entries(sizes)) {
-      root.setProperty(uiDensityVarName(key as keyof UiDensitySizes), `${value}px`);
-    }
-  }, [sizes]);
+    document.documentElement.style.setProperty(UI_SCALE_VAR, String(zoom / 100));
+  }, [zoom]);
 }

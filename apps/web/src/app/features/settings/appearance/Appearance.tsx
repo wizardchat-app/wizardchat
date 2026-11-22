@@ -20,15 +20,13 @@ import {
   themedAppIconAtom,
   chatFontSizeAtom,
   chatDensityAtom,
-  uiDensityAtom,
-  uiScaleAtom,
+  uiZoomAtom,
   type MessageLayout,
   type ChatDensity,
-  type UiDensity,
-  type UiScale,
 } from '@/app/store/atoms';
 import { CHAT_FONT_SIZES, DEFAULT_CHAT_FONT_SIZE } from '@/app/hooks/useChatDisplaySync';
 import { hasThemedLogo } from '@/theme/themeLogos';
+import { DEFAULT_UI_ZOOM, UI_ZOOM_LEVELS } from '@/theme/uiDensity';
 import { useMemo } from 'react';
 import { useProfile } from '@/app/data';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
@@ -206,8 +204,7 @@ export function Appearance() {
   const [themedAppIcon, setThemedAppIcon] = useAtom(themedAppIconAtom);
   const [chatFontSize, setChatFontSize] = useAtom(chatFontSizeAtom);
   const [chatDensity, setChatDensity] = useAtom(chatDensityAtom);
-  const [uiDensity, setUiDensity] = useAtom(uiDensityAtom);
-  const [uiScale, setUiScale] = useAtom(uiScaleAtom);
+  const [uiZoom, setUiZoom] = useAtom(uiZoomAtom);
   const themeHasIcon = hasThemedLogo(theme);
 
   return (
@@ -332,35 +329,17 @@ export function Appearance() {
         <h3 className={layoutCss.sectionTitle}>{t('settings.appearance.interface')}</h3>
         <div className={layoutCss.settingRow}>
           <div className={layoutCss.settingInfo}>
-            <span className={layoutCss.settingLabel}>{t('settings.appearance.uiDensity')}</span>
-            <span className={layoutCss.settingNote}>{t('settings.appearance.uiDensityNote')}</span>
+            <span className={layoutCss.settingLabel}>{t('settings.appearance.uiZoom')}</span>
+            <span className={layoutCss.settingNote}>{t('settings.appearance.uiZoomNote')}</span>
           </div>
-          <Select<UiDensity>
-            aria-label={t('settings.appearance.uiDensity')}
-            value={uiDensity}
-            options={[
-              { value: 'compact', label: t('settings.appearance.densityCompact') },
-              { value: 'default', label: t('settings.appearance.densityDefault') },
-              { value: 'spacious', label: t('settings.appearance.densitySpacious') },
-            ]}
-            onChange={setUiDensity}
-          />
-        </div>
-
-        <div className={layoutCss.settingRow}>
-          <div className={layoutCss.settingInfo}>
-            <span className={layoutCss.settingLabel}>{t('settings.appearance.uiScale')}</span>
-            <span className={layoutCss.settingNote}>{t('settings.appearance.uiScaleNote')}</span>
-          </div>
-          <Select<UiScale>
-            aria-label={t('settings.appearance.uiScale')}
-            value={uiScale}
-            options={[
-              { value: 'auto', label: t('settings.appearance.uiScaleAuto') },
-              { value: 'desktop', label: t('settings.appearance.uiScaleDesktop') },
-              { value: 'touch', label: t('settings.appearance.uiScaleTouch') },
-            ]}
-            onChange={setUiScale}
+          <Slider
+            value={uiZoom}
+            stops={UI_ZOOM_LEVELS}
+            defaultValue={DEFAULT_UI_ZOOM}
+            format={(value) => `${value}%`}
+            onChange={setUiZoom}
+            onDoubleClick={() => setUiZoom(DEFAULT_UI_ZOOM)}
+            aria-label={t('settings.appearance.uiZoom')}
           />
         </div>
 

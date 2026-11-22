@@ -1,6 +1,5 @@
 import { atom } from 'jotai';
 import type { CustomTheme } from '@/theme/customTheme';
-import type { UiDensity, UiScale } from '@/theme/uiDensity';
 import { atomWithStorage } from 'jotai/utils';
 import { MOD_MODIFIER } from '@/app/util/platform';
 import {
@@ -42,7 +41,6 @@ export type MediaVisibility = 'always' | 'private' | 'never';
 export type StreamerMode = 'always' | 'screenshare' | 'off';
 export type ReducedMotion = 'system' | 'on' | 'off';
 export type ChatDensity = 'compact' | 'default' | 'spacious';
-export type { UiDensity, UiScale } from '@/theme/uiDensity';
 export type { ColorMode, ThemeMode } from '@/theme/themeSlots';
 
 export interface Keybinds {
@@ -89,8 +87,7 @@ export interface Preferences {
   reducedMotion: ReducedMotion;
   chatFontSize: number;
   chatDensity: ChatDensity;
-  uiDensity: UiDensity;
-  uiScale: UiScale;
+  uiZoom: number;
   reducedMotionApplied: boolean | null;
   themedAppIcon: boolean;
   excludeInsecureSessions: boolean;
@@ -125,6 +122,20 @@ function migrateLegacyTheme() {
   }
 }
 migrateLegacyTheme();
+
+function migrateUiDensity() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(STORAGE_KEY_PREFERENCES) ?? 'null');
+    if (!prefs || !('uiDensity' in prefs)) return;
+    const uiZoom = prefs.uiDensity === 'compact' ? 90 : prefs.uiDensity === 'spacious' ? 110 : 100;
+    delete prefs.uiDensity;
+    delete prefs.uiScale;
+    localStorage.setItem(STORAGE_KEY_PREFERENCES, JSON.stringify({ ...prefs, uiZoom }));
+  } catch {
+    // Unreadable preferences: start from the defaults
+  }
+}
+migrateUiDensity();
 
 export const themeModeAtom = atomWithStorage<ThemeMode>(
   STORAGE_KEY_THEME_MODE,
@@ -192,8 +203,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   reducedMotion: 'system',
   chatFontSize: 15,
   chatDensity: 'default',
-  uiDensity: 'default',
-  uiScale: 'auto',
+  uiZoom: 100,
   reducedMotionApplied: null,
   themedAppIcon: false,
   excludeInsecureSessions: false,
@@ -260,8 +270,7 @@ export const streamerModeAtom = preferenceFieldAtom('streamerMode');
 export const reducedMotionAtom = preferenceFieldAtom('reducedMotion');
 export const chatFontSizeAtom = preferenceFieldAtom('chatFontSize');
 export const chatDensityAtom = preferenceFieldAtom('chatDensity');
-export const uiDensityAtom = preferenceFieldAtom('uiDensity');
-export const uiScaleAtom = preferenceFieldAtom('uiScale');
+export const uiZoomAtom = preferenceFieldAtom('uiZoom');
 export const touchUiAtom = atom(false);
 export const themedAppIconAtom = preferenceFieldAtom('themedAppIcon');
 export const excludeInsecureSessionsAtom = preferenceFieldAtom('excludeInsecureSessions');

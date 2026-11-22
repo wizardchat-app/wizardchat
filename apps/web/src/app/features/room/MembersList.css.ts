@@ -1,6 +1,6 @@
 import { style, keyframes } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
-import { uiSize } from '@/theme/uiDensity';
+import { uiSize, uiZoom } from '@/theme/uiDensity';
 
 export const membersListContainer = style({
   display: 'flex',
@@ -17,6 +17,7 @@ export const membersScrollArea = style({
 });
 
 export const memberRow = style({
+  zoom: uiZoom,
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
@@ -114,6 +115,7 @@ export const roleHeader = style({
 });
 
 export const roleHeaderLabel = style({
+  zoom: uiZoom,
   fontSize: '0.75rem',
   fontWeight: 600,
   color: vars.color.textMuted,
@@ -123,6 +125,7 @@ export const roleHeaderLabel = style({
 });
 
 export const roleHeaderCount = style({
+  zoom: uiZoom,
   fontSize: '0.75rem',
   fontWeight: 600,
   color: vars.color.textMuted,

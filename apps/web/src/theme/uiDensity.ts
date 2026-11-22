@@ -1,8 +1,4 @@
-export type UiDensity = 'compact' | 'default' | 'spacious';
-
-export type UiScale = 'auto' | 'desktop' | 'touch';
-
-export interface UiDensitySizes {
+export interface UiSizes {
   roomRow: number;
   roomAvatar: number;
   categoryHeader: number;
@@ -11,67 +7,38 @@ export interface UiDensitySizes {
   spaceGap: number;
 }
 
-export const UI_DENSITY_SIZES: Record<UiDensity, UiDensitySizes> = {
-  compact: {
-    roomRow: 32,
-    roomAvatar: 24,
-    categoryHeader: 22,
-    memberRow: 32,
-    roleHeader: 26,
-    spaceGap: 4,
-  },
-  default: {
-    roomRow: 40,
-    roomAvatar: 32,
-    categoryHeader: 26,
-    memberRow: 38,
-    roleHeader: 30,
-    spaceGap: 6,
-  },
-  spacious: {
-    roomRow: 48,
-    roomAvatar: 36,
-    categoryHeader: 32,
-    memberRow: 46,
-    roleHeader: 36,
-    spaceGap: 10,
-  },
+export const DESKTOP_SIZES: UiSizes = {
+  roomRow: 40,
+  roomAvatar: 32,
+  categoryHeader: 26,
+  memberRow: 38,
+  roleHeader: 30,
+  spaceGap: 6,
 };
 
-export const TOUCH_SIZES: Record<UiDensity, UiDensitySizes> = {
-  compact: {
-    roomRow: 64,
-    roomAvatar: 42,
-    categoryHeader: 40,
-    memberRow: 48,
-    roleHeader: 38,
-    spaceGap: 14,
-  },
-  default: {
-    roomRow: 72,
-    roomAvatar: 48,
-    categoryHeader: 44,
-    memberRow: 54,
-    roleHeader: 42,
-    spaceGap: 16,
-  },
-  spacious: {
-    roomRow: 80,
-    roomAvatar: 54,
-    categoryHeader: 48,
-    memberRow: 62,
-    roleHeader: 48,
-    spaceGap: 20,
-  },
+export const TOUCH_SIZES: UiSizes = {
+  roomRow: 72,
+  roomAvatar: 48,
+  categoryHeader: 44,
+  memberRow: 54,
+  roleHeader: 42,
+  spaceGap: 16,
 };
 
-export function uiDensityVarName(key: keyof UiDensitySizes): string {
+export const UI_ZOOM_LEVELS = [80, 90, 100, 110, 125, 150];
+export const DEFAULT_UI_ZOOM = 100;
+
+export function uiSizeVarName(key: keyof UiSizes): string {
   return `--wz-ui-${key}`;
 }
 
-export function uiSize(key: keyof UiDensitySizes): string {
-  return `var(${uiDensityVarName(key)}, ${UI_DENSITY_SIZES.default[key]}px)`;
+export function uiSize(key: keyof UiSizes): string {
+  return `var(${uiSizeVarName(key)}, ${DESKTOP_SIZES[key]}px)`;
 }
+
+export const UI_SCALE_VAR = '--wz-ui-scale';
+
+export const uiZoom = `var(${UI_SCALE_VAR}, 1)`;
 
 export const TOUCH_UI = 'html[data-ui-scale="touch"]';
 

@@ -1,9 +1,10 @@
 import { globalStyle, keyframes, style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
-import { TOUCH_UI, uiSize } from '@/theme/uiDensity';
+import { TOUCH_UI, uiSize, uiZoom } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
 
 export const roomItem = style({
+  zoom: uiZoom,
   display: 'flex',
   alignItems: 'center',
   padding: `calc((${uiSize('roomRow')} - ${uiSize('roomAvatar')}) / 2) 8px`,

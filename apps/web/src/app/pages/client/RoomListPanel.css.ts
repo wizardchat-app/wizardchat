@@ -1,7 +1,7 @@
 import { style, keyframes } from '@vanilla-extract/css';
 import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
-import { TOUCH_UI } from '@/theme/uiDensity';
+import { TOUCH_UI, uiZoom } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
 import { ROOM_LIST_WIDTH_DEFAULT, ROOM_LIST_WIDTH_MIN } from '@/const/panelWidths';
 
@@ -141,6 +141,7 @@ export const skeletonLineShort = style({
 });
 
 export const subspaceCategoryHeader = style({
+  zoom: uiZoom,
   display: 'flex',
   alignItems: 'center',
   padding: '1px 8px 1px 4px',
