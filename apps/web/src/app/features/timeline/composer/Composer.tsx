@@ -20,7 +20,10 @@ import {
   stickerPickerAtom,
   editMessageAtom,
   editComposerEmojiInserterAtom,
+  threadsPanelViewAtom,
 } from '@/app/store/atoms';
+import { useMediaQuery } from '@/app/hooks/useMediaQuery';
+import { TOUCH_FIRST_QUERY } from '@/theme/uiDensity';
 import type { RoomWidget } from '@/app/hooks/useWidgets';
 import { StickerPicker } from '@/app/features/widget/StickerPicker';
 import {
@@ -184,9 +187,24 @@ export function Composer({
   const inCall = useAtomValue(isInCallAtom);
   const keybinds = useAtomValue(keybindsAtom);
   const pushToTalk = useAtomValue(pushToTalkEnabledAtom);
+  const threadOpen = useAtomValue(threadsPanelViewAtom)?.type === 'thread';
+  const touchFirst = useMediaQuery(TOUCH_FIRST_QUERY);
 
   useEffect(() => {
-    if (threadId) return;
+    if (!threadId || touchFirst) return;
+    const frame = requestAnimationFrame(() => {
+      try {
+        Transforms.select(editor, Editor.end(editor, []));
+        ReactEditor.focus(editor);
+      } catch {
+        // editor not mounted
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [threadId, roomId, touchFirst, editor]);
+
+  useEffect(() => {
+    if (!threadId && threadOpen) return;
     const handler = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key.length !== 1) return;
@@ -219,7 +237,7 @@ export function Composer({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [threadId, editor, composerWrapRef, inCall, keybinds, pushToTalk]);
+  }, [threadId, threadOpen, editor, composerWrapRef, inCall, keybinds, pushToTalk]);
 
   useLayoutEffect(() => {
     const wrap = composerWrapRef.current;
