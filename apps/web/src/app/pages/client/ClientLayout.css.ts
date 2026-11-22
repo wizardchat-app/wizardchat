@@ -2,7 +2,8 @@ import { globalStyle, style } from '@vanilla-extract/css';
 import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { med } from '@/theme/animations.css';
-import { spacesList } from './SpacesList.css';
+import { SPACES_LIST_WIDTH, spacesList } from './SpacesList.css';
+import { ROOM_LIST_WIDTH_MIN, TIMELINE_WIDTH_MIN } from '@/const/panelWidths';
 import { bottomDock, roomList } from './RoomListPanel.css';
 import { NATIVE_TAB_BAR, TAB_BAR_HEIGHT } from './MobileTabBar.css';
 import { navList } from '@/app/components/Settings/Settings.css';
@@ -37,6 +38,10 @@ export const sidebar = style({
   height: '100%',
   overflow: 'hidden',
   '@media': {
+    '(min-width: 769px)': {
+      flexShrink: 1,
+      minWidth: `${SPACES_LIST_WIDTH + ROOM_LIST_WIDTH_MIN}px`,
+    },
     '(max-width: 768px)': {
       position: 'fixed',
       left: 0,
@@ -77,6 +82,9 @@ export const mainContent = style({
   overflow: 'hidden',
   position: 'relative',
   ...backdrop('secondary'),
+  '@media': {
+    '(min-width: 769px)': { minWidth: `${TIMELINE_WIDTH_MIN}px` },
+  },
 });
 
 export const mainContentHidden = style({

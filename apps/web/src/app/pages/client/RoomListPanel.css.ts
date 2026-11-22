@@ -3,9 +3,11 @@ import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { TOUCH_UI } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
+import { ROOM_LIST_WIDTH_DEFAULT, ROOM_LIST_WIDTH_MIN } from '@/const/panelWidths';
 
 export const roomListPanel = style({
-  width: '240px',
+  width: `${ROOM_LIST_WIDTH_DEFAULT}px`,
+  position: 'relative',
   ...backdrop('primary'),
   display: 'flex',
   flexDirection: 'column',
@@ -13,6 +15,7 @@ export const roomListPanel = style({
   borderRight: `1px solid ${vars.color.border}`,
   flexShrink: 0,
   '@media': {
+    '(min-width: 769px)': { flexShrink: 1, minWidth: `${ROOM_LIST_WIDTH_MIN}px` },
     '(max-width: 768px)': { width: 'auto', flex: 1, minWidth: 0, borderRight: 'none' },
   },
 });

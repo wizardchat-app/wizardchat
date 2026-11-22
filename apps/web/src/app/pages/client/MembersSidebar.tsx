@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserPlusIcon, XIcon } from '@phosphor-icons/react';
-import { useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { MembersList } from '@/app/features/room';
 import { Tooltip } from '@/app/components/Tooltip';
-import { inviteModalRoomIdAtom } from '@/app/store/atoms';
+import {
+  inviteModalRoomIdAtom,
+  membersPanelWidthAtom,
+  MEMBERS_PANEL_WIDTH_DEFAULT,
+  MEMBERS_PANEL_WIDTH_MIN,
+  MEMBERS_PANEL_WIDTH_MAX,
+} from '@/app/store/atoms';
+import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
+import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { useRoomDetails } from '@/app/data';
 import * as css from './MembersSidebar.css';
 
@@ -23,6 +31,8 @@ export function MembersSidebar({
 }: MembersSidebarProps = {}) {
   const { t } = useTranslation();
   const setInviteModal = useSetAtom(inviteModalRoomIdAtom);
+  const [width, setWidth] = useAtom(membersPanelWidthAtom);
+  const resizable = useMediaQuery('(min-width: 769px)') && open;
 
   const [everOpened, setEverOpened] = useState(open);
 
@@ -47,7 +57,17 @@ export function MembersSidebar({
       data-swipe-back="panel"
       className={`${css.membersSidebar}${className ? ` ${className}` : ''}`}
       aria-label={t('common.members')}
+      style={resizable ? { width: `${width}px` } : undefined}
     >
+      {resizable && (
+        <PanelResizer
+          width={width}
+          onWidthChange={setWidth}
+          defaultWidth={MEMBERS_PANEL_WIDTH_DEFAULT}
+          min={MEMBERS_PANEL_WIDTH_MIN}
+          max={MEMBERS_PANEL_WIDTH_MAX}
+        />
+      )}
       <div className={css.membersSidebarHeader}>
         <h2 className={css.membersSidebarTitle}>{t('common.members')}</h2>
         {canInvite && space && (

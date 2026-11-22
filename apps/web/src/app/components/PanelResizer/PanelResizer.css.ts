@@ -5,7 +5,6 @@ export const handle = style({
   position: 'absolute',
   top: 0,
   bottom: 0,
-  left: 0,
   width: 6,
   cursor: 'col-resize',
   touchAction: 'none',
@@ -17,7 +16,6 @@ export const handle = style({
       position: 'absolute',
       top: 0,
       bottom: 0,
-      left: 0,
       width: 2,
       backgroundColor: vars.color.accent,
       opacity: 0,
@@ -30,4 +28,14 @@ export const handle = style({
       opacity: 1,
     },
   },
+});
+
+export const handleLeft = style({
+  left: 0,
+  selectors: { '&::after': { left: 0 } },
+});
+
+export const handleRight = style({
+  right: 0,
+  selectors: { '&::after': { right: 0 } },
 });

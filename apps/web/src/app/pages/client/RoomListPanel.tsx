@@ -28,6 +28,10 @@ import {
   mobileDrawerOpenAtom,
   favouriteRoomsAtom,
   openRoomChatAtom,
+  roomListWidthAtom,
+  ROOM_LIST_WIDTH_DEFAULT,
+  ROOM_LIST_WIDTH_MIN,
+  ROOM_LIST_WIDTH_MAX,
 } from '@/app/store/atoms';
 import { useToast } from '@/app/hooks/useToast';
 import { useContextMenu } from '@/app/hooks/useContextMenu';
@@ -63,6 +67,7 @@ import { RoomListItem, DmListItem } from './RoomListItem';
 import { UserPanel } from './UserPanel';
 import { isTextFieldTarget } from '@/app/features/keyboardShortcuts/keyEvents';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
+import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
 import * as css from './RoomListPanel.css';
 import * as itemCss from './ChatListItem.css';
 import {
@@ -340,6 +345,7 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   const { spaces } = useSpaces();
   const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const [roomListWidth, setRoomListWidth] = useAtom(roomListWidthAtom);
 
   const handleNewSectionRef = useRef<() => Promise<void>>(async () => {});
   const currentSpaceEntry = useMemo(
@@ -1796,7 +1802,20 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   };
 
   return (
-    <div className={css.roomListPanel}>
+    <div
+      className={css.roomListPanel}
+      style={isMobile ? undefined : { width: `${roomListWidth}px` }}
+    >
+      {!isMobile && (
+        <PanelResizer
+          edge="right"
+          width={roomListWidth}
+          onWidthChange={setRoomListWidth}
+          defaultWidth={ROOM_LIST_WIDTH_DEFAULT}
+          min={ROOM_LIST_WIDTH_MIN}
+          max={ROOM_LIST_WIDTH_MAX}
+        />
+      )}
       <header className={css.roomHeader}>
         <Tooltip content={headerLabel}>
           <h2 className={css.roomHeaderTitle}>

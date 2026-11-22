@@ -1,0 +1,13 @@
+export const THREAD_PANEL_WIDTH_MIN = 450;
+export const THREAD_PANEL_WIDTH_MAX = 600;
+export const THREAD_PANEL_WIDTH_DEFAULT = 450;
+
+export const ROOM_LIST_WIDTH_MIN = 200;
+export const ROOM_LIST_WIDTH_MAX = 400;
+export const ROOM_LIST_WIDTH_DEFAULT = 240;
+
+export const MEMBERS_PANEL_WIDTH_MIN = 220;
+export const MEMBERS_PANEL_WIDTH_MAX = 420;
+export const MEMBERS_PANEL_WIDTH_DEFAULT = 260;
+
+export const TIMELINE_WIDTH_MIN = 320;

@@ -7,14 +7,31 @@ interface PanelResizerProps {
   defaultWidth?: number;
   min?: number;
   max?: number;
+  edge?: 'left' | 'right';
 }
 
-export function PanelResizer({ width, onWidthChange, defaultWidth, min, max }: PanelResizerProps) {
+export function PanelResizer({
+  width,
+  onWidthChange,
+  defaultWidth,
+  min,
+  max,
+  edge = 'left',
+}: PanelResizerProps) {
   const stateRef = useRef({ width, min, max });
   stateRef.current.width = width;
   stateRef.current.min = min;
   stateRef.current.max = max;
   const [dragging, setDragging] = useState(false);
+  const direction = edge === 'left' ? -1 : 1;
+
+  const clamp = useCallback((next: number) => {
+    const { min, max } = stateRef.current;
+    let value = next;
+    if (min !== undefined) value = Math.max(min, value);
+    if (max !== undefined) value = Math.min(max, value);
+    return Math.round(value);
+  }, []);
 
   const onDoubleClick = useCallback(() => {
     if (defaultWidth !== undefined) onWidthChange(defaultWidth);
@@ -26,30 +43,27 @@ export function PanelResizer({ width, onWidthChange, defaultWidth, min, max }: P
       e.preventDefault();
       setDragging(true);
       const startX = e.clientX;
-      const startWidth = stateRef.current.width;
+      const rendered = e.currentTarget.parentElement?.getBoundingClientRect().width;
+      const startWidth = clamp(rendered || stateRef.current.width);
       const onMove = (ev: PointerEvent) => {
-        const { min, max } = stateRef.current;
-        const next = startWidth + startX - ev.clientX;
-        const clamped =
-          min !== undefined && max !== undefined
-            ? Math.round(Math.min(max, Math.max(min, next)))
-            : Math.round(next);
-        onWidthChange(clamped);
+        onWidthChange(clamp(startWidth + (ev.clientX - startX) * direction));
       };
       const onUp = () => {
         setDragging(false);
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
     },
-    [onWidthChange]
+    [onWidthChange, clamp, direction]
   );
 
   return (
     <div
-      className={css.handle}
+      className={`${css.handle} ${edge === 'left' ? css.handleLeft : css.handleRight}`}
       onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick}
       data-dragging={dragging ? 'true' : undefined}

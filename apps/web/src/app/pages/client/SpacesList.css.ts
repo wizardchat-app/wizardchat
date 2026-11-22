@@ -4,8 +4,10 @@ import { vars } from '@/theme/vars.css';
 import { uiSize } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
 
+export const SPACES_LIST_WIDTH = 64;
+
 export const spacesList = style({
-  width: '64px',
+  width: `${SPACES_LIST_WIDTH}px`,
   ...backdrop('primary'),
   display: 'flex',
   flexDirection: 'column',

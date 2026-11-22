@@ -2,9 +2,10 @@ import { style } from '@vanilla-extract/css';
 import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { med } from '@/theme/animations.css';
+import { MEMBERS_PANEL_WIDTH_DEFAULT, MEMBERS_PANEL_WIDTH_MIN } from '@/const/panelWidths';
 
 const base = {
-  width: '260px',
+  width: `${MEMBERS_PANEL_WIDTH_DEFAULT}px`,
   ...backdrop('secondary'),
   borderLeft: `1px solid ${vars.color.border}`,
   display: 'flex',
@@ -31,7 +32,9 @@ export const membersSidebar = style(base);
 
 export const membersSidebarOpen = style({
   ...base,
+  position: 'relative',
   '@media': {
+    '(min-width: 769px)': { flexShrink: 1, minWidth: `${MEMBERS_PANEL_WIDTH_MIN}px` },
     '(max-width: 768px)': {
       position: 'fixed',
       left: 'env(safe-area-inset-left)',

@@ -2,9 +2,10 @@ import { style } from '@vanilla-extract/css';
 import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
 import { med, slideInRight } from '@/theme/animations.css';
+import { THREAD_PANEL_WIDTH_DEFAULT, THREAD_PANEL_WIDTH_MIN } from '@/const/panelWidths';
 
 const base = {
-  width: '450px',
+  width: `${THREAD_PANEL_WIDTH_DEFAULT}px`,
   position: 'relative',
   ...backdrop('secondary'),
   borderLeft: `1px solid ${vars.color.border}`,
@@ -13,6 +14,7 @@ const base = {
   overflow: 'hidden',
   flexShrink: 0,
   '@media': {
+    '(min-width: 769px)': { flexShrink: 1, minWidth: `${THREAD_PANEL_WIDTH_MIN}px` },
     '(max-width: 768px)': {
       position: 'fixed',
       left: 'env(safe-area-inset-left)',
@@ -32,6 +34,7 @@ export const threadPanel = style(base);
 export const threadPanelOpen = style({
   ...base,
   '@media': {
+    '(min-width: 769px)': { flexShrink: 1, minWidth: `${THREAD_PANEL_WIDTH_MIN}px` },
     '(max-width: 768px)': {
       position: 'fixed',
       right: 'env(safe-area-inset-right)',

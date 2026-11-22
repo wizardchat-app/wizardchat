@@ -7,6 +7,8 @@ import {
   STORAGE_KEY_OPEN_LOBBY_CATEGORIES,
   STORAGE_KEY_THREAD_LAST_SEEN,
   STORAGE_KEY_THREAD_PANEL_WIDTH,
+  STORAGE_KEY_ROOM_LIST_WIDTH,
+  STORAGE_KEY_MEMBERS_PANEL_WIDTH,
   STORAGE_KEY_HIDDEN_MEDIA,
   STORAGE_KEY_EMOJI_FREQUENCY,
   STORAGE_KEY_RECENT_INVITES,
@@ -14,7 +16,30 @@ import {
   STORAGE_KEY_VERIFY_SKIPPED_DEVICE,
   STORAGE_KEY_WHATS_NEW_SEEN,
 } from '@/const/storageKeys';
+import {
+  THREAD_PANEL_WIDTH_MIN,
+  THREAD_PANEL_WIDTH_MAX,
+  THREAD_PANEL_WIDTH_DEFAULT,
+  ROOM_LIST_WIDTH_MIN,
+  ROOM_LIST_WIDTH_MAX,
+  ROOM_LIST_WIDTH_DEFAULT,
+  MEMBERS_PANEL_WIDTH_MIN,
+  MEMBERS_PANEL_WIDTH_MAX,
+  MEMBERS_PANEL_WIDTH_DEFAULT,
+} from '@/const/panelWidths';
 import { atomWithAccountStorage } from './accountStorage';
+
+export {
+  THREAD_PANEL_WIDTH_MIN,
+  THREAD_PANEL_WIDTH_MAX,
+  THREAD_PANEL_WIDTH_DEFAULT,
+  ROOM_LIST_WIDTH_MIN,
+  ROOM_LIST_WIDTH_MAX,
+  ROOM_LIST_WIDTH_DEFAULT,
+  MEMBERS_PANEL_WIDTH_MIN,
+  MEMBERS_PANEL_WIDTH_MAX,
+  MEMBERS_PANEL_WIDTH_DEFAULT,
+};
 
 export type { SyncState } from '@wizardchat/core';
 export { syncStateAtom } from '@/app/data/atoms';
@@ -422,24 +447,36 @@ export const setSidePanelContextAtom = atom(
 );
 export const threadPanelExpandedAtom = atom(false);
 
-export const THREAD_PANEL_WIDTH_MIN = 450;
-export const THREAD_PANEL_WIDTH_MAX = 600;
-export const THREAD_PANEL_WIDTH_DEFAULT = 450;
+function panelWidthAtom(key: string, min: number, max: number, fallback: number) {
+  const clamp = (width: number) =>
+    Number.isFinite(width) ? Math.min(max, Math.max(min, width)) : fallback;
+  const stored = atomWithStorage<number>(key, fallback);
+  return atom(
+    (get) => clamp(get(stored)),
+    (_get, set, width: number) => set(stored, clamp(width))
+  );
+}
 
-const storedThreadPanelWidthAtom = atomWithStorage<number>(
+export const threadPanelWidthAtom = panelWidthAtom(
   STORAGE_KEY_THREAD_PANEL_WIDTH,
+  THREAD_PANEL_WIDTH_MIN,
+  THREAD_PANEL_WIDTH_MAX,
   THREAD_PANEL_WIDTH_DEFAULT
 );
 
-export const threadPanelWidthAtom = atom(
-  (get) => clampPanelWidth(get(storedThreadPanelWidthAtom)),
-  (_get, set, width: number) => set(storedThreadPanelWidthAtom, clampPanelWidth(width))
+export const roomListWidthAtom = panelWidthAtom(
+  STORAGE_KEY_ROOM_LIST_WIDTH,
+  ROOM_LIST_WIDTH_MIN,
+  ROOM_LIST_WIDTH_MAX,
+  ROOM_LIST_WIDTH_DEFAULT
 );
 
-function clampPanelWidth(width: number): number {
-  if (!Number.isFinite(width)) return THREAD_PANEL_WIDTH_DEFAULT;
-  return Math.min(THREAD_PANEL_WIDTH_MAX, Math.max(THREAD_PANEL_WIDTH_MIN, width));
-}
+export const membersPanelWidthAtom = panelWidthAtom(
+  STORAGE_KEY_MEMBERS_PANEL_WIDTH,
+  MEMBERS_PANEL_WIDTH_MIN,
+  MEMBERS_PANEL_WIDTH_MAX,
+  MEMBERS_PANEL_WIDTH_DEFAULT
+);
 
 // Maps thread root event ID -> last-seen renderable reply event ID.
 // Persisted to localStorage so the unread dot stays cleared across hot reloads and page refreshes.
