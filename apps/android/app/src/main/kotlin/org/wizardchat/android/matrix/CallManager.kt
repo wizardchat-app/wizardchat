@@ -12,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import io.livekit.android.AudioOptions
 import io.livekit.android.ConnectOptions
 import io.livekit.android.LiveKit
@@ -55,6 +57,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -71,6 +74,8 @@ import org.wizardchat.android.matrix.rtc.NoiseFilterMode
 import org.wizardchat.android.matrix.rtc.Soundboard
 import org.wizardchat.android.matrix.rtc.SoundboardFlash
 import org.wizardchat.android.matrix.rtc.CallSounds
+import org.wizardchat.android.matrix.rtc.CallTelecom
+import org.wizardchat.android.matrix.rtc.IncomingCallNotifier
 import org.wizardchat.android.matrix.rtc.WatchParticipant
 import org.wizardchat.android.matrix.rtc.WatchTogether
 import org.wizardchat.android.ui.L10n
@@ -252,6 +257,8 @@ class CallManager {
     private var session: CallSession? = null
     private var run: Subscription? = null
     private var incomingWatch: Subscription? = null
+    private var wokeForRing = false
+    private val ringExpiresAt = mutableMapOf<String, Long>()
     private var incomingClient: WizardClient? = null
     private var members = listOf<CallMember>()
     private var mutedBeforeDeafen = false
@@ -284,6 +291,16 @@ class CallManager {
         notification.end()
     }
 
+    val isRinging: Boolean get() = incoming?.ring == true
+
+    fun leftApp() {
+        val call = incoming?.takeIf { it.ring } ?: return
+        ringtone?.stop()
+        ringtone = null
+        wokeForRing = true
+        IncomingCallNotifier.ring(call, ringExpiresAt[call.eventId] ?: (System.currentTimeMillis() + RING_FALLBACK_MILLIS))
+    }
+
     val isInCall: Boolean get() = state == State.Joining || state == State.Joined
 
     fun isInCall(roomId: String): Boolean = isInCall && room?.id == roomId
@@ -301,6 +318,9 @@ class CallManager {
     private suspend fun joinNow(room: RoomSummary, session: MatrixSession, intent: String?, ring: Boolean) {
         if (incoming?.roomId == room.id) dismissIncoming()
         if (isInCall) leaveAndWait("switch")
+        if (!CallTelecom.isCall(room.id)) {
+            CallTelecom.outgoing(room.id, room.id, room.displayName, intent == "video") { leave("system") }
+        }
         pendingLeave?.let { leaving -> withTimeoutOrNull(LEAVE_WAIT_MILLIS) { leaving.join() } }
         val wanted = buildList {
             add(Manifest.permission.RECORD_AUDIO)
@@ -308,16 +328,19 @@ class CallManager {
         }
         requestPermissions(wanted)
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            IncomingCallNotifier.stop()
+            CallTelecom.end(room.id)
             state = State.Failed(L10n.format("call.micPermission"), room.id)
             return
         }
-        val client = session.client ?: return
+        val client = session.client ?: return CallTelecom.end(room.id)
         val current = ++attempt
         this.room = room
         this.client = client
         showOwnScreen = false
         status = CallStatus.joiningMedia
         state = State.Joining
+        notification.start(room.displayName, room.isDirect, activityState)
         var call: CallSession? = null
         try {
             val callServer = callServer(client.userId)
@@ -348,6 +371,7 @@ class CallManager {
             val publisher = connectPublisher() ?: return
             if (attempt != current) return
             state = State.Joined
+            CallTelecom.active(room.id)
             applyAudioDevice()
             watch = WatchTogether(
                 ownUserId = client.userId ?: "",
@@ -359,7 +383,7 @@ class CallManager {
             soundboard = Soundboard(client, scope)
             if (pushToTalk) micMuted = false
             CallSounds.play("call_join")
-            notification.start(room.displayName, room.isDirect, activityState)
+            notification.update(activityState)
             if (intent == "video") toggleCamera()
             // Someone may have answered before the media connected
             if (joined.rang && knownOthers.isEmpty()) startRinging()
@@ -486,6 +510,8 @@ class CallManager {
 
     private fun tearDown() {
         attempt++
+        room?.let { CallTelecom.end(it.id) }
+        if (incoming == null) IncomingCallNotifier.stop()
         notification.end()
         stopRinging()
         ring = null
@@ -706,7 +732,10 @@ class CallManager {
 
     private fun sendData(message: JsonObject, topic: String) {
         val publisher = publisher ?: return
-        val data = message.toString().encodeToByteArray()
+        // LiveKit loses the sender of encrypted data, so messages name it themselves
+        val sender = publisher.localParticipant.identity?.value
+        val stamped = if (sender == null) message else JsonObject(message + (SENDER_KEY to JsonPrimitive(sender)))
+        val data = stamped.toString().encodeToByteArray()
         scope.launch {
             publisher.localParticipant.publishData(data, DataPublishReliability.RELIABLE, topic)
                 .onFailure { Log.w(TAG, "data: $it") }
@@ -835,6 +864,7 @@ class CallManager {
         val id = defaults.getInt("voice.outputDevice", -1)
         val device = manager.availableCommunicationDevices.firstOrNull { it.id == id }
         if (device != null) manager.setCommunicationDevice(device) else if (id != -1) manager.clearCommunicationDevice()
+        CallTelecom.reroute()
     }
 
     fun setMicTesting(on: Boolean) {
@@ -883,7 +913,7 @@ class CallManager {
         if (keyProvider != null && encryption == "NONE") return
         val play = Soundboard.parse(data) ?: return
         val userId = members.firstOrNull { it.identity == identity }?.userId ?: identity.substringBeforeLast(":")
-        hearSound(play.url, play.shortcode, play.emoji, userId, identity)
+        hearSound(play.url, play.shortcode, play.emoji, userId, identity.ifEmpty { null })
     }
 
     fun sendReaction(reaction: CallReaction) {
@@ -954,6 +984,12 @@ class CallManager {
             }
         }
         requestedSubscriptions.keys.retainAll(seen)
+    }
+
+    private fun namedSender(data: ByteArray): String? {
+        val message = runCatching { Json.parseToJsonElement(data.decodeToString()).jsonObject }.getOrNull() ?: return null
+        val sender = message[SENDER_KEY]?.jsonPrimitive?.contentOrNull ?: return null
+        return sender.takeIf { members.any { it.identity == sender } }
     }
 
     private fun receiveStreamWatch(data: ByteArray, from: String) {
@@ -1060,8 +1096,13 @@ class CallManager {
             is RoomEvent.Reconnecting -> if (livekit === publisher) reportMedia(MediaState.reconnecting)
             is RoomEvent.Reconnected -> if (livekit === publisher) reportMedia(MediaState.connected)
             is RoomEvent.DataReceived -> {
-                val from = event.participant?.identity?.value ?: ""
-                if (event.topic == Soundboard.TOPIC && event.participant != null) receiveSound(event.data, from, (event.encryptionType as Any).toString())
+                // LiveKit loses the sender of decrypted data, but only a call member's key decrypts it,
+                // so the sender the message names is taken if it's in the call
+                val encrypted = (event.encryptionType as Any).toString() != "NONE"
+                val from = event.participant?.identity?.value ?: (if (encrypted) namedSender(event.data) else null) ?: ""
+                if (event.topic == Soundboard.TOPIC && (event.participant != null || encrypted)) {
+                    receiveSound(event.data, from, (event.encryptionType as Any).toString())
+                }
                 if (event.topic == WatchTogether.TOPIC) watch?.receive(event.data, from)
                 if (event.topic == STREAM_WATCH_TOPIC) receiveStreamWatch(event.data, from)
             }
@@ -1154,8 +1195,10 @@ class CallManager {
     /** A ring in the room already showing replaces it; one in another room is ignored meanwhile */
     private fun ringIn(call: IncomingCall) {
         val shown = incoming
+        Log.i(TAG, "ring ${call.eventId} in ${call.roomId}, showing ${shown?.eventId}")
+        if (shown?.eventId == call.eventId) return
         if ((shown != null && shown.roomId != call.roomId) || isInCall(call.roomId)) return
-        incoming = RingingCall(
+        val ringing = RingingCall(
             call.roomId,
             call.eventId,
             call.sender,
@@ -1163,15 +1206,123 @@ class CallManager {
             voiceOnly = call.intent != "video",
             ring = call.ring,
         )
-        if (call.ring) {
+        ringExpiresAt.clear()
+        ringExpiresAt[call.eventId] = call.expiresAt
+        if (shown != null && shown.ring && call.ring) {
+            incoming = ringing
+            CallTelecom.rekey(shown.eventId, call.eventId)
+            if (!onScreen() && IncomingCallNotifier.ringing != null) IncomingCallNotifier.ring(ringing, call.expiresAt)
+            return
+        }
+        if (shown != null) stopAlerting(shown)
+        incoming = ringing
+        if (!call.ring) return
+        CallTelecom.incoming(
+            call.eventId,
+            call.roomId,
+            call.senderName ?: call.sender,
+            call.intent == "video",
+            onAnswer = { if (incoming?.roomId == call.roomId) answerRinging() },
+            onReject = { if (incoming?.roomId == call.roomId) declineRinging() },
+        )
+        if (onScreen()) {
             if (ringtone == null) ringtone = CallSounds.loop("ringtone")
         } else {
-            ringtone?.stop()
-            ringtone = null
+            IncomingCallNotifier.ring(ringing, call.expiresAt)
         }
     }
 
+    private fun onScreen() = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+
+    fun ringPushed(userId: String, call: IncomingCall) {
+        if (!call.ring || userId != SessionStore.active()?.session?.userId) {
+            MessageNotifier.shared.incomingCall(userId, call)
+            return
+        }
+        ringIn(call)
+        if (incoming?.eventId != call.eventId) return
+        wokeForRing = !onScreen()
+        scope.launch {
+            val session = WizardApplication.instance.session
+            session.restore()
+            session.resumeSync()
+            val client = session.client ?: return@launch
+            watchIncoming(client)
+            var still = runCatching { client.expectRing(call.roomId, call.eventId) }
+            if (still.isSuccess && still.getOrNull() == null) {
+                delay(RING_RECHECK_MILLIS)
+                if (incoming?.eventId != call.eventId) return@launch
+                still = runCatching { client.expectRing(call.roomId, call.eventId) }
+            }
+            Log.i(TAG, "pushed ring ${call.eventId}: ${still.exceptionOrNull() ?: if (still.getOrNull() == null) "over" else "ringing"}")
+            if (still.isSuccess && still.getOrNull() == null && incoming?.eventId == call.eventId) dismissIncoming()
+        }
+    }
+
+    fun answerRinging() {
+        val call = incoming ?: return
+        if (!call.ring) return
+        ringtone?.stop()
+        ringtone = null
+        IncomingCallNotifier.answered()
+        incoming = null
+        wokeForRing = false
+        val video = !call.voiceOnly
+        CallTelecom.answered(call.eventId, call.roomId, video) { leave("system") }
+        showCallScreen = true
+        scope.launch {
+            val session = WizardApplication.instance.session
+            session.restore()
+            session.resumeSync()
+            val room = loadedRoom(session, call.roomId)
+            if (room == null) {
+                IncomingCallNotifier.stop()
+                CallTelecom.end(call.roomId)
+                showCallScreen = false
+                return@launch
+            }
+            join(room, session, if (video) "video" else "audio", ring = false)
+        }
+    }
+
+    fun declineRinging() {
+        val call = incoming ?: return
+        CallTelecom.end(call.eventId, android.telecom.DisconnectCause.REJECTED)
+        dismissIncoming()
+        if (!call.ring) return
+        scope.launch {
+            val session = WizardApplication.instance.session
+            session.restore()
+            runCatching { session.client?.declineCall(call.roomId, call.eventId) }
+            pauseIfWokenForRing()
+        }
+    }
+
+    private suspend fun loadedRoom(session: MatrixSession, roomId: String): RoomSummary? =
+        withTimeoutOrNull(ANSWER_WAIT_MILLIS) {
+            while (true) {
+                session.roomList?.room(roomId)?.let { return@withTimeoutOrNull it }
+                delay(250)
+            }
+            @Suppress("UNREACHABLE_CODE")
+            null
+        }
+
+    private fun stopAlerting(call: RingingCall, endTelecom: Boolean = true) {
+        ringtone?.stop()
+        ringtone = null
+        IncomingCallNotifier.stop()
+        if (endTelecom) CallTelecom.end(call.eventId)
+    }
+
+    private fun pauseIfWokenForRing() {
+        if (!wokeForRing || isInCall || onScreen()) return
+        wokeForRing = false
+        scope.launch { WizardApplication.instance.session.pauseSync(keepRunning = false) }
+    }
+
     private fun ringEnded(call: IncomingCall, reason: RingEnd) {
+        Log.i(TAG, "ring ${call.eventId} ended: $reason")
         if (incoming?.roomId == call.roomId) dismissIncoming()
         val missed = reason == RingEnd.callerLeft || reason == RingEnd.expired
         if (missed && call.ring) {
@@ -1181,23 +1332,21 @@ class CallManager {
 
     fun acceptIncoming(session: MatrixSession) {
         val call = incoming ?: return
+        if (call.ring) return answerRinging()
         val room = session.roomList?.room(call.roomId) ?: return
         dismissIncoming()
         showCallScreen = true
         scope.launch { join(room, session, intent = if (call.voiceOnly) "audio" else "video", ring = false) }
     }
 
-    fun declineIncoming(session: MatrixSession) {
-        val call = incoming ?: return
-        dismissIncoming()
-        if (!call.ring) return
-        scope.launch { runCatching { session.client?.declineCall(call.roomId, call.eventId) } }
-    }
+    fun declineIncoming(@Suppress("UNUSED_PARAMETER") session: MatrixSession) = declineRinging()
 
     fun dismissIncoming() {
+        incoming?.let { stopAlerting(it) }
         ringtone?.stop()
         ringtone = null
         incoming = null
+        pauseIfWokenForRing()
     }
 
     private fun hasPermission(permission: String) =
@@ -1213,9 +1362,13 @@ class CallManager {
         const val MATRIX_ORG_CALL_SERVER = "https://livekit-jwt.call.matrix.org"
         private const val TAG = "WZCALL"
         private const val STREAM_WATCH_TOPIC = "org.wizardchat.stream-watch"
+        private const val SENDER_KEY = "sender"
         private const val REACTION_VISIBLE_MILLIS = 3000L
         private const val CONNECT_TIMEOUT_MILLIS = 30_000L
         private const val LEAVE_WAIT_MILLIS = 5000L
+        private const val ANSWER_WAIT_MILLIS = 20_000L
+        private const val RING_FALLBACK_MILLIS = 30_000L
+        private const val RING_RECHECK_MILLIS = 3_000L
         private const val STALE_MEMBER_MILLIS = 20_000L
         private const val SUBSCRIBE_RETRY_MILLIS = 5000L
 

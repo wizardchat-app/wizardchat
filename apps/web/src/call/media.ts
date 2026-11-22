@@ -794,7 +794,13 @@ export class CallMedia {
   }
 
   async sendData(topic: string, payload: unknown) {
-    await this.localParticipant?.publishData(new TextEncoder().encode(JSON.stringify(payload)), {
+    // LiveKit on Android and iOS loses the sender of encrypted data, so messages name it themselves
+    const sender = this.localParticipant?.identity;
+    const stamped =
+      sender && payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? { ...payload, sender }
+        : payload;
+    await this.localParticipant?.publishData(new TextEncoder().encode(JSON.stringify(stamped)), {
       reliable: true,
       topic,
     });

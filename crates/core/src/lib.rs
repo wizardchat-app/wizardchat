@@ -71,7 +71,7 @@ pub use features::{
 pub use profile::{
     CustomStatus, MutualRoom, Presence, PresenceInfo, UserProfile, MAX_STATUS_LENGTH, STATUS_FIELD,
 };
-pub use push::PusherConfig;
+pub use push::{PushedEvent, PusherConfig};
 pub use qr_login::{QrLoginControl, QrLoginStatus};
 pub use rich_text::{RichBlock, RichSpan};
 pub use room_admin::{

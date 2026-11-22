@@ -107,6 +107,7 @@ dependencies {
     implementation(libs.lifecycle.process)
     implementation(libs.navigation.compose)
     implementation(libs.core.ktx)
+    implementation(libs.core.telecom)
     implementation(libs.browser)
     implementation(libs.appcompat)
     implementation(libs.livekit.android)

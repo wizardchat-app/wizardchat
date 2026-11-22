@@ -866,7 +866,7 @@ private fun NameLabel(participant: CallParticipantInfo, label: String, compact: 
         if (participant.micMuted || participant.locallyMuted) {
             PhIcon(
                 if (participant.locallyMuted) "speaker-slash" else "microphone-slash",
-                PhWeight.bold,
+                PhWeight.fill,
                 size = WZ.SizeIcon.xs,
                 tint = theme.danger,
             )

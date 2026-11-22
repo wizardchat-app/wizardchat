@@ -1139,6 +1139,7 @@
     "reactions": "Reaktionen",
     "incomingVoiceCall": "Eingehender Sprachanruf",
     "incomingVideoCall": "Eingehender Videoanruf",
+    "incomingCallsChannel": "Eingehende Anrufe",
     "moreParticipants": "{{count}} weitere",
     "watchTogether": {
       "videoUnplayable": "Dieses Video kann hier nicht abgespielt werden.",
@@ -1593,6 +1594,7 @@
       "bannerNote": "Zeige ein Banner, wenn eine Nachricht eintrifft.",
       "systemDisabledIos": "Benachrichtigungen für WizardChat sind in der iOS-Einstellungen-App ausgeschaltet.",
       "systemDisabledAndroid": "Benachrichtigungen für WizardChat sind in den Android-Einstellungen ausgeschaltet.",
+      "fullScreenCallsAndroid": "WizardChat kann eingehende Anrufe nicht im Vollbild oder auf dem Sperrbildschirm zeigen. Erlaube Vollbild-Benachrichtigungen dafür in den Android-Einstellungen.",
       "pushNoDistributor": "Installiere eine UnifiedPush-App wie ntfy, um Benachrichtigungen zu bekommen, während WizardChat geschlossen ist.",
       "pushGetNtfy": "ntfy holen",
       "pushOpenDistributor": "Öffne {{app}} einmal, damit es Benachrichtigungen an WizardChat zustellen kann, und schalte die Akkuoptimierung dafür aus.",

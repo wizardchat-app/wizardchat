@@ -244,6 +244,30 @@ pub enum IncomingCallEvent {
     Ended { call: IncomingCall, reason: RingEnd },
 }
 
+#[derive(Default)]
+pub(crate) struct ExpectedRings {
+    pending: Vec<IncomingCall>,
+    sender: Option<futures_channel::mpsc::UnboundedSender<IncomingCall>>,
+}
+
+impl ExpectedRings {
+    fn add(&mut self, call: IncomingCall) {
+        let call = match &self.sender {
+            Some(sender) => match sender.unbounded_send(call) {
+                Ok(()) => return,
+                Err(error) => error.into_inner(),
+            },
+            None => call,
+        };
+        self.pending.retain(|c| c.room_id != call.room_id);
+        self.pending.push(call);
+    }
+}
+
+pub(crate) fn is_call_notification(kind: &str) -> bool {
+    kind == NOTIFICATION_EVENT || kind == NOTIFICATION_EVENT_STABLE
+}
+
 /// Who is in a room's call, as the room list shows it
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct RoomCallState {
@@ -803,7 +827,7 @@ impl WizardClient {
         call_members_of(&self.room(room_id)?, self.own_device(), true).await
     }
 
-    fn own_device(&self) -> (String, String) {
+    pub(crate) fn own_device(&self) -> (String, String) {
         (
             self.sdk()
                 .user_id()
@@ -929,8 +953,10 @@ impl WizardClient {
             intent: if video { "video" } else { "audio" }.to_owned(),
             timings,
             state: Arc::new(Mutex::new(SessionState::default())),
+            early_keys: Arc::new(Mutex::new(EarlyKeys::default())),
             room,
         };
+        session.keep_early_keys();
         session.log(
             "join.start",
             format!(
@@ -1009,14 +1035,29 @@ impl WizardClient {
     pub async fn watch_incoming_calls(&self, mut on_event: impl FnMut(IncomingCallEvent)) {
         enum Input {
             Event(Value, Room),
+            Expected(IncomingCall),
             Tick,
         }
         let (receiver, _guards) = self.room_events();
+        let (expected_sender, expected) = futures_channel::mpsc::unbounded::<IncomingCall>();
+        {
+            let mut rings = self.expected_rings.lock().unwrap();
+            for call in rings.pending.drain(..) {
+                let _ = expected_sender.unbounded_send(call);
+            }
+            rings.sender = Some(expected_sender);
+        }
         let ticks = stream::unfold((), |_| async {
             sleep(Duration::from_secs(1)).await;
             Some((Input::Tick, ()))
         });
-        let inputs = stream::select(receiver.map(|(e, r)| Input::Event(e, r)), ticks);
+        let inputs = stream::select(
+            stream::select(
+                receiver.map(|(e, r)| Input::Event(e, r)),
+                expected.map(Input::Expected),
+            ),
+            ticks,
+        );
         futures_util::pin_mut!(inputs);
         let own = self.own_device();
         let mut seen: VecDeque<String> = VecDeque::new();
@@ -1041,6 +1082,17 @@ impl WizardClient {
                     continue;
                 }
                 Input::Event(event, room) => (event, room),
+                Input::Expected(call) => {
+                    if seen.contains(&call.event_id) || call.expires_at <= now_ms() {
+                        continue;
+                    }
+                    seen.push_back(call.event_id.clone());
+                    if ringing.get(&call.room_id).map(|c| &c.event_id) != Some(&call.event_id) {
+                        ringing.insert(call.room_id.clone(), call.clone());
+                        on_event(IncomingCallEvent::Ringing { call });
+                    }
+                    continue;
+                }
             };
             // State events arrive through both handlers
             let id = event
@@ -1070,6 +1122,23 @@ impl WizardClient {
                 }
             }
         }
+    }
+
+    pub async fn expect_ring(&self, room_id: &str, event_id: &str) -> Result<Option<IncomingCall>> {
+        let room = self.room(room_id)?;
+        let event_id = crate::timeline::parse_event_id(event_id)?;
+        let event = room.load_or_fetch_event(&event_id, None).await?;
+        let Ok(mut value) = event.raw().deserialize_as_unchecked::<Value>() else {
+            return Ok(None);
+        };
+        if value.get("event_id").is_none() {
+            value["event_id"] = json!(event_id.as_str());
+        }
+        let call = incoming_call(&value, &room, &self.own_device()).await;
+        if let Some(call) = &call {
+            self.expected_rings.lock().unwrap().add(call.clone());
+        }
+        Ok(call)
     }
 
     /// Tells the caller this device won't answer.
@@ -1109,9 +1178,13 @@ async fn ring_end(
 
 /// A ring or call notification worth showing. Only these ring: a caller's membership alone
 /// (a second device joining, a rejoin) never does (MSC4075).
-async fn incoming_call(event: &Value, room: &Room, own: &(String, String)) -> Option<IncomingCall> {
+pub(crate) async fn incoming_call(
+    event: &Value,
+    room: &Room,
+    own: &(String, String),
+) -> Option<IncomingCall> {
     let kind = event.get("type")?.as_str()?;
-    if (kind != NOTIFICATION_EVENT && kind != NOTIFICATION_EVENT_STABLE) || is_voice_room(room) {
+    if !is_call_notification(kind) || is_voice_room(room) {
         return None;
     }
     let from = event.get("sender")?.as_str()?;
@@ -1158,6 +1231,37 @@ async fn incoming_call(event: &Value, room: &Room, own: &(String, String)) -> Op
             .and_then(Value::as_str)
             .map(ToOwned::to_owned),
         expires_at: sent + lifetime,
+    })
+}
+
+/// A media key another device of the call sent this one. Keys only count when they arrived
+/// encrypted from the device they claim.
+fn received_key(
+    raw: &Raw<AnyToDeviceEvent>,
+    info: Option<&EncryptionInfo>,
+    room_id: &matrix_sdk::ruma::RoomId,
+) -> Option<CallEvent> {
+    let info = info?;
+    let event = raw.deserialize_as_unchecked::<Value>().ok()?;
+    if event.get("type").and_then(Value::as_str) != Some(KEYS_EVENT) {
+        return None;
+    }
+    let content = event.get("content")?;
+    if content.get("room_id").and_then(Value::as_str) != Some(room_id.as_str()) {
+        return None;
+    }
+    let claimed = content
+        .pointer("/member/claimed_device_id")
+        .and_then(Value::as_str)?;
+    if Some(claimed) != info.sender_device.as_ref().map(|d| d.as_str()) {
+        return None;
+    }
+    let index = content.pointer("/keys/index").and_then(Value::as_u64)?;
+    let key = content.pointer("/keys/key").and_then(Value::as_str)?;
+    Some(CallEvent::Key {
+        identity: format!("{}:{claimed}", info.sender),
+        index: index as u32,
+        key: key.to_owned(),
     })
 }
 
@@ -1283,11 +1387,35 @@ pub struct CallSession {
     intent: String,
     timings: CallTimings,
     state: Arc<Mutex<SessionState>>,
+    early_keys: Arc<Mutex<EarlyKeys>>,
+}
+
+#[derive(Default)]
+struct EarlyKeys {
+    keys: Vec<CallEvent>,
+    guard: Option<EventHandlerDropGuard>,
 }
 
 impl CallSession {
     pub fn room_id(&self) -> String {
         self.room.room_id().to_string()
+    }
+
+    fn keep_early_keys(&self) {
+        let room_id = self.room.room_id().to_owned();
+        let early = self.early_keys.clone();
+        let handle = self.client.add_event_handler(
+            move |raw: Raw<AnyToDeviceEvent>, encryption_info: Option<EncryptionInfo>| {
+                let early = early.clone();
+                let room_id = room_id.clone();
+                async move {
+                    if let Some(key) = received_key(&raw, encryption_info.as_ref(), &room_id) {
+                        early.lock().unwrap().keys.push(key);
+                    }
+                }
+            },
+        );
+        self.early_keys.lock().unwrap().guard = Some(self.client.event_handler_drop_guard(handle));
     }
 
     /// The LiveKit service this device publishes to
@@ -1595,8 +1723,9 @@ impl CallSession {
 
     async fn send_join_once(&self) -> std::result::Result<(), HttpError> {
         let expires = self.membership_expiry_ms();
+        let joined_at = now_ms();
         let event_id = self
-            .send_member_state(self.membership_content(expires, None))
+            .send_member_state(self.membership_content(expires, Some(joined_at)))
             .await?;
         let now = now_ms();
         let mut state = self.state.lock().unwrap();
@@ -1645,40 +1774,17 @@ impl CallSession {
                 let key_sender = key_sender.clone();
                 let room_id = room_id.clone();
                 async move {
-                    // Keys only count when they arrived encrypted from the device they claim
-                    let Some(info) = encryption_info else { return };
-                    let Ok(event) = raw.deserialize_as_unchecked::<Value>() else {
-                        return;
-                    };
-                    if event.get("type").and_then(Value::as_str) != Some(KEYS_EVENT) {
-                        return;
+                    if let Some(key) = received_key(&raw, encryption_info.as_ref(), &room_id) {
+                        let _ = key_sender.unbounded_send(Input::Key(key));
                     }
-                    let content = event.get("content").cloned().unwrap_or_default();
-                    if content.get("room_id").and_then(Value::as_str) != Some(room_id.as_str()) {
-                        return;
-                    }
-                    let claimed = content
-                        .pointer("/member/claimed_device_id")
-                        .and_then(Value::as_str);
-                    if claimed.is_none()
-                        || claimed != info.sender_device.as_ref().map(|d| d.as_str())
-                    {
-                        return;
-                    }
-                    let (Some(index), Some(key)) = (
-                        content.pointer("/keys/index").and_then(Value::as_u64),
-                        content.pointer("/keys/key").and_then(Value::as_str),
-                    ) else {
-                        return;
-                    };
-                    let _ = key_sender.unbounded_send(Input::Key(CallEvent::Key {
-                        identity: format!("{}:{}", info.sender, claimed.unwrap_or_default()),
-                        index: index as u32,
-                        key: key.to_owned(),
-                    }));
                 }
             }
         });
+        let early = std::mem::take(&mut *self.early_keys.lock().unwrap());
+        for key in early.keys {
+            let _ = key_sender.unbounded_send(Input::Key(key));
+        }
+        drop(early.guard);
         let own_user = self.user_id.clone();
         let decline_handle = self.client.add_room_event_handler(self.room.room_id(), {
             let state = self.state.clone();

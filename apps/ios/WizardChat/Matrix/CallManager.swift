@@ -132,6 +132,7 @@ final class CallManager: NSObject, ObservableObject {
     private var soundboardKey = 0
     private var raisedHands: Set<String> = []
     private static let streamWatchTopic = "org.wizardchat.stream-watch"
+    private static let senderKey = "sender"
     private var watchedScreens: Set<String> = []
     private var streamWatchers: Set<String> = []
     private var requestedSubscriptions: [ObjectIdentifier: Bool] = [:]
@@ -542,7 +543,11 @@ final class CallManager: NSObject, ObservableObject {
     private var publisher: LiveKit.Room? { session.flatMap { connections[$0.serviceUrl] } }
 
     private func sendData(_ message: [String: Any], topic: String) {
-        guard let data = try? JSONSerialization.data(withJSONObject: message), let publisher else { return }
+        guard let publisher else { return }
+        // LiveKit loses the sender of encrypted data, so messages name it themselves
+        var message = message
+        if let sender = publisher.localParticipant.identity?.stringValue { message[Self.senderKey] = sender }
+        guard let data = try? JSONSerialization.data(withJSONObject: message) else { return }
         Task {
             do {
                 try await publisher.localParticipant.publish(data: data, options: DataPublishOptions(topic: topic, reliable: true))
@@ -696,7 +701,8 @@ final class CallManager: NSObject, ObservableObject {
         guard let play = Soundboard.parse(data) else { return }
         let userId = members.first { $0.identity == identity }?.userId
             ?? identity.split(separator: ":").dropLast().joined(separator: ":")
-        hearSound(play.url, shortcode: play.shortcode, emoji: play.emoji, from: userId, identity: identity)
+        hearSound(play.url, shortcode: play.shortcode, emoji: play.emoji, from: userId,
+                  identity: identity.isEmpty ? nil : identity)
     }
 
     func toggleHand() {
@@ -751,6 +757,13 @@ final class CallManager: NSObject, ObservableObject {
             }
         }
         requestedSubscriptions = requestedSubscriptions.filter { seen.contains($0.key) }
+    }
+
+    private func namedSender(_ data: Data) -> String? {
+        guard let message = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sender = message[Self.senderKey] as? String,
+              members.contains(where: { $0.identity == sender }) else { return nil }
+        return sender
     }
 
     private func receiveStreamWatch(_ data: Data, from: String) {
@@ -1007,10 +1020,13 @@ extension CallManager: RoomDelegate {
 
     nonisolated func room(_ room: LiveKit.Room, participant: RemoteParticipant?, didReceiveData data: Data,
                           forTopic topic: String, encryptionType: EncryptionType) {
-        let from = participant?.identity?.stringValue ?? ""
-        let attributed = participant != nil
+        let attributed = participant?.identity?.stringValue
         Task { @MainActor in
-            if topic == Soundboard.topic, attributed {
+            // LiveKit loses the sender of decrypted data, but only a call member's key decrypts it, so the
+            // sender the message names is taken if it's in the call
+            let encrypted = encryptionType != .none
+            let from = attributed ?? (encrypted ? self.namedSender(data) : nil) ?? ""
+            if topic == Soundboard.topic, attributed != nil || encrypted {
                 self.receiveSound(data, from: from, encryption: encryptionType)
             }
             if topic == WatchTogether.topic { self.watch?.receive(data, from: from) }

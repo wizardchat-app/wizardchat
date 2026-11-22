@@ -2,7 +2,7 @@ use matrix_sdk::cross_process_lock::CrossProcessLockConfig;
 use matrix_sdk::ruma::{
     api::client::{
         filter::{FilterDefinition, RoomEventFilter},
-        push::{PusherIds, PusherInit, PusherKind},
+        push::{set_pushrule, PusherIds, PusherInit, PusherKind},
         sync::sync_events,
     },
     events::{
@@ -10,18 +10,22 @@ use matrix_sdk::ruma::{
         AnySyncTimelineEvent,
     },
     presence::PresenceState,
-    push::{HttpPusherData, PushFormat},
+    push::{
+        Action, EventMatchConditionData, HttpPusherData, NewConditionalPushRule, NewPushRule,
+        PushCondition, PushFormat, Tweak,
+    },
     serde::Raw,
-    EventId, MilliSecondsSinceUnixEpoch, RoomId, UserId,
+    EventId, MilliSecondsSinceUnixEpoch, UserId,
 };
 use matrix_sdk_ui::notification_client::{
     NotificationClient, NotificationItem, NotificationProcessSetup, NotificationStatus,
     RawNotificationEvent,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{
+    calls::{incoming_call, is_call_notification, IncomingCall},
     features::{notification_for, NotificationKind},
     rooms::parse_room_id,
     timeline::parse_event_id,
@@ -41,6 +45,16 @@ pub struct PusherConfig {
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(optional))]
     pub alert_key: Option<String>,
+}
+
+const RING_PUSH_RULE: &str = "org.wizardchat.rtc_notification";
+
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum PushedEvent {
+    Message { notification: Notification },
+    Call { call: IncomingCall },
 }
 
 impl WizardClient {
@@ -66,6 +80,27 @@ impl WizardClient {
             lang: config.lang,
         };
         self.sdk().pusher().set(pusher.into(), false).await?;
+        if let Err(error) = self.add_ring_push_rule().await {
+            tracing::warn!("couldn't add the push rule for calls: {error}");
+        }
+        Ok(())
+    }
+
+    async fn add_ring_push_rule(&self) -> Result<()> {
+        let rule = NewConditionalPushRule::new(
+            RING_PUSH_RULE.to_owned(),
+            vec![PushCondition::EventMatch(EventMatchConditionData::new(
+                "type".to_owned(),
+                "*rtc.notification".to_owned(),
+            ))],
+            vec![
+                Action::Notify,
+                Action::SetTweak(Tweak::Sound("ring".into())),
+            ],
+        );
+        self.sdk()
+            .send(set_pushrule::v3::Request::new(NewPushRule::Underride(rule)))
+            .await?;
         Ok(())
     }
 
@@ -77,19 +112,39 @@ impl WizardClient {
         Ok(())
     }
 
-    async fn filtered_sticker(
+    async fn filtered_event(
         &self,
-        room_id: &RoomId,
+        room: Option<matrix_sdk::Room>,
         event_id: &EventId,
         own_user: &UserId,
-    ) -> Option<Notification> {
-        let room = self.sdk().get_room(room_id)?;
+    ) -> Option<PushedEvent> {
+        let room = room?;
         let event = room.load_or_fetch_event(event_id, None).await.ok()?;
         let raw = event.raw();
-        if raw.get_field::<String>("type").ok().flatten().as_deref() != Some("m.sticker") {
+        let kind = raw.get_field::<String>("type").ok().flatten()?;
+        if is_call_notification(&kind) {
+            return self.pushed_call(&room, raw, event_id).await;
+        }
+        if kind != "m.sticker" {
             return None;
         }
-        notification_for(&room, raw, None, own_user, 0).await
+        notification_for(&room, raw, None, own_user, 0)
+            .await
+            .map(|notification| PushedEvent::Message { notification })
+    }
+
+    async fn pushed_call(
+        &self,
+        room: &matrix_sdk::Room,
+        raw: &Raw<AnySyncTimelineEvent>,
+        event_id: &EventId,
+    ) -> Option<PushedEvent> {
+        let mut event: Value = raw.deserialize_as_unchecked().ok()?;
+        if event.get("event_id").is_none() {
+            event["event_id"] = json!(event_id.as_str());
+        }
+        let call = incoming_call(&event, room, &self.own_device()).await?;
+        Some(PushedEvent::Call { call })
     }
 
     pub async fn read_rooms(&self, room_ids: Vec<String>) -> Result<Vec<String>> {
@@ -127,6 +182,13 @@ impl WizardClient {
         room_id: &str,
         event_id: &str,
     ) -> Result<Option<Notification>> {
+        Ok(match self.pushed_event(room_id, event_id).await? {
+            Some(PushedEvent::Message { notification }) => Some(notification),
+            _ => None,
+        })
+    }
+
+    pub async fn pushed_event(&self, room_id: &str, event_id: &str) -> Result<Option<PushedEvent>> {
         let room_id = parse_room_id(room_id)?;
         let event_id = parse_event_id(event_id)?;
         let own_user = self.sdk().user_id().ok_or(Error::NotSignedIn)?.to_owned();
@@ -152,7 +214,10 @@ impl WizardClient {
         {
             NotificationStatus::Event(item) => item,
             NotificationStatus::EventFilteredOut => {
-                return Ok(self.filtered_sticker(room_id, &event_id, &own_user).await);
+                let room = client
+                    .get_room(room_id)
+                    .or_else(|| self.sdk().get_room(room_id));
+                return Ok(self.filtered_event(room, &event_id, &own_user).await);
             }
             _ => return Ok(None),
         };
@@ -165,7 +230,8 @@ impl WizardClient {
                     &own_user,
                     room_id.as_str(),
                     event_id.as_str(),
-                ));
+                )
+                .map(|notification| PushedEvent::Message { notification }));
             }
         };
         let Some(room) = self
@@ -175,19 +241,25 @@ impl WizardClient {
         else {
             return Ok(None);
         };
-        let undecrypted =
-            raw.get_field::<String>("type").ok().flatten().as_deref() == Some("m.room.encrypted");
+        let kind = raw.get_field::<String>("type").ok().flatten();
+        if kind.as_deref().is_some_and(is_call_notification) {
+            let room = client.get_room(room_id).unwrap_or(room);
+            return Ok(self.pushed_call(&room, raw, &event_id).await);
+        }
+        let undecrypted = kind.as_deref() == Some("m.room.encrypted");
         let notification = if undecrypted {
             undecrypted_notification(room_id.as_str(), raw, &own_user)
         } else {
             notification_for(&room, raw, item.actions.clone(), &own_user, 0).await
         };
-        Ok(notification.map(|n| Notification {
-            room_name: Some(item.room_computed_display_name.clone()),
-            room_avatar_url: item.room_avatar_url.clone(),
-            is_direct: item.is_direct_message_room,
-            sender_name: item.sender_display_name.clone().or(n.sender_name),
-            ..n
+        Ok(notification.map(|n| PushedEvent::Message {
+            notification: Notification {
+                room_name: Some(item.room_computed_display_name.clone()),
+                room_avatar_url: item.room_avatar_url.clone(),
+                is_direct: item.is_direct_message_room,
+                sender_name: item.sender_display_name.clone().or(n.sender_name),
+                ..n
+            },
         }))
     }
 }

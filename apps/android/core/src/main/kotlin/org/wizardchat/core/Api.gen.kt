@@ -865,6 +865,33 @@ data class PublicRoomsPage(
     val total: Long? = null,
 )
 
+/** What a push was about */
+@Serializable(with = PushedEvent.Serializer::class)
+sealed interface PushedEvent {
+    @Serializable
+    data class Message(
+        val notification: Notification,
+    ) : PushedEvent
+    /** Someone calling, still ringing when the push was handled */
+    @Serializable
+    data class Call(
+        val call: IncomingCall,
+    ) : PushedEvent
+
+    object Serializer : JsonUnionSerializer<PushedEvent>("PushedEvent") {
+        override fun read(json: JsonElement): PushedEvent = when (val tag = json.jsonObject["type"]?.jsonPrimitive?.content) {
+            "message" -> CoreJson.decodeFromJsonElement(Message.serializer(), json)
+            "call" -> CoreJson.decodeFromJsonElement(Call.serializer(), json)
+            else -> throw SerializationException("Unknown PushedEvent $tag")
+        }
+
+        override fun write(value: PushedEvent): JsonElement = when (value) {
+            is Message -> tagged(CoreJson.encodeToJsonElement(Message.serializer(), value), "type", "message")
+            is Call -> tagged(CoreJson.encodeToJsonElement(Call.serializer(), value), "type", "call")
+        }
+    }
+}
+
 @Serializable
 data class PusherConfig(
     val appId: String,
@@ -2641,6 +2668,14 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
 
     suspend fun pushedNotification(roomId: String, eventId: String): Notification? =
         Runtime.call("WizardClient.pushedNotification", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
+
+    /** A message to show or a ring to report, for a push's event */
+    suspend fun pushedEvent(roomId: String, eventId: String): PushedEvent? =
+        Runtime.call("WizardClient.pushedEvent", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
+
+    /** Checks a pushed ring and lets `watchIncomingCalls` report it and how it ends */
+    suspend fun expectRing(roomId: String, eventId: String): IncomingCall? =
+        Runtime.call("WizardClient.expectRing", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
 
     suspend fun readRooms(roomIds: List<String>): List<String> =
         Runtime.call("WizardClient.readRooms", handle, listOf(Arg.value<List<String>>(roomIds)))

@@ -1350,6 +1350,48 @@ public struct PublicRoomsPage: Codable, Hashable, Sendable {
     }
 }
 
+/// What a push was about
+public enum PushedEvent: Codable, Hashable, Sendable {
+    public struct Message: Codable, Hashable, Sendable {
+        public var notification: Notification
+
+        public init(notification: Notification) {
+            self.notification = notification
+        }
+    }
+    public struct Call: Codable, Hashable, Sendable {
+        public var call: IncomingCall
+
+        public init(call: IncomingCall) {
+            self.call = call
+        }
+    }
+    case message(Message)
+    /// Someone calling, still ringing when the push was handled
+    case call(Call)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: AnyKey.self)
+        switch try container.decode(String.self, forKey: AnyKey("type")) {
+        case "message": self = .message(try Message(from: decoder))
+        case "call": self = .call(try Call(from: decoder))
+        case let other: throw DecodingError.dataCorruptedError(forKey: AnyKey("type"), in: container, debugDescription: "Unknown PushedEvent \(other)")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: AnyKey.self)
+        switch self {
+        case .message(let value):
+            try container.encode("message", forKey: AnyKey("type"))
+            try value.encode(to: encoder)
+        case .call(let value):
+            try container.encode("call", forKey: AnyKey("type"))
+            try value.encode(to: encoder)
+        }
+    }
+}
+
 public struct PusherConfig: Codable, Hashable, Sendable {
     public var appId: String
     public var pushkey: String
@@ -3779,6 +3821,16 @@ public final class WizardClient: Remote, @unchecked Sendable {
 
     public func pushedNotification(roomId: String, eventId: String) async throws -> Notification? {
         try await call("WizardClient.pushedNotification", [.value(roomId), .value(eventId)])
+    }
+
+    /// A message to show or a ring to report, for a push's event
+    public func pushedEvent(roomId: String, eventId: String) async throws -> PushedEvent? {
+        try await call("WizardClient.pushedEvent", [.value(roomId), .value(eventId)])
+    }
+
+    /// Checks a pushed ring and lets `watchIncomingCalls` report it and how it ends
+    public func expectRing(roomId: String, eventId: String) async throws -> IncomingCall? {
+        try await call("WizardClient.expectRing", [.value(roomId), .value(eventId)])
     }
 
     public func readRooms(roomIds: [String]) async throws -> [String] {

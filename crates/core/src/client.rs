@@ -89,6 +89,7 @@ pub struct WizardClient {
     pub(crate) notifications:
         Mutex<Option<matrix_sdk::notification_settings::NotificationSettings>>,
     pub(crate) sound_states: crate::sound_packs::PackStates,
+    pub(crate) expected_rings: Mutex<crate::calls::ExpectedRings>,
 }
 
 impl WizardClient {
@@ -151,6 +152,7 @@ impl WizardClient {
             spaces: Mutex::new(None),
             notifications: Mutex::new(None),
             sound_states: Default::default(),
+            expected_rings: Mutex::new(Default::default()),
         }
     }
 

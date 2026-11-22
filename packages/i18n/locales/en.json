@@ -1139,6 +1139,7 @@
     "reactions": "Reactions",
     "incomingVoiceCall": "Incoming voice call",
     "incomingVideoCall": "Incoming video call",
+    "incomingCallsChannel": "Incoming calls",
     "moreParticipants": "{{count}} more",
     "watchTogether": {
       "videoUnplayable": "This video can't be played here.",
@@ -1593,6 +1594,7 @@
       "bannerNote": "Show a banner when a message arrives.",
       "systemDisabledIos": "Notifications are turned off for WizardChat in the iOS Settings app.",
       "systemDisabledAndroid": "Notifications are turned off for WizardChat in Android's settings.",
+      "fullScreenCallsAndroid": "WizardChat can't show incoming calls full screen or on the lock screen. Allow full-screen notifications for it in Android's settings.",
       "pushNoDistributor": "To get notifications while WizardChat is closed, install a UnifiedPush app such as ntfy.",
       "pushGetNtfy": "Get ntfy",
       "pushOpenDistributor": "Open {{app}} once so it can deliver notifications to WizardChat, and turn off battery optimization for it.",
