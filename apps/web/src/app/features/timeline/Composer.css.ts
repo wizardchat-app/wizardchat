@@ -171,15 +171,34 @@ export const fmtBtnActive = style({
 });
 
 export const composerBox = style({
+  position: 'relative',
   minWidth: 0,
   overflow: 'hidden',
   backgroundColor: vars.color.bgTertiary,
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
   transition: `border-color ${fast}, box-shadow ${fast}`,
-  ':focus-within': {
-    borderColor: vars.color.accent,
-    boxShadow: `0 0 0 2px color-mix(in srgb, ${vars.color.accent} 18%, transparent)`,
+  selectors: {
+    '&:focus-within:not([data-soft-focus])': {
+      borderColor: vars.color.accent,
+      boxShadow: `0 0 0 2px color-mix(in srgb, ${vars.color.accent} 18%, transparent)`,
+    },
+  },
+});
+
+const caretBlink = keyframes({
+  '0%, 50%': { opacity: 1 },
+  '50.01%, 100%': { opacity: 0 },
+});
+
+export const idleCaret = style({
+  position: 'absolute',
+  width: '1px',
+  backgroundColor: vars.color.textPrimary,
+  pointerEvents: 'none',
+  animation: `${caretBlink} 1.06s infinite`,
+  '@media': {
+    '(prefers-reduced-motion: reduce)': { animation: 'none' },
   },
 });
 

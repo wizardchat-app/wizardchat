@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useId, useMemo } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RoomTimeline, WizardClient as MatrixClient } from '@wizardchat/core';
 import {
@@ -50,6 +50,7 @@ import { anchorFromElement, isMenuOpenKey, useContextMenu } from '@/app/hooks/us
 import { contextMenuAtom } from '@/app/features/contextMenu/contextMenuAtom';
 import type { ContextMenuItem } from '@/app/features/contextMenu/contextMenuAtom';
 import { IdentityWarning } from './IdentityWarning';
+import { IdleCaret } from './IdleCaret';
 import { ComposerTimelineContext, useSendTimeline } from './composerTimeline';
 import type { ReplyTarget } from './sendMessageContent';
 import { DEFAULT_KEYBINDS, keybindsAtom, pushToTalkEnabledAtom } from '@/app/store/atoms';
@@ -69,6 +70,15 @@ interface Props {
   droppedFile?: File[] | null;
   onDroppedFileConsumed?: () => void;
   className?: string;
+}
+
+function typeToFocusBlocked(): boolean {
+  if (document.activeElement?.closest('input, textarea, select, [contenteditable="true"]')) {
+    return true;
+  }
+  return !!document.querySelector(
+    '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
+  );
 }
 
 export function Composer({
@@ -189,12 +199,17 @@ export function Composer({
   const pushToTalk = useAtomValue(pushToTalkEnabledAtom);
   const threadOpen = useAtomValue(threadsPanelViewAtom)?.type === 'thread';
   const touchFirst = useMediaQuery(TOUCH_FIRST_QUERY);
+  const composerBoxRef = useRef<HTMLDivElement>(null);
+  const [softFocus, setSoftFocus] = useState(false);
+  const [typeTarget, setTypeTarget] = useState(false);
+  const isTypeTarget = !threadOpen || !!threadId;
 
   useEffect(() => {
     if (!threadId || touchFirst) return;
     const frame = requestAnimationFrame(() => {
       try {
         Transforms.select(editor, Editor.end(editor, []));
+        setSoftFocus(true);
         ReactEditor.focus(editor);
       } catch {
         // editor not mounted
@@ -204,20 +219,48 @@ export function Composer({
   }, [threadId, roomId, touchFirst, editor]);
 
   useEffect(() => {
-    if (!threadId && threadOpen) return;
+    if (touchFirst || !isTypeTarget) {
+      setTypeTarget(false);
+      return;
+    }
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const wrap = composerWrapRef.current;
+        setTypeTarget(
+          !!wrap &&
+            wrap.isConnected &&
+            wrap.getClientRects().length > 0 &&
+            document.hasFocus() &&
+            !typeToFocusBlocked()
+        );
+      });
+    };
+    update();
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
+    window.addEventListener('focus', update);
+    window.addEventListener('blur', update);
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, { childList: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', update);
+      window.removeEventListener('focus', update);
+      window.removeEventListener('blur', update);
+      observer.disconnect();
+    };
+  }, [touchFirst, isTypeTarget, composerWrapRef]);
+
+  useEffect(() => {
+    if (!isTypeTarget) return;
     const handler = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key.length !== 1) return;
-      const active = document.activeElement;
-      if (active?.closest('input, textarea, select, [contenteditable="true"]')) return;
-      if (e.key === ' ' && active?.closest('button, a, [role="button"]')) return;
-      if (
-        document.querySelector(
-          '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
-        )
-      ) {
-        return;
-      }
+      if (typeToFocusBlocked()) return;
+      if (e.key === ' ' && document.activeElement?.closest('button, a, [role="button"]')) return;
       if (inCall) {
         const bound = [
           keybinds.toggleMute,
@@ -231,13 +274,14 @@ export function Composer({
       const wrap = composerWrapRef.current;
       if (!wrap || !wrap.isConnected || wrap.getClientRects().length === 0) return;
       e.preventDefault();
+      setSoftFocus(true);
       ReactEditor.focus(editor);
       Transforms.select(editor, Editor.end(editor, []));
       editor.insertText(e.key);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [threadId, threadOpen, editor, composerWrapRef, inCall, keybinds, pushToTalk]);
+  }, [isTypeTarget, editor, composerWrapRef, inCall, keybinds, pushToTalk]);
 
   useLayoutEffect(() => {
     const wrap = composerWrapRef.current;
@@ -296,7 +340,18 @@ export function Composer({
             />
           )}
 
-          <div className={css.composerBox}>
+          <div
+            ref={composerBoxRef}
+            className={css.composerBox}
+            data-soft-focus={softFocus ? '' : undefined}
+            onPointerDown={() => setSoftFocus(false)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setSoftFocus(false);
+            }}
+          >
+            {typeTarget && (
+              <IdleCaret editor={editor} value={editorValue} boxRef={composerBoxRef} />
+            )}
             <IdentityWarning client={client} roomId={roomId} />
             {gifSending && (
               <div className={css.statusStrip} role="status">
