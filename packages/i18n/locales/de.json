@@ -874,6 +874,12 @@
   },
   "timeline": {
     "copyText": "Text kopieren",
+    "copyImage": "Bild kopieren",
+    "mediaSaved": "{{name}} gespeichert",
+    "showInFolder": "Im Ordner zeigen",
+    "imageCopied": "Bild kopiert",
+    "saveMediaFailed": "Datei konnte nicht gespeichert werden: {{error}}",
+    "copyImageFailed": "Bild konnte nicht kopiert werden: {{error}}",
     "startDm": "Neue Direktnachricht beginnen",
     "startOfConversation": "Das ist der Anfang dieses Raums.",
     "startOfDm": "Das ist der Beginn deiner Unterhaltung mit {{name}}.",

@@ -31,6 +31,7 @@ import { useImagePacksContext } from '@/app/hooks/useImagePacks';
 import { emojiToShortcode } from '@/app/features/timeline/emojiData';
 import { togglePin } from './pinning';
 import { openMessageContextMenu } from './contextMenu';
+import { copyMediaImage, saveMedia } from './mediaActions';
 import { useSwipeToReply } from '@/app/hooks/useTouchGestures';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { TOUCH_FIRST_QUERY } from '@/theme/uiDensity';
@@ -560,6 +561,31 @@ export const Message = memo(function Message({
     });
   }, [timeline, event.eventId, isPinned, toast, t]);
 
+  const canSaveMedia = media != null && !isGallery;
+  const canCopyImage = canSaveMedia && (contentType === 'image' || contentType === 'sticker');
+
+  const handleSaveMedia = useCallback(() => {
+    if (!media) return;
+    saveMedia(client, media)
+      .then((saved) => {
+        const reveal = window.desktopAPI?.revealFile;
+        if (!saved?.path || !reveal) return;
+        const { path } = saved;
+        toast.success(t('timeline.mediaSaved', { name: saved.name }), {
+          actionLabel: t('timeline.showInFolder'),
+          onClick: () => void reveal(path).catch(() => {}),
+        });
+      })
+      .catch((err) => toast.error(t('timeline.saveMediaFailed', { error: getErrorMessage(err) })));
+  }, [client, media, toast, t]);
+
+  const handleCopyImage = useCallback(() => {
+    if (!media) return;
+    copyMediaImage(client, media)
+      .then(() => toast.success(t('timeline.imageCopied')))
+      .catch((err) => toast.error(t('timeline.copyImageFailed', { error: getErrorMessage(err) })));
+  }, [client, media, toast, t]);
+
   // View Source
   const handleViewSource = useCallback((ev: MatrixEvent) => {
     setViewSourceEvent(ev);
@@ -617,6 +643,8 @@ export const Message = memo(function Message({
         onViewSource: handleViewSource,
         onEditHistory: isEdited ? openEditHistory : undefined,
         onForward: isPollEvent ? undefined : handleForward,
+        onSaveMedia: canSaveMedia ? handleSaveMedia : undefined,
+        onCopyImage: canCopyImage ? handleCopyImage : undefined,
       },
     });
   };

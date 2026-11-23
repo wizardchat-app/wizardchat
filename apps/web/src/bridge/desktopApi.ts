@@ -2,6 +2,7 @@
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
 import {
   getDesktopSources,
@@ -106,4 +107,13 @@ export const desktopApi: DesktopAPI = {
   screenShareAudioSupported,
   startScreenShare,
   readClipboardFiles: platform() === 'linux' ? readClipboardFiles : undefined,
+  saveFile: (bytes, name) =>
+    invoke<string | null>('save_media', bytes, {
+      headers: { 'x-file-name': encodeURIComponent(name) },
+    }),
+  copyImage: (rgba, width, height) =>
+    invoke('copy_image', rgba, {
+      headers: { 'x-width': String(width), 'x-height': String(height) },
+    }),
+  revealFile: revealItemInDir,
 };

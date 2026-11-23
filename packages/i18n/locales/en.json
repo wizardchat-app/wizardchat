@@ -874,6 +874,12 @@
   },
   "timeline": {
     "copyText": "Copy text",
+    "copyImage": "Copy image",
+    "mediaSaved": "Saved {{name}}",
+    "showInFolder": "Show in folder",
+    "imageCopied": "Image copied",
+    "saveMediaFailed": "Couldn't save the file: {{error}}",
+    "copyImageFailed": "Couldn't copy the image: {{error}}",
     "startDm": "New Direct Message",
     "startOfConversation": "This is the beginning of this room.",
     "startOfDm": "This is the beginning of your conversation with {{name}}.",

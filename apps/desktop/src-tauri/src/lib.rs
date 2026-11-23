@@ -5,6 +5,7 @@ mod global_keys;
 mod keep_awake;
 mod links;
 mod loopback;
+mod media;
 mod rpc;
 mod screen_share;
 mod tray;
@@ -122,6 +123,8 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(rpc::Core::new())
@@ -180,6 +183,8 @@ pub fn run() {
             rpc::rpc_cancel,
             core_delete_store,
             clipboard::clipboard_files,
+            media::save_media,
+            media::copy_image,
             set_background_color,
             set_unread,
             loopback::loopback_listen,

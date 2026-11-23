@@ -64,6 +64,9 @@ interface DesktopAPI {
   setTrayState?: (state: DesktopTrayState) => void;
   onTrayAction?: (cb: (action: string) => void) => () => void;
   readClipboardFiles?: () => Promise<File[]>;
+  saveFile?: (bytes: Uint8Array, name: string) => Promise<string | null>;
+  copyImage?: (rgba: Uint8Array, width: number, height: number) => Promise<void>;
+  revealFile?: (path: string) => Promise<void>;
 }
 
 interface DesktopTrayState {

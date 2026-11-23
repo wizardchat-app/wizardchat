@@ -15,6 +15,7 @@ import {
   LinkSimpleIcon,
   ArrowBendUpRightIcon,
   CopyIcon,
+  DownloadSimpleIcon,
 } from '@phosphor-icons/react';
 import type { useContextMenu, MenuOpenEvent } from '@/app/hooks/useContextMenu';
 import { createElement } from 'react';
@@ -36,6 +37,8 @@ export interface ContextMenuCallbacks {
   onViewSource: (event: MatrixEvent) => void;
   onEditHistory?: () => void;
   onForward?: (event: MatrixEvent) => void;
+  onSaveMedia?: () => void;
+  onCopyImage?: () => void;
 }
 
 export function openMessageContextMenu(
@@ -148,6 +151,24 @@ export function openMessageContextMenu(
             onClick: () => {
               navigator.clipboard.writeText(copyableText).catch(() => {});
             },
+          },
+        ]
+      : []),
+    ...(callbacks.onCopyImage
+      ? [
+          {
+            label: t('timeline.copyImage'),
+            icon: createElement(CopyIcon, { size: 14 }),
+            onClick: callbacks.onCopyImage,
+          },
+        ]
+      : []),
+    ...(callbacks.onSaveMedia
+      ? [
+          {
+            label: t('common.download'),
+            icon: createElement(DownloadSimpleIcon, { size: 14 }),
+            onClick: callbacks.onSaveMedia,
           },
         ]
       : []),
