@@ -44,6 +44,8 @@ data class AttachmentOptions(
     /** A preview image (encoded bytes) for images and videos */
     val thumbnail: AttachmentThumbnail? = null,
     val isAnimated: Boolean? = null,
+    /** From `WizardClient.encodeBlurhash`, for images and videos */
+    val blurhash: String? = null,
     /** The caption as HTML (otherwise Markdown) */
     val captionHtml: String? = null,
     val mentions: Mentions? = null,
@@ -865,14 +867,12 @@ data class PublicRoomsPage(
     val total: Long? = null,
 )
 
-/** What a push was about */
 @Serializable(with = PushedEvent.Serializer::class)
 sealed interface PushedEvent {
     @Serializable
     data class Message(
         val notification: Notification,
     ) : PushedEvent
-    /** Someone calling, still ringing when the push was handled */
     @Serializable
     data class Call(
         val call: IncomingCall,
@@ -1779,6 +1779,8 @@ data class UploadedFile(
     val waveform: List<Long>? = null,
     val isAnimated: Boolean? = null,
     val thumbnail: UploadedThumbnail? = null,
+    /** From `WizardClient.encodeBlurhash`, for images and videos */
+    val blurhash: String? = null,
     val mentions: Mentions? = null,
     val replyTo: String? = null,
 )
@@ -1922,6 +1924,14 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
         /** The MIME type of media bytes, from their first bytes (images, audio, video, PDF). */
         suspend fun sniffMimeType(head: Bytes): String? =
             Runtime.call("WizardClient.sniffMimeType", null, listOf(Arg.bytes(head)))
+
+        /** A BlurHash to send with an image or video, from RGBA pixels of a copy about 32 px wide. */
+        suspend fun encodeBlurhash(rgba: Bytes, width: Long, height: Long): String =
+            Runtime.call("WizardClient.encodeBlurhash", null, listOf(Arg.bytes(rgba), Arg.value<Long>(width), Arg.value<Long>(height)))
+
+        /** RGBA pixels of a received BlurHash (at most 64 px a side), to show while media loads. */
+        suspend fun decodeBlurhash(hash: String, width: Long, height: Long): Bytes =
+            Runtime.call("WizardClient.decodeBlurhash", null, listOf(Arg.value<String>(hash), Arg.value<Long>(width), Arg.value<Long>(height)))
 
         /** Signs in with a password. `server` may be a server name or a homeserver URL. */
         suspend fun loginPassword(server: String, username: String, password: String, deviceName: String, store: StoreConfig): WizardClient =
@@ -2669,11 +2679,9 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     suspend fun pushedNotification(roomId: String, eventId: String): Notification? =
         Runtime.call("WizardClient.pushedNotification", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
 
-    /** A message to show or a ring to report, for a push's event */
     suspend fun pushedEvent(roomId: String, eventId: String): PushedEvent? =
         Runtime.call("WizardClient.pushedEvent", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
 
-    /** Checks a pushed ring and lets `watchIncomingCalls` report it and how it ends */
     suspend fun expectRing(roomId: String, eventId: String): IncomingCall? =
         Runtime.call("WizardClient.expectRing", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventId)))
 

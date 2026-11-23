@@ -55,7 +55,7 @@ pub use calls::{
     CallErrorKind, CallEvent, CallMember, CallSession, CallStatus, IncomingCall, IncomingCallEvent,
     MediaState, RingEnd, SfuConfig,
 };
-pub use client::{sniff_mime_type, LoadState};
+pub use client::{decode_blurhash, encode_blurhash, sniff_mime_type, LoadState};
 pub use client::{SyncState, WizardClient};
 pub use content::{EntryContent, MediaInfo, PollAnswerView, PollView, ReplyPreview};
 pub use diff::ListDiff;

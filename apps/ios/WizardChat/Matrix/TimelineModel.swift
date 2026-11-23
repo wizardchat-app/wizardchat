@@ -57,6 +57,7 @@ struct ChatEntry: Identifiable {
         let size: Int?
         let duration: TimeInterval?
         let thumbnail: MediaSource?
+        let blurhash: String?
         let isAnimated: Bool
 
         init(_ media: MediaInfo, body: String? = nil, caption: String? = nil) {
@@ -70,6 +71,7 @@ struct ChatEntry: Identifiable {
             size = media.size
             duration = media.durationMs.map { TimeInterval($0) / 1000 }
             thumbnail = media.thumbnailSource
+            blurhash = media.blurhash
             isAnimated = media.isAnimated || media.mimetype == "image/gif"
         }
     }
@@ -425,10 +427,12 @@ final class TimelineModel: ObservableObject {
                 options.width = Int(size.width)
                 options.height = Int(size.height)
             }
-            if mimetype != "image/gif", let thumb = MediaMetadata.imageThumbnail(of: image) {
+            let thumb = mimetype == "image/gif" ? nil : MediaMetadata.imageThumbnail(of: image)
+            if let thumb {
                 options.thumbnail = AttachmentThumbnail(data: thumb.data, mimetype: "image/jpeg",
                                                         width: thumb.width, height: thumb.height)
             }
+            options.blurhash = await MediaMetadata.blurhash(of: thumb?.data ?? image)
         } else if type.conforms(to: .movie) {
             let video = await MediaMetadata.video(at: url)
             options.width = video.size.map { Int($0.width) }
@@ -437,6 +441,7 @@ final class TimelineModel: ObservableObject {
             if let frame = await MediaMetadata.videoFrame(at: url) {
                 options.thumbnail = AttachmentThumbnail(data: frame.data, mimetype: "image/jpeg",
                                                         width: frame.width, height: frame.height)
+                options.blurhash = await MediaMetadata.blurhash(of: frame.data)
             }
         } else if type.conforms(to: .audio) {
             options.durationMs = await MediaMetadata.duration(at: url).map { Int($0 * 1000) }
@@ -473,6 +478,7 @@ final class TimelineModel: ObservableObject {
         var options = AttachmentOptions(filename: "GIF.gif", mimetype: "image/gif", replyTo: replyTo, isAnimated: true)
         options.width = width
         options.height = height
+        options.blurhash = await MediaMetadata.blurhash(of: data)
         do {
             try await timeline.sendFile(bytes: data, options: options)
             return true

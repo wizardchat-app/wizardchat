@@ -64,6 +64,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -108,6 +109,7 @@ import org.wizardchat.android.LocalMedia
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.ChatEntry
+import org.wizardchat.android.matrix.MediaMetadata
 import org.wizardchat.android.matrix.MediaVisibility
 import org.wizardchat.android.matrix.memberProfile
 import org.wizardchat.android.ui.Avatar
@@ -310,7 +312,7 @@ fun ImageMessageView(
                 contentScale = if (isSticker) ContentScale.Fit else ContentScale.Crop,
             )
             else -> {
-                Box(Modifier.fillMaxSize().background(theme.fill))
+                BlurhashPlaceholder(media.blurhash.takeIf { !hidden })
                 if (!hidden) Spinner(color = theme.textMuted)
             }
         }
@@ -453,6 +455,14 @@ internal fun ZoomableBox(modifier: Modifier = Modifier, content: @Composable Box
 }
 
 @Composable
+private fun BlurhashPlaceholder(hash: String?) {
+    val image by produceState<Bitmap?>(null, hash) { value = hash?.let { MediaMetadata.blurhashImage(it) } }
+    Box(Modifier.fillMaxSize().background(theme.fill)) {
+        image?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
+    }
+}
+
+@Composable
 fun VideoMessageView(media: ChatEntry.MediaContent, spoiler: String? = null) {
     val loader = LocalMedia.current
     val scope = rememberCoroutineScope()
@@ -487,6 +497,7 @@ fun VideoMessageView(media: ChatEntry.MediaContent, spoiler: String? = null) {
         contentAlignment = Alignment.Center,
     ) {
         val covered = spoiler != null && !revealed
+        if (thumbnail == null) BlurhashPlaceholder(media.blurhash.takeIf { !covered })
         thumbnail?.let {
             Image(it.asImageBitmap(), null, Modifier.fillMaxSize().then(if (covered) Modifier.blur(24.dp) else Modifier), contentScale = ContentScale.Crop)
         }

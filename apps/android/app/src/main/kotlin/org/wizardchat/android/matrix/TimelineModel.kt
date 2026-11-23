@@ -124,6 +124,7 @@ data class ChatEntry(
         val duration: Double?,
         val thumbnail: MediaSource?,
         val isAnimated: Boolean,
+        val blurhash: String? = null,
     ) {
         constructor(media: MediaInfo, body: String? = null, caption: String? = null) : this(
             source = media.source,
@@ -137,6 +138,7 @@ data class ChatEntry(
             duration = media.durationMs?.let { it / 1000.0 },
             thumbnail = media.thumbnailSource,
             isAnimated = media.isAnimated || media.mimetype == "image/gif",
+            blurhash = media.blurhash,
         )
     }
 
@@ -458,8 +460,10 @@ class TimelineModel(
                     width = video.size?.first?.toLong(),
                     height = video.size?.second?.toLong(),
                     durationMs = video.duration?.let { (it * 1000).toLong() },
-                    thumbnail = MediaMetadata.videoFrame(uri)?.attachment(),
                 )
+                MediaMetadata.videoFrame(uri)?.let { frame ->
+                    options = options.copy(thumbnail = frame.attachment(), blurhash = MediaMetadata.blurhash(frame.data))
+                }
             }
             mimetype.startsWith("audio/") ->
                 options = options.copy(durationMs = MediaMetadata.duration(uri)?.let { (it * 1000).toLong() })
@@ -480,9 +484,11 @@ class TimelineModel(
                         height = image.size?.second?.toLong() ?: options.height,
                     )
                 }
-                if (options.isAnimated != true) {
-                    options = options.copy(thumbnail = MediaMetadata.imageThumbnail(data)?.attachment())
-                }
+                val thumbnail = MediaMetadata.imageThumbnail(data).takeIf { options.isAnimated != true }
+                options = options.copy(
+                    thumbnail = thumbnail?.attachment(),
+                    blurhash = MediaMetadata.blurhash(thumbnail?.data ?: data),
+                )
             }
             timeline.sendFile(data, options)
         }
@@ -531,6 +537,7 @@ class TimelineModel(
             height = height.toLong(),
             isAnimated = true,
             replyTo = replyTo,
+            blurhash = MediaMetadata.blurhash(data),
         )
         return runCatching { timeline.sendFile(data, options) }.isSuccess
     }

@@ -44,6 +44,9 @@ pub struct AttachmentOptions {
     thumbnail: Option<AttachmentThumbnail>,
     #[cfg_attr(feature = "typegen", specta(optional))]
     is_animated: bool,
+    /// From `WizardClient.encodeBlurhash`, for images and videos
+    #[cfg_attr(feature = "typegen", specta(optional))]
+    blurhash: Option<String>,
     /// The caption as HTML (otherwise Markdown)
     #[cfg_attr(feature = "typegen", specta(optional))]
     caption_html: Option<String>,
@@ -106,6 +109,9 @@ pub struct UploadedFile {
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(optional))]
     thumbnail: Option<UploadedThumbnail>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(optional))]
+    blurhash: Option<String>,
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(optional))]
     mentions: Option<MentionsInput>,
@@ -223,6 +229,7 @@ rpc_methods! {
                 duration_ms_video: o.duration_ms,
                 waveform: o.waveform,
                 thumbnail: o.thumbnail.map(|t| (t.data.0, t.mimetype, t.width, t.height)),
+                blurhash: o.blurhash,
                 is_animated: o.is_animated,
                 caption_html: o.caption_html,
                 mentions: o.mentions,
@@ -256,6 +263,7 @@ rpc_methods! {
                 waveform: f.waveform,
                 is_animated: f.is_animated,
                 thumbnail: f.thumbnail.map(|t| (t.source, t.mimetype, t.width, t.height, t.size)),
+                blurhash: f.blurhash,
                 mentions: f.mentions,
             };
             this.send_uploaded(attachment, f.reply_to.as_deref()).await

@@ -39,10 +39,17 @@ object ShareSender {
             val timeline = runCatching { client.timeline(roomId) }.getOrNull() ?: return@launch
             for (shared in files) {
                 val bytes = withContext(Dispatchers.IO) { runCatching { shared.file.readBytes() }.getOrNull() } ?: continue
+                val blurhash = if (shared.mimetype.startsWith("image/")) MediaMetadata.blurhash(bytes) else null
                 runCatching {
                     timeline.sendFile(
                         bytes,
-                        AttachmentOptions(filename = shared.name, mimetype = shared.mimetype, width = shared.width, height = shared.height),
+                        AttachmentOptions(
+                            filename = shared.name,
+                            mimetype = shared.mimetype,
+                            width = shared.width,
+                            height = shared.height,
+                            blurhash = blurhash,
+                        ),
                     )
                 }
                 withContext(Dispatchers.IO) { shared.file.delete() }

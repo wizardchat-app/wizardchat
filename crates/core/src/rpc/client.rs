@@ -233,5 +233,15 @@ rpc_methods! {
         bare fn sniffMimeType(head: Bytes) -> Option<String> {
             Ok(crate::sniff_mime_type(&head).map(ToOwned::to_owned))
         }
+
+        /// A BlurHash to send with an image or video, from RGBA pixels of a copy about 32 px wide.
+        bare fn encodeBlurhash(rgba: Bytes, width: u32, height: u32) -> String {
+            crate::encode_blurhash(&rgba, width, height)
+        }
+
+        /// RGBA pixels of a received BlurHash (at most 64 px a side), to show while media loads.
+        bare fn decodeBlurhash(hash: String, width: u32, height: u32) -> Bytes {
+            Ok(Bytes(crate::decode_blurhash(&hash, width, height)?))
+        }
     }
 }

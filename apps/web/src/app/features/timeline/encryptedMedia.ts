@@ -1,3 +1,4 @@
+import { encodeBlurhash } from '@/util/blurhash';
 import { probeIsAnimated, stillExportFormat } from './utils/imageAnimation';
 
 export interface MediaThumbnail {
@@ -13,6 +14,7 @@ export interface MediaDetails {
   height?: number;
   durationMs?: number;
   isAnimated?: boolean;
+  blurhash?: string;
 }
 
 const MAX_THUMB_DIM = 800;
@@ -187,6 +189,9 @@ export async function getMediaDetails(file: File): Promise<MediaDetails> {
     durationMs: thumb?.durationMs,
     isAnimated: await probeIsAnimated(fileType, file),
   };
+  const preview = thumb?.blob ?? (thumb ? file : null);
+  const blurhash = preview ? await encodeBlurhash(preview) : null;
+  if (blurhash) details.blurhash = blurhash;
   if (thumb?.blob) {
     details.thumbnail = {
       data: new Uint8Array(await thumb.blob.arrayBuffer()),

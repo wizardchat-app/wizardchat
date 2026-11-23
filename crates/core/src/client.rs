@@ -478,6 +478,27 @@ impl WizardClient {
 
 const LOGOUT_TIMEOUT: Duration = Duration::from_secs(10);
 
+pub fn encode_blurhash(rgba: &[u8], width: u32, height: u32) -> Result<String> {
+    if width == 0 || height == 0 || rgba.len() != width as usize * height as usize * 4 {
+        return Err(Error::Sdk(
+            "blurhash needs width × height RGBA pixels".into(),
+        ));
+    }
+    let (long, short) = (width.max(height), width.min(height));
+    let minor = ((4 * short + long / 2) / long).clamp(2, 4);
+    let (x, y) = if width >= height {
+        (4, minor)
+    } else {
+        (minor, 4)
+    };
+    blurhash::encode(x, y, width, height, rgba).map_err(|e| Error::Sdk(e.to_string()))
+}
+
+pub fn decode_blurhash(hash: &str, width: u32, height: u32) -> Result<Vec<u8>> {
+    let (width, height) = (width.clamp(1, 64), height.clamp(1, 64));
+    blurhash::decode(hash, width, height, 1.0).map_err(|e| Error::Sdk(e.to_string()))
+}
+
 /// The type of media bytes, recognised by their first bytes, for the types clients display or
 /// play. Servers don't hand the uploaded type through the SDK.
 pub fn sniff_mime_type(bytes: &[u8]) -> Option<&'static str> {

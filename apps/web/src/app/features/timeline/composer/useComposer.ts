@@ -621,6 +621,7 @@ export function useComposer({
         height: isImage || isVideo ? (prepared.height ?? null) : null,
         durationMs: isVideo ? (prepared.durationMs ?? null) : null,
         thumbnail: isImage || isVideo ? prepared.thumbnail : null,
+        blurhash: isImage || isVideo ? (prepared.blurhash ?? null) : null,
         isAnimated: isImage ? (prepared.isAnimated ?? false) : false,
         spoiler: spoiler && (isImage || isVideo),
         replyTo: replyToEvent?.eventId ?? null,

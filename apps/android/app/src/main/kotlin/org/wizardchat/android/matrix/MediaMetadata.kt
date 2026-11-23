@@ -10,6 +10,7 @@ import android.os.Build
 import android.media.ExifInterface
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.LruCache
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -18,6 +19,7 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.wizardchat.android.WizardApplication
+import org.wizardchat.core.WizardClient
 
 /** Pixel sizes and durations of local files before they're sent */
 object MediaMetadata {
@@ -89,6 +91,50 @@ object MediaMetadata {
         val out = ByteArrayOutputStream()
         scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
         Frame(out.toByteArray(), scaled.width, scaled.height)
+    }
+
+    suspend fun blurhash(data: ByteArray): String? {
+        val pixels = withContext(Dispatchers.Default) {
+            val image = decodeImage(data, BLURHASH_SIZE) ?: return@withContext null
+            val scale = minOf(1f, BLURHASH_SIZE.toFloat() / maxOf(image.width, image.height))
+            val small = Bitmap.createScaledBitmap(
+                image.copy(Bitmap.Config.ARGB_8888, false),
+                maxOf(1, (image.width * scale).toInt()),
+                maxOf(1, (image.height * scale).toInt()),
+                true,
+            )
+            val argb = IntArray(small.width * small.height).also { small.getPixels(it, 0, small.width, 0, 0, small.width, small.height) }
+            val rgba = ByteArray(argb.size * 4)
+            argb.forEachIndexed { i, c ->
+                rgba[i * 4] = (c shr 16).toByte()
+                rgba[i * 4 + 1] = (c shr 8).toByte()
+                rgba[i * 4 + 2] = c.toByte()
+                rgba[i * 4 + 3] = (c ushr 24).toByte()
+            }
+            Triple(rgba, small.width, small.height)
+        } ?: return null
+        return runCatching {
+            WizardClient.encodeBlurhash(pixels.first, pixels.second.toLong(), pixels.third.toLong())
+        }.getOrNull()
+    }
+
+    private const val BLURHASH_SIZE = 32
+    private val blurhashes = LruCache<String, Bitmap>(200)
+
+    suspend fun blurhashImage(hash: String): Bitmap? {
+        blurhashes.get(hash)?.let { return it }
+        val rgba = runCatching {
+            WizardClient.decodeBlurhash(hash, BLURHASH_SIZE.toLong(), BLURHASH_SIZE.toLong())
+        }.getOrNull()?.takeIf { it.size == BLURHASH_SIZE * BLURHASH_SIZE * 4 } ?: return null
+        val argb = IntArray(BLURHASH_SIZE * BLURHASH_SIZE) { i ->
+            val r = rgba[i * 4].toInt() and 0xFF
+            val g = rgba[i * 4 + 1].toInt() and 0xFF
+            val b = rgba[i * 4 + 2].toInt() and 0xFF
+            (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        val bitmap = Bitmap.createBitmap(argb, BLURHASH_SIZE, BLURHASH_SIZE, Bitmap.Config.ARGB_8888)
+        blurhashes.put(hash, bitmap)
+        return bitmap
     }
 
     fun decodeImage(data: ByteArray, size: Int?): Bitmap? = runCatching {

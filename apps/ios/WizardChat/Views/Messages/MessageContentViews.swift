@@ -57,7 +57,7 @@ struct ImageMessageView: View {
                         .aspectRatio(contentMode: isSticker ? .fit : .fill)
                 }
             } else {
-                theme.fill
+                BlurhashPlaceholder(hash: hidden ? nil : media.blurhash)
                 ProgressView().tint(theme.textMuted)
             }
             if hidden {
@@ -163,7 +163,7 @@ struct VideoMessageView: View {
             if let thumbnail {
                 Image(uiImage: thumbnail).resizable().scaledToFill()
             } else {
-                theme.fill
+                BlurhashPlaceholder(hash: spoiler != nil && !revealed ? nil : media.blurhash)
             }
             if spoiler != nil && !revealed {
                 Rectangle().fill(.thinMaterial)

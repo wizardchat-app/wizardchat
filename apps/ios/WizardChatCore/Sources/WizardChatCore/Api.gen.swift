@@ -37,11 +37,13 @@ public struct AttachmentOptions: Codable, Hashable, Sendable {
     /// A preview image (encoded bytes) for images and videos
     public var thumbnail: AttachmentThumbnail?
     public var isAnimated: Bool?
+    /// From `WizardClient.encodeBlurhash`, for images and videos
+    public var blurhash: String?
     /// The caption as HTML (otherwise Markdown)
     public var captionHtml: String?
     public var mentions: Mentions?
 
-    public init(filename: String? = nil, mimetype: String? = nil, caption: String? = nil, width: Int? = nil, height: Int? = nil, spoiler: Bool? = nil, spoilerReason: String? = nil, voice: Bool? = nil, durationMs: Int? = nil, waveform: [Int]? = nil, replyTo: String? = nil, thumbnail: AttachmentThumbnail? = nil, isAnimated: Bool? = nil, captionHtml: String? = nil, mentions: Mentions? = nil) {
+    public init(filename: String? = nil, mimetype: String? = nil, caption: String? = nil, width: Int? = nil, height: Int? = nil, spoiler: Bool? = nil, spoilerReason: String? = nil, voice: Bool? = nil, durationMs: Int? = nil, waveform: [Int]? = nil, replyTo: String? = nil, thumbnail: AttachmentThumbnail? = nil, isAnimated: Bool? = nil, blurhash: String? = nil, captionHtml: String? = nil, mentions: Mentions? = nil) {
         self.filename = filename
         self.mimetype = mimetype
         self.caption = caption
@@ -55,6 +57,7 @@ public struct AttachmentOptions: Codable, Hashable, Sendable {
         self.replyTo = replyTo
         self.thumbnail = thumbnail
         self.isAnimated = isAnimated
+        self.blurhash = blurhash
         self.captionHtml = captionHtml
         self.mentions = mentions
     }
@@ -1350,7 +1353,6 @@ public struct PublicRoomsPage: Codable, Hashable, Sendable {
     }
 }
 
-/// What a push was about
 public enum PushedEvent: Codable, Hashable, Sendable {
     public struct Message: Codable, Hashable, Sendable {
         public var notification: Notification
@@ -1367,7 +1369,6 @@ public enum PushedEvent: Codable, Hashable, Sendable {
         }
     }
     case message(Message)
-    /// Someone calling, still ringing when the push was handled
     case call(Call)
 
     public init(from decoder: Decoder) throws {
@@ -2788,10 +2789,12 @@ public struct UploadedFile: Codable, Hashable, Sendable {
     public var waveform: [Int]?
     public var isAnimated: Bool?
     public var thumbnail: UploadedThumbnail?
+    /// From `WizardClient.encodeBlurhash`, for images and videos
+    public var blurhash: String?
     public var mentions: Mentions?
     public var replyTo: String?
 
-    public init(source: JSONValue, size: Int, filename: String, mimetype: String, caption: String? = nil, captionHtml: String? = nil, width: Int? = nil, height: Int? = nil, durationMs: Int? = nil, spoiler: Bool? = nil, spoilerReason: String? = nil, voice: Bool? = nil, waveform: [Int]? = nil, isAnimated: Bool? = nil, thumbnail: UploadedThumbnail? = nil, mentions: Mentions? = nil, replyTo: String? = nil) {
+    public init(source: JSONValue, size: Int, filename: String, mimetype: String, caption: String? = nil, captionHtml: String? = nil, width: Int? = nil, height: Int? = nil, durationMs: Int? = nil, spoiler: Bool? = nil, spoilerReason: String? = nil, voice: Bool? = nil, waveform: [Int]? = nil, isAnimated: Bool? = nil, thumbnail: UploadedThumbnail? = nil, blurhash: String? = nil, mentions: Mentions? = nil, replyTo: String? = nil) {
         self.source = source
         self.size = size
         self.filename = filename
@@ -2807,6 +2810,7 @@ public struct UploadedFile: Codable, Hashable, Sendable {
         self.waveform = waveform
         self.isAnimated = isAnimated
         self.thumbnail = thumbnail
+        self.blurhash = blurhash
         self.mentions = mentions
         self.replyTo = replyTo
     }
@@ -3181,6 +3185,16 @@ public final class WizardClient: Remote, @unchecked Sendable {
     /// The MIME type of media bytes, from their first bytes (images, audio, video, PDF).
     public static func sniffMimeType(head: Data) async throws -> String? {
         try await Runtime.shared.call("WizardClient.sniffMimeType", this: nil, [.bytes(head)])
+    }
+
+    /// A BlurHash to send with an image or video, from RGBA pixels of a copy about 32 px wide.
+    public static func encodeBlurhash(rgba: Data, width: Int, height: Int) async throws -> String {
+        try await Runtime.shared.call("WizardClient.encodeBlurhash", this: nil, [.bytes(rgba), .value(width), .value(height)])
+    }
+
+    /// RGBA pixels of a received BlurHash (at most 64 px a side), to show while media loads.
+    public static func decodeBlurhash(hash: String, width: Int, height: Int) async throws -> Data {
+        try await Runtime.shared.call("WizardClient.decodeBlurhash", this: nil, [.value(hash), .value(width), .value(height)])
     }
 
     public func userProfile(userId: String) async throws -> UserProfile {
@@ -3823,12 +3837,10 @@ public final class WizardClient: Remote, @unchecked Sendable {
         try await call("WizardClient.pushedNotification", [.value(roomId), .value(eventId)])
     }
 
-    /// A message to show or a ring to report, for a push's event
     public func pushedEvent(roomId: String, eventId: String) async throws -> PushedEvent? {
         try await call("WizardClient.pushedEvent", [.value(roomId), .value(eventId)])
     }
 
-    /// Checks a pushed ring and lets `watchIncomingCalls` report it and how it ends
     public func expectRing(roomId: String, eventId: String) async throws -> IncomingCall? {
         try await call("WizardClient.expectRing", [.value(roomId), .value(eventId)])
     }

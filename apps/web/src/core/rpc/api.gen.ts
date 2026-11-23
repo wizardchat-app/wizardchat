@@ -41,6 +41,10 @@ export type AttachmentOptions = {
   thumbnail?: AttachmentThumbnail | null;
   isAnimated?: boolean;
   /**
+   * From `WizardClient.encodeBlurhash`, for images and videos
+   */
+  blurhash?: string | null;
+  /**
    * The caption as HTML (otherwise Markdown)
    */
   captionHtml?: string | null;
@@ -668,9 +672,6 @@ export type PublicRoomsPage = {
   total: number | null;
 };
 
-/**
- * What a push was about
- */
 export type PushedEvent =
   { type: 'message'; notification: Notification } | { type: 'call'; call: IncomingCall };
 
@@ -1407,6 +1408,10 @@ export type UploadedFile = {
   waveform?: Array<number> | null;
   isAnimated?: boolean;
   thumbnail?: UploadedThumbnail | null;
+  /**
+   * From `WizardClient.encodeBlurhash`, for images and videos
+   */
+  blurhash?: string | null;
   mentions?: Mentions | null;
   replyTo?: string | null;
 };
@@ -1700,6 +1705,24 @@ export class WizardClient extends Remote {
   /** The MIME type of media bytes, from their first bytes (images, audio, video, PDF). */
   static sniffMimeType(head: Uint8Array): Promise<string | null> {
     return runtime.call('WizardClient.sniffMimeType', null, [head]) as Promise<string | null>;
+  }
+
+  /** A BlurHash to send with an image or video, from RGBA pixels of a copy about 32 px wide. */
+  static encodeBlurhash(rgba: Uint8Array, width: number, height: number): Promise<string> {
+    return runtime.call('WizardClient.encodeBlurhash', null, [
+      rgba,
+      width,
+      height,
+    ]) as Promise<string>;
+  }
+
+  /** RGBA pixels of a received BlurHash (at most 64 px a side), to show while media loads. */
+  static decodeBlurhash(hash: string, width: number, height: number): Promise<Uint8Array> {
+    return runtime.call('WizardClient.decodeBlurhash', null, [
+      hash,
+      width,
+      height,
+    ]) as Promise<Uint8Array>;
   }
 
   userProfile(userId: string): Promise<UserProfile> {
@@ -2558,7 +2581,6 @@ export class WizardClient extends Remote {
     ]) as Promise<Notification | null>;
   }
 
-  /** A message to show or a ring to report, for a push's event */
   pushedEvent(roomId: string, eventId: string): Promise<PushedEvent | null> {
     return runtime.call('WizardClient.pushedEvent', this, [
       roomId,
@@ -2566,7 +2588,6 @@ export class WizardClient extends Remote {
     ]) as Promise<PushedEvent | null>;
   }
 
-  /** Checks a pushed ring and lets `watchIncomingCalls` report it and how it ends */
   expectRing(roomId: string, eventId: string): Promise<IncomingCall | null> {
     return runtime.call('WizardClient.expectRing', this, [
       roomId,

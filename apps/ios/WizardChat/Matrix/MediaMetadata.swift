@@ -2,6 +2,7 @@ import AVFoundation
 import ImageIO
 import SwiftUI
 import UIKit
+import WizardChatCore
 
 enum MediaMetadata {
     static func imageSize(at url: URL) -> CGSize? {
@@ -72,6 +73,28 @@ enum MediaMetadata {
         return (jpeg, thumb.width, thumb.height)
     }
 
+    static func blurhash(of data: Data) async -> String? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 32,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
+              let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        let width = image.width, height = image.height
+        var pixels = Data(count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                                          bytesPerRow: width * 4, space: space,
+                                          bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        return try? await WizardClient.encodeBlurhash(rgba: pixels, width: width, height: height)
+    }
+
     static func duration(at url: URL) async -> TimeInterval? {
         try? await AVURLAsset(url: url).load(.duration).seconds
     }
@@ -82,6 +105,46 @@ enum MediaMetadata {
         let url = dir.appendingPathComponent(filename)
         try data.write(to: url)
         return url
+    }
+}
+
+enum Blurhash {
+    private static let size = 32
+    private static let cache = NSCache<NSString, UIImage>()
+
+    static func image(_ hash: String) async -> UIImage? {
+        if let cached = cache.object(forKey: hash as NSString) { return cached }
+        guard let pixels = try? await WizardClient.decodeBlurhash(hash: hash, width: size, height: size),
+              pixels.count == size * size * 4,
+              let provider = CGDataProvider(data: pixels as CFData),
+              let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let cgImage = CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+                                    space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                                    provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+        else { return nil }
+        let image = UIImage(cgImage: cgImage)
+        cache.setObject(image, forKey: hash as NSString)
+        return image
+    }
+}
+
+struct BlurhashPlaceholder: View {
+    let hash: String?
+    @Environment(\.theme) private var theme
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            theme.fill
+            if let image {
+                Image(uiImage: image).resizable()
+            }
+        }
+        .task(id: hash) {
+            image = nil
+            guard let hash else { return }
+            image = await Blurhash.image(hash)
+        }
     }
 }
 

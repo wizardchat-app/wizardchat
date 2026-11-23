@@ -1,3 +1,5 @@
+import { WizardClient } from '@wizardchat/core';
+
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~';
 const SIZE = 32;
 
@@ -88,4 +90,30 @@ export function blurhashDataUrl(hash: string | null | undefined): string | null 
   if (cache.size > 500) cache.clear();
   cache.set(hash, url);
   return url;
+}
+
+const ENCODE_SIZE = 32;
+
+export async function encodeBlurhash(image: Blob): Promise<string | null> {
+  try {
+    if (typeof createImageBitmap !== 'function') return null;
+    const bitmap = await createImageBitmap(image);
+    const scale = ENCODE_SIZE / Math.max(bitmap.width, bitmap.height);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return null;
+    }
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const { data } = ctx.getImageData(0, 0, width, height);
+    return await WizardClient.encodeBlurhash(new Uint8Array(data.buffer), width, height);
+  } catch {
+    return null;
+  }
 }

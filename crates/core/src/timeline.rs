@@ -577,6 +577,7 @@ pub struct Attachment {
     pub waveform: Option<Vec<u16>>,
     /// A preview image for images and videos (encoded bytes, its type and size)
     pub thumbnail: Option<(Vec<u8>, String, u32, u32)>,
+    pub blurhash: Option<String>,
     pub duration_ms_video: Option<u64>,
     pub is_animated: bool,
     /// The caption as HTML (Markdown otherwise)
@@ -604,6 +605,7 @@ pub struct UploadedAttachment {
     pub is_animated: bool,
     /// The uploaded preview: its source, type, size in pixels and bytes
     pub thumbnail: Option<(serde_json::Value, String, u32, u32, u64)>,
+    pub blurhash: Option<String>,
     pub mentions: Option<MentionsInput>,
 }
 
@@ -636,6 +638,12 @@ impl UploadedAttachment {
         }
         if msgtype == "m.image" {
             info.insert("is_animated".into(), json!(self.is_animated));
+        }
+        if let Some(blurhash) = self
+            .blurhash
+            .filter(|_| matches!(msgtype, "m.image" | "m.video"))
+        {
+            info.insert("xyz.amorgan.blurhash".into(), json!(blurhash));
         }
         if let Some((source, mimetype, w, h, size)) = self.thumbnail {
             info.insert(
@@ -1180,7 +1188,7 @@ impl RoomTimeline {
                     width: attachment.width.map(UInt::from),
                     height: attachment.height.map(UInt::from),
                     size: UInt::new(attachment.bytes.len() as u64),
-                    ..Default::default()
+                    blurhash: attachment.blurhash.clone(),
                 },
             ));
         }
@@ -1193,7 +1201,7 @@ impl RoomTimeline {
                 height: attachment.height.map(UInt::from),
                 size: UInt::new(attachment.bytes.len() as u64),
                 is_animated: Some(attachment.is_animated),
-                ..Default::default()
+                blurhash: attachment.blurhash.clone(),
             }));
         }
         if let Some(caption) = attachment.caption.filter(|c| !c.trim().is_empty()) {

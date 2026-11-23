@@ -302,6 +302,11 @@ async fn main() -> Result<(), BoxError> {
     let secret_id = alice.create_room("Encrypted upload").await?;
     tokio::time::sleep(Duration::from_secs(2)).await;
     let secret = alice.timeline(&secret_id).await?;
+    let blurhash = wizardchat_core::encode_blurhash(&[200u8; 4 * 8 * 6], 8, 6)?;
+    assert_eq!(
+        wizardchat_core::decode_blurhash(&blurhash, 4, 4)?.len(),
+        4 * 4 * 4
+    );
     let uploaded = secret
         .upload_file(vec![1u8; 2048], "image/png", |_| {})
         .await?;
@@ -317,6 +322,7 @@ async fn main() -> Result<(), BoxError> {
                 width: Some(10),
                 height: Some(10),
                 spoiler: true,
+                blurhash: Some(blurhash.clone()),
                 ..Default::default()
             },
             None,
@@ -335,8 +341,9 @@ async fn main() -> Result<(), BoxError> {
     .await?;
     assert!(image.source.get("file").is_some(), "{:?}", image.source);
     assert!(image.spoiler, "{image:?}");
+    assert_eq!(image.blurhash.as_ref(), Some(&blurhash));
     assert_eq!(image.caption_html.as_deref(), Some("<strong>look</strong>"));
-    println!("pre-uploaded encrypted image with caption and spoiler");
+    println!("pre-uploaded encrypted image with caption, spoiler and blurhash");
 
     bob.report_event(&room_id, &latest, Some("test")).await?;
     println!("report with score accepted");
