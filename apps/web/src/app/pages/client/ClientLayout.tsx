@@ -19,7 +19,7 @@ import {
   roomChatPanelOpenAtom,
   roomChatRoomIdAtom,
   closeRoomChatAtom,
-  setSidePanelContextAtom,
+  enterRoomSidePanelAtom,
   openRoomChatAtom,
   isInCallAtom,
   callActionsAtom,
@@ -328,11 +328,11 @@ export function ClientLayout() {
     return () => setCommandActions(null);
   }, [placeCall, joinVoiceRoom, hangupCall, setCommandActions]);
 
-  const setSidePanelContext = useSetAtom(setSidePanelContextAtom);
+  const enterRoomSidePanel = useSetAtom(enterRoomSidePanelAtom);
   const inVoiceRoom = isVoiceRoom(selectedRoomId ? roomsById.get(selectedRoomId) : null);
   useLayoutEffect(() => {
-    setSidePanelContext({ context: inVoiceRoom ? 'voice' : 'room', roomId: selectedRoomId });
-  }, [inVoiceRoom, selectedRoomId, setSidePanelContext]);
+    enterRoomSidePanel({ context: inVoiceRoom ? 'voice' : 'room', roomId: selectedRoomId });
+  }, [inVoiceRoom, selectedRoomId, enterRoomSidePanel]);
 
   // Keyboard shortcuts
   const [membersPanelOpen, setMembersPanelOpen] = useAtom(membersPanelOpenAtom);
@@ -432,24 +432,9 @@ export function ClientLayout() {
     openRoomChat,
   ]);
 
-  const threadPanelRoomIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (threadsPanelView && currentRoomId) threadPanelRoomIdRef.current = currentRoomId;
-  }, [threadsPanelView, currentRoomId]);
-
-  const prevRoomIdRef = useRef<string | null>(currentRoomId);
-  useEffect(() => {
-    const prev = prevRoomIdRef.current;
-    prevRoomIdRef.current = currentRoomId;
-    if (
-      currentRoomId !== null &&
-      prev !== currentRoomId &&
-      threadPanelRoomIdRef.current !== currentRoomId
-    ) {
-      cancelThreadsClose();
-      setThreadsPanelView(null);
-    }
-  }, [currentRoomId, cancelThreadsClose, setThreadsPanelView]);
+    cancelThreadsClose();
+  }, [currentRoomId, cancelThreadsClose]);
 
   useEffect(() => {
     if (membersPanelOpen) cancelThreadsClose();

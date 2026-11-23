@@ -1,4 +1,4 @@
-import { atom } from 'jotai';
+import { atom, type Getter, type Setter } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { VerificationEmoji, VerificationFlow, WizardClient } from '@wizardchat/core';
 import {
@@ -334,17 +334,34 @@ export const emojiPickerAtom = atom<EmojiPickerState | null>(null);
 
 export type ThreadsPanelView = { type: 'list' } | { type: 'thread'; rootEventId: string };
 
-type BaseSidePanel =
-  | { kind: 'none' }
-  | { kind: 'members' }
-  | { kind: 'spaceMembers' }
-  | { kind: 'threads'; view: ThreadsPanelView };
+type BasePanel = { kind: 'none' } | { kind: 'members' } | { kind: 'spaceMembers' };
 
-type SidePanel = BaseSidePanel | { kind: 'roomChat'; roomId: string; under: BaseSidePanel };
+type SidePanel =
+  BasePanel | { kind: 'threads'; view: ThreadsPanelView } | { kind: 'roomChat'; roomId: string };
 
-const sidePanelAtom = atom<SidePanel>(
-  typeof window !== 'undefined' && window.innerWidth >= 768 ? { kind: 'members' } : { kind: 'none' }
-);
+type SidePanelContext = 'room' | 'voice';
+const sidePanelContextAtom = atom<SidePanelContext>('room');
+const panelRoomIdAtom = atom<string | null>(null);
+
+const basePanelsAtom = atom<Record<SidePanelContext, BasePanel>>({
+  room:
+    typeof window !== 'undefined' && window.innerWidth >= 768
+      ? { kind: 'members' }
+      : { kind: 'none' },
+  voice: { kind: 'none' },
+});
+const roomThreadsAtom = atom<Record<string, ThreadsPanelView>>({});
+const roomChatsAtom = atom<Record<SidePanelContext, string | null>>({ room: null, voice: null });
+
+const sidePanelAtom = atom<SidePanel>((get) => {
+  const context = get(sidePanelContextAtom);
+  const chatRoomId = get(roomChatsAtom)[context];
+  if (chatRoomId) return { kind: 'roomChat', roomId: chatRoomId };
+  const roomId = get(panelRoomIdAtom);
+  const view = roomId !== null ? get(roomThreadsAtom)[roomId] : undefined;
+  if (view) return { kind: 'threads', view };
+  return get(basePanelsAtom)[context];
+});
 
 export const roomChatRoomIdAtom = atom((get) => {
   const panel = get(sidePanelAtom);
@@ -365,26 +382,40 @@ function resolveThreads(updater: ThreadsUpdater, current: ThreadsPanelView | nul
   return typeof updater === 'function' ? updater(current) : updater;
 }
 
-function nextPanel(current: SidePanel, kind: 'members' | 'spaceMembers', open: boolean): SidePanel {
-  if (!open) return current.kind === kind ? { kind: 'none' } : current;
-  return { kind };
+function setRoomThreads(get: Getter, set: Setter, view: ThreadsPanelView | null) {
+  const roomId = get(panelRoomIdAtom);
+  if (roomId === null) return;
+  const threads = { ...get(roomThreadsAtom) };
+  if (view) threads[roomId] = view;
+  else delete threads[roomId];
+  set(roomThreadsAtom, threads);
 }
 
-export const membersPanelOpenAtom = atom<boolean, [BoolUpdater], void>(
-  (get) => get(sidePanelAtom).kind === 'members',
-  (get, set, updater) => {
-    const open = resolveBool(updater, get(sidePanelAtom).kind === 'members');
-    set(sidePanelAtom, nextPanel(get(sidePanelAtom), 'members', open));
-  }
-);
+function setRoomChat(get: Getter, set: Setter, roomId: string | null) {
+  const context = get(sidePanelContextAtom);
+  set(roomChatsAtom, { ...get(roomChatsAtom), [context]: roomId });
+}
 
-export const spaceMembersPanelOpenAtom = atom<boolean, [BoolUpdater], void>(
-  (get) => get(sidePanelAtom).kind === 'spaceMembers',
-  (get, set, updater) => {
-    const open = resolveBool(updater, get(sidePanelAtom).kind === 'spaceMembers');
-    set(sidePanelAtom, nextPanel(get(sidePanelAtom), 'spaceMembers', open));
-  }
-);
+function basePanelAtom(kind: 'members' | 'spaceMembers') {
+  return atom<boolean, [BoolUpdater], void>(
+    (get) => get(sidePanelAtom).kind === kind,
+    (get, set, updater) => {
+      const open = resolveBool(updater, get(sidePanelAtom).kind === kind);
+      const context = get(sidePanelContextAtom);
+      const bases = get(basePanelsAtom);
+      if (open) {
+        setRoomChat(get, set, null);
+        setRoomThreads(get, set, null);
+        set(basePanelsAtom, { ...bases, [context]: { kind } });
+      } else if (bases[context].kind === kind) {
+        set(basePanelsAtom, { ...bases, [context]: { kind: 'none' } });
+      }
+    }
+  );
+}
+
+export const membersPanelOpenAtom = basePanelAtom('members');
+export const spaceMembersPanelOpenAtom = basePanelAtom('spaceMembers');
 
 export const threadsPanelViewAtom = atom<ThreadsPanelView | null, [ThreadsUpdater], void>(
   (get) => {
@@ -394,57 +425,42 @@ export const threadsPanelViewAtom = atom<ThreadsPanelView | null, [ThreadsUpdate
   (get, set, updater) => {
     const panel = get(sidePanelAtom);
     const view = resolveThreads(updater, panel.kind === 'threads' ? panel.view : null);
-    set(
-      sidePanelAtom,
-      view ? { kind: 'threads', view } : panel.kind === 'threads' ? { kind: 'none' } : panel
-    );
+    if (view) setRoomChat(get, set, null);
+    setRoomThreads(get, set, view);
   }
 );
 
 export const threadFilterAtom = atom<'all' | 'my'>('all');
 
 export const openRoomChatAtom = atom(null, (get, set, roomId: string) => {
-  const panel = get(sidePanelAtom);
-  if (panel.kind === 'roomChat') {
-    set(sidePanelAtom, { ...panel, roomId });
-  } else {
-    set(sidePanelAtom, { kind: 'roomChat', roomId, under: panel });
-  }
+  setRoomChat(get, set, roomId);
 });
 
 export const closeRoomChatAtom = atom(null, (get, set) => {
-  if (get(sidePanelAtom).kind === 'roomChat') set(sidePanelAtom, { kind: 'none' });
+  setRoomChat(get, set, null);
 });
 
-type SidePanelContext = 'room' | 'voice';
-const sidePanelContextAtom = atom<SidePanelContext>('room');
-// chat rooms and voice rooms each keep their own side panel; voice rooms start with none open
-const savedSidePanelsAtom = atom<Record<SidePanelContext, SidePanel>>({
-  room: { kind: 'none' },
-  voice: { kind: 'none' },
-});
-
-export const setSidePanelContextAtom = atom(
+export const enterRoomSidePanelAtom = atom(
   null,
-  (get, set, { context: next, roomId }: { context: SidePanelContext; roomId: string | null }) => {
-    const current = get(sidePanelContextAtom);
-    if (current === next) return;
-    const panel = get(sidePanelAtom);
-    const saved = get(savedSidePanelsAtom);
-    set(sidePanelContextAtom, next);
-    if (panel.kind === 'roomChat' && next === 'voice' && panel.roomId === roomId) {
-      set(savedSidePanelsAtom, { ...saved, [current]: panel.under });
-      set(sidePanelAtom, { ...panel, under: { kind: 'none' } });
-      return;
+  (get, set, { context, roomId }: { context: SidePanelContext; roomId: string | null }) => {
+    const chats = get(roomChatsAtom);
+    // a voice room chat opened from a chat room stays open when you enter that voice room
+    if (context === 'voice' && roomId !== null && chats.room === roomId) {
+      set(roomChatsAtom, { room: null, voice: roomId });
     }
-    set(savedSidePanelsAtom, { ...saved, [current]: panel });
-    const restored = saved[next];
-    set(
-      sidePanelAtom,
-      restored.kind === 'roomChat' && roomId !== null ? { ...restored, roomId } : restored
-    );
+    set(sidePanelContextAtom, context);
+    set(panelRoomIdAtom, roomId);
   }
 );
+
+export const openRoomThreadAtom = atom(
+  null,
+  (get, set, { roomId, rootEventId }: { roomId: string; rootEventId: string }) => {
+    set(roomThreadsAtom, { ...get(roomThreadsAtom), [roomId]: { type: 'thread', rootEventId } });
+    if (get(panelRoomIdAtom) === roomId) setRoomChat(get, set, null);
+  }
+);
+
 export const threadPanelExpandedAtom = atom(false);
 
 function panelWidthAtom(key: string, min: number, max: number, fallback: number) {

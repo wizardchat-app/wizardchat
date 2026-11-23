@@ -11,7 +11,7 @@ import {
 import { Tooltip } from '@/app/components/Tooltip';
 import { Avatar } from '@/app/components/Avatar';
 import { Popover } from '@/app/components/Popover/Popover';
-import { inboxOpenAtom, mobileDrawerOpenAtom, threadsPanelViewAtom } from '@/app/store/atoms';
+import { inboxOpenAtom, mobileDrawerOpenAtom, openRoomThreadAtom } from '@/app/store/atoms';
 import { sendReadReceiptsAtom } from '@/app/store/atoms/settings';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useToast } from '@/app/hooks/useToast';
@@ -50,7 +50,7 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
   const { mentions, refresh: refreshMentions } = useMentions(true);
   const hasUnreadMentions = useHasUnreadMentions();
   const { threads } = useUnreadThreads(true);
-  const setThreadsPanelView = useSetAtom(threadsPanelViewAtom);
+  const openRoomThread = useSetAtom(openRoomThreadAtom);
 
   const activeCount =
     tab === 'invites' ? invites.length : tab === 'mentions' ? mentions.length : threads.length;
@@ -62,8 +62,8 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
   };
 
   const openThread = (kind: Invite['kind'], roomId: string, rootEventId: string) => {
+    openRoomThread({ roomId, rootEventId });
     openRoom(kind, roomId);
-    setThreadsPanelView({ type: 'thread', rootEventId });
   };
 
   const handleMarkRead = (roomId: string) => {
