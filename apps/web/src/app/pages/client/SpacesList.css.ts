@@ -69,6 +69,12 @@ export const spaceBarBtn = style({
   ':hover': {
     color: vars.color.textPrimary,
   },
+  selectors: {
+    '&:has(button:focus-visible)': {
+      outline: `2px solid ${vars.color.accent}`,
+      outlineOffset: '2px',
+    },
+  },
 });
 
 // Inner button inside a sortable wrapper - visually transparent, just handles clicks

@@ -11,8 +11,13 @@ export interface MediaBlobOptions {
 
 export interface MediaBlobResult {
   src: string | undefined;
+  failed: boolean;
   refetch: () => void;
 }
+
+const RETRY_WINDOW_MS = 30_000;
+const lastRetryAt = new Map<string, number>();
+const failedKeys = new Set<string>();
 
 function resolveInitialSrc(
   mxcUrl: string | undefined | null,
@@ -20,6 +25,7 @@ function resolveInitialSrc(
 ): string | undefined {
   if (!mxcUrl) return undefined;
   if (!mxcUrl.startsWith('mxc://')) return undefined;
+  if (cacheKey && failedKeys.has(cacheKey)) return undefined;
   return cacheKey ? (getCachedBlobUrl(cacheKey) ?? undefined) : undefined;
 }
 
@@ -32,7 +38,11 @@ export function useMediaBlobUrl(
   const isMxc = !!mxcUrl && mxcUrl.startsWith('mxc://');
   const cacheKey = isMxc ? mediaBlobCacheKey(mxcUrl as string, width, height, resizeMethod) : null;
 
-  const [state, setState] = useState<{ key: string | null; src: string | undefined }>(() => ({
+  const [state, setState] = useState<{
+    key: string | null;
+    src: string | undefined;
+    failed?: boolean;
+  }>(() => ({
     key: cacheKey,
     src: resolveInitialSrc(mxcUrl, cacheKey),
   }));
@@ -44,13 +54,14 @@ export function useMediaBlobUrl(
 
   useEffect(() => {
     if (!mxcUrl || !client || !isMxc || !cacheKey) return;
-    if (getCachedBlobUrl(cacheKey)) return;
+    if (failedKeys.has(cacheKey) || getCachedBlobUrl(cacheKey)) return;
 
     let alive = true;
     fetchMediaBlobUrl(mxcUrl, client, 2, width, height, resizeMethod).then((url) => {
-      if (alive && url) {
-        setState((prev) => (prev.key === cacheKey ? { key: prev.key, src: url } : prev));
-      }
+      if (!alive) return;
+      setState((prev) =>
+        prev.key !== cacheKey ? prev : url ? { key: prev.key, src: url } : { ...prev, failed: true }
+      );
     });
     return () => {
       alive = false;
@@ -58,9 +69,21 @@ export function useMediaBlobUrl(
   }, [mxcUrl, client, isMxc, cacheKey, width, height, resizeMethod, nonce]);
 
   const refetch = useCallback(() => {
-    if (cacheKey) deleteCachedBlobUrl(cacheKey);
+    if (!cacheKey) return;
+    deleteCachedBlobUrl(cacheKey);
+    const now = Date.now();
+    if (
+      failedKeys.has(cacheKey) ||
+      now - (lastRetryAt.get(cacheKey) ?? -Infinity) < RETRY_WINDOW_MS
+    ) {
+      failedKeys.add(cacheKey);
+      setState((prev) => (prev.key === cacheKey ? { key: prev.key, src: undefined } : prev));
+      return;
+    }
+    lastRetryAt.set(cacheKey, now);
     setNonce((n) => n + 1);
   }, [cacheKey]);
 
-  return { src: state.src, refetch };
+  const failed = !!state.failed || (!!cacheKey && failedKeys.has(cacheKey));
+  return { src: state.src, failed, refetch };
 }

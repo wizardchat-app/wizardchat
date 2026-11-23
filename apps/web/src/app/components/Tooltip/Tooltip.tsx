@@ -28,6 +28,9 @@ const staticSideMap = {
   left: 'right',
 } as const;
 
+const WARM_MS = 300;
+let lastHiddenAt = 0;
+
 const arrowClassMap: Record<string, string | undefined> = {
   top: css.arrowDown,
   bottom: css.arrowUp,
@@ -44,6 +47,8 @@ export const Tooltip = memo(function Tooltip({
   multiline = false,
 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
+  const visibleRef = useRef(false);
+  visibleRef.current = visible;
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pointerInsideRef = useRef(false);
   const lastPointerAtRef = useRef(0);
@@ -110,13 +115,30 @@ export const Tooltip = memo(function Tooltip({
 
   const show = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (Date.now() - lastHiddenAt < WARM_MS) {
+      setVisible(true);
+      return;
+    }
     timerRef.current = setTimeout(() => setVisible(true), delay);
   }, [delay]);
 
   const hide = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (visibleRef.current) lastHiddenAt = Date.now();
     setVisible(false);
   }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      suppressedRef.current = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setVisible(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [visible]);
 
   const setTriggerRef = useCallback((node: HTMLElement | null) => {
     triggerRef.current = node;

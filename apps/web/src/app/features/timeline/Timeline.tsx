@@ -12,6 +12,9 @@ import type { WizardClient } from '@wizardchat/core';
 import { CaretDownIcon, UploadIcon, ChatTeardropTextIcon, XIcon } from '@phosphor-icons/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
+import { Tooltip } from '@/app/components/Tooltip';
+import { SkeletonRow } from './SkeletonRow';
+import { useFileDrop } from './useFileDrop';
 import { formatUserId, isDmRoom } from '@/util/matrix';
 import { scrollToBottom } from '@/util/dom';
 import { useRoom, useRoomSettings, useTimeline as useLiveTimeline } from '@/app/data';
@@ -107,18 +110,6 @@ function UnreadDivider({ onDismiss, label }: { onDismiss: () => void; label: str
         >
           <XIcon size={12} weight="bold" />
         </button>
-      </div>
-    </div>
-  );
-}
-
-function SkeletonRow({ width1 = '60%', width2 = '40%' }: { width1?: string; width2?: string }) {
-  return (
-    <div className={css.skeletonRow}>
-      <div className={css.skeletonAvatar} />
-      <div className={css.skeletonLines}>
-        <div className={css.skeletonLine} style={{ width: width1 }} />
-        <div className={css.skeletonLine} style={{ width: width2 }} />
       </div>
     </div>
   );
@@ -583,7 +574,10 @@ export function Timeline({ client, roomId, hideHeader }: Props) {
       forceScrollToBottomRef.current.count = 0;
       const scrollEl = scrollRef.current;
       if (scrollEl) {
-        scrollToBottom(scrollEl, forceSmooth ? 'smooth' : 'instant');
+        scrollToBottom(
+          scrollEl,
+          forceSmooth && scrollBehavior() === 'smooth' ? 'smooth' : 'instant'
+        );
       }
       return;
     }
@@ -591,7 +585,10 @@ export function Timeline({ client, roomId, hideHeader }: Props) {
       if (!atBottomRef.current || !atLiveEndRef.current) return;
       const scrollEl = scrollRef.current;
       if (scrollEl) {
-        scrollToBottom(scrollEl, scrollToBottomRef.current.smooth ? 'smooth' : 'instant');
+        scrollToBottom(
+          scrollEl,
+          scrollToBottomRef.current.smooth && scrollBehavior() === 'smooth' ? 'smooth' : 'instant'
+        );
       }
     }
   }, [forceScrollToBottom, scrollToBottomCount, items]);
@@ -670,27 +667,8 @@ export function Timeline({ client, roomId, hideHeader }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, [roomId, setRoomSearch, setGlobalSearchOpen]);
 
-  const [isDragging, setIsDragging] = useState(false);
-  const dragDepthRef = useRef(0);
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    if (++dragDepthRef.current === 1) setIsDragging(true);
-  }, []);
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    if (--dragDepthRef.current === 0) setIsDragging(false);
-  }, []);
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
   const [droppedFile, setDroppedFile] = useState<File[] | null>(null);
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    dragDepthRef.current = 0;
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) setDroppedFile(files);
-  }, []);
+  const { isDragging, dropProps } = useFileDrop(setDroppedFile);
   const clearDroppedFile = useCallback(() => setDroppedFile(null), []);
 
   const [hoveredEventId, handleHover] = useMessageHover();
@@ -972,15 +950,16 @@ export function Timeline({ client, roomId, hideHeader }: Props) {
               overflow: 'hidden',
               position: 'relative',
             }}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
+            {...dropProps}
           >
             {isDragging && (
               <div className={css.chatDropZone}>
                 <UploadIcon size={32} />
-                <span>{t('timeline.dropToAttach')}</span>
+                <span>
+                  {isDm
+                    ? t('timeline.dropToSendDm', { name: dmPartnerName ?? room?.name ?? '' })
+                    : t('timeline.dropToUploadRoom', { name: room?.name ?? '' })}
+                </span>
               </div>
             )}
 
@@ -1090,13 +1069,16 @@ export function Timeline({ client, roomId, hideHeader }: Props) {
 
             <div className={css.scrollToBottomAnchor}>
               {showScrollBtn && (
-                <button
-                  type="button"
-                  className={css.scrollToBottomBtn}
-                  onClick={handleJumpToLatest}
-                >
-                  <CaretDownIcon size={18} />
-                </button>
+                <Tooltip content={t('timeline.jumpToLatest')} placement="left">
+                  <button
+                    type="button"
+                    className={css.scrollToBottomBtn}
+                    onClick={handleJumpToLatest}
+                    aria-label={t('timeline.jumpToLatest')}
+                  >
+                    <CaretDownIcon size={18} />
+                  </button>
+                </Tooltip>
               )}
             </div>
 

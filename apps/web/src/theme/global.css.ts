@@ -80,6 +80,14 @@ globalStyle('::selection', {
   color: '#fff',
 });
 
+globalStyle(
+  ':where(:focus-visible:not([tabindex="-1"], textarea, [contenteditable], input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"])))',
+  {
+    outline: `2px solid ${vars.color.accent}`,
+    outlineOffset: '2px',
+  }
+);
+
 globalStyle('a', {
   color: vars.color.link,
 });
@@ -93,6 +101,11 @@ globalStyle('html.reduce-motion *, html.reduce-motion *::before, html.reduce-mot
   animationIterationCount: '1 !important',
   transitionDuration: '0.01ms !important',
   transitionDelay: '0ms !important',
+});
+
+globalStyle('html.reduce-motion .icon-spin', {
+  animationDuration: '1s !important',
+  animationIterationCount: 'infinite !important',
 });
 
 globalStyle('html.reduce-motion', {

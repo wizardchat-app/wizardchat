@@ -12,7 +12,7 @@ const base = style({
   fontWeight: 500,
   cursor: 'pointer',
   border: 'none',
-  transition: `background-color ${fast}, color ${fast}, opacity ${fast}`,
+  transition: `background-color ${fast}, color ${fast}, opacity ${fast}, filter ${fast}`,
   whiteSpace: 'nowrap',
   flexShrink: 0,
   ':disabled': { opacity: 0.5, cursor: 'not-allowed' },
@@ -35,21 +35,30 @@ export const primary = variantBase({
   backgroundColor: vars.color.accent,
   color: '#fff',
   ':disabled': { opacity: 0.5, cursor: 'not-allowed' },
-  selectors: { '&:hover:not(:disabled)': { backgroundColor: vars.color.accentHover } },
+  selectors: {
+    '&:hover:not(:disabled)': { backgroundColor: vars.color.accentHover },
+    '&:active:not(:disabled)': { filter: 'brightness(0.9)' },
+  },
 });
 
 export const secondary = variantBase({
   backgroundColor: vars.color.bgTertiary,
   color: vars.color.textPrimary,
   ':disabled': { opacity: 0.5, cursor: 'not-allowed' },
-  selectors: { '&:hover:not(:disabled)': { backgroundColor: vars.color.bgHover } },
+  selectors: {
+    '&:hover:not(:disabled)': { backgroundColor: vars.color.bgHover },
+    '&:active:not(:disabled)': { backgroundColor: vars.color.bgActive },
+  },
 });
 
 export const danger = variantBase({
   backgroundColor: vars.color.danger,
   color: '#fff',
   ':disabled': { opacity: 0.5, cursor: 'not-allowed' },
-  selectors: { '&:hover:not(:disabled)': { opacity: 0.85 } },
+  selectors: {
+    '&:hover:not(:disabled)': { opacity: 0.85 },
+    '&:active:not(:disabled)': { opacity: 1, filter: 'brightness(0.9)' },
+  },
 });
 
 export const ghost = variantBase({
@@ -61,6 +70,7 @@ export const ghost = variantBase({
       backgroundColor: vars.color.bgHover,
       color: vars.color.textPrimary,
     },
+    '&:active:not(:disabled)': { backgroundColor: vars.color.bgActive },
   },
 });
 
@@ -74,7 +84,7 @@ const iconBase = style({
   border: 'none',
   cursor: 'pointer',
   flexShrink: 0,
-  transition: `background-color ${fast}, color ${fast}`,
+  transition: `background-color ${fast}, color ${fast}, filter ${fast}`,
   ':disabled': { opacity: 0.5, cursor: 'not-allowed' },
 });
 
@@ -93,6 +103,7 @@ export const iconDefault = style({
       backgroundColor: vars.color.bgHover,
       color: vars.color.textPrimary,
     },
+    '&:active:not(:disabled)': { backgroundColor: vars.color.bgActive },
   },
 });
 
@@ -101,6 +112,7 @@ export const iconActive = style({
   color: vars.color.accent,
   selectors: {
     '&:hover:not(:disabled)': { backgroundColor: vars.color.bgActive, color: vars.color.accent },
+    '&:active:not(:disabled)': { filter: 'brightness(0.9)' },
   },
 });
 
@@ -109,6 +121,7 @@ export const iconDanger = style({
   color: vars.color.danger,
   selectors: {
     '&:hover:not(:disabled)': { backgroundColor: vars.color.bgHover, color: vars.color.danger },
+    '&:active:not(:disabled)': { backgroundColor: vars.color.bgActive },
   },
 });
 
@@ -121,5 +134,6 @@ export const iconBordered = style({
       backgroundColor: vars.color.bgHover,
       color: vars.color.textPrimary,
     },
+    '&:active:not(:disabled)': { backgroundColor: vars.color.bgActive },
   },
 });

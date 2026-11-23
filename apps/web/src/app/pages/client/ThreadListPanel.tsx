@@ -13,6 +13,8 @@ import {
 } from '@phosphor-icons/react';
 import { Avatar } from '@/app/components/Avatar';
 import { Tooltip } from '@/app/components/Tooltip';
+import { Button } from '@/app/components/Button';
+import { SkeletonRow } from '@/app/features/timeline/SkeletonRow';
 import { formatUserId } from '@/util/matrix';
 import { useMembers, useRoom } from '@/app/data';
 import {
@@ -75,6 +77,8 @@ export function ThreadListPanel({
   const isDesktop = useMediaQuery('(min-width: 769px)');
   const myId = client.userId() ?? '';
   const [allThreads, setAllThreads] = useState<ThreadInfo[]>([]);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [retryTick, setRetryTick] = useState(0);
   const nextRef = useRef<string | null>(null);
   const paginatingRef = useRef(false);
   const { data: members } = useMembers(roomId);
@@ -97,6 +101,7 @@ export function ThreadListPanel({
 
   useEffect(() => {
     setAllThreads([]);
+    setStatus('loading');
     nextRef.current = null;
     paginatingRef.current = false;
   }, [roomId]);
@@ -115,15 +120,17 @@ export function ThreadListPanel({
           const fresh = new Set(page.threads.map((th) => th.rootEventId));
           return [...page.threads, ...prev.filter((th) => !fresh.has(th.rootEventId))];
         });
+        setStatus('ready');
       } catch (err) {
         console.error('[ThreadListPanel] failed to fetch thread list', err);
+        if (!cancelled) setStatus((prev) => (prev === 'ready' ? prev : 'error'));
       }
     };
     load();
     return () => {
       cancelled = true;
     };
-  }, [client, roomId, lastActivity]);
+  }, [client, roomId, lastActivity, retryTick]);
 
   const loadMore = useCallback(async () => {
     const from = nextRef.current;
@@ -271,7 +278,27 @@ export function ThreadListPanel({
           }
         }}
       >
-        {threads.length === 0 ? (
+        {threads.length === 0 && status === 'loading' ? (
+          <>
+            <SkeletonRow width1="55%" width2="35%" />
+            <SkeletonRow width1="70%" width2="50%" />
+            <SkeletonRow width1="45%" width2="60%" />
+          </>
+        ) : threads.length === 0 && status === 'error' ? (
+          <div className={css.threadListError}>
+            {t('timeline.threadListLoadFailed')}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setStatus('loading');
+                setRetryTick((n) => n + 1);
+              }}
+            >
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : threads.length === 0 ? (
           <div className={css.threadListEmpty}>
             {filter === 'my' ? t('timeline.threadListEmptyMy') : t('timeline.threadListEmpty')}
           </div>

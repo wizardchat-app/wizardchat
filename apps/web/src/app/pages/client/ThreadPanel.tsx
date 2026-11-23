@@ -8,6 +8,7 @@ import {
   LockIcon,
   ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
+  UploadIcon,
 } from '@phosphor-icons/react';
 import { Tooltip } from '@/app/components/Tooltip';
 import { Avatar } from '@/app/components/Avatar';
@@ -44,6 +45,9 @@ import {
   publishTimelineEntries,
 } from '@/app/features/timeline/message/editNavigation';
 import { ImagePacksProvider } from '@/app/hooks/useImagePacks';
+import { useFileDrop } from '@/app/features/timeline/useFileDrop';
+import { SkeletonRow } from '@/app/features/timeline/SkeletonRow';
+import { chatDropZone } from '@/app/features/timeline/Timeline.css';
 import * as css from './ThreadPanel.css';
 import { useUsernameColor } from '@/app/hooks/useUsernameColor';
 
@@ -98,6 +102,9 @@ export function ThreadPanel({
   onBack,
 }: ThreadPanelProps) {
   const { t, i18n } = useTranslation();
+  const [droppedFile, setDroppedFile] = useState<File[] | null>(null);
+  const clearDroppedFile = useCallback(() => setDroppedFile(null), []);
+  const { isDragging, dropProps } = useFileDrop(setDroppedFile);
   const colorFor = useUsernameColor();
   const toast = useToast();
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
@@ -342,7 +349,14 @@ export function ThreadPanel({
       className={`${css.threadPanel}${className ? ` ${className}` : ''}${expanded ? ` ${css.threadPanelExpanded}` : ''}`}
       aria-label={t('timeline.threadPanel')}
       style={isDesktop && !expanded ? { width: `${threadPanelWidth}px` } : undefined}
+      {...dropProps}
     >
+      {isDragging && (
+        <div className={chatDropZone}>
+          <UploadIcon size={32} />
+          <span>{t('timeline.dropToUploadThread')}</span>
+        </div>
+      )}
       {isDesktop && !expanded && (
         <PanelResizer
           width={threadPanelWidth}
@@ -420,7 +434,11 @@ export function ThreadPanel({
       </div>
 
       {!loaded ? (
-        <div className={css.threadLoading}>{t('common.loading')}</div>
+        <div className={css.threadLoading} aria-busy="true" aria-label={t('common.loading')}>
+          <SkeletonRow width1="45%" width2="65%" />
+          <SkeletonRow width1="60%" width2="35%" />
+          <SkeletonRow width1="40%" width2="55%" />
+        </div>
       ) : (
         <ImagePacksProvider client={client} roomId={roomId}>
           <div ref={replyListRef} className={css.threadReplyList}>
@@ -483,6 +501,8 @@ export function ThreadPanel({
         stickerWidget={stickerWidget}
         className={css.threadComposerBg}
         onSent={() => {}}
+        droppedFile={droppedFile}
+        onDroppedFileConsumed={clearDroppedFile}
       />
     </aside>
   );

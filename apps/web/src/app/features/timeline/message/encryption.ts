@@ -26,6 +26,14 @@ const THUMBNAIL_SIZE = 800;
 const SDK_CACHED_MAX_BYTES = 20 * 1024 * 1024;
 const LOCAL_MXC_PREFIX = 'mxc://send-queue.localhost/';
 
+export type MediaFailure = 'load' | 'decrypt';
+
+// Attachment decryption errors from matrix-sdk; anything else is the download itself
+function isDecryptError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /decrypt|missing a hash|encrypted attachment|encryption info/i.test(message);
+}
+
 interface MediaLoad {
   key: string;
   encrypted: boolean;
@@ -180,10 +188,11 @@ function useMediaSlot(
   targetRef: RefObject<Element | null> | undefined,
   retryTick: number,
   onError: (err: unknown) => void
-): { src: string | null; loading: boolean; failed: boolean } {
+): { src: string | null; loading: boolean; failure: MediaFailure | null } {
   const [loaded, setLoaded] = useState<{ key: string; src: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const [failed, setFailed] = useState<{ key: string; kind: MediaFailure } | null>(null);
+  const failedKey = failed?.key ?? null;
   const loadRef = useRef(load);
   loadRef.current = load;
   const onErrorRef = useRef(onError);
@@ -198,7 +207,7 @@ function useMediaSlot(
 
   useEffect(() => (shownKey ? retainBlobUrl(shownKey) : undefined), [shownKey]);
 
-  useEffect(() => setFailedKey(null), [retryTick]);
+  useEffect(() => setFailed(null), [retryTick]);
 
   const near = useNearViewport(targetRef, active && key !== null && shown === null);
 
@@ -217,8 +226,9 @@ function useMediaSlot(
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted || isAbortError(err)) return;
-        setFailedKey(current.key);
-        if (current.encrypted) onErrorRef.current(err);
+        const kind = current.encrypted && isDecryptError(err) ? 'decrypt' : 'load';
+        setFailed({ key: current.key, kind });
+        if (kind === 'decrypt') onErrorRef.current(err);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -232,7 +242,7 @@ function useMediaSlot(
   return {
     src: shown?.src ?? null,
     loading,
-    failed: failedKey !== null && failedKey === key && load?.encrypted === true,
+    failure: failed !== null && failed.key === key ? failed.kind : null,
   };
 }
 
@@ -255,7 +265,8 @@ export function useDecryptedMedia(
   mediaSrc: string | null;
   thumbnailSrc: string | null;
   isDecrypting: boolean;
-  hasFailed: boolean;
+  failure: MediaFailure | null;
+  retry: () => void;
   requestFullRes: () => Promise<string | null>;
 } {
   const { enabled = true, showErrors = true, targetRef, previewOnly = false } = options;
@@ -285,6 +296,8 @@ export function useDecryptedMedia(
     if (syncState === 'running') setRetryTick((n) => n + 1);
   }, [syncState]);
 
+  const retry = useCallback(() => setRetryTick((n) => n + 1), []);
+
   const fullRef = useRef(full);
   fullRef.current = full;
   const fullKey = full?.key ?? null;
@@ -307,7 +320,7 @@ export function useDecryptedMedia(
       }
       return url;
     } catch (err) {
-      if (target.encrypted) onError(err);
+      if (target.encrypted && isDecryptError(err)) onError(err);
       return null;
     }
   }, [fullKey, onError]);
@@ -316,7 +329,8 @@ export function useDecryptedMedia(
     mediaSrc: main.src,
     thumbnailSrc: posterSlot.src,
     isDecrypting: main.loading || posterSlot.loading,
-    hasFailed: main.failed || posterSlot.failed,
+    failure: main.failure ?? posterSlot.failure,
+    retry,
     requestFullRes,
   };
 }
