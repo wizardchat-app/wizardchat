@@ -6,6 +6,7 @@ import {
   EyeSlashIcon,
   FileTextIcon,
   ImageIcon,
+  MicrophoneIcon,
   MusicNoteIcon,
   VideoCameraIcon,
 } from '@phosphor-icons/react';
@@ -51,6 +52,7 @@ export function ReplyMediaThumb({
   const isVideo = type === 'video';
   const isAudio = type === 'audio';
   const isSticker = type === 'sticker';
+  const isVoice = isAudio && media?.voice === true;
 
   const hiddenMedia = useAtomValue(hiddenMediaAtom);
   const spoiler = getMediaInfoSpoiler(media);
@@ -75,8 +77,13 @@ export function ReplyMediaThumb({
     );
   }
 
-  const text =
-    isImage || isVideo ? ((media && getMediaCaption(media)) ?? '') : isSticker ? '' : body.trim();
+  const text = isVoice
+    ? t('nav.preview.voice')
+    : isImage || isVideo
+      ? ((media && getMediaCaption(media)) ?? '')
+      : isSticker
+        ? ''
+        : body.trim();
   const label =
     text ||
     (isSticker && event.content.type === 'sticker'
@@ -102,11 +109,13 @@ export function ReplyMediaThumb({
   } else {
     const Icon = isVideo
       ? VideoCameraIcon
-      : isAudio
-        ? MusicNoteIcon
-        : isImage || isSticker
-          ? ImageIcon
-          : FileTextIcon;
+      : isVoice
+        ? MicrophoneIcon
+        : isAudio
+          ? MusicNoteIcon
+          : isImage || isSticker
+            ? ImageIcon
+            : FileTextIcon;
     visual = (
       <span className={css.replyMediaIcon} aria-hidden="true">
         <Icon size={18} />

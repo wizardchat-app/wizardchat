@@ -568,7 +568,7 @@ fun ComposerView(
                 }
                 Column(Modifier.weight(1f).floatingGlass(RoundedCornerShape(COMPOSER_HEIGHT / 2), theme.bgTertiary)) {
                     replyTo?.let { entry ->
-                        ContextBar("arrow-bend-up-left", entry.senderName, entry.summary, entry.rich?.emoticons().orEmpty(), entry.senderName to nameColor(entry.sender)) {
+                        ContextBar("arrow-bend-up-left", entry.senderName, entry.replySummary, entry.rich?.emoticons().orEmpty(), entry.senderName to nameColor(entry.sender)) {
                             onReplyToChange(null)
                         }
                     }

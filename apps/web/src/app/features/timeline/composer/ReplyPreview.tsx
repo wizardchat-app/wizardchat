@@ -26,7 +26,9 @@ export function ReplyPreview({ replyTo, onClear, roomId }: ReplyPreviewProps) {
   const body =
     preview?.isUndecryptable || replyTo.content.type === 'unableToDecrypt'
       ? t('timeline.couldNotDecrypt')
-      : (preview?.body ?? '');
+      : replyTo.content.type === 'audio' && replyTo.content.media.voice
+        ? t('nav.preview.voice')
+        : (preview?.body ?? '');
 
   return (
     <div className={css.replyPreview}>

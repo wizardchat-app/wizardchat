@@ -66,7 +66,7 @@ struct ComposerView: View {
                     if editing == nil { plusBubble }
                     VStack(spacing: WZ.Space.space0) {
                         if let replyTo { contextBar(icon: "ph-arrow-bend-up-left-regular",
-                                                    title: replyTo.senderName, text: replyTo.summary,
+                                                    title: replyTo.senderName, text: replyTo.replySummary,
                                                     emotes: replyTo.rich?.emoticons ?? [:],
                                                     name: (replyTo.senderName, theme.nameColor(replyTo.sender, colored: prefs.colorUsernames))) {
                             self.replyTo = nil

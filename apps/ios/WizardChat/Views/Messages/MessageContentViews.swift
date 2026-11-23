@@ -544,13 +544,6 @@ struct ReplyQuoteView: View {
 
     private var text: String {
         if quote.undecryptable { return String(localized: "timeline.couldNotDecrypt") }
-        if let media = quote.media, let kind = quote.mediaKind {
-            switch kind {
-            case .image, .video: return media.caption ?? quote.text
-            case .sticker: return media.body
-            case .audio, .file: return media.filename
-            }
-        }
         return quote.text.isEmpty ? String(localized: "timeline.originalMessage") : quote.text
     }
 
@@ -607,6 +600,7 @@ struct ReplyQuoteView: View {
         switch quote.mediaKind {
         case .video: return "video-camera"
         case .audio: return "music-note"
+        case .voice: return "microphone"
         case .file: return "file-text"
         default: return "image"
         }

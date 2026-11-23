@@ -380,9 +380,10 @@ fn message_content(msgtype: &MessageType, body: &str, raw: Option<&Value>) -> En
         MessageType::Video(_) => {
             media().map_or(EntryContent::Other, |media| EntryContent::Video { media })
         }
-        MessageType::Audio(_) => {
-            media().map_or(EntryContent::Other, |media| EntryContent::Audio { media })
-        }
+        MessageType::Audio(audio) => media().map_or(EntryContent::Other, |mut media| {
+            media.voice |= audio.voice.is_some();
+            EntryContent::Audio { media }
+        }),
         MessageType::File(_) => {
             media().map_or(EntryContent::Other, |media| EntryContent::File { media })
         }
@@ -640,7 +641,8 @@ pub(crate) fn reply_preview(details: &InReplyToDetails) -> ReplyPreview {
 mod tests {
     use super::*;
     use matrix_sdk::ruma::events::room::message::{
-        ImageMessageEventContent, TextMessageEventContent,
+        AudioMessageEventContent, ImageMessageEventContent, TextMessageEventContent,
+        UnstableVoiceContentBlock,
     };
     use matrix_sdk::ruma::{events::room::MediaSource, mxc_uri};
 
@@ -662,6 +664,17 @@ mod tests {
             None,
         );
         assert!(matches!(content, EntryContent::Text { html: None, .. }));
+    }
+
+    #[test]
+    fn voice_flag_survives_without_the_raw_event() {
+        let mut audio = AudioMessageEventContent::new(
+            "voice.ogg".into(),
+            MediaSource::Plain(mxc_uri!("mxc://localhost/voice").to_owned()),
+        );
+        audio.voice = Some(UnstableVoiceContentBlock::new());
+        let content = message_content(&MessageType::Audio(audio), "voice.ogg", None);
+        assert!(matches!(content, EntryContent::Audio { media } if media.voice));
     }
 
     #[test]

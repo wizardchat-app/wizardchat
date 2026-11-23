@@ -166,7 +166,7 @@ data class ChatEntry(
         val spoiler: Boolean = false,
         val undecryptable: Boolean = false,
     ) {
-        enum class MediaKind { image, sticker, video, audio, file }
+        enum class MediaKind { image, sticker, video, audio, voice, file }
     }
 
     val allowsActions: Boolean get() = kind !is Kind.Redacted && kind !is Kind.Undecryptable
@@ -183,6 +183,18 @@ data class ChatEntry(
             is Kind.Location -> L10n.format("timeline.locationShared")
             is Kind.Poll -> kind.poll.question
             else -> ""
+        }
+
+    val replySummary: String
+        get() = when (val kind = kind) {
+            is Kind.Image -> mediaLabel("image", kind.media.caption)
+            is Kind.Video -> mediaLabel("video", kind.media.caption)
+            is Kind.Audio -> if (kind.isVoice) mediaLabel("voice") else kind.media.caption ?: kind.media.filename
+            is Kind.File -> kind.media.caption ?: kind.media.filename
+            is Kind.Sticker -> mediaLabel("sticker")
+            is Kind.Location -> mediaLabel("location")
+            is Kind.Poll -> L10n.format("nav.preview.poll", kind.poll.question)
+            else -> summary
         }
 
     val isContent: Boolean get() = kind !is Kind.System && kind !is Kind.DateDivider && kind !is Kind.Call
@@ -916,12 +928,12 @@ class TimelineModel(
                     is EntryContent.Emote -> content.rich
                     else -> null
                 }
-                val quote = ChatEntry.ReplyQuote(reply.eventId, reply.senderName ?: reply.sender, reply.summary, reply.sender, rich?.emoticons().orEmpty())
+                val quote = ChatEntry.ReplyQuote(reply.eventId, reply.senderName ?: reply.sender, quoteText(reply.content) ?: reply.summary, reply.sender, rich?.emoticons().orEmpty())
                 when (val content = reply.content) {
                     is EntryContent.Image -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.image, spoiler = content.media.spoiler)
                     is EntryContent.Sticker -> quote.copy(media = ChatEntry.MediaContent(content.media, content.body), mediaKind = ChatEntry.ReplyQuote.MediaKind.sticker)
                     is EntryContent.Video -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.video, spoiler = content.media.spoiler)
-                    is EntryContent.Audio -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.audio)
+                    is EntryContent.Audio -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = if (content.media.voice) ChatEntry.ReplyQuote.MediaKind.voice else ChatEntry.ReplyQuote.MediaKind.audio)
                     is EntryContent.File -> quote.copy(media = ChatEntry.MediaContent(content.media), mediaKind = ChatEntry.ReplyQuote.MediaKind.file)
                     is EntryContent.UnableToDecrypt -> quote.copy(undecryptable = true)
                     else -> quote
@@ -929,6 +941,16 @@ class TimelineModel(
             }
             is ReplyPreview.Unavailable -> ChatEntry.ReplyQuote(reply.eventId, "", "")
             is ReplyPreview.Pending -> ChatEntry.ReplyQuote(reply.eventId, "", "")
+        }
+
+        private fun quoteText(content: EntryContent): String? = when (content) {
+            is EntryContent.Image -> mediaLabel("image", content.media.caption)
+            is EntryContent.Video -> mediaLabel("video", content.media.caption)
+            is EntryContent.Audio -> if (content.media.voice) mediaLabel("voice") else null
+            is EntryContent.Sticker -> mediaLabel("sticker")
+            is EntryContent.Location -> mediaLabel("location")
+            is EntryContent.Poll -> L10n.format("nav.preview.poll", content.poll.question)
+            else -> null
         }
 
         private fun decryptionMessage(reason: String): String = when (reason) {
@@ -995,3 +1017,5 @@ fun List<RichBlock>.emoticons(): Map<String, String> {
     }
     return found
 }
+
+fun mediaLabel(type: String, caption: String? = null): String = caption ?: L10n.format("nav.preview.$type")

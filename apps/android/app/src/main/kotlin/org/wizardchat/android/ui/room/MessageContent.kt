@@ -869,9 +869,6 @@ fun ReplyQuoteView(quote: ChatEntry.ReplyQuote, isPrivateRoom: Boolean = true, m
     val hidden = mediaHidden(false, if (quote.spoiler) "" else null, isPrivateRoom)
     val text = when {
         quote.undecryptable -> tr("timeline.couldNotDecrypt")
-        media != null && (kind == ChatEntry.ReplyQuote.MediaKind.image || kind == ChatEntry.ReplyQuote.MediaKind.video) -> media.caption ?: quote.text
-        media != null && kind == ChatEntry.ReplyQuote.MediaKind.sticker -> media.body
-        media != null && kind != null -> media.filename
         else -> quote.text.ifEmpty { tr("timeline.originalMessage") }
     }
     Row(
@@ -919,6 +916,7 @@ private fun ReplyMediaTile(kind: ChatEntry.ReplyQuote.MediaKind, media: ChatEntr
                 hidden -> "eye-slash"
                 kind == ChatEntry.ReplyQuote.MediaKind.video -> "video-camera"
                 kind == ChatEntry.ReplyQuote.MediaKind.audio -> "music-note"
+                kind == ChatEntry.ReplyQuote.MediaKind.voice -> "microphone"
                 kind == ChatEntry.ReplyQuote.MediaKind.file -> "file-text"
                 else -> "image"
             }

@@ -98,7 +98,7 @@ struct ChatEntry: Identifiable {
     }
 
     struct ReplyQuote {
-        enum MediaKind { case image, sticker, video, audio, file }
+        enum MediaKind { case image, sticker, video, audio, voice, file }
 
         let eventId: String
         let senderName: String
@@ -156,6 +156,23 @@ struct ChatEntry: Identifiable {
         case .poll(let poll): return poll.question
         default: return ""
         }
+    }
+
+    var replySummary: String {
+        switch kind {
+        case .image(let media): return Self.mediaLabel("image", caption: media.caption)
+        case .video(let media): return Self.mediaLabel("video", caption: media.caption)
+        case .audio(let media, let isVoice, _): return isVoice ? Self.mediaLabel("voice") : media.caption ?? media.filename
+        case .file(let media): return media.caption ?? media.filename
+        case .sticker: return Self.mediaLabel("sticker")
+        case .location: return Self.mediaLabel("location")
+        case .poll(let poll): return L10n.format("nav.preview.poll", poll.question)
+        default: return summary
+        }
+    }
+
+    static func mediaLabel(_ type: String, caption: String? = nil) -> String {
+        caption ?? L10n.format("nav.preview.\(type)")
     }
 
     /// Adds read receipts (yours aren't shown), newest first
@@ -833,7 +850,8 @@ final class TimelineModel: ObservableObject {
             default: nil
             }
             var quote = ChatEntry.ReplyQuote(eventId: ready.eventId, senderName: ready.senderName ?? ready.sender,
-                                             text: ready.summary, sender: ready.sender, emotes: rich?.emoticons ?? [:])
+                                             text: quoteText(ready.content) ?? ready.summary, sender: ready.sender,
+                                             emotes: rich?.emoticons ?? [:])
             switch ready.content {
             case .image(let image):
                 quote.media = .init(image.media); quote.mediaKind = .image; quote.spoiler = image.media.spoiler
@@ -842,7 +860,7 @@ final class TimelineModel: ObservableObject {
             case .video(let video):
                 quote.media = .init(video.media); quote.mediaKind = .video; quote.spoiler = video.media.spoiler
             case .audio(let audio):
-                quote.media = .init(audio.media); quote.mediaKind = .audio
+                quote.media = .init(audio.media); quote.mediaKind = audio.media.voice ? .voice : .audio
             case .file(let file):
                 quote.media = .init(file.media); quote.mediaKind = .file
             case .unableToDecrypt:
@@ -855,6 +873,18 @@ final class TimelineModel: ObservableObject {
             return .init(eventId: reply.eventId, senderName: "", text: "")
         case .pending(let reply):
             return .init(eventId: reply.eventId, senderName: "", text: "")
+        }
+    }
+
+    private static func quoteText(_ content: EntryContent) -> String? {
+        switch content {
+        case .image(let image): ChatEntry.mediaLabel("image", caption: image.media.caption)
+        case .video(let video): ChatEntry.mediaLabel("video", caption: video.media.caption)
+        case .audio(let audio) where audio.media.voice: ChatEntry.mediaLabel("voice")
+                case .sticker: ChatEntry.mediaLabel("sticker")
+        case .location: ChatEntry.mediaLabel("location")
+        case .poll(let poll): L10n.format("nav.preview.poll", poll.poll.question)
+        default: nil
         }
     }
 
