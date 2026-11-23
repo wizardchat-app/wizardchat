@@ -111,6 +111,11 @@ With a free Apple account, push notifications, the share sheet and widgets may n
 [b-obtainium]: https://img.shields.io/badge/Obtainium-6750A3?style=for-the-badge
 [b-ios]: https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=apple&logoColor=white
 
+## Help
+
+New to WizardChat or Matrix? The [help center](https://wizardchat.org/help) covers getting started, calls, spaces,
+settings and common questions. Still stuck? Ask in [#wizardchat-app:matrix.org](https://matrix.to/#/#wizardchat-app:matrix.org).
+
 ## Local Development
 
 - [Development](docs/DEVELOPMENT.md): setting up, running the apps, checks
