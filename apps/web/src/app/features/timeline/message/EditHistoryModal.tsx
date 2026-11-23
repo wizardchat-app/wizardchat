@@ -5,6 +5,7 @@ import { ClockCounterClockwiseIcon } from '@phosphor-icons/react';
 import { Modal } from '@/app/components/Modal';
 import { markdownToHtml, plainTextToHtml } from '@/util/markdownToHtml';
 import { formatDateLabel, formatTime } from '@/util/format';
+import { SkeletonRow } from '../SkeletonRow';
 import * as css from './EditHistoryModal.css';
 
 interface EditHistoryModalProps {
@@ -46,7 +47,10 @@ export function EditHistoryModal({ roomId, eventId, client, onClose }: EditHisto
       {failed ? (
         <p className={css.status}>{t('timeline.editHistoryFailed')}</p>
       ) : !versions ? (
-        <p className={css.status}>{t('common.loading')}</p>
+        <div aria-busy="true" aria-label={t('common.loading')}>
+          <SkeletonRow width1="30%" width2="70%" />
+          <SkeletonRow width1="30%" width2="55%" />
+        </div>
       ) : (
         <div className={css.list}>
           {newestFirst.map((version, index) => {

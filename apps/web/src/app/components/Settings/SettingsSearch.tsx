@@ -6,6 +6,7 @@ import {
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react';
 import { Input } from '@/app/components/Input';
+import { scrollBehavior } from '@/app/hooks/useReducedMotion';
 import * as css from './Settings.css';
 
 export type SettingsIndexEntry<K extends string> = [page: K, labelKey: string, noteKey?: string];
@@ -165,7 +166,7 @@ export function useHighlightSetting(
       if (!el) return;
       const target = rowOf(el, container.current!);
       const tall = target.offsetHeight > window.innerHeight / 2;
-      target.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' });
+      target.scrollIntoView({ block: tall ? 'start' : 'center', behavior: scrollBehavior() });
       target.classList.remove(css.searchHighlight);
       void target.offsetWidth;
       target.classList.add(css.searchHighlight);

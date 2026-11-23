@@ -424,6 +424,30 @@ export const mediaError = style({
   color: vars.color.textMuted,
 });
 
+const mediaFadeInKeyframes = keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+});
+
+export const mediaFadeIn = style({
+  animation: `${mediaFadeInKeyframes} 150ms ease-out`,
+});
+
+export const mediaBoxError = style({
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  padding: '12px',
+  textAlign: 'center',
+  fontSize: chatSize(0.85),
+  color: vars.color.textMuted,
+  backgroundColor: vars.color.bgTertiary,
+});
+
 export const mediaSpoilerOverlay = style({
   position: 'absolute',
   inset: 0,
@@ -1719,17 +1743,17 @@ globalStyle('a.prettified-link:hover .full-text', {
 });
 
 globalStyle(bubbleSelector('a'), {
-  color: vars.color.textPrimary,
+  color: vars.color.link,
   textDecoration: 'underline',
 });
 globalStyle(bubbleSelector('a.prettified-link'), {
   border: `1px solid rgba(${vars.color.accentRgb}, 0.25)`,
-  color: vars.color.textPrimary,
+  color: vars.color.link,
   textDecoration: 'none',
 });
 globalStyle(bubbleSelector('a.prettified-link:hover'), {
   backgroundColor: 'transparent',
-  color: vars.color.textPrimary,
+  color: vars.color.link,
   textDecoration: 'underline',
 });
 
@@ -1937,8 +1961,13 @@ export const receiptPopoverTime = style({
   color: vars.color.textMuted,
 });
 
+const sendingDim = keyframes({
+  from: { opacity: 1 },
+  to: { opacity: 0.6 },
+});
+
 export const msgSending = style({
-  opacity: 0.6,
+  animation: `${sendingDim} 150ms ease-out 500ms both`,
 });
 
 export const msgFailed = style({
@@ -2002,7 +2031,7 @@ export const sendDiscardBtn = style([
 export const chatDropZone = style({
   position: 'absolute',
   inset: 0,
-  backgroundColor: 'rgba(88,101,242,0.12)',
+  backgroundColor: `color-mix(in srgb, ${vars.color.accent} 12%, color-mix(in srgb, ${vars.color.bgPrimary} 75%, transparent))`,
   border: `2px dashed ${vars.color.accent}`,
   borderRadius: '12px',
   display: 'flex',

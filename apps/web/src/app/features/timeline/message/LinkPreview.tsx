@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
 import type { WizardClient } from '@wizardchat/core';
 import { useLinkPreview } from '@/app/hooks/useLinkPreview';
-import { fetchMediaBlobUrl } from '@/app/components/Avatar';
+import { useMediaBlobUrl } from '@/app/components/Avatar';
 import { Tooltip } from '@/app/components/Tooltip';
 import * as css from './LinkPreview.css';
 
@@ -13,34 +12,8 @@ interface LinkPreviewProps {
 
 export function LinkPreview({ url, client, isEncrypted }: LinkPreviewProps) {
   const { data } = useLinkPreview(client, url, isEncrypted);
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
-  const [imgError, setImgError] = useState(false);
-
-  const ogImage = data?.imageUrl ?? undefined;
-
-  useEffect(() => {
-    if (!ogImage || imgError || !ogImage.startsWith('mxc://')) {
-      setImgSrc(null);
-      return;
-    }
-    // Authenticated media - must fetch with Bearer token, then use blob URL.
-    let revoked = false;
-    let currentBlobUrl: string | null = null;
-    fetchMediaBlobUrl(ogImage, client, 1).then((blobUrl) => {
-      if (!blobUrl) return;
-      if (revoked) {
-        URL.revokeObjectURL(blobUrl);
-        return;
-      }
-      currentBlobUrl = blobUrl;
-      setImgSrc(blobUrl);
-    });
-    return () => {
-      revoked = true;
-      const toRevoke = currentBlobUrl;
-      if (toRevoke) URL.revokeObjectURL(toRevoke);
-    };
-  }, [ogImage, client, imgError]);
+  const ogImage = data?.imageUrl?.startsWith('mxc://') ? data.imageUrl : null;
+  const { src: imgSrc, failed: imgFailed, refetch } = useMediaBlobUrl(client, ogImage);
 
   if (!data) return null;
 
@@ -61,9 +34,13 @@ export function LinkPreview({ url, client, isEncrypted }: LinkPreviewProps) {
 
   return (
     <div className={css.card}>
-      {imgSrc && (
-        <img src={imgSrc} alt="" className={css.image} onError={() => setImgError(true)} />
-      )}
+      {ogImage &&
+        !imgFailed &&
+        (imgSrc ? (
+          <img src={imgSrc} alt="" className={css.image} onError={refetch} />
+        ) : (
+          <div className={css.imagePlaceholder} />
+        ))}
       <div className={css.body}>
         <Tooltip content={url} placement="top">
           <a

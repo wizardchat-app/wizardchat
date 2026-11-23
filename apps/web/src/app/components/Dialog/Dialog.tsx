@@ -8,6 +8,8 @@ import * as css from './Dialog.css';
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
 
+const openDialogs: object[] = [];
+
 function isEditableField(el: Element | null): el is HTMLElement {
   if (!el) return false;
   if (el instanceof HTMLInputElement) return el.type !== 'hidden' && !el.disabled && !el.readOnly;
@@ -66,6 +68,7 @@ export function Dialog({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const panelRef = useRef<HTMLDivElement>(null);
+  const pressedOverlayRef = useRef(false);
 
   const rendered = open;
   const trapPausedRef = useRef(trapPaused);
@@ -73,11 +76,19 @@ export function Dialog({
 
   useEffect(() => {
     if (!open) return;
+    const layer = {};
+    openDialogs.push(layer);
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !trapPausedRef.current) onCloseRef.current?.();
+      if (e.key !== 'Escape' || e.defaultPrevented || openDialogs.at(-1) !== layer) return;
+      if (trapPausedRef.current) return;
+      e.preventDefault();
+      onCloseRef.current?.();
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      openDialogs.splice(openDialogs.indexOf(layer), 1);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -158,8 +169,12 @@ export function Dialog({
       style={zIndex !== undefined ? { zIndex } : undefined}
       role="presentation"
       data-swipe-back={swipeBack ? 'panel' : undefined}
+      onPointerDown={(e) => {
+        pressedOverlayRef.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onCloseRef.current?.();
+        if (e.target === e.currentTarget && pressedOverlayRef.current) onCloseRef.current?.();
+        pressedOverlayRef.current = false;
       }}
     >
       <FocusTrap

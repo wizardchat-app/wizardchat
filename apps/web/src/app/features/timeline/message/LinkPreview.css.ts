@@ -1,5 +1,6 @@
 import { style, globalStyle } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
+import { pulse } from '@/theme/animations.css';
 
 export const card = style({
   display: 'flex',
@@ -24,6 +25,14 @@ export const image = style({
   display: 'block',
   backgroundColor: vars.color.bgTertiary,
 });
+
+export const imagePlaceholder = style([
+  image,
+  {
+    aspectRatio: '1.91 / 1',
+    animation: `${pulse} 1.5s ease-in-out infinite`,
+  },
+]);
 
 export const body = style({
   display: 'flex',

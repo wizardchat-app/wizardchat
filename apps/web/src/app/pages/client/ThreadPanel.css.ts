@@ -191,11 +191,8 @@ export const dateSeparator = style({
 
 export const threadLoading = style({
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '24px',
-  color: vars.color.textMuted,
-  fontSize: '0.9rem',
+  flexDirection: 'column',
+  paddingTop: '8px',
   flex: 1,
 });
 

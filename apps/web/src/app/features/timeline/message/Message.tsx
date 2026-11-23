@@ -180,6 +180,7 @@ export const Message = memo(function Message({
   isUndecryptable,
   isSending = false,
   isFailed = false,
+  sendError = null,
   optimisticBody = null,
   galleryEvents = null,
   client,
@@ -366,7 +367,8 @@ export const Message = memo(function Message({
     mediaSrc,
     thumbnailSrc,
     isDecrypting: isFileDecrypting,
-    hasFailed: mediaFailed,
+    failure: mediaFailure,
+    retry: retryMedia,
     requestFullRes,
   } = useDecryptedMedia(event, client, { enabled: mediaEnabled, targetRef: msgRowRef });
 
@@ -747,7 +749,8 @@ export const Message = memo(function Message({
         mediaSrc={mediaSrc}
         thumbnailSrc={thumbnailSrc}
         isDecrypting={isFileDecrypting}
-        mediaFailed={mediaFailed}
+        mediaFailure={mediaFailure}
+        onRetryMedia={retryMedia}
         isRedacted={isRedacted}
         isEventDecrypting={isDecrypting}
         isUndecryptable={isUndecryptable}
@@ -891,7 +894,13 @@ export const Message = memo(function Message({
   const failedUI = showFailedUI && (
     <div className={css.sendFailedRow}>
       <WarningIcon size={14} className={css.sendFailedIcon} />
-      <span className={css.sendFailedText}>{t('timeline.sendFailedGeneric')}</span>
+      {sendError ? (
+        <Tooltip content={sendError} multiline>
+          <span className={css.sendFailedText}>{t('timeline.sendFailedGeneric')}</span>
+        </Tooltip>
+      ) : (
+        <span className={css.sendFailedText}>{t('timeline.sendFailedGeneric')}</span>
+      )}
       <button type="button" className={css.sendRetryBtn} onClick={() => onResend?.(event)}>
         {t('common.retry')}
       </button>

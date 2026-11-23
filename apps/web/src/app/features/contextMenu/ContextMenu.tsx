@@ -96,7 +96,9 @@ export function ContextMenu() {
       target instanceof Element && target.closest('[data-emoji-picker]') !== null;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu();
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      closeMenu();
     };
     const handleMousedown = (e: MouseEvent) => {
       if (!isInsidePicker(e.target)) closeMenu();

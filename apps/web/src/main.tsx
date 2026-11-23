@@ -11,6 +11,7 @@ import { registerNotificationServiceWorker } from '@/app/hooks/useNotifications'
 import { installNativeAppHooks } from '@/util/nativeApp';
 import { installDesktopHooks } from '@/bridge/desktop';
 import { installContextMenuGuard } from '@/util/contextMenuGuard';
+import { installFileDropGuard } from '@/app/features/timeline/useFileDrop';
 import { printConsoleWelcome } from '@/util/consoleWelcome';
 
 // Fonts (must be in .tsx, not in .css.ts - VE esbuild can't handle woff2)
@@ -65,6 +66,7 @@ if (sharePicker) {
   installNativeAppHooks();
   installDesktopHooks();
   installContextMenuGuard();
+  installFileDropGuard();
   printConsoleWelcome();
 
   const root = document.getElementById('root');

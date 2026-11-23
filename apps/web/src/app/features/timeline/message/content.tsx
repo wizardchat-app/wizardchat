@@ -19,6 +19,7 @@ import {
   ArrowsOutSimpleIcon,
   StickerIcon,
   EyeIcon,
+  WarningIcon,
 } from '@phosphor-icons/react';
 import { FilePreviewModal, previewKind } from './FilePreview';
 import { CopyButton } from '@/app/components/Button';
@@ -45,8 +46,15 @@ import { extractFirstUrl } from '@/util/extractFirstUrl';
 import { formatFileSize } from '@/util/format';
 import { fetchMediaBlobUrl } from '@/app/components/Avatar';
 import type { EventEntry } from './entry';
+import type { MediaFailure } from './encryption';
+import { blurhashDataUrl } from '@/util/blurhash';
+
 import * as css from '../Timeline.css';
 import * as headerCss from '../RoomHeader.css';
+
+function blurBackground(url: string): React.CSSProperties {
+  return { backgroundImage: `url(${url})`, backgroundSize: '100% 100%' };
+}
 
 function parseGeoUri(uri: string | undefined): { lat: number; lon: number } | null {
   if (!uri) return null;
@@ -393,12 +401,27 @@ function decryptionFailureKey(reason: UtdReason | null, sessionVerified: boolean
   }
 }
 
-function MediaError() {
+function MediaError({
+  failure,
+  onRetry,
+  inBox = false,
+}: {
+  failure: MediaFailure;
+  onRetry?: () => void;
+  inBox?: boolean;
+}) {
   const { t } = useTranslation();
   return (
-    <span className={css.mediaError}>
-      <LockIcon size={14} />
-      <span>{t('timeline.couldNotDecrypt')}</span>
+    <span className={inBox ? css.mediaBoxError : css.mediaError}>
+      {failure === 'decrypt' ? <LockIcon size={14} /> : <WarningIcon size={14} />}
+      <span>
+        {failure === 'decrypt' ? t('timeline.mediaDecryptFailed') : t('timeline.mediaLoadFailed')}
+      </span>
+      {onRetry && (
+        <button type="button" className={css.sendRetryBtn} onClick={onRetry}>
+          {t('common.retry')}
+        </button>
+      )}
     </span>
   );
 }
@@ -408,7 +431,8 @@ interface StickerBoxProps {
   alt: string;
   mimeType?: string;
   isAnimated: boolean;
-  mediaFailed: boolean;
+  mediaFailure: MediaFailure | null;
+  onRetryMedia?: () => void;
   width?: number | null;
   height?: number | null;
   requestFullRes?: () => Promise<string | null>;
@@ -419,7 +443,8 @@ function StickerBox({
   alt,
   mimeType,
   isAnimated,
-  mediaFailed,
+  mediaFailure,
+  onRetryMedia,
   width,
   height,
   requestFullRes,
@@ -453,8 +478,8 @@ function StickerBox({
                 }
           }
         />
-      ) : mediaFailed ? (
-        <MediaError />
+      ) : mediaFailure ? (
+        <MediaError failure={mediaFailure} onRetry={onRetryMedia} inBox />
       ) : (
         <div className={css.mediaBoxPulse}>
           <StickerIcon size={32} className={css.stickerPulseGlyph} />
@@ -471,7 +496,8 @@ interface MessageContentProps {
   mediaSrc: string | null;
   thumbnailSrc?: string | null;
   isDecrypting: boolean;
-  mediaFailed: boolean;
+  mediaFailure: MediaFailure | null;
+  onRetryMedia?: () => void;
   isRedacted: boolean;
   isEventDecrypting: boolean;
   isUndecryptable: boolean;
@@ -496,7 +522,8 @@ export function MessageContent({
   mediaSrc,
   thumbnailSrc = null,
   isDecrypting,
-  mediaFailed,
+  mediaFailure,
+  onRetryMedia,
   isRedacted,
   isEventDecrypting,
   isUndecryptable,
@@ -547,6 +574,7 @@ export function MessageContent({
   );
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [mediaReadyAtMount] = useState(() => mediaSrc !== null);
   const [revealedSpoilers, setRevealedSpoilers] = useState<ReadonlySet<number>>(() => new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
   const handleRevealSpoiler = useCallback((index: number) => {
@@ -615,7 +643,8 @@ export function MessageContent({
         src={mediaSrc}
         alt={content.body || 'sticker'}
         mimeType={media.mimetype ?? undefined}
-        mediaFailed={mediaFailed}
+        mediaFailure={mediaFailure}
+        onRetryMedia={onRetryMedia}
         isAnimated={getMediaAnimates(media)}
         width={media.width}
         height={media.height}
@@ -645,6 +674,8 @@ export function MessageContent({
     // Reserve a fixed box from the event metadata so the layout never changes
     // while the media bytes are fetched, decrypted or loaded.
     const boxStyle = hasDimensions ? { aspectRatio: `${imgW} / ${imgH}` } : { height: 200 };
+    const blur = blurhashDataUrl(media.blurhash);
+    const blurStyle = blur ? { ...boxStyle, ...blurBackground(blur) } : boxStyle;
 
     const captionHtml = renderCaptionHtml(media);
     const mediaEl = isCovered ? (
@@ -656,23 +687,27 @@ export function MessageContent({
         />
       </div>
     ) : src ? (
-      <div className={css.mediaBox} style={boxStyle}>
+      <div className={css.mediaBox} style={hasDimensions ? blurStyle : boxStyle}>
         <AnimatedImage
           src={src}
           alt={body || 'image'}
           mimeType={mimetype}
-          className={[css.mediaFill, css.mediaClickable].join(' ')}
+          className={[css.mediaFill, css.mediaClickable, mediaReadyAtMount ? null : css.mediaFadeIn]
+            .filter(Boolean)
+            .join(' ')}
           wrapperClassName={css.mediaBoxFillWrap}
           isAnimated={getMediaAnimates(media)}
           onClick={() => onMediaClick?.(src)}
           requestFullRes={requestFullRes}
         />
       </div>
-    ) : mediaFailed ? (
-      <MediaError />
-    ) : (
+    ) : mediaFailure ? (
       <div className={css.mediaBox} style={boxStyle}>
-        <div className={css.mediaBoxPulse} />
+        <MediaError failure={mediaFailure} onRetry={onRetryMedia} inBox />
+      </div>
+    ) : (
+      <div className={css.mediaBox} style={blurStyle}>
+        {!blur && <div className={css.mediaBoxPulse} />}
       </div>
     );
     return captionHtml ? (
@@ -707,7 +742,7 @@ export function MessageContent({
         </MediaSkeleton>
       );
     }
-    if (mediaFailed) return <MediaError />;
+    if (mediaFailure) return <MediaError failure={mediaFailure} onRetry={onRetryMedia} />;
     if (isVoiceMessage) {
       return (
         <VoiceMessagePlayer
@@ -741,6 +776,8 @@ export function MessageContent({
     const hasDimensions =
       typeof vidW === 'number' && typeof vidH === 'number' && vidW > 0 && vidH > 0;
     const boxStyle = hasDimensions ? { aspectRatio: `${vidW} / ${vidH}` } : { height: 200 };
+    const blur = blurhashDataUrl(media.blurhash);
+    const blurStyle = blur ? { ...boxStyle, ...blurBackground(blur) } : boxStyle;
     const captionHtml = renderCaptionHtml(media);
     const mediaEl = isCovered ? (
       <div className={css.mediaBox} style={boxStyle}>
@@ -777,11 +814,13 @@ export function MessageContent({
           </button>
         )}
       </div>
-    ) : mediaFailed ? (
-      <MediaError />
-    ) : (
+    ) : mediaFailure ? (
       <div className={css.mediaBox} style={boxStyle}>
-        <div className={css.mediaBoxPulse} />
+        <MediaError failure={mediaFailure} onRetry={onRetryMedia} inBox />
+      </div>
+    ) : (
+      <div className={css.mediaBox} style={blurStyle}>
+        {!blur && <div className={css.mediaBoxPulse} />}
       </div>
     );
     return captionHtml ? (

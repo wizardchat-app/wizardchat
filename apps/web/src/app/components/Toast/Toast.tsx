@@ -58,6 +58,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   };
 
   const baseClass = TYPE_CLASS[toast.type];
+  const role = toast.type === 'error' ? 'alert' : undefined;
 
   const hoverProps = {
     onMouseEnter: handlePause,
@@ -74,7 +75,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         onClick={handleClick}
         {...hoverProps}
       >
-        <span className={css.message}>{toast.message}</span>
+        <span className={css.message} role={role}>
+          {toast.message}
+        </span>
         {toast.actionLabel && <span className={css.action}>{toast.actionLabel}</span>}
       </button>
     );
@@ -82,7 +85,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 
   return (
     <div className={baseClass} {...hoverProps}>
-      <span className={css.message}>{toast.message}</span>
+      <span className={css.message} role={role}>
+        {toast.message}
+      </span>
     </div>
   );
 }
@@ -96,8 +101,6 @@ export function ToastContainer() {
     },
     [setToasts]
   );
-
-  if (toasts.length === 0) return null;
 
   return (
     <div className={css.container} role="status" aria-live="polite" aria-relevant="additions">

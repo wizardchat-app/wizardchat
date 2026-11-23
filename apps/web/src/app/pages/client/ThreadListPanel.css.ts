@@ -94,6 +94,18 @@ export const threadListEmpty = style({
   flex: 1,
 });
 
+export const threadListError = style({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '12px',
+  padding: '32px 16px',
+  color: vars.color.textMuted,
+  fontSize: '0.85rem',
+  flex: 1,
+});
+
 export const threadListItem = style({
   display: 'flex',
   gap: '10px',

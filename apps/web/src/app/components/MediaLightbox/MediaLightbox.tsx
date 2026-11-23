@@ -95,9 +95,14 @@ export function MediaLightbox({
     e.stopPropagation();
   }, []);
 
+  const pressedOverlayRef = useRef(false);
+  const handleOverlayPointerDown = useCallback((e: React.PointerEvent) => {
+    pressedOverlayRef.current = e.target === e.currentTarget;
+  }, []);
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) onClose();
+      if (e.target === e.currentTarget && pressedOverlayRef.current) onClose();
+      pressedOverlayRef.current = false;
     },
     [onClose]
   );
@@ -232,6 +237,7 @@ export function MediaLightbox({
       className={css.overlay}
       role="presentation"
       data-back-escape
+      onPointerDown={handleOverlayPointerDown}
       onClick={handleOverlayClick}
       onContextMenu={handleContextMenu}
     >

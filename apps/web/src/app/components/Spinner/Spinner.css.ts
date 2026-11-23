@@ -15,6 +15,12 @@ const base = style({
   animationTimingFunction: 'linear',
   animationIterationCount: 'infinite',
   flexShrink: 0,
+  selectors: {
+    'html.reduce-motion &': {
+      animationDuration: '0.8s !important',
+      animationIterationCount: 'infinite !important',
+    },
+  },
 });
 
 export const sizes = styleVariants({

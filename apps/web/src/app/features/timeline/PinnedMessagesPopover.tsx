@@ -14,6 +14,7 @@ import { togglePin } from './message/pinning';
 import { ReplyMediaThumb, isReplyMediaEvent } from './message/ReplyMediaThumb';
 import { entryBody, isEventEntry, type EventEntry as MatrixEvent } from './message/entry';
 import { useLoadedMembers } from './message/members';
+import { SkeletonRow } from './SkeletonRow';
 import * as css from './PinnedMessagesPopover.css';
 
 const PINNED_KIND = { type: 'pinned' } as const;
@@ -22,8 +23,8 @@ function usePinnedEvents(
   client: MatrixClient,
   roomId: string,
   ids: readonly string[]
-): { pinned: MatrixEvent[]; timeline: RoomTimeline | null } {
-  const { entries, timeline } = useTimeline(client, roomId, PINNED_KIND);
+): { pinned: MatrixEvent[]; timeline: RoomTimeline | null; loading: boolean } {
+  const { entries, timeline, loading } = useTimeline(client, roomId, PINNED_KIND);
   const pinned = useMemo(() => {
     const byId = new Map<string, MatrixEvent>();
     for (const entry of entries) {
@@ -34,7 +35,7 @@ function usePinnedEvents(
       .map((id) => byId.get(id))
       .filter((event): event is MatrixEvent => !!event);
   }, [entries, ids]);
-  return { pinned, timeline };
+  return { pinned, timeline, loading: ids.length > 0 && (timeline === null || loading) };
 }
 
 const NO_IDS: string[] = [];
@@ -58,7 +59,11 @@ export function PinnedMessagesPopover({
 }: PinnedMessagesPopoverProps) {
   const { t } = useTranslation();
   const details = useRoomDetails(roomId);
-  const { pinned, timeline } = usePinnedEvents(client, roomId, details?.pinnedEventIds ?? NO_IDS);
+  const { pinned, timeline, loading } = usePinnedEvents(
+    client,
+    roomId,
+    details?.pinnedEventIds ?? NO_IDS
+  );
   const canPin = details?.permissions.pin ?? false;
 
   return (
@@ -77,7 +82,12 @@ export function PinnedMessagesPopover({
         {t('room.header.pinnedMessages')}
       </div>
       <div className={css.list}>
-        {pinned.length === 0 ? (
+        {pinned.length === 0 && loading ? (
+          <>
+            <SkeletonRow width1="40%" width2="70%" />
+            <SkeletonRow width1="35%" width2="55%" />
+          </>
+        ) : pinned.length === 0 ? (
           <div className={css.empty}>{t('room.header.noPinnedMessages')}</div>
         ) : (
           pinned.map((event) => (
