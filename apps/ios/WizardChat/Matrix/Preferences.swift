@@ -12,6 +12,9 @@ final class AppPreferences: ObservableObject {
     static let chatFontSizes: [Double] = [12, 14, 15, 16, 18, 20, 24]
     static let defaultChatFontSize: Double = 15
     static let syncedAccountDataType = "org.wizardchat.settings"
+    static let languages: [String] = Bundle.main.localizations
+        .filter { $0 != "Base" }
+        .sorted { $0 != $1 && ($0 == "en" || ($1 != "en" && $0 < $1)) }
 
     private let defaults = UserDefaults.standard
 
@@ -173,7 +176,7 @@ final class AppPreferences: ObservableObject {
         defer { isApplyingRemote = false }
         if let value = json["language"]?.string {
             let language = value == "system" ? "" : value
-            if language != self.language, language.isEmpty || ["en", "de"].contains(language) {
+            if language != self.language, language.isEmpty || Self.languages.contains(language) {
                 self.language = language
             }
         }

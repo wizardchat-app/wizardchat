@@ -9,7 +9,7 @@ import {
 } from '@/app/store/atoms';
 import { useSyncReady } from '@/app/hooks/useSync';
 import i18n from '@/i18n';
-import { SUPPORTED_LANGUAGES } from '@/i18n/languages';
+import { isSupportedLanguage } from '@/i18n/languages';
 import {
   SETTINGS_ACCOUNT_DATA_TYPE,
   SYNCED_PREFERENCE_KEYS,
@@ -35,7 +35,7 @@ export function useSettingsSync(client: MatrixClient | null): void {
   const applyRemote = useCallback(
     (settings: Partial<SyncedSettings>) => {
       if (settings.messageLayout) setMessageLayout(settings.messageLayout);
-      if (settings.language && SUPPORTED_LANGUAGES.some((l) => l.code === settings.language)) {
+      if (settings.language && isSupportedLanguage(settings.language)) {
         setLanguage(settings.language);
         if (i18n.language !== settings.language) i18n.changeLanguage(settings.language);
       }

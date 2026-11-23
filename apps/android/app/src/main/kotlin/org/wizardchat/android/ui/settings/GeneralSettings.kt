@@ -58,6 +58,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
 import java.util.Date
+import java.util.Locale
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.LocalSession
 import org.wizardchat.android.matrix.AppPreferences
@@ -483,11 +484,7 @@ internal fun LanguageSettings(onBack: () -> Unit) {
             PickerRow(
                 tr("settings.language.languageDisplay"),
                 prefs.language,
-                listOf(
-                    "" to tr("settings.language.languageSystem"),
-                    "en" to tr("settings.language.languageEn"),
-                    "de" to tr("settings.language.languageDe"),
-                ),
+                listOf("" to tr("settings.language.languageSystem")) + prefs.languages.map { it to languageLabel(it) },
                 { prefs.language = it },
             )
         }
@@ -659,4 +656,9 @@ private fun Credit(name: String, url: String, text: String) {
         },
         style = wizardFont(WZ.FontSize.sm),
     )
+}
+
+private fun languageLabel(code: String): String {
+    val locale = Locale.forLanguageTag(code)
+    return locale.getDisplayName(locale).replaceFirstChar { it.titlecase(locale) }
 }

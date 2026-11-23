@@ -18,7 +18,7 @@ import { TitleBar } from '@/app/components/TitleBar';
 import { isDesktop } from '@/bridge/desktop';
 import { loadCredentials, loadCore, normalizeUrl } from '@/client/initMatrix';
 import { languageAtom } from '@/app/store/atoms';
-import { SUPPORTED_LANGUAGES } from '@/i18n/languages';
+import { SUPPORTED_LANGUAGES, languageLabel } from '@/i18n/languages';
 import { GITLAB_URL, PRIVACY_POLICY_URL } from '@/const/links';
 import * as css from './WelcomePage.css';
 
@@ -176,9 +176,9 @@ function WelcomeContent({ canGoBack }: { canGoBack: boolean }) {
           icon={<GlobeSimpleIcon size={16} weight="regular" />}
           aria-label={t('settings.language.languageDisplay')}
           value={i18n.language}
-          options={SUPPORTED_LANGUAGES.map(({ code, labelKey }) => ({
+          options={SUPPORTED_LANGUAGES.map((code) => ({
             value: code,
-            label: t(labelKey),
+            label: languageLabel(code),
           }))}
           onChange={handleLanguageChange}
         />

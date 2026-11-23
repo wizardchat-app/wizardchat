@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import org.wizardchat.android.R
 import org.wizardchat.android.ui.theme.ThemeMode
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -35,6 +36,7 @@ enum class MediaVisibility { always, private, never }
 /** Settings on this device, plus the few that sync with the web through account data */
 class AppPreferences(context: Context) {
     private val defaults = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
+    val languages: List<String> = context.resources.getStringArray(R.array.app_languages).toList()
 
     // Per device like the system's light and dark mode, so not synced with the web
     private val legacyTheme = themeFrom(defaults.getString("theme.device", null))
@@ -168,7 +170,7 @@ class AppPreferences(context: Context) {
         try {
             (json["language"] as? JsonPrimitive)?.contentOrNull?.let { value ->
                 val language = if (value == "system") "" else value
-                if (language != this.language && (language.isEmpty() || language in listOf("en", "de"))) this.language = language
+                if (language != this.language && (language.isEmpty() || language in languages)) this.language = language
             }
             (json["sendReadReceipts"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != sendReadReceipts) sendReadReceipts = it }
             (json["sendTyping"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != typingIndicators) typingIndicators = it }

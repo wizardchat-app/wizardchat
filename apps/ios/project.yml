@@ -63,7 +63,6 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WZAppGroup: $(WZ_APP_GROUP)
-        CFBundleLocalizations: [en, de]
         # End-to-end encryption uses standard algorithms in open-source code, which is exempt
         ITSAppUsesNonExemptEncryption: false
     dependencies:

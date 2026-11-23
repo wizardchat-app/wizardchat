@@ -1,7 +1,7 @@
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { languageAtom } from '@/app/store/atoms';
-import { SUPPORTED_LANGUAGES } from '@/i18n/languages';
+import { SUPPORTED_LANGUAGES, languageLabel } from '@/i18n/languages';
 import { Select } from '@/app/components/Select';
 import * as css from '../Settings.css';
 
@@ -26,9 +26,9 @@ export function Language() {
           <Select
             aria-label={t('settings.language.languageDisplay')}
             value={i18n.language}
-            options={SUPPORTED_LANGUAGES.map(({ code, labelKey }) => ({
+            options={SUPPORTED_LANGUAGES.map((code) => ({
               value: code,
-              label: t(labelKey),
+              label: languageLabel(code),
             }))}
             onChange={handleLanguageChange}
           />

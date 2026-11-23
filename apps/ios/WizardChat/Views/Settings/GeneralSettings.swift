@@ -265,13 +265,19 @@ struct LanguageSettings: View {
         SettingsPage(title: "settings.language.title") {
             SettingsSection {
                 PickerRow(label: "settings.language.languageDisplay", selection: $prefs.language,
-                          options: [("", "settings.language.languageSystem"), ("en", "settings.language.languageEn"), ("de", "settings.language.languageDe")])
+                          options: [("", "settings.language.languageSystem")] + AppPreferences.languages.map { ($0, "\(Self.label($0))") })
             }
             if changed {
                 StatusText(text: String(localized: "settings.language.restartHint"), isError: false)
             }
         }
         .onChange(of: prefs.language) { _, _ in changed = true }
+    }
+
+    private static func label(_ code: String) -> String {
+        let locale = Locale(identifier: code)
+        let name = locale.localizedString(forIdentifier: code) ?? code
+        return name.prefix(1).uppercased(with: locale) + name.dropFirst()
     }
 }
 

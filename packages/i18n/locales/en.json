@@ -1558,8 +1558,6 @@
     "language": {
       "title": "Language",
       "languageDisplay": "Display Language",
-      "languageEn": "English",
-      "languageDe": "Deutsch",
       "languageSystem": "System",
       "restartHint": "Close and reopen WizardChat to switch the language."
     },

@@ -11,7 +11,7 @@ import {
   preferencesAtom,
 } from '@/app/store/atoms';
 import i18n from '@/i18n';
-import { SUPPORTED_LANGUAGES } from '@/i18n/languages';
+import { isSupportedLanguage } from '@/i18n/languages';
 import {
   SETTINGS_ACCOUNT_DATA_TYPE,
   parseSettings,
@@ -39,7 +39,7 @@ function useApplyStoredSettings() {
     const content = await client.cachedAccountData(SETTINGS_ACCOUNT_DATA_TYPE).catch(() => null);
     const settings = parseSettings(content);
     if (settings.messageLayout) setMessageLayout(settings.messageLayout);
-    if (settings.language && SUPPORTED_LANGUAGES.some((l) => l.code === settings.language)) {
+    if (settings.language && isSupportedLanguage(settings.language)) {
       setLanguage(settings.language);
       if (i18n.language !== settings.language) void i18n.changeLanguage(settings.language);
     }
