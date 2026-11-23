@@ -40,6 +40,7 @@
     "locationNotification": "Hat einen Standort geteilt",
     "pollNotification": "Umfrage: {{question}}",
     "inviteNotification": "{{name}} hat dich eingeladen",
+    "notificationTitle": "{{sender}} in {{room}}",
     "emoji": "Emoji",
     "members": "Mitglieder",
     "commands": "Befehle",

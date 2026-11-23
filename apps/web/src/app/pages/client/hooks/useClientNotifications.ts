@@ -63,11 +63,13 @@ export function useClientNotifications() {
       const roomUrl = notification.isDirect
         ? `/dm/${encodeURIComponent(notification.roomId)}`
         : `/r/${encodeURIComponent(notification.roomId)}`;
-      showBrowserNotification(
-        `${senderName} in ${notification.roomName ?? notification.roomId}`,
-        body,
-        roomUrl
-      );
+      const title = notification.isDirect
+        ? (notification.roomName ?? senderName)
+        : t('common.notificationTitle', {
+            sender: senderName,
+            room: notification.roomName ?? notification.roomId,
+          });
+      showBrowserNotification(title, body, roomUrl);
     }
     playNotificationSound(notificationSoundsRef.current);
   });

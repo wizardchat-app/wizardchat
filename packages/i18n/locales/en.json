@@ -40,6 +40,7 @@
     "locationNotification": "Shared a location",
     "pollNotification": "Poll: {{question}}",
     "inviteNotification": "{{name}} invited you",
+    "notificationTitle": "{{sender}} in {{room}}",
     "emoji": "Emoji",
     "members": "Members",
     "commands": "Commands",
