@@ -71,39 +71,11 @@ function pickSource(): Promise<Choice> {
   });
 }
 
-const AUDIO_WORKLET = `
-class SharedAudio extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this.queue = [];
-    this.offset = 0;
-    this.port.onmessage = (e) => {
-      this.queue.push(e.data);
-      // Keep at most ~0.5 s buffered so the shared audio doesn't drift behind the video
-      while (this.queue.length > 50) this.queue.shift();
-    };
-  }
-  process(_inputs, outputs) {
-    const [left, right] = outputs[0];
-    for (let i = 0; i < left.length; i++) {
-      const chunk = this.queue[0];
-      if (!chunk) { left[i] = 0; right[i] = 0; continue; }
-      left[i] = chunk[this.offset];
-      right[i] = chunk[this.offset + 1];
-      this.offset += 2;
-      if (this.offset >= chunk.length) { this.queue.shift(); this.offset = 0; }
-    }
-    return true;
-  }
-}
-registerProcessor('shared-audio', SharedAudio);
-`;
+const AUDIO_WORKLET_URL = `/assets/screen-share/worklet.js?v=${import.meta.env.APP_VERSION}`;
 
 async function audioTrack(channel: Channel<ArrayBuffer>) {
   const context = new AudioContext({ sampleRate: 48000 });
-  const url = URL.createObjectURL(new Blob([AUDIO_WORKLET], { type: 'text/javascript' }));
-  await context.audioWorklet.addModule(url);
-  URL.revokeObjectURL(url);
+  await context.audioWorklet.addModule(AUDIO_WORKLET_URL);
   const node = new AudioWorkletNode(context, 'shared-audio', { outputChannelCount: [2] });
   const destination = context.createMediaStreamDestination();
   node.connect(destination);
