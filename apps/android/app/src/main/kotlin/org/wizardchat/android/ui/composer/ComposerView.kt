@@ -713,11 +713,7 @@ private fun displayName(context: Context, uri: Uri): String? = runCatching {
 
 /** A small preview of an image for the attachment tray */
 private suspend fun thumbnail(data: ByteArray): Bitmap? = withContext(Dispatchers.Default) {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
-    var sample = 1
-    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 320) sample *= 2
-    BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+    MediaMetadata.decodeImage(data, 320)
 }
 
 private val COMPOSER_HEIGHT = 48.dp
