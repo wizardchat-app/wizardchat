@@ -1,8 +1,0 @@
-version: 26.11.2
-files:
-  - url: https://gitlab.com/api/v4/projects/81897759/packages/generic/wizardchat-desktop/v26.11.2/WizardChat-Setup-26.11.2.exe
-    sha512: R8AqQuVIanOcovgD6G0nAIUmidqYuAi4OnsYfU8c+an3fyoeJKzizpA5j/uH7de30BEac38MAi7BIQNKAWHH3g==
-    size: 125145381
-path: https://gitlab.com/api/v4/projects/81897759/packages/generic/wizardchat-desktop/v26.11.2/WizardChat-Setup-26.11.2.exe
-sha512: R8AqQuVIanOcovgD6G0nAIUmidqYuAi4OnsYfU8c+an3fyoeJKzizpA5j/uH7de30BEac38MAi7BIQNKAWHH3g==
-releaseDate: '2026-11-04T22:03:59.507Z'

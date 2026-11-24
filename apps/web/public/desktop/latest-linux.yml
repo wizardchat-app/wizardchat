@@ -1,9 +1,0 @@
-version: 26.11.2
-files:
-  - url: https://gitlab.com/api/v4/projects/81897759/packages/generic/wizardchat-desktop/v26.11.2/WizardChat-26.11.2.AppImage
-    sha512: BrDHUcjQhRCeVQLjfq8gIqY8h8sBe6IWkrqmZJuI6xzzjKWJIwS8Ay3l4TYvMSc+/wYwmd4Awfgdcm8ln3ua0w==
-    size: 131277991
-    blockMapSize: 136379
-path: https://gitlab.com/api/v4/projects/81897759/packages/generic/wizardchat-desktop/v26.11.2/WizardChat-26.11.2.AppImage
-sha512: BrDHUcjQhRCeVQLjfq8gIqY8h8sBe6IWkrqmZJuI6xzzjKWJIwS8Ay3l4TYvMSc+/wYwmd4Awfgdcm8ln3ua0w==
-releaseDate: '2026-11-04T21:54:41.710Z'
