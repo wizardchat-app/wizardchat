@@ -33,6 +33,7 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     // gplay pushes through Firebase; fdroid through UnifiedPush, with no Google code
