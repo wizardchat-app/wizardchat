@@ -338,7 +338,7 @@ private fun RoomCard(room: PublicRoom, isJoined: Boolean, isJoining: Boolean, on
         verticalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-            Avatar(name, room.avatarUrl, WZ.SizeAvatar.md, cornerRadius = WZ.Radius.sm)
+            Avatar(name, room.avatarUrl, WZ.SizeAvatar.md, cornerRadius = WZ.Radius.sm, initial = true)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(WZ.Space.space1)) {
                 Text(name, style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold), color = theme.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 room.alias?.let {

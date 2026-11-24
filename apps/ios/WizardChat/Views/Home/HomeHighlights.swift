@@ -40,7 +40,7 @@ struct JumpBackInSection: View {
         let unread = room.unreadCount > 0 || room.mentionCount > 0
         return NavigationLink(value: Route.room(room.id)) {
             VStack(spacing: WZ.Space.space2) {
-                AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.lg)
+                AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.lg, initial: !room.isDirect)
                     .overlay(alignment: .topTrailing) {
                         if unread {
                             Circle()

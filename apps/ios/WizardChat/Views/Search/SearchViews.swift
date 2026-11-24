@@ -195,7 +195,7 @@ struct GlobalSearchResults: View {
                 Section(String(localized: "room.settings.permissions.groups.spaces")) {
                     ForEach(spaces) { space in
                         NavigationLink(value: Route.space(space.id)) {
-                            row(name: space.name, avatarUrl: space.avatarUrl, isSpace: true, icon: "ph-squares-four-regular")
+                            row(name: space.name, avatarUrl: space.avatarUrl, isSpace: true, initial: true, icon: "ph-squares-four-regular")
                         }
                     }
                 }
@@ -239,13 +239,13 @@ struct GlobalSearchResults: View {
     }
 
     private func roomRow(_ room: RoomSummary) -> some View {
-        row(name: room.displayName, avatarUrl: room.avatarUrl, isSpace: false,
+        row(name: room.displayName, avatarUrl: room.avatarUrl, isSpace: false, initial: !room.isDirect,
             icon: room.isDirect ? "ph-user-regular" : room.isVoice ? "ph-speaker-high-regular" : "ph-hash-straight-regular")
     }
 
-    private func row(name: String, avatarUrl: String?, isSpace: Bool, icon: String) -> some View {
+    private func row(name: String, avatarUrl: String?, isSpace: Bool, initial: Bool, icon: String) -> some View {
         HStack(spacing: WZ.Space.space5) {
-            AvatarView(name: name, url: avatarUrl, size: WZ.SizeAvatar.md, cornerRadius: isSpace ? 9 : nil)
+            AvatarView(name: name, url: avatarUrl, size: WZ.SizeAvatar.md, cornerRadius: isSpace ? 9 : nil, initial: initial)
             HighlightedText(text: name, query: text, font: .wizard(WZ.FontSize.lg, .medium))
                 .foregroundStyle(theme.textPrimary)
                 .lineLimit(1)

@@ -224,7 +224,7 @@ private struct RoomCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: WZ.Space.space4) {
             HStack(alignment: .top, spacing: WZ.Space.space4) {
-                AvatarView(name: name, url: room.avatarUrl, size: WZ.SizeAvatar.md, cornerRadius: WizardTheme.radiusSm)
+                AvatarView(name: name, url: room.avatarUrl, size: WZ.SizeAvatar.md, cornerRadius: WizardTheme.radiusSm, initial: true)
                 VStack(alignment: .leading, spacing: WZ.Space.space1) {
                     Text(name)
                         .font(.wizard(WZ.FontSize.md, .semibold))

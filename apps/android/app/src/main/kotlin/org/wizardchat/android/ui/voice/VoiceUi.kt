@@ -134,7 +134,7 @@ private fun Lobby(room: RoomSummary, onOpenChat: () -> Unit, modifier: Modifier 
         ) {
             Box {
                 val active = room.callParticipants.isNotEmpty()
-                Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.xl)
+                Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.xl, initial = !room.isDirect)
                 Box(
                     Modifier
                         .align(Alignment.BottomEnd)

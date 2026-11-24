@@ -76,7 +76,7 @@ fun JumpBackInSection(rooms: List<RoomSummary>) {
                     verticalArrangement = Arrangement.spacedBy(WZ.Space.space2),
                 ) {
                     Box {
-                        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.lg)
+                        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.lg, initial = !room.isDirect)
                         if (unread) {
                             Box(
                                 Modifier

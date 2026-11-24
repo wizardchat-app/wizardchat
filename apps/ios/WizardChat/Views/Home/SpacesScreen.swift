@@ -24,7 +24,7 @@ struct SpacesScreen: View {
                 ForEach(spaces) { space in
                     NavigationLink(value: Route.space(space.id)) {
                         SpaceTile(name: space.name, unread: roomList.unreadState(of: .space(space.id))) {
-                            AvatarView(name: space.name, url: space.avatarUrl, size: WZ.SizeAvatar.xl, cornerRadius: WZ.Radius.xl)
+                            AvatarView(name: space.name, url: space.avatarUrl, size: WZ.SizeAvatar.xl, cornerRadius: WZ.Radius.xl, initial: true)
                         }
                     }
                     .buttonStyle(.plain)

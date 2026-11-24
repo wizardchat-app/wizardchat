@@ -205,7 +205,7 @@ internal fun RoomBridgesScreen(roomId: String, bridges: List<RoomBridge>, onBack
                             subtitle = listOfNotNull(bridge.network?.label, bridge.channel.label).joinToString(" · "),
                             onClick = bridge.channel.externalUrl?.let { url -> { uriHandler.openUri(url) } },
                         ) {
-                            Avatar(bridge.protocol.label, bridge.protocol.avatarUrl, WZ.SizeAvatar.sm)
+                            Avatar(bridge.protocol.label, bridge.protocol.avatarUrl, WZ.SizeAvatar.sm, initial = true)
                         }
                         RowDivider()
                         GroupedRow(tr("room.settings.bridges.bot"), subtitle = bridge.bot, onClick = { profileUserId = bridge.bot })

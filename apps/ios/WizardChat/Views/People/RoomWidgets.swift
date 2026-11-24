@@ -233,7 +233,7 @@ struct RoomBridgesView: View {
             ForEach(bridges) { bridge in
                 Section {
                     HStack(spacing: WZ.Space.space5) {
-                        AvatarView(name: bridge.protocolPart.label, url: bridge.protocolPart.avatarUrl, size: WZ.SizeAvatar.md)
+                        AvatarView(name: bridge.protocolPart.label, url: bridge.protocolPart.avatarUrl, size: WZ.SizeAvatar.md, initial: true)
                         VStack(alignment: .leading, spacing: WZ.Space.space1) {
                             Text(bridge.protocolPart.label).font(.wizard(WZ.FontSize.md, .semibold))
                             if let network = bridge.network {

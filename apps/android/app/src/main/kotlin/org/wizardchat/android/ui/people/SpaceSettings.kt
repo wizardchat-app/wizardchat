@@ -162,6 +162,7 @@ fun SpaceSettingsSheet(space: SpaceSummary, roomList: RoomListModel, onDismiss: 
                                     cornerRadius = WZ.Radius.xl,
                                     badgeSize = WZ.Space.space8,
                                     bordered = false,
+                                    initial = true,
                                 )
                                 Text(name.ifEmpty { space.name }, style = wizardFont(WZ.FontSize.xxl, FontWeight.Bold), color = theme.textPrimary)
                             }
@@ -275,7 +276,7 @@ private fun ChildRow(roomId: String, roomList: RoomListModel, hierarchy: Map<Str
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
     ) {
-        Avatar(name, room?.avatarUrl ?: hierarchy[roomId]?.second, WZ.SizeAvatar.sm)
+        Avatar(name, room?.avatarUrl ?: hierarchy[roomId]?.second, WZ.SizeAvatar.sm, initial = room?.isDirect != true)
         Text(name, Modifier.weight(1f), style = wizardFont(WZ.FontSize.lg), color = theme.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (room == null) Text(tr("space.notJoined"), style = wizardFont(WZ.FontSize.sm), color = theme.textMuted)
     }
@@ -357,7 +358,7 @@ private fun AddRoomsToSpaceSheet(space: SpaceSummary, roomList: RoomListModel, e
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
                                     ) {
-                                        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.sm)
+                                        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.sm, initial = !room.isDirect)
                                         Text(
                                             room.displayName,
                                             Modifier.weight(1f),

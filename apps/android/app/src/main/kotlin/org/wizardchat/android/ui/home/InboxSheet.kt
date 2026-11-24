@@ -257,7 +257,7 @@ private fun Empty(text: String, icon: String) {
 @Composable
 private fun RoomAvatar(room: RoomSummary) {
     Box {
-        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.md)
+        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.md, initial = !room.isDirect)
         if (!room.isDirect) {
             Box(
                 Modifier

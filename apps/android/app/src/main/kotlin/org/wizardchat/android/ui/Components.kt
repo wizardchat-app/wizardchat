@@ -70,6 +70,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.wizardchat.android.LocalMedia
 import org.wizardchat.android.LocalPrefs
@@ -89,6 +90,7 @@ fun Avatar(
     cornerRadius: Dp? = null,
     modifier: Modifier = Modifier,
     fallback: Bitmap? = null,
+    initial: Boolean = false,
 ) {
     val media = LocalMedia.current
     var image by remember(url, fallback) { mutableStateOf(url?.let { media?.cachedThumbnail(it) } ?: fallback) }
@@ -111,11 +113,20 @@ fun Avatar(
         val bitmap = image
         if (bitmap != null) {
             Image(bitmap.asImageBitmap(), null, Modifier.size(size), contentScale = ContentScale.Crop)
+        } else if (initial) {
+            Text(
+                initialLetter(name),
+                color = theme.textOnAccent,
+                style = wizardFont((size.value * 0.4f).sp, FontWeight.SemiBold),
+            )
         } else {
             WizardMark(theme.textOnAccent, Modifier.size(size * 0.58f))
         }
     }
 }
+
+private fun initialLetter(name: String): String =
+    if (name.isEmpty()) "?" else String(Character.toChars(name.codePointAt(0))).uppercase()
 
 @Composable
 fun WizardMark(color: Color, modifier: Modifier = Modifier) {

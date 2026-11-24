@@ -500,7 +500,7 @@ fun RoomRow(room: RoomSummary, showsHashIcon: Boolean, modifier: Modifier = Modi
             }
         } else {
             Box {
-                Avatar(room.displayName, room.avatarUrl, avatarSize)
+                Avatar(room.displayName, room.avatarUrl, avatarSize, initial = !room.isDirect)
                 if (!room.isDirect) {
                     Box(
                         Modifier

@@ -135,7 +135,7 @@ struct InboxView: View {
 
     /// The room's avatar with the same type badge the room list shows
     private func avatar(_ room: RoomSummary) -> some View {
-        AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.md)
+        AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.md, initial: !room.isDirect)
             .overlay(alignment: .bottomTrailing) {
                 if !room.isDirect {
                     Image(room.isSpace ? "ph-stack-regular" : room.isVoice ? "ph-speaker-high-regular" : "ph-hash-straight-bold")

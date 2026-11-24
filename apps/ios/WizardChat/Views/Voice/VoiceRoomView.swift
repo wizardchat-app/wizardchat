@@ -64,7 +64,7 @@ struct VoiceRoomView: View {
     private var lobby: some View {
         ScrollView {
             VStack(spacing: WZ.Space.space6) {
-                AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.xl)
+                AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.xl, initial: !room.isDirect)
                     .overlay(alignment: .bottomTrailing) {
                         Image("ph-speaker-high-regular")
                             .font(.system(size: WZ.SizeIcon.sm))

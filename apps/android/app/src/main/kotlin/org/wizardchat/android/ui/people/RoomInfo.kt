@@ -249,7 +249,7 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(WZ.Space.space4),
                         ) {
-                            AvatarWithBadge(room.displayName, avatarUrl, canEditAvatar, saving, pickAvatar)
+                            AvatarWithBadge(room.displayName, avatarUrl, canEditAvatar, saving, pickAvatar, initial = !room.isDirect)
                             if (room.isDirect && canEditAvatar && hasCustomAvatar) {
                                 BarTextButton(tr("room.settings.general.resetAvatar"), { confirmResetAvatar = true }, enabled = !saving)
                             }
@@ -430,9 +430,9 @@ private fun LabeledFormField(label: String, field: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RoomAvatar(name: String, url: String?, canEdit: Boolean, onPick: () -> Unit, cornerRadius: Dp?) {
+private fun RoomAvatar(name: String, url: String?, canEdit: Boolean, onPick: () -> Unit, cornerRadius: Dp?, initial: Boolean) {
     if (!canEdit) {
-        Avatar(name, url, WZ.SizeAvatar.xl, cornerRadius)
+        Avatar(name, url, WZ.SizeAvatar.xl, cornerRadius, initial = initial)
         return
     }
     val label = tr("room.info.changePicture")
@@ -442,7 +442,7 @@ private fun RoomAvatar(name: String, url: String?, canEdit: Boolean, onPick: () 
             .clickable(onClick = onPick)
             .semantics { contentDescription = label },
     ) {
-        Avatar(name, url, WZ.SizeAvatar.xl, cornerRadius)
+        Avatar(name, url, WZ.SizeAvatar.xl, cornerRadius, initial = initial)
     }
 }
 
@@ -457,9 +457,10 @@ internal fun AvatarWithBadge(
     cornerRadius: Dp? = null,
     badgeSize: Dp = WZ.Space.space9,
     bordered: Boolean = true,
+    initial: Boolean = false,
 ) {
     Box {
-        RoomAvatar(name, url, canEdit, onPick, cornerRadius)
+        RoomAvatar(name, url, canEdit, onPick, cornerRadius, initial)
         if (canEdit) {
             CameraBadge(
                 saving,

@@ -141,7 +141,7 @@ private fun SpaceGridItem(
     var menuOpen by remember { mutableStateOf(false) }
     Box {
         SpaceTile(space.name, unread, Modifier.combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true })) {
-            Avatar(space.name, space.avatarUrl, WZ.SizeAvatar.xl, cornerRadius = WZ.Radius.xl)
+            Avatar(space.name, space.avatarUrl, WZ.SizeAvatar.xl, cornerRadius = WZ.Radius.xl, initial = true)
         }
         WizardMenu(
             menuOpen,

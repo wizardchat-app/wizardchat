@@ -16,6 +16,7 @@ struct AvatarView: View {
     let url: String?
     var size: CGFloat = WZ.SizeAvatar.md
     var cornerRadius: CGFloat? = nil
+    var initial = false
 
     @Environment(\.mediaLoader) private var mediaLoader
     @Environment(\.theme) private var theme
@@ -31,6 +32,10 @@ struct AvatarView: View {
                     Image(uiImage: shown)
                         .resizable()
                         .scaledToFill()
+                } else if initial {
+                    Text(initialLetter)
+                        .font(.system(size: size * 0.4, weight: .semibold))
+                        .foregroundStyle(theme.textOnAccent)
                 } else {
                     WizardMark()
                         .fill(theme.textOnAccent)
@@ -50,6 +55,10 @@ struct AvatarView: View {
 
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius ?? size / 2, style: .continuous)
+    }
+
+    private var initialLetter: String {
+        name.unicodeScalars.first.map { String($0).uppercased() } ?? "?"
     }
 
     private var fallbackColor: Color {

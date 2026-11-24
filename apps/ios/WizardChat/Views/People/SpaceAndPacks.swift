@@ -31,7 +31,7 @@ struct SpaceSettingsView: View {
                 Section {
                     VStack(spacing: WZ.Space.space4) {
                         PhotosPicker(selection: $photo, matching: .images) {
-                            AvatarView(name: space.name, url: avatarUrl, size: WZ.SizeAvatar.xl, cornerRadius: WZ.Radius.xl)
+                            AvatarView(name: space.name, url: avatarUrl, size: WZ.SizeAvatar.xl, cornerRadius: WZ.Radius.xl, initial: true)
                                 .overlay(alignment: .bottomTrailing) {
                                     if canEdit {
                                         Image(saving ? "ph-hourglass-regular" : "ph-camera-regular")
@@ -144,7 +144,7 @@ struct SpaceSettingsView: View {
         let room = roomList.room(id: roomId)
         let name = roomName(roomId)
         return HStack(spacing: WZ.Space.space5) {
-            AvatarView(name: name, url: room?.avatarUrl ?? hierarchy[roomId]?.avatar, size: WZ.SizeAvatar.sm)
+            AvatarView(name: name, url: room?.avatarUrl ?? hierarchy[roomId]?.avatar, size: WZ.SizeAvatar.sm, initial: room?.isDirect != true)
             Text(name).lineLimit(1).foregroundStyle(theme.textPrimary)
             Spacer()
             if room == nil {
@@ -229,7 +229,7 @@ private struct AddRoomsToSpaceSheet: View {
                         if selected.contains(room.id) { selected.remove(room.id) } else { selected.insert(room.id) }
                     } label: {
                         HStack(spacing: WZ.Space.space5) {
-                            AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.sm)
+                            AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.sm, initial: !room.isDirect)
                             Text(room.displayName).foregroundStyle(theme.textPrimary).lineLimit(1)
                             Spacer()
                             Image(selected.contains(room.id) ? "ph-check-circle-fill" : "ph-circle-regular")

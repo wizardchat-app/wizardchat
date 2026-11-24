@@ -219,7 +219,7 @@ struct RoomInfoView: View {
 
     @ViewBuilder
     private var avatar: some View {
-        let picture = AvatarView(name: room.displayName, url: avatarUrl, size: WZ.SizeAvatar.xl)
+        let picture = AvatarView(name: room.displayName, url: avatarUrl, size: WZ.SizeAvatar.xl, initial: !room.isDirect)
         if canEditAvatar {
             PhotosPicker(selection: $photo, matching: .images) {
                 picture.overlay(alignment: .bottomTrailing) {

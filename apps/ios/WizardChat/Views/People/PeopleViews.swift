@@ -367,7 +367,7 @@ private struct MutualRoomsList: View {
                     ForEach(group.rooms, id: \.roomId) { room in
                         Button { open(room) } label: {
                             HStack(spacing: WZ.Space.space4) {
-                                AvatarView(name: room.name ?? room.roomId, url: room.avatarUrl, size: WZ.SizeAvatar.sm)
+                                AvatarView(name: room.name ?? room.roomId, url: room.avatarUrl, size: WZ.SizeAvatar.sm, initial: true)
                                 Text(room.name ?? room.roomId)
                                     .font(.wizard(WZ.FontSize.lg))
                                     .foregroundStyle(theme.textPrimary)

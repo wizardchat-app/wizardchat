@@ -546,7 +546,7 @@ struct RoomRow: View {
                     .frame(width: avatarSize, height: avatarSize)
                     .background(theme.fill, in: Circle())
             } else {
-                AvatarView(name: room.displayName, url: room.avatarUrl, size: avatarSize)
+                AvatarView(name: room.displayName, url: room.avatarUrl, size: avatarSize, initial: !room.isDirect)
                     .overlay(alignment: .bottomTrailing) {
                         if !room.isDirect || inCall {
                             typeIcon(size: WZ.SizeIcon.xs)

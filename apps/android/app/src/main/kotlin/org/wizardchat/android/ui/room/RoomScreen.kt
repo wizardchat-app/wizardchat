@@ -644,7 +644,7 @@ internal fun RoomTitle(room: RoomSummary) {
             horizontalArrangement = Arrangement.spacedBy(if (prefs.showRoomAvatars) WZ.Space.space3 else WZ.Space.space1),
         ) {
             if (prefs.showRoomAvatars) {
-                Avatar(room.displayName, room.avatarUrl, WZ.SizeIcon.xl)
+                Avatar(room.displayName, room.avatarUrl, WZ.SizeIcon.xl, initial = !room.isDirect)
             } else if (!room.isDirect) {
                 PhIcon(if (room.isVoice) "speaker-high" else "hash-straight", size = WZ.SizeIcon.xs, tint = theme.textMuted)
             }
@@ -771,7 +771,7 @@ private fun TimelineStart(room: RoomSummary) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
-        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.xl, modifier = Modifier.padding(bottom = WZ.Space.space2))
+        Avatar(room.displayName, room.avatarUrl, WZ.SizeAvatar.xl, modifier = Modifier.padding(bottom = WZ.Space.space2), initial = !room.isDirect)
         Text(
             room.title,
             style = wizardFont(WZ.FontSize.xxl, FontWeight.Bold),

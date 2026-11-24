@@ -632,7 +632,7 @@ struct RoomTitle: View {
         VStack(alignment: .leading, spacing: WZ.Space.space0) {
             HStack(spacing: prefs.showRoomAvatars ? WZ.Space.space3 : WZ.Space.space1) {
                 if prefs.showRoomAvatars {
-                    AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.sm)
+                    AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.sm, initial: !room.isDirect)
                 } else if !room.isDirect {
                     Image(room.isVoice ? "ph-speaker-high-regular" : "ph-hash-straight-regular")
                         .font(.system(size: WZ.SizeIcon.xs, weight: .semibold))
@@ -661,7 +661,7 @@ private struct TimelineStart: View {
 
     var body: some View {
         VStack(spacing: WZ.Space.space4) {
-            AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.xl)
+            AvatarView(name: room.displayName, url: room.avatarUrl, size: WZ.SizeAvatar.xl, initial: !room.isDirect)
                 .padding(.bottom, WZ.Space.space2)
             Text(room.title)
                 .italic(room.isEmpty)

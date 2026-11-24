@@ -479,7 +479,7 @@ private fun MutualRoomRow(room: MutualRoom, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
     ) {
-        Avatar(name, room.avatarUrl, WZ.SizeAvatar.sm)
+        Avatar(name, room.avatarUrl, WZ.SizeAvatar.sm, initial = true)
         Text(
             name,
             Modifier.weight(1f),

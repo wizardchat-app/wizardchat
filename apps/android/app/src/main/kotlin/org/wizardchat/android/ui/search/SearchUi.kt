@@ -193,7 +193,7 @@ fun GlobalSearchResults(roomList: RoomListModel, query: String, onOpenRoom: (Str
                 GroupedSection(header = tr("search.roomsAndDms")) {
                     rooms.forEachIndexed { index, room ->
                         if (index > 0) RowDivider()
-                        ResultRow(room.displayName, room.avatarUrl, isSpace = false, icon = roomIcon(room), query = text) { onOpenRoom(room.id) }
+                        ResultRow(room.displayName, room.avatarUrl, isSpace = false, initial = !room.isDirect, icon = roomIcon(room), query = text) { onOpenRoom(room.id) }
                     }
                 }
             }
@@ -203,7 +203,7 @@ fun GlobalSearchResults(roomList: RoomListModel, query: String, onOpenRoom: (Str
                 GroupedSection(header = tr("room.settings.permissions.groups.spaces")) {
                     spaces.forEachIndexed { index, space: SpaceSummary ->
                         if (index > 0) RowDivider()
-                        ResultRow(space.name, space.avatarUrl, isSpace = true, icon = "squares-four" to PhWeight.regular, query = text) {
+                        ResultRow(space.name, space.avatarUrl, isSpace = true, initial = true, icon = "squares-four" to PhWeight.regular, query = text) {
                             navigator.push(Route.Space(space.id))
                         }
                     }
@@ -254,7 +254,7 @@ private fun roomIcon(room: RoomSummary): Pair<String, PhWeight> = when {
 }
 
 @Composable
-private fun ResultRow(name: String, avatarUrl: String?, isSpace: Boolean, icon: Pair<String, PhWeight>, query: String, onClick: () -> Unit) {
+private fun ResultRow(name: String, avatarUrl: String?, isSpace: Boolean, initial: Boolean, icon: Pair<String, PhWeight>, query: String, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -263,7 +263,7 @@ private fun ResultRow(name: String, avatarUrl: String?, isSpace: Boolean, icon: 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
     ) {
-        Avatar(name, avatarUrl, WZ.SizeAvatar.md, cornerRadius = if (isSpace) WZ.Radius.md else null)
+        Avatar(name, avatarUrl, WZ.SizeAvatar.md, cornerRadius = if (isSpace) WZ.Radius.md else null, initial = initial)
         HighlightedText(name, query, Modifier.weight(1f), style = wizardFont(WZ.FontSize.lg, FontWeight.Medium), maxLines = 1)
         PhIcon(icon.first, icon.second, size = WZ.SizeIcon.xs, tint = theme.textMuted)
     }
