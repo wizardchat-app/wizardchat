@@ -296,6 +296,7 @@ impl WizardClient {
         let service = Arc::new(
             SyncService::builder(self.client.clone())
                 .with_offline_mode()
+                .with_room_list_timeline_limit(ROOM_LIST_TIMELINE_LIMIT)
                 .build()
                 .await?,
         );
@@ -476,6 +477,7 @@ impl WizardClient {
     }
 }
 
+const ROOM_LIST_TIMELINE_LIMIT: u32 = 10;
 const LOGOUT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub fn encode_blurhash(rgba: &[u8], width: u32, height: u32) -> Result<String> {

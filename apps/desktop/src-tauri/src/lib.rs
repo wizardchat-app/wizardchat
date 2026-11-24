@@ -21,7 +21,11 @@ use tauri::{
 #[tauri::command]
 fn core_delete_store(location: String) -> Result<(), String> {
     let path = std::path::Path::new(&location);
-    if location.is_empty() || path.components().count() != 1 || path.is_absolute() {
+    let mut components = path.components();
+    if !matches!(
+        (components.next(), components.next()),
+        (Some(std::path::Component::Normal(_)), None)
+    ) {
         return Err("invalid store location".into());
     }
     match std::fs::remove_dir_all(path) {

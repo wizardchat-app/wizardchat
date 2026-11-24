@@ -1066,7 +1066,8 @@ async fn unread_counts(room: &Room) -> Option<UnreadCounts> {
     if is_muted(room) {
         return Some(UnreadCounts::default());
     }
-    let server = room.unread_notification_counts().notification_count;
+    let server_counts = room.unread_notification_counts();
+    let server = server_counts.notification_count;
     let encrypted = room.encryption_state().is_encrypted();
     let fallback = server.max(room.num_unread_notifications());
     if room.num_unread_messages() == 0 && room.read_receipts().latest_active.is_some() {
@@ -1082,7 +1083,13 @@ async fn unread_counts(room: &Room) -> Option<UnreadCounts> {
             (true, true) => scan.count.max(fallback),
             (false, _) => fallback.max(scan.count),
         },
-        mentions: scan.mentions.len() as u64,
+        mentions: if scan.boundary_found {
+            scan.mentions.len() as u64
+        } else {
+            server_counts
+                .highlight_count
+                .max(scan.mentions.len() as u64)
+        },
     })
 }
 

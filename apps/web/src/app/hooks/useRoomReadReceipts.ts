@@ -22,10 +22,11 @@ export function useRoomReadReceipts(
       if (!latest || latest === lastEventIdRef.current) return;
       lastEventIdRef.current = latest;
     }
-    if (timeline) {
-      timeline.markAsRead(!sendReadReceipts).catch(() => {});
-    } else {
-      void markRoomAsRead(client, roomId, sendReadReceipts);
-    }
+    const sent = timeline
+      ? timeline.markAsRead(!sendReadReceipts)
+      : markRoomAsRead(client, roomId, sendReadReceipts);
+    Promise.resolve(sent).catch(() => {
+      if (lastEventIdRef.current === latest) lastEventIdRef.current = null;
+    });
   }, [client, roomId, timeline, sendReadReceipts]);
 }
