@@ -44,9 +44,6 @@
   },
   "radius": {
     "$type": "dimension",
-    "none": {
-      "$value": "0px"
-    },
     "xs": {
       "$value": "2px"
     },
@@ -115,24 +112,14 @@
       },
       "md": {
         "$value": "36px"
-      },
-      "lg": {
-        "$value": "44px"
       }
     },
     "touchTarget": {
       "$value": "44px",
       "$description": "Minimum hit area on touch devices"
     },
-    "header": {
-      "$value": "48px"
-    },
     "tabBar": {
       "$value": "56px"
-    },
-    "rail": {
-      "$value": "64px",
-      "$description": "Space rail width"
     },
     "sidebar": {
       "$value": "260px",
@@ -142,83 +129,19 @@
       "$value": "320px",
       "$description": "Members and thread panel width"
     },
-    "roomRow": {
-      "$value": "40px"
-    },
     "composerMin": {
       "$value": "44px"
     },
-    "messageMaxWidth": {
-      "$value": "760px"
-    },
     "dialog": {
-      "sm": {
-        "$value": "400px"
-      },
       "md": {
         "$value": "520px"
-      },
-      "lg": {
-        "$value": "720px"
-      },
-      "xl": {
-        "$value": "900px"
       }
     },
     "media": {
       "$description": "Inline images and videos in the timeline",
       "maxWidth": {
         "$value": "420px"
-      },
-      "maxHeight": {
-        "$value": "360px"
-      },
-      "minWidth": {
-        "$value": "120px"
       }
-    },
-    "messageActions": {
-      "$value": "32px",
-      "$description": "Height of the hover toolbar on messages"
-    },
-    "replyBar": {
-      "$value": "3px",
-      "$description": "Accent bar beside reply quotes"
-    },
-    "verificationEmoji": {
-      "$value": "48px",
-      "$description": "Emoji tiles when comparing during device verification"
-    },
-    "banner": {
-      "$value": "40px",
-      "$description": "Minimum height of notice banners"
-    },
-    "settingsNav": {
-      "$value": "220px",
-      "$description": "Section list in the settings dialog"
-    },
-    "themeSwatch": {
-      "$value": "96px",
-      "$description": "Theme previews in appearance settings"
-    },
-    "pollBar": {
-      "$value": "6px",
-      "$description": "Result bars in poll cards"
-    },
-    "emojiPicker": {
-      "width": {
-        "$value": "352px"
-      },
-      "height": {
-        "$value": "400px"
-      },
-      "cell": {
-        "$value": "36px"
-      }
-    },
-    "customEmoji": {
-      "$value": "32px",
-      "$description": "Height of custom emoji in sent messages (Matrix convention)"
     },
     "callTile": {
       "$value": "220px",
@@ -227,20 +150,6 @@
     "callControl": {
       "$value": "48px",
       "$description": "Round buttons in the call controls"
-    },
-    "speakingRing": {
-      "$value": "3px",
-      "$description": "Outline around whoever is speaking"
-    }
-  },
-  "breakpoint": {
-    "$type": "dimension",
-    "compact": {
-      "$value": "768px",
-      "$description": "At or below: single-column mobile layout"
-    },
-    "wide": {
-      "$value": "1280px"
     }
   },
   "border": {
@@ -251,9 +160,6 @@
       },
       "thick": {
         "$value": "2px"
-      },
-      "focus": {
-        "$value": "2px"
       }
     }
   },
@@ -262,9 +168,6 @@
       "$type": "fontFamily",
       "body": {
         "$value": ["Roboto", "sans-serif"]
-      },
-      "mono": {
-        "$value": ["JetBrains Mono", "SF Mono", "Menlo", "Consolas", "monospace"]
       }
     },
     "size": {
@@ -290,53 +193,17 @@
       "display": {
         "$value": "32px"
       }
-    },
-    "weight": {
-      "$type": "fontWeight",
-      "regular": {
-        "$value": 400
-      },
-      "medium": {
-        "$value": 500
-      },
-      "semibold": {
-        "$value": 600
-      },
-      "bold": {
-        "$value": 700
-      }
-    },
-    "lineHeight": {
-      "$type": "number",
-      "tight": {
-        "$value": 1.2
-      },
-      "normal": {
-        "$value": 1.45
-      },
-      "relaxed": {
-        "$value": 1.6
-      }
     }
   },
   "opacity": {
     "$type": "number",
     "disabled": {
       "$value": 0.45
-    },
-    "muted": {
-      "$value": 0.7
-    },
-    "overlay": {
-      "$value": 0.6
     }
   },
   "motion": {
     "duration": {
       "$type": "duration",
-      "instant": {
-        "$value": "0ms"
-      },
       "fast": {
         "$value": "100ms"
       },
@@ -346,75 +213,6 @@
       "slow": {
         "$value": "300ms"
       }
-    },
-    "easing": {
-      "$type": "cubicBezier",
-      "standard": {
-        "$value": [0.2, 0, 0, 1]
-      },
-      "decelerate": {
-        "$value": [0, 0, 0, 1]
-      },
-      "accelerate": {
-        "$value": [0.3, 0, 1, 1]
-      }
-    }
-  },
-  "shadow": {
-    "$type": "shadow",
-    "sm": {
-      "$value": {
-        "color": "#00000040",
-        "offsetX": "0px",
-        "offsetY": "1px",
-        "blur": "3px",
-        "spread": "0px"
-      }
-    },
-    "md": {
-      "$value": {
-        "color": "#00000059",
-        "offsetX": "0px",
-        "offsetY": "4px",
-        "blur": "12px",
-        "spread": "0px"
-      }
-    },
-    "lg": {
-      "$value": {
-        "color": "#00000073",
-        "offsetX": "0px",
-        "offsetY": "12px",
-        "blur": "32px",
-        "spread": "0px"
-      }
-    }
-  },
-  "zIndex": {
-    "$type": "number",
-    "base": {
-      "$value": 0
-    },
-    "sticky": {
-      "$value": 100
-    },
-    "dropdown": {
-      "$value": 1000
-    },
-    "overlay": {
-      "$value": 2000
-    },
-    "modal": {
-      "$value": 3000
-    },
-    "popover": {
-      "$value": 4000
-    },
-    "toast": {
-      "$value": 5000
-    },
-    "tooltip": {
-      "$value": 6000
     }
   }
 }

@@ -48,7 +48,6 @@
     "settings": "Einstellungen",
     "removeAvatar": "Avatar entfernen",
     "removeAvatarConfirm": "Möchtest du den aktuellen Avatar entfernen? Dies kann nicht rückgängig gemacht werden.",
-    "removeAvatarFailed": "Fehler beim Entfernen des Avatars: {{error}}",
     "select": "auswählen",
     "dismiss": "verwerfen",
     "searching": "Suchen...",
@@ -240,7 +239,6 @@
     "noRoomsHereYet": "Hier gibt es noch keine Räume",
     "createOrJoin": "Erstellen oder beitreten",
     "reorderRooms": "Räume anordnen",
-    "dms": "Nachrichten",
     "spaces": "Spaces",
     "you": "Du",
     "newRoom": "Neuer Raum",
@@ -1052,7 +1050,6 @@
     "decryptWaitingForKey": "Warte auf den Schlüssel für diese Nachricht",
     "verificationRequest": "Hat eine Identitätsverifizierung angefragt",
     "editing": "Nachricht bearbeiten",
-    "uploading": "{{name}} wird hochgeladen...",
     "typingMany": "Mehrere Personen schreiben...",
     "summary": {
       "image": "Bild",
@@ -1166,7 +1163,6 @@
     "moreParticipants": "{{count}} weitere",
     "watchTogether": {
       "videoUnplayable": "Dieses Video kann hier nicht abgespielt werden.",
-      "stopJustMe": "Nicht mehr schauen (nur du)",
       "stopForEveryone": "Für alle beenden",
       "stopConfirm": "Watch Together für alle beenden?",
       "stopMessage": "Das beendet das Video und leert die Warteschlange für alle im Anruf.",
@@ -1175,7 +1171,6 @@
       "pasteLink": "Link einfügen",
       "invalidLink": "Das sieht nicht nach einem YouTube-Video-Link aus.",
       "joinNote": "Alle im Anruf können mitmachen. YouTube sieht die IP-Adresse aller, die zuschauen.",
-      "stopTogether": "Watch Together beenden",
       "name": "Watch Together",
       "title": "YouTube-Video gemeinsam ansehen",
       "linkLabel": "YouTube-Link",
@@ -1254,7 +1249,6 @@
       "noResults": "Keine Sounds gefunden",
       "volume": "Soundboard-Lautstärke"
     },
-    "volumeHint": "Tippe, um die Lautstärke zu ändern",
     "userScreen": "Bildschirm von {{name}}",
     "empty": "Noch niemand hier",
     "inVoice": "{{count}} im Sprachkanal",
@@ -1449,7 +1443,6 @@
     },
     "account": {
       "title": "Konto",
-      "username": "Nutzername",
       "displayName": "Anzeigename",
       "displayNamePlaceholder": "Dein Anzeigename",
       "logout": "Abmelden",
@@ -1911,7 +1904,6 @@
       "noMessages": "Keine Treffer in den geladenen Nachrichten dieses Raums"
     },
     "switcher": {
-      "title": "Suchen",
       "noResults": "Keine Räume oder DMs gefunden",
       "prefixRooms": "Räume",
       "prefixDms": "DMs",
@@ -2010,10 +2002,8 @@
     "unignoreReloadBody": "Nachrichten von {{name}}, die während des Ignorierens ausgeblendet waren, erscheinen erst nach einem vollständigen Neuladen wieder. Das kann einen Moment dauern.",
     "message": "Nachricht",
     "viewFullScreen": "Vollbild anzeigen",
-    "bannerSaveFailed": "Banner konnte nicht gespeichert werden: {{error}}",
     "removeBanner": "Banner entfernen",
     "removeBannerConfirm": "Möchtest du dein Profilbanner entfernen? Dies kann nicht rückgängig gemacht werden.",
-    "bannerRemoveFailed": "Banner konnte nicht entfernt werden: {{error}}",
     "removeMessages": "Nachrichten entfernen",
     "removeMessagesConfirmTitle": "Letzte Nachrichten von {{name}} entfernen",
     "removeMessagesConfirmBody_one": "Du bist dabei, {{count}} Nachricht von {{name}} zu entfernen. Diese wird dauerhaft für alle in der Unterhaltung gelöscht. Möchtest du fortfahren?",
@@ -2043,7 +2033,6 @@
     "action": "WizardChat aktualisieren"
   },
   "presence": {
-    "title": "Online-Status",
     "changeStatus": "Status ändern",
     "auto": "Automatisch",
     "online": "Online",
@@ -2070,11 +2059,8 @@
     "screenNumber": "Bildschirm {{number}}"
   },
   "status": {
-    "title": "Status",
     "customStatus": "Eigener Status",
-    "none": "Keiner gesetzt",
     "setCustomStatus": "Eigenen Status festlegen",
-    "editCustomStatus": "Eigenen Status bearbeiten",
     "clearStatus": "Status entfernen",
     "whatsUp": "Was gibt's?",
     "placeholder": "Mittagspause, voll im Flow, ...",

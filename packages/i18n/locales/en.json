@@ -48,7 +48,6 @@
     "settings": "Settings",
     "removeAvatar": "Remove avatar",
     "removeAvatarConfirm": "Remove the current avatar? This cannot be undone.",
-    "removeAvatarFailed": "Failed to remove Avatar: {{error}}",
     "select": "select",
     "dismiss": "dismiss",
     "searching": "Searching...",
@@ -240,7 +239,6 @@
     "noRoomsHereYet": "No rooms here yet",
     "createOrJoin": "Create or join",
     "reorderRooms": "Reorder rooms",
-    "dms": "DMs",
     "spaces": "Spaces",
     "you": "You",
     "newRoom": "New room",
@@ -1052,7 +1050,6 @@
     "decryptWaitingForKey": "Waiting for the key for this message",
     "verificationRequest": "Requested identity verification",
     "editing": "Editing message",
-    "uploading": "Uploading {{name}}...",
     "typingMany": "Several people are typing...",
     "summary": {
       "image": "Image",
@@ -1166,7 +1163,6 @@
     "moreParticipants": "{{count}} more",
     "watchTogether": {
       "videoUnplayable": "This video can't be played here.",
-      "stopJustMe": "Stop watching (just you)",
       "stopForEveryone": "Stop for everyone",
       "stopConfirm": "Stop watching together for everyone?",
       "stopMessage": "This ends the video and clears the queue for everyone in the call.",
@@ -1175,7 +1171,6 @@
       "pasteLink": "Paste link",
       "invalidLink": "That doesn't look like a YouTube video link.",
       "joinNote": "Everyone in the call can join in. YouTube can see the IP address of each person who watches.",
-      "stopTogether": "Stop watching together",
       "name": "Watch Together",
       "title": "Watch a YouTube video together",
       "linkLabel": "YouTube link",
@@ -1254,7 +1249,6 @@
       "noResults": "No sounds found",
       "volume": "Soundboard volume"
     },
-    "volumeHint": "Tap to change their volume",
     "userScreen": "{{name}}'s screen",
     "empty": "No one is here yet",
     "inVoice": "{{count}} in voice",
@@ -1449,7 +1443,6 @@
     },
     "account": {
       "title": "Account",
-      "username": "Username",
       "displayName": "Display name",
       "displayNamePlaceholder": "Your display name",
       "logout": "Logout",
@@ -1911,7 +1904,6 @@
       "noMessages": "No matches in this room's loaded messages"
     },
     "switcher": {
-      "title": "Search",
       "noResults": "No rooms or DMs found",
       "prefixRooms": "rooms",
       "prefixDms": "DMs",
@@ -2010,10 +2002,8 @@
     "unignoreReloadBody": "Messages from {{name}} that were hidden while they were ignored only come back after a full reload. This can take a moment.",
     "message": "Message",
     "viewFullScreen": "View full screen",
-    "bannerSaveFailed": "Could not save banner: {{error}}",
     "removeBanner": "Remove banner",
     "removeBannerConfirm": "Remove your profile banner? This cannot be undone.",
-    "bannerRemoveFailed": "Could not remove banner: {{error}}",
     "removeMessages": "Remove messages",
     "removeMessagesConfirmTitle": "Remove recent messages by {{name}}",
     "removeMessagesConfirmBody_one": "You are about to remove {{count}} message by {{name}}. This will remove it permanently for everyone in the conversation. Do you wish to continue?",
@@ -2043,7 +2033,6 @@
     "action": "Update WizardChat"
   },
   "presence": {
-    "title": "Online status",
     "changeStatus": "Change status",
     "auto": "Auto",
     "online": "Online",
@@ -2070,11 +2059,8 @@
     "screenNumber": "Screen {{number}}"
   },
   "status": {
-    "title": "Status",
     "customStatus": "Custom status",
-    "none": "None set",
     "setCustomStatus": "Set a custom status",
-    "editCustomStatus": "Edit custom status",
     "clearStatus": "Clear status",
     "whatsUp": "What's up?",
     "placeholder": "Out for lunch, in the zone, ...",
