@@ -1339,7 +1339,7 @@ class CallManager {
         scope.launch { join(room, session, intent = if (call.voiceOnly) "audio" else "video", ring = false) }
     }
 
-    fun declineIncoming(@Suppress("UNUSED_PARAMETER") session: MatrixSession) = declineRinging()
+    fun declineIncoming() = declineRinging()
 
     fun dismissIncoming() {
         incoming?.let { stopAlerting(it) }

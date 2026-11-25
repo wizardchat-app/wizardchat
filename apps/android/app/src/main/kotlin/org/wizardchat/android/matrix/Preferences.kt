@@ -142,7 +142,6 @@ class AppPreferences(context: Context) {
 
     val roomAvatarSize: Dp get() = when (uiDensity) { Density.compact -> 32.dp; Density.default -> 44.dp; Density.spacious -> 52.dp }
     val roomRowPadding: Dp get() = when (uiDensity) { Density.compact -> 6.dp; Density.default -> 9.dp; Density.spacious -> 12.dp }
-    val spaceGap: Dp get() = when (uiDensity) { Density.compact -> 4.dp; Density.default -> 6.dp; Density.spacious -> 10.dp }
 
     fun reducesMotion(systemSetting: Boolean) = when (reducedMotion) {
         ReducedMotion.system -> systemSetting

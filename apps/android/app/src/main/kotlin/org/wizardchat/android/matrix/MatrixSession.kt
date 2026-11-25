@@ -215,8 +215,6 @@ class MatrixSession(private val scope: CoroutineScope = MainScope()) {
         }
     }
 
-    val hasPendingBrowserLogin get() = pendingLogin != null
-
     suspend fun finishBrowserLogin(callbackUrl: String) {
         val (login, folder, store) = pendingLogin
             ?: throw WizardError("expired", L10n.format("auth.popupClosed"))

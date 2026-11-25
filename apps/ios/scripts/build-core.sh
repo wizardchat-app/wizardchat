@@ -29,7 +29,7 @@ done
 # The bindings come from the library's metadata, read from a host build
 cargo build -p wizardchat-core-ffi --lib
 rm -rf "$OUT" && mkdir -p "$OUT/bindings" "$OUT/headers"
-cargo run -q -p wizardchat-core-ffi --features bindgen --bin uniffi-bindgen -- \
+cargo run -q -p uniffi-bindgen -- \
   generate --library "$ROOT/target/debug/libwizardchat_core_ffi.dylib" --language swift --out-dir "$OUT/bindings"
 cp "$OUT/bindings/"*.h "$ROOT/crates/denoise/include/wizardchat_denoise.h" "$OUT/headers/"
 awk '{ print } /header "wizardchat_core_ffiFFI.h"/ { sub(/header .*/, "header \"wizardchat_denoise.h\""); print }' \

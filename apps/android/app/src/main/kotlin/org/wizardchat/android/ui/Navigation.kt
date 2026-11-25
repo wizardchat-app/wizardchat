@@ -317,9 +317,3 @@ fun ConfirmDialog(
         },
     )
 }
-
-/** Full-size screen container in the app's background colour */
-@Composable
-fun ScreenColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxSize().background(theme.bgPrimary), verticalArrangement = Arrangement.Top, content = content)
-}

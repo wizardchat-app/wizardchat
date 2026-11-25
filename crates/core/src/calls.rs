@@ -842,37 +842,6 @@ impl WizardClient {
         )
     }
 
-    /// Calls `on_members` with the room's call members now and whenever they change.
-    pub async fn watch_call_members(
-        &self,
-        room_id: &str,
-        mut on_members: impl FnMut(Vec<CallMember>),
-    ) -> Result<()> {
-        let room = self.room(room_id)?;
-        let own = self.own_device();
-        let mut info = room.subscribe_info();
-        let mut last = None;
-        // Memberships also expire with time, so look again now and then
-        let changes = stream::select(
-            (&mut info).map(|_| ()),
-            stream::unfold((), |_| async {
-                sleep(Duration::from_secs(10)).await;
-                Some(((), ()))
-            }),
-        );
-        futures_util::pin_mut!(changes);
-        loop {
-            let members = call_members_of(&room, own.clone(), true).await?;
-            if last.as_ref() != Some(&members) {
-                on_members(members.clone());
-                last = Some(members);
-            }
-            if changes.next().await.is_none() {
-                return Ok(());
-            }
-        }
-    }
-
     /// A token for a LiveKit service, for this device in this room's call. Prefer
     /// `CallSession::sfu_config` while in the call.
     pub async fn sfu_config(&self, room_id: &str, service_url: &str) -> Result<SfuConfig> {

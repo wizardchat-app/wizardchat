@@ -160,15 +160,6 @@ private fun RowFrame(
     )
 }
 
-/** A label (with an optional note) and a control at the end */
-@Composable
-internal fun SettingRow(label: String, note: String? = null, control: @Composable RowScope.() -> Unit) {
-    RowFrame {
-        RowLabel(label, note, Modifier.weight(1f))
-        control()
-    }
-}
-
 @Composable
 internal fun ToggleRow(
     label: String,

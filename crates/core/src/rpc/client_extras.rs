@@ -4,10 +4,10 @@ use serde_json::Value;
 
 use super::{Bytes, Handle, Listener, Obj, Subscription};
 use crate::{
-    CallMember, CallSession, IncomingCall, IncomingCallEvent, Notification, PushedEvent,
-    PusherConfig, QrLoginControl, QrLoginStatus, RedactedEvent, ResolvedAlias, RoomSection,
-    RoomSoundPacks, RoomTag, ServerFeatures, SfuConfig, SoundCredit, SoundPack, SoundboardSound,
-    SpaceNode, StateChange, WizardClient,
+    CallSession, IncomingCall, IncomingCallEvent, Notification, PushedEvent, PusherConfig,
+    QrLoginControl, QrLoginStatus, RedactedEvent, ResolvedAlias, RoomSection, RoomSoundPacks,
+    RoomTag, ServerFeatures, SfuConfig, SoundCredit, SoundPack, SoundboardSound, SpaceNode,
+    StateChange, WizardClient,
 };
 
 rpc_methods! {
@@ -90,10 +90,6 @@ rpc_methods! {
             this.set_room_section(&room_id, tag).await
         }
 
-        call fn roomAccountData(room_id: String, event_type: String) -> Option<Value> {
-            this.room_account_data(&room_id, &event_type).await
-        }
-
         call fn setRoomAccountData(room_id: String, event_type: String, content: Value) -> () {
             this.set_room_account_data(&room_id, &event_type, content).await
         }
@@ -141,19 +137,6 @@ rpc_methods! {
         /// The recent call log (every call, the media side included), for bug reports
         call fn callLog() -> String {
             Ok(this.call_log())
-        }
-
-        call fn callMembers(room_id: String) -> Vec<CallMember> {
-            this.call_members(&room_id).await
-        }
-
-        /// Calls `listener` with the room's call members now and on every change.
-        watch fn watchCallMembers(room_id: String, listener: Listener<Vec<CallMember>>) -> Subscription {
-            Ok(listener.clone().watch(async move {
-                if let Err(error) = this.watch_call_members(&room_id, |m| listener.emit(&m)).await {
-                    tracing::error!("call members stream failed: {error}");
-                }
-            }))
         }
 
         call fn soundboardPacks(room_id: Option<String>) -> Vec<SoundPack> {

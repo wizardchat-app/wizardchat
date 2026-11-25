@@ -216,7 +216,6 @@ final class TimelineModel: ObservableObject {
     let client: WizardClient
     let roomId: String
     private let kind: TimelineKind
-    var isThread: Bool { if case .thread = kind { true } else { false } }
     private let onlyTypes: Set<ChatEntry.ContentType>?
     private var timeline: RoomTimeline?
     private var items: [TimelineEntry] = []
@@ -366,12 +365,6 @@ final class TimelineModel: ObservableObject {
     func sendNotice(_ text: String, replyTo: String? = nil) async {
         guard let timeline else { return }
         await report { try await timeline.sendMessage(kind: .notice, body: text, replyTo: replyTo) }
-    }
-
-    func sendPlain(_ text: String, replyTo: String? = nil) async {
-        guard let timeline else { return }
-        let escaped = text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-        await report { try await timeline.sendHtml(body: text, html: escaped, replyTo: replyTo) }
     }
 
     func edit(_ entry: ChatEntry, newText: String, html: String? = nil, mentions: Mentions? = nil) async {

@@ -315,35 +315,12 @@ struct SettingsSection<Content: View>: View {
     }
 }
 
-struct SettingsCard<Content: View>: View {
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        SettingsSection(content: content)
-    }
-}
-
 extension View {
     func settingsCard() -> some View { self }
 }
 
 struct SettingsDivider: View {
     var body: some View { EmptyView() }
-}
-
-struct SettingRow<Control: View>: View {
-    let label: LocalizedStringKey
-    var note: LocalizedStringKey?
-    @ViewBuilder let control: () -> Control
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        HStack(spacing: WZ.Space.space5) {
-            RowLabel(label: label, note: note)
-            Spacer(minLength: 8)
-            control()
-        }
-    }
 }
 
 private struct RowLabel: View {

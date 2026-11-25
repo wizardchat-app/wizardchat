@@ -2371,13 +2371,6 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.setRoomSection', this, [roomId, tag]) as Promise<void>;
   }
 
-  roomAccountData(roomId: string, eventType: string): Promise<JsonValue | null> {
-    return runtime.call('WizardClient.roomAccountData', this, [
-      roomId,
-      eventType,
-    ]) as Promise<JsonValue | null>;
-  }
-
   setRoomAccountData(roomId: string, eventType: string, content: JsonValue): Promise<void> {
     return runtime.call('WizardClient.setRoomAccountData', this, [
       roomId,
@@ -2431,15 +2424,6 @@ export class WizardClient extends Remote {
   /** The recent call log (every call, the media side included), for bug reports */
   callLog(): Promise<string> {
     return runtime.call('WizardClient.callLog', this, []) as Promise<string>;
-  }
-
-  callMembers(roomId: string): Promise<Array<CallMember>> {
-    return runtime.call('WizardClient.callMembers', this, [roomId]) as Promise<Array<CallMember>>;
-  }
-
-  /** Calls `listener` with the room's call members now and on every change. */
-  watchCallMembers(roomId: string, listener: (value: Array<CallMember>) => void): Subscription {
-    return runtime.watch('WizardClient.watchCallMembers', this, [roomId, listener], Subscription);
   }
 
   soundboardPacks(roomId?: string | null): Promise<Array<SoundPack>> {
@@ -3242,10 +3226,6 @@ export class CallSession extends Remote {
 
   identity(): string {
     return this.props['identity'] as string;
-  }
-
-  logId(): string {
-    return this.props['logId'] as string;
   }
 
   /** Whether joining rang the others: show "calling..." until someone answers */

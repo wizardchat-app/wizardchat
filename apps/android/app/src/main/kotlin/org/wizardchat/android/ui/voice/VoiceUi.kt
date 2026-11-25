@@ -552,7 +552,7 @@ private fun IncomingCallCard(call: RingingCall) {
             )
         }
         RoundIconButton("phone-x", tr("common.decline"), background = theme.danger, tint = theme.textOnAccent, onClick = {
-            calls.declineIncoming(session)
+            calls.declineIncoming()
         })
         RoundIconButton(
             if (call.voiceOnly) "phone" else "video-camera",

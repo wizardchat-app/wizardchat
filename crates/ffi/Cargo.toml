@@ -10,11 +10,6 @@ publish = false
 crate-type = ["staticlib", "cdylib", "rlib"]
 name = "wizardchat_core_ffi"
 
-[[bin]]
-name = "uniffi-bindgen"
-path = "uniffi-bindgen.rs"
-required-features = ["bindgen"]
-
 [dependencies]
 wizardchat-core = { path = "../core" }
 wizardchat-denoise = { path = "../denoise" }
@@ -29,6 +24,3 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 libsqlite3-sys = { version = "0.38", features = ["bundled"] }
 rustls-platform-verifier = "0.7"
 jni = "0.22"
-
-[features]
-bindgen = ["uniffi/cli"]

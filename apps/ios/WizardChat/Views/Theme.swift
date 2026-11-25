@@ -280,7 +280,6 @@ struct WizardTheme {
 
     static let radiusSm = WZ.Radius.sm
     static let radiusMd = WZ.Radius.md
-    static let radiusLg = WZ.Radius.xl
 
     static let `default` = WizardTheme(.default)
 }

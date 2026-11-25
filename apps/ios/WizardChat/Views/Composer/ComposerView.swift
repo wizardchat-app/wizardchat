@@ -165,19 +165,6 @@ struct ComposerView: View {
         }
     }
 
-    private func bubble(_ image: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(image)
-                .font(.system(size: WZ.SizeIcon.md, weight: .medium))
-                .foregroundStyle(theme.textPrimary)
-                .frame(width: WZ.Size.composerMin, height: WZ.Size.composerMin)
-                .floatingGlass(in: Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .transition(.scale.combined(with: .opacity))
-    }
-
     private var stickerBubble: some View {
         Button { pickerTab = .stickers } label: {
             Image("Sticker")

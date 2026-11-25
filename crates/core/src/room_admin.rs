@@ -4,7 +4,6 @@
 
 use matrix_sdk::{
     deserialized_responses::RawAnySyncOrStrippedState,
-    room::RoomMemberRole,
     ruma::{
         api::client::{
             alias::{create_alias, delete_alias},
@@ -619,22 +618,6 @@ impl WizardClient {
         Ok(())
     }
 
-    /// The highest role a member can be given (own level), for role pickers.
-    pub async fn suggested_role(&self, room_id: &str, user_id: &str) -> Result<String> {
-        let member = self
-            .room(room_id)?
-            .get_member(parse_user_id(user_id)?)
-            .await?
-            .ok_or_else(|| Error::InvalidId("not a member".into()))?;
-        Ok(match member.suggested_role_for_power_level() {
-            RoomMemberRole::Creator => "creator",
-            RoomMemberRole::Administrator => "admin",
-            RoomMemberRole::Moderator => "moderator",
-            RoomMemberRole::User => "user",
-        }
-        .to_owned())
-    }
-
     /// One state event's content from the server, if set.
     pub async fn state_event(
         &self,
@@ -918,18 +901,6 @@ impl WizardClient {
         info.order = order;
         self.room(room_id)?.set_tag(TagName::Favorite, info).await?;
         Ok(())
-    }
-
-    /// Per-room account data (e.g. `org.matrix.msc3230.space_order` on a space).
-    pub async fn room_account_data(
-        &self,
-        room_id: &str,
-        event_type: &str,
-    ) -> Result<Option<Value>> {
-        let raw = self.room(room_id)?.account_data(event_type.into()).await?;
-        Ok(raw
-            .and_then(|raw| raw.deserialize_as_unchecked::<Value>().ok())
-            .and_then(|event| event.get("content").cloned()))
     }
 
     pub async fn set_room_account_data(

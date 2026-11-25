@@ -3676,10 +3676,6 @@ public final class WizardClient: Remote, @unchecked Sendable {
         _ = try await call("WizardClient.setRoomSection", [.value(roomId), .value(tag)]) as Empty
     }
 
-    public func roomAccountData(roomId: String, eventType: String) async throws -> JSONValue? {
-        try await call("WizardClient.roomAccountData", [.value(roomId), .value(eventType)])
-    }
-
     public func setRoomAccountData(roomId: String, eventType: String, content: JSONValue) async throws {
         _ = try await call("WizardClient.setRoomAccountData", [.value(roomId), .value(eventType), .value(content)]) as Empty
     }
@@ -3726,16 +3722,6 @@ public final class WizardClient: Remote, @unchecked Sendable {
     /// The recent call log (every call, the media side included), for bug reports
     public func callLog() async throws -> String {
         try await call("WizardClient.callLog", [])
-    }
-
-    public func callMembers(roomId: String) async throws -> [CallMember] {
-        try await call("WizardClient.callMembers", [.value(roomId)])
-    }
-
-    /// Calls `listener` with the room's call members now and on every change.
-    @discardableResult
-    public func watchCallMembers(roomId: String, listener: @escaping @Sendable ([CallMember]) -> Void) -> Subscription {
-        watch("WizardClient.watchCallMembers", [.value(roomId), .listener([CallMember].self, listener)])
     }
 
     public func soundboardPacks(roomId: String? = nil) async throws -> [SoundPack] {
@@ -4279,10 +4265,6 @@ public final class CallSession: Remote, @unchecked Sendable {
 
     public var identity: String {
         prop("identity")
-    }
-
-    public var logId: String {
-        prop("logId")
     }
 
     /// Whether joining rang the others: show "calling..." until someone answers

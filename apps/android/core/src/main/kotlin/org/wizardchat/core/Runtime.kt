@@ -358,6 +358,3 @@ class RoomListSubscription(listener: Long) : Subscription(listener) {
 
 /** Reads the JSON a generated `JsonElement` field holds */
 inline fun <reified T> JsonElement.decode(): T = CoreJson.decodeFromJsonElement(this)
-
-/** The JSON for a value, e.g. to store it in a `JsonElement` field */
-inline fun <reified T> T.toJson(): JsonElement = CoreJson.encodeToJsonElement(this)

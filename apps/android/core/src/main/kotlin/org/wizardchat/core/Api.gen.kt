@@ -2542,9 +2542,6 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
         Runtime.callUnit("WizardClient.setRoomSection", handle, listOf(Arg.value<String>(roomId), Arg.value<String?>(tag)))
     }
 
-    suspend fun roomAccountData(roomId: String, eventType: String): JsonElement? =
-        Runtime.call("WizardClient.roomAccountData", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventType)))
-
     suspend fun setRoomAccountData(roomId: String, eventType: String, content: JsonElement) {
         Runtime.callUnit("WizardClient.setRoomAccountData", handle, listOf(Arg.value<String>(roomId), Arg.value<String>(eventType), Arg.value<JsonElement>(content)))
     }
@@ -2584,13 +2581,6 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     /** The recent call log (every call, the media side included), for bug reports */
     suspend fun callLog(): String =
         Runtime.call("WizardClient.callLog", handle, listOf())
-
-    suspend fun callMembers(roomId: String): List<CallMember> =
-        Runtime.call("WizardClient.callMembers", handle, listOf(Arg.value<String>(roomId)))
-
-    /** Calls `listener` with the room's call members now and on every change. */
-    fun watchCallMembers(roomId: String, listener: (List<CallMember>) -> Unit): Subscription =
-        Runtime.watch("WizardClient.watchCallMembers", handle, listOf(Arg.value<String>(roomId), Arg.listener<List<CallMember>>(listener)), ::Subscription)
 
     suspend fun soundboardPacks(roomId: String? = null): List<SoundPack> =
         Runtime.call("WizardClient.soundboardPacks", handle, listOf(Arg.value<String?>(roomId)))
@@ -3036,9 +3026,6 @@ class CallSession(handle: Long, props: JsonObject) : Remote(handle, props) {
 
     val identity: String
         get() = prop("identity")
-
-    val logId: String
-        get() = prop("logId")
 
     /** Whether joining rang the others: show "calling..." until someone answers */
     val rang: Boolean

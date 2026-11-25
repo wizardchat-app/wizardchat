@@ -383,12 +383,6 @@ class TimelineModel(
         report { timeline.sendMessage(MessageKind.notice, text, replyTo = replyTo) }
     }
 
-    suspend fun sendPlain(text: String, replyTo: String? = null) {
-        val timeline = timeline ?: return
-        val escaped = text.replace("&", "&amp;").replace("<", "&lt;")
-        report { timeline.sendHtml(text, escaped, replyTo) }
-    }
-
     suspend fun edit(entry: ChatEntry, newText: String, html: String? = null, mentions: Mentions? = null) {
         val timeline = timeline ?: return
         val itemKey = entry.itemKey ?: return

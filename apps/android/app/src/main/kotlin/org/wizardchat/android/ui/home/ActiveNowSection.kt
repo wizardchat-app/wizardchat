@@ -48,9 +48,6 @@ import org.wizardchat.android.ui.L10n
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.tokens.WZ
 
-private const val FACE_LIMIT = 4
-private const val NAME_LIMIT = 2
-
 private data class ActivePerson(val userId: String, val name: String?, val avatarUrl: String?, val known: Boolean)
 
 private data class ActiveCard(val room: RoomSummary, val people: List<ActivePerson>, val knownCount: Int, val includesMe: Boolean)

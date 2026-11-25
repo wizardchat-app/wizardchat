@@ -145,7 +145,6 @@ final class AppPreferences: ObservableObject {
 
     var roomAvatarSize: CGFloat { [Density.compact: 32, .default: 44, .spacious: 52][uiDensity]! }
     var roomRowPadding: CGFloat { [Density.compact: 6, .default: 9, .spacious: 12][uiDensity]! }
-    var spaceGap: CGFloat { [Density.compact: 4, .default: 6, .spacious: 10][uiDensity]! }
 
     func reducesMotion(systemSetting: Bool) -> Bool {
         switch reducedMotion {

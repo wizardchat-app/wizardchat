@@ -18,10 +18,6 @@ rpc_methods! {
             Ok(this.identity().to_owned())
         }
 
-        prop fn logId() -> String {
-            Ok(this.log_id().to_owned())
-        }
-
         /// Whether joining rang the others: show "calling..." until someone answers
         prop fn rang() -> bool {
             Ok(this.rang())
