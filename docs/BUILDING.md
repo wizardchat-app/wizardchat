@@ -40,6 +40,8 @@ everything. Only when all builds pass does it publish, and the tag is created la
   (`WizardChat_<version>_arm64_foss.apk`). Both also go to a fixed link per channel
   (`wizardchat-desktop/<channel>/WizardChat_arm64.apk` and `..._foss.apk`), which Obtainium can follow, since it can't
   tell next releases from stable ones on the releases page
+- uploads the `gplay` bundle to Google Play (`publish-play` in `.gitlab/ci/mobile.yml`, `.gitlab/scripts/play-upload.py`),
+  to the track in `PLAY_TRACK` for the channel (both on `alpha`, closed testing, for now), with fixed release notes
 - with a stable release, rebuilds our own F-Droid repository (`.gitlab/ci/fdroid.yml`, `.gitlab/scripts/fdroid-repo.sh`)
   and publishes it on the project's GitLab Pages: the Google-free APK of this and the previous two stable releases, the
   metadata from `packaging/fdroid/` and the store screenshots, signed with the repository key
@@ -77,6 +79,13 @@ Android release builds are signed with the key in `apps/android/keystore.propert
 `keyAlias`, `keyPassword`; not committed), and are debug-signed without it. `npm run android:bundle` builds the bundle for
 Google Play. In CI, the APK is signed with the same key, from the masked variables `ANDROID_KEYSTORE_BASE64` (the
 keystore, `base64 -i wizardchat-release.jks`) and `ANDROID_KEYSTORE_PASSWORD`; the job fails without them.
+
+Google Play re-signs the bundle with its app signing key; ours is the upload key. The Play upload uses a Google Cloud
+service account with the Google Play Android Developer API enabled, invited in Play Console under **Users and
+permissions** with **Release apps to testing tracks** for WizardChat only. Its JSON key goes base64-encoded into the
+masked, protected variable `PLAY_SERVICE_ACCOUNT_JSON_BASE64` (`base64 -i key.json | tr -d '\n'`); without it, the
+upload is skipped. Releasing to production needs **Release to production, exclude devices, and use Play App Signing**
+and `PLAY_TRACK: production`. To upload without rolling out, run the pipeline with `PLAY_RELEASE_STATUS=draft`.
 
 Both build the `gplay` flavor, which gets push notifications through Firebase. Its config in
 `apps/android/app/src/gplay/res/values/firebase.xml` comes from the Firebase project's `google-services.json`. The
