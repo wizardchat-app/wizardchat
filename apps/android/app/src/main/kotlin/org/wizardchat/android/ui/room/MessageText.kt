@@ -4,9 +4,11 @@ import android.icu.lang.UCharacter
 import android.icu.lang.UProperty
 import android.net.Uri
 import android.os.Build
+import android.text.SpannableString
 import android.text.format.DateFormat
 import android.text.format.Formatter
-import android.util.Patterns
+import android.text.style.URLSpan
+import android.text.util.Linkify
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -57,16 +59,16 @@ object MessageText {
     private data class Match(val start: Int, val end: Int, val url: String)
 
     private fun links(text: String): List<Match> {
-        val matcher = Patterns.WEB_URL.matcher(text)
-        val result = mutableListOf<Match>()
-        while (matcher.find()) {
-            val raw = matcher.group()
-            // Plain words with a dot ("e.g") aren't links; only a scheme or a host-like shape counts
-            val url = if (raw.contains("://")) raw else if (raw.contains('.') && !raw.startsWith(".")) "https://$raw" else continue
-            if (!raw.contains("://") && text.getOrNull(matcher.start() - 1) == '@') continue
-            result += Match(matcher.start(), matcher.end(), url)
-        }
-        return result
+        val spannable = SpannableString(text)
+        if (!Linkify.addLinks(spannable, Linkify.WEB_URLS)) return emptyList()
+        return spannable.getSpans(0, spannable.length, URLSpan::class.java)
+            .map { span ->
+                val start = spannable.getSpanStart(span)
+                val end = spannable.getSpanEnd(span)
+                val raw = text.substring(start, end)
+                Match(start, end, if (raw.contains("://")) raw else span.url.replaceFirst("http://", "https://"))
+            }
+            .sortedBy { it.start }
     }
 
     /**
