@@ -38,7 +38,6 @@ private struct StoredAccounts: Codable {
 enum SessionStore {
     private static let service = "org.wizardchat.ios.session"
     private static let accountsKey = "accounts"
-    private static let legacyKey = "core"
     private static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.ios"
     static let appProcess = "main"
     static let extensionProcess = "nse"
@@ -90,12 +89,6 @@ enum SessionStore {
     private static func read() -> StoredAccounts {
         if let data = item(accountsKey), let state = try? JSONDecoder().decode(StoredAccounts.self, from: data) {
             return state
-        }
-        if let data = item(legacyKey), let legacy = try? JSONDecoder().decode(StoredSession.self, from: data) {
-            let migrated = StoredAccounts(active: legacy.session.userId, accounts: [legacy])
-            write(migrated)
-            if item(accountsKey) != nil { deleteItem(legacyKey) }
-            return migrated
         }
         return StoredAccounts(active: nil, accounts: [])
     }
@@ -149,16 +142,6 @@ enum SessionStore {
             ] as CFDictionary)
         }
         return data
-    }
-
-    private static func deleteItem(_ account: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecAttrAccessGroup as String: group,
-        ]
-        SecItemDelete(query as CFDictionary)
     }
 
     /// A copy of the account's own avatar, saved while it's active: the switcher can't always reach

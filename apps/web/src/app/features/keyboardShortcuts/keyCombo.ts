@@ -24,30 +24,8 @@ export function modifierOfCode(code: string): Modifier | null {
   return MODIFIER_CODES[code] ?? null;
 }
 
-const LEGACY_CHAR_CODES: Record<string, string> = {
-  ' ': 'Space',
-  '`': 'Backquote',
-  '-': 'Minus',
-  '=': 'Equal',
-  '[': 'BracketLeft',
-  ']': 'BracketRight',
-  '\\': 'Backslash',
-  ';': 'Semicolon',
-  "'": 'Quote',
-  ',': 'Comma',
-  '.': 'Period',
-  '/': 'Slash',
-};
-
-function legacyKeyToCode(key: string): string {
-  if (/^[a-z]$/i.test(key)) return `Key${key.toUpperCase()}`;
-  if (/^[0-9]$/.test(key)) return `Digit${key}`;
-  return LEGACY_CHAR_CODES[key] ?? key;
-}
-
 export function parseCombo(value: string | undefined | null): KeyCombo | null {
   if (!value) return null;
-  if (value.length === 1) return { modifiers: [], code: legacyKeyToCode(value) };
   const parts = value.split('+');
   const code = parts[parts.length - 1];
   if (!code) return null;

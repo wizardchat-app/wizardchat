@@ -54,7 +54,6 @@ private data class StoredAccounts(
 object SessionStore {
     private const val KEY_ALIAS = "org.wizardchat.session"
     private val file: File get() = File(WizardApplication.instance.filesDir, "accounts.bin")
-    private val legacyFile: File get() = File(WizardApplication.instance.filesDir, "session.bin")
 
     fun all(): List<StoredSession> = read().accounts
 
@@ -115,18 +114,10 @@ object SessionStore {
         write(StoredAccounts(active, accounts))
     }
 
-    private fun read(): StoredAccounts {
-        decrypt(file)?.let { json ->
-            runCatching { return CoreJson.decodeFromString(StoredAccounts.serializer(), json) }
-        }
-        val legacy = decrypt(legacyFile)
-            ?.let { runCatching { CoreJson.decodeFromString(StoredSession.serializer(), it) }.getOrNull() }
-            ?: return StoredAccounts()
-        val migrated = StoredAccounts(legacy.session.userId, listOf(legacy))
-        write(migrated)
-        if (file.exists()) legacyFile.delete()
-        return migrated
-    }
+    private fun read(): StoredAccounts =
+        decrypt(file)
+            ?.let { runCatching { CoreJson.decodeFromString(StoredAccounts.serializer(), it) }.getOrNull() }
+            ?: StoredAccounts()
 
     private fun write(state: StoredAccounts) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")

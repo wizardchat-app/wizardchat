@@ -33,7 +33,6 @@ export const STORAGE_KEY_HIDDEN_MEDIA = 'wz_hidden_media';
 export const STORAGE_KEY_THREAD_PANEL_WIDTH = 'wz_thread_panel_width';
 export const STORAGE_KEY_ROOM_LIST_WIDTH = 'wz_room_list_width';
 export const STORAGE_KEY_MEMBERS_PANEL_WIDTH = 'wz_members_panel_width';
-export const STORAGE_KEY_GIF_FAVOURITES = 'wz_gif_favourites';
 export const STORAGE_KEY_GIF_SEARCH_CONSENT = 'wz_gif_search_consent';
 export const STORAGE_KEY_YOUTUBE_CONSENT = 'wz_youtube_consent';
 export const STORAGE_KEY_CALL_SERVER = 'wz_call_server';

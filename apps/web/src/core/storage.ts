@@ -3,7 +3,6 @@ import { deleteDesktopStore, isDesktop } from '@/bridge/desktop';
 import { STORAGE_KEY_ACTIVE_ACCOUNT } from '@/const/storageKeys';
 
 export const ACCOUNTS_KEY = 'wizardchat.accounts';
-const LEGACY_ACCOUNT_KEY = 'wizardchat.account';
 
 export interface StoredAccount {
   session: Session;
@@ -19,17 +18,6 @@ function read(): AccountsState {
   try {
     const raw = localStorage.getItem(ACCOUNTS_KEY);
     if (raw) return JSON.parse(raw) as AccountsState;
-    const legacy = localStorage.getItem(LEGACY_ACCOUNT_KEY);
-    if (legacy) {
-      const account = JSON.parse(legacy) as StoredAccount;
-      const migrated = {
-        active: account.session.userId,
-        accounts: { [account.session.userId]: account },
-      };
-      write(migrated);
-      localStorage.removeItem(LEGACY_ACCOUNT_KEY);
-      return migrated;
-    }
   } catch {
     // Unreadable storage is treated as signed out
   }
