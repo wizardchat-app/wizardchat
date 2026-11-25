@@ -7,8 +7,8 @@
 | iOS     | `npm run ios:build`     | `apps/ios/build/Build/Products/Release-iphoneos/WizardChat.app`          |
 | Android | `npm run android:build` | `apps/android/app/build/outputs/apk/gplay/release/app-gplay-release.apk` |
 
-For TestFlight and the App Store, `npm run ios:release` builds the release core and opens Xcode: choose **Any iOS
-Device**, then **Product -> Archive** and **Distribute App**. Raise the version in `package.json` first, since the build
+Releases upload to TestFlight from CI. To upload by hand, `npm run ios:release` builds the release core and opens
+Xcode: choose **Any iOS Device**, then **Product -> Archive** and **Distribute App**. Raise the version in `package.json` first, since the build
 number comes from it and App Store Connect rejects one it already has.
 
 ## Releases
@@ -45,7 +45,9 @@ everything. Only when all builds pass does it publish, and the tag is created la
 - with a stable release, rebuilds our own F-Droid repository (`.gitlab/ci/fdroid.yml`, `.gitlab/scripts/fdroid-repo.sh`)
   and publishes it on the project's GitLab Pages: the Google-free APK of this and the previous two stable releases, the
   metadata from `packaging/fdroid/` and the store screenshots, signed with the repository key
-- builds an unsigned iOS `.ipa` for sideloading and lists it with the installers. The SideStore / AltStore source
+- archives the iOS app and uploads it to TestFlight (`.gitlab/scripts/build-ios.sh`, `apps/ios/Config/ExportOptions.plist`);
+  testers get it once it's added to their TestFlight group
+- builds an iOS `.ipa` for sideloading and lists it with the installers. The SideStore / AltStore source
   (`wizardchat-desktop/<channel>/sidestore.json`, from `.gitlab/scripts/sidestore-source.mjs`) lists it with every
   earlier release's: stable releases go to both channels' sources, next releases only to next
 - creates the tag and the GitLab release with the notes from the commits and the installers
@@ -74,6 +76,10 @@ CI reads the certificate from `APPLE_CERTIFICATE` (the `.p12`, base64) and `APPL
 an App Store Connect API key for notarization from `APPLE_API_KEY` (key ID), `APPLE_API_ISSUER` and `APPLE_API_KEY_P8`
 (the `.p8`, base64). They're protected variables, so only pipelines of protected branches like `main` and protected tags get them. Without them, the app
 is signed ad hoc and macOS asks people to allow it in **System Settings -> Privacy & Security**.
+
+The iOS build signs with the same API key: Xcode's automatic signing with Apple's cloud-managed distribution
+certificate, which needs a key with the **Admin** role. It may add an Apple Development certificate to the team now and
+then, which can be revoked. Without the key, the iOS build is unsigned and nothing goes to TestFlight.
 
 Android release builds are signed with the key in `apps/android/keystore.properties` (`storeFile`, `storePassword`,
 `keyAlias`, `keyPassword`; not committed), and are debug-signed without it. `npm run android:bundle` builds the bundle for

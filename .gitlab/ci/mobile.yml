@@ -60,7 +60,7 @@ build-android:
       - target/play/WizardChat.aab
     expire_in: 1 day
 
-# An unsigned IPA for sideloading (SideStore, AltStore and the like sign it on the device)
+# The TestFlight upload and an IPA for sideloading (SideStore, AltStore and the like re-sign it on the device)
 build-ios:
   stage: build
   extends: [.release-rules, .rust-cache]
@@ -75,10 +75,7 @@ build-ios:
     - npm run assets
     - apps/ios/scripts/build-core.sh --device-only
     - cd apps/ios && xcodegen generate
-    - xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Release -destination generic/platform=iOS -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= -quiet build
-    - mkdir -p Payload "$CI_PROJECT_DIR/target/ios"
-    - cp -R build/Build/Products/Release-iphoneos/WizardChat.app Payload/
-    - zip -qry "$CI_PROJECT_DIR/target/ios/WizardChat_$(node -p "require('../../package.json').version").ipa" Payload
+    - sh "$CI_PROJECT_DIR/.gitlab/scripts/build-ios.sh"
     - sccache --show-stats
   artifacts:
     paths:

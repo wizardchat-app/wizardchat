@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 import sys
 
 from google.auth.transport.requests import AuthorizedSession
@@ -29,6 +30,13 @@ def main():
         return response.json()
 
     edit = call("POST", f"{API}/edits", json={})["id"]
+    major, minor, patch, next_ = re.match(r"(\d+)\.(\d+)\.(\d+)(?:-next\.(\d+))?", version).groups()
+    expected_code = int(major) * 1_000_000 + int(minor) * 10_000 + int(patch) * 100 + int(next_ or 99)
+    uploaded = {int(b["versionCode"]) for b in call("GET", f"{API}/edits/{edit}/bundles").get("bundles", [])}
+    if expected_code in uploaded:
+        session.delete(f"{API}/edits/{edit}", timeout=60)
+        print(f"Version code {expected_code} ({version}) is already on Google Play, nothing to upload")
+        return
     with open(sys.argv[1], "rb") as bundle:
         version_code = call(
             "POST",
