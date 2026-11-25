@@ -86,6 +86,8 @@ const RING_LIFETIME_MS: u64 = 30_000;
 const RING_TIMEOUT_MS: u64 = 45_000;
 /// A key shared this recently is handed to new joiners instead of rotating
 const KEY_ROTATION_GRACE_MS: u64 = 10_000;
+const KEY_RETRY_MS: u64 = 1_000;
+const KEY_RETRY_MAX_MS: u64 = 30_000;
 /// Others need a moment to receive a new key before media is encrypted with it
 const KEY_USE_DELAY_MS: u64 = 1_000;
 
@@ -1234,14 +1236,13 @@ pub(crate) async fn incoming_call(
     })
 }
 
-/// A media key another device of the call sent this one. Keys only count when they arrived
-/// encrypted from the device they claim.
+/// A media key another device of the call sent this one, or why it doesn't count. Keys only
+/// count when they arrived encrypted from the device they claim.
 fn received_key(
     raw: &Raw<AnyToDeviceEvent>,
     info: Option<&EncryptionInfo>,
     room_id: &matrix_sdk::ruma::RoomId,
-) -> Option<CallEvent> {
-    let info = info?;
+) -> Option<Result<CallEvent, String>> {
     let event = raw.deserialize_as_unchecked::<Value>().ok()?;
     if event.get("type").and_then(Value::as_str) != Some(KEYS_EVENT) {
         return None;
@@ -1250,19 +1251,37 @@ fn received_key(
     if content.get("room_id").and_then(Value::as_str) != Some(room_id.as_str()) {
         return None;
     }
+    let sender = event.get("sender").and_then(Value::as_str).unwrap_or("?");
     let claimed = content
         .pointer("/member/claimed_device_id")
-        .and_then(Value::as_str)?;
-    if Some(claimed) != info.sender_device.as_ref().map(|d| d.as_str()) {
-        return None;
+        .and_then(Value::as_str);
+    let Some(info) = info else {
+        return Some(Err(format!(
+            "{sender}:{} unencrypted",
+            claimed.unwrap_or("?")
+        )));
+    };
+    let Some(claimed) = claimed else {
+        return Some(Err(format!("{} no claimed device", info.sender)));
+    };
+    let from = info.sender_device.as_ref().map(|d| d.as_str());
+    if Some(claimed) != from {
+        return Some(Err(format!(
+            "{}:{claimed} sent from device {}",
+            info.sender,
+            from.unwrap_or("unknown")
+        )));
     }
-    let index = content.pointer("/keys/index").and_then(Value::as_u64)?;
-    let key = content.pointer("/keys/key").and_then(Value::as_str)?;
-    Some(CallEvent::Key {
+    let index = content.pointer("/keys/index").and_then(Value::as_u64);
+    let key = content.pointer("/keys/key").and_then(Value::as_str);
+    let (Some(index), Some(key)) = (index, key) else {
+        return Some(Err(format!("{}:{claimed} malformed", info.sender)));
+    };
+    Some(Ok(CallEvent::Key {
         identity: format!("{}:{claimed}", info.sender),
         index: index as u32,
         key: key.to_owned(),
-    })
+    }))
 }
 
 /// The member's name as other clients show it: the user ID added when the name is ambiguous
@@ -1359,13 +1378,14 @@ struct OutboundKey {
     created_at: u64,
     /// (user, device, joined at)
     shared_with: Vec<(String, String, u64)>,
+    undelivered: Vec<(String, String, u64)>,
 }
 
 enum Input {
     Tick,
     Wake,
     MembersChanged,
-    Key(CallEvent),
+    Key(Result<CallEvent, String>, bool),
     Declined(String),
     Timeline(Value),
 }
@@ -1392,7 +1412,7 @@ pub struct CallSession {
 
 #[derive(Default)]
 struct EarlyKeys {
-    keys: Vec<CallEvent>,
+    keys: Vec<Result<CallEvent, String>>,
     guard: Option<EventHandlerDropGuard>,
 }
 
@@ -1775,14 +1795,14 @@ impl CallSession {
                 let room_id = room_id.clone();
                 async move {
                     if let Some(key) = received_key(&raw, encryption_info.as_ref(), &room_id) {
-                        let _ = key_sender.unbounded_send(Input::Key(key));
+                        let _ = key_sender.unbounded_send(Input::Key(key, false));
                     }
                 }
             }
         });
         let early = std::mem::take(&mut *self.early_keys.lock().unwrap());
         for key in early.keys {
-            let _ = key_sender.unbounded_send(Input::Key(key));
+            let _ = key_sender.unbounded_send(Input::Key(key, true));
         }
         drop(early.guard);
         let own_user = self.user_id.clone();
@@ -1875,6 +1895,8 @@ impl CallSession {
         let events = async {
             let mut last_members: Option<Vec<CallMember>> = None;
             let mut pending_own_key: Option<(u64, CallEvent)> = None;
+            // When to try again to reach members the key missed, and the current interval
+            let mut key_retry = (0, KEY_RETRY_MS);
             let mut others_seen = false;
             let mut declined: std::collections::HashSet<String> = std::collections::HashSet::new();
             // Raised hand reaction event id -> who raised it
@@ -1891,6 +1913,14 @@ impl CallSession {
                             .is_some_and(|(due, _)| *due <= now_ms())
                         {
                             on_event(pending_own_key.take().unwrap().1);
+                        }
+                        if encrypted && key_retry.0 <= now_ms() && self.has_undelivered_key() {
+                            if let Some(members) = last_members.as_deref() {
+                                let shared = self.share_key(members).await;
+                                self.use_own_key(shared, &mut pending_own_key, &mut on_event);
+                            }
+                            let interval = (key_retry.1 * 2).min(KEY_RETRY_MAX_MS);
+                            key_retry = (now_ms() + interval, interval);
                         }
                         let rung_at = self.state.lock().unwrap().rung_at;
                         if let Some(rung_at) = rung_at {
@@ -1921,18 +1951,13 @@ impl CallSession {
                                         members: members.clone(),
                                     });
                                     if encrypted {
-                                        match self.share_key(&members).await {
-                                            Ok(Some((event, delay))) => {
-                                                if delay {
-                                                    pending_own_key =
-                                                        Some((now_ms() + KEY_USE_DELAY_MS, event));
-                                                } else {
-                                                    on_event(event);
-                                                }
-                                            }
-                                            Ok(None) => {}
-                                            Err(e) => self.log("key.failed", e.to_string()),
-                                        }
+                                        let shared = self.share_key(&members).await;
+                                        self.use_own_key(
+                                            shared,
+                                            &mut pending_own_key,
+                                            &mut on_event,
+                                        );
+                                        key_retry = (now_ms() + KEY_RETRY_MS, KEY_RETRY_MS);
                                     }
                                     last_members = Some(members);
                                 }
@@ -1940,7 +1965,24 @@ impl CallSession {
                             Err(e) => self.log("members.failed", e.to_string()),
                         }
                     }
-                    Input::Key(event) => on_event(event),
+                    Input::Key(key, early) => {
+                        let early = if early { " early" } else { "" };
+                        match key {
+                            Ok(event) => {
+                                if let CallEvent::Key {
+                                    identity, index, ..
+                                } = &event
+                                {
+                                    self.log(
+                                        "key.received",
+                                        format!("{identity} index={index}{early}"),
+                                    );
+                                }
+                                on_event(event);
+                            }
+                            Err(why) => self.log("key.rejected", format!("{why}{early}")),
+                        }
+                    }
                     Input::Declined(user_id) => {
                         declined.insert(user_id.clone());
                         // In a group the ring goes on until everyone rung has declined
@@ -2352,40 +2394,50 @@ impl CallSession {
             .collect();
         let current = self.state.lock().unwrap().outbound.clone();
         let now = now_ms();
-        let (key, recipients, changed) = match current {
-            None => {
-                let key = OutboundKey {
-                    index: 0,
-                    key: random_key()?,
-                    created_at: now,
-                    shared_with: Vec::new(),
-                };
-                (key, targets.clone(), true)
-            }
-            Some(current) => {
+        let fresh = |index| -> Result<OutboundKey> {
+            Ok(OutboundKey {
+                index,
+                key: random_key()?,
+                created_at: now,
+                shared_with: Vec::new(),
+                undelivered: Vec::new(),
+            })
+        };
+        let (key, recipients, changed, reason) = match current {
+            None => (fresh(0)?, targets.clone(), true, "new"),
+            Some(mut current) => {
+                current.undelivered.retain(|t| targets.contains(t));
                 let left = current.shared_with.iter().any(|s| !targets.contains(s));
                 let joined: Vec<_> = targets
                     .iter()
-                    .filter(|t| !current.shared_with.contains(t))
+                    .filter(|t| {
+                        !current.shared_with.contains(t) && !current.undelivered.contains(t)
+                    })
                     .cloned()
                     .collect();
                 if left || (!joined.is_empty() && now - current.created_at >= KEY_ROTATION_GRACE_MS)
                 {
-                    let key = OutboundKey {
-                        index: (current.index + 1) % 256,
-                        key: random_key()?,
-                        created_at: now,
-                        shared_with: Vec::new(),
-                    };
-                    (key, targets.clone(), true)
+                    let reason = if left { "rotate.left" } else { "rotate.joined" };
+                    (
+                        fresh((current.index + 1) % 256)?,
+                        targets.clone(),
+                        true,
+                        reason,
+                    )
                 } else if !joined.is_empty() {
-                    (current, joined, false)
+                    let mut recipients = joined;
+                    recipients.extend(std::mem::take(&mut current.undelivered));
+                    (current, recipients, false, "joined")
+                } else if !current.undelivered.is_empty() {
+                    let recipients = std::mem::take(&mut current.undelivered);
+                    (current, recipients, false, "resend")
                 } else {
                     return Ok(None);
                 }
             }
         };
         let encoded = STANDARD.encode(key.key);
+        let mut delivered = Vec::new();
         if !recipients.is_empty() {
             let content = json!({
                 "keys": { "index": key.index, "key": encoded },
@@ -2398,37 +2450,70 @@ impl CallSession {
                 Raw::new(&content).map_err(call_error)?.cast_unchecked();
             let encryption = self.client.encryption();
             let mut devices = Vec::new();
-            for (user, device, _) in &recipients {
-                let (Ok(user), device) = (
-                    <&matrix_sdk::ruma::UserId>::try_from(user.as_str()),
-                    device.as_str(),
-                ) else {
+            let mut queried = Vec::new();
+            for target in &recipients {
+                let Ok(user) = <&matrix_sdk::ruma::UserId>::try_from(target.0.as_str()) else {
                     continue;
                 };
-                if let Ok(Some(device)) = encryption.get_device(user, device.into()).await {
-                    devices.push(device);
+                let device_id: &matrix_sdk::ruma::DeviceId = target.1.as_str().into();
+                let mut device = encryption.get_device(user, device_id).await.ok().flatten();
+                if device.is_none() && !queried.contains(&user) {
+                    queried.push(user);
+                    if let Err(e) = encryption.request_user_identity(user).await {
+                        self.log("key.query_failed", format!("{user}: {e}"));
+                    }
+                    device = encryption.get_device(user, device_id).await.ok().flatten();
+                }
+                if let Some(device) = device {
+                    devices.push((target, device));
                 }
             }
-            encryption
+            let failed = encryption
                 .encrypt_and_send_raw_to_device(
-                    devices.iter().collect(),
+                    devices.iter().map(|(_, d)| d).collect(),
                     KEYS_EVENT,
                     raw,
                     CollectStrategy::AllDevices,
                 )
                 .await
                 .map_err(call_error)?;
+            delivered = devices
+                .iter()
+                .filter(|(_, d)| {
+                    !failed
+                        .iter()
+                        .any(|(u, id)| u == d.user_id() && id == d.device_id())
+                })
+                .map(|(t, _)| (*t).clone())
+                .collect();
+            let names = |list: &mut dyn Iterator<Item = &(String, String, u64)>| {
+                list.map(|(u, d, _)| format!("{u}:{d}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            self.log(
+                "key.sent",
+                format!(
+                    "index={} reason={reason} to=[{}] missed=[{}]",
+                    key.index,
+                    names(&mut delivered.iter()),
+                    names(&mut recipients.iter().filter(|t| !delivered.contains(t))),
+                ),
+            );
         }
         let mut shared = key.clone();
-        shared.shared_with.extend(recipients);
-        let delay = changed && !shared.shared_with.is_empty();
-        let recipients = shared.shared_with.len();
+        shared.undelivered.extend(
+            recipients
+                .iter()
+                .filter(|t| !delivered.contains(t))
+                .cloned(),
+        );
+        shared.shared_with.extend(delivered);
+        let delay = changed && !recipients.is_empty();
+        let count = shared.shared_with.len();
         self.state.lock().unwrap().outbound = Some(shared);
         if changed {
-            self.log(
-                "key",
-                format!("new index={} recipients={recipients}", key.index),
-            );
+            self.log("key", format!("new index={} recipients={count}", key.index));
         }
         Ok(changed.then(|| {
             (
@@ -2440,6 +2525,29 @@ impl CallSession {
                 delay,
             )
         }))
+    }
+
+    fn use_own_key(
+        &self,
+        shared: Result<Option<(CallEvent, bool)>>,
+        pending: &mut Option<(u64, CallEvent)>,
+        on_event: &mut impl FnMut(CallEvent),
+    ) {
+        match shared {
+            Ok(Some((event, true))) => *pending = Some((now_ms() + KEY_USE_DELAY_MS, event)),
+            Ok(Some((event, false))) => on_event(event),
+            Ok(None) => {}
+            Err(e) => self.log("key.failed", e.to_string()),
+        }
+    }
+
+    fn has_undelivered_key(&self) -> bool {
+        self.state
+            .lock()
+            .unwrap()
+            .outbound
+            .as_ref()
+            .is_some_and(|k| !k.undelivered.is_empty())
     }
 
     /// Rings the others again (when nobody answered); returns false when someone is in the call.

@@ -382,6 +382,32 @@ async fn main() -> Result<(), BoxError> {
     );
     println!("the caller hanging up ends the ring as missed");
 
+    eventually("A's second ring call to end", 40, async || {
+        a.call_members(&dm).await.is_ok_and(|m| m.is_empty())
+    })
+    .await?;
+    let caller = Arc::new(a.join_call_via(&dm, sfu, false, false).await?);
+    let (mut caller_events, _run_caller) = run(caller.clone());
+    let callee = Arc::new(c.join_call_via(&dm, sfu, false, false).await?);
+    let (mut callee_events, _run_callee) = run(callee.clone());
+    let caller_id = caller.identity().to_owned();
+    let callee_id = callee.identity().to_owned();
+    next_matching(
+        &mut callee_events,
+        "A's key at C",
+        |e| matches!(e, CallEvent::Key { identity, .. } if *identity == caller_id),
+    )
+    .await?;
+    next_matching(
+        &mut caller_events,
+        "C's key at A",
+        |e| matches!(e, CallEvent::Key { identity, .. } if *identity == callee_id),
+    )
+    .await?;
+    caller.leave().await?;
+    callee.leave().await?;
+    println!("two accounts exchange media keys though their devices were new to each other");
+
     let sounds = a.soundboard_sounds().await?;
     let urls = |list: &[wizardchat_core::SoundboardSound]| {
         list.iter().map(|s| s.url.clone()).collect::<Vec<_>>()
