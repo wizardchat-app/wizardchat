@@ -5,11 +5,6 @@ export function formatUserId(userId: string | null | undefined): string {
   return userId.split(':')[0].substring(1);
 }
 
-/** The other person of a direct chat */
-export function getDmPartnerId(room: RoomSummary): string | null {
-  return room.isDirect ? room.dmUserId : null;
-}
-
 export function isDmRoom(room: RoomSummary | null | undefined): boolean {
   return !!room?.isDirect;
 }

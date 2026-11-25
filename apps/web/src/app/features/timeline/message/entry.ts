@@ -3,10 +3,6 @@ import type { EntryContent, MediaInfo, TimelineEntry } from '@wizardchat/core';
 
 export type EventEntry = Extract<TimelineEntry, { kind: 'event' }>;
 export type TextEntryContent = Extract<EntryContent, { type: 'text' | 'notice' | 'emote' }>;
-export type MediaEntryContent = Extract<
-  EntryContent,
-  { type: 'image' | 'video' | 'audio' | 'file' | 'sticker' }
->;
 
 export function isEventEntry(entry: TimelineEntry): entry is EventEntry {
   return entry.kind === 'event';

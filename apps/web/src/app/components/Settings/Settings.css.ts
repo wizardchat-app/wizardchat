@@ -205,10 +205,6 @@ export const settingRow = style({
   gap: '16px',
 });
 
-export const settingRowClickable = style({
-  cursor: 'pointer',
-});
-
 export const settingInfo = style({
   display: 'flex',
   flexDirection: 'column',
@@ -404,12 +400,6 @@ const ellipsis = {
 export const accountCardName = style({ ...ellipsis, fontSize: '0.9rem', fontWeight: 600 });
 
 export const accountCardCaret = style({ flexShrink: 0, color: vars.color.textMuted });
-
-export const inlineActions = style({
-  display: 'flex',
-  gap: '8px',
-  flexShrink: 0,
-});
 
 export const navSearch = style({
   padding: '0 2px 6px',

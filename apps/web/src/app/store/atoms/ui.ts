@@ -46,12 +46,6 @@ export { syncStateAtom } from '@/app/data/atoms';
 
 export const connectionLostAtom = atom(false);
 
-// Connection banner
-export const connectionBannerAtom = atom<{
-  visible: boolean;
-  reconnected: boolean;
-}>({ visible: false, reconnected: false });
-
 // Toast notifications
 export interface Toast {
   id: string;
@@ -506,7 +500,6 @@ export interface RoomScrollState {
   atBottom: boolean;
   scrollTop?: number;
 }
-export const timelineScrollAtom = atom(new Map<string, RoomScrollState>());
 
 export const closedNavCategoriesAtom = atomWithAccountStorage<string[]>(
   STORAGE_KEY_CLOSED_NAV_CATEGORIES,

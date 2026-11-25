@@ -1,11 +1,6 @@
 import type { MessageLayout, Preferences } from '@/app/store/atoms';
 import { isCustomThemeList, type CustomTheme } from '@/theme/customTheme';
 import { legacyThemeSlot, slotKey } from '@/theme/themeSlots';
-import {
-  STORAGE_KEY_LANGUAGE,
-  STORAGE_KEY_MESSAGE_LAYOUT,
-  STORAGE_KEY_PREFERENCES,
-} from '@/const/storageKeys';
 
 export const SETTINGS_ACCOUNT_DATA_TYPE = 'org.wizardchat.settings';
 
@@ -102,22 +97,6 @@ export function pickSyncedPreferences(
 /** The settings stored in account data (from `client.accountData(SETTINGS_ACCOUNT_DATA_TYPE)`) */
 export function readSettingsFromContent(content: unknown): Partial<SyncedSettings> {
   return content ? parseSettings(content) : {};
-}
-
-export function writeSettingsToLocalStorage(settings: Partial<SyncedSettings>): void {
-  if (settings.messageLayout)
-    localStorage.setItem(STORAGE_KEY_MESSAGE_LAYOUT, settings.messageLayout);
-  if (settings.language) localStorage.setItem(STORAGE_KEY_LANGUAGE, settings.language);
-
-  const preferences = pickSyncedPreferences(settings);
-  if (Object.keys(preferences).length === 0) return;
-  let stored: Record<string, unknown> = {};
-  try {
-    stored = JSON.parse(localStorage.getItem(STORAGE_KEY_PREFERENCES) ?? '{}') ?? {};
-  } catch {
-    // Corrupt local value: the synced preferences replace it
-  }
-  localStorage.setItem(STORAGE_KEY_PREFERENCES, JSON.stringify({ ...stored, ...preferences }));
 }
 
 export function settingsEqual(a: Partial<SyncedSettings>, b: Partial<SyncedSettings>): boolean {

@@ -4,8 +4,6 @@ import type { RoomSummary } from '@wizardchat/core';
 import { favouriteRoomsAtom } from '@/app/store/atoms';
 import { useAllRooms } from '@/app/data';
 
-export const FAVOURITE_ROOM_TAG = 'm.favourite';
-
 export function roomIsFavourite(room: RoomSummary | null | undefined): boolean {
   return !!room?.isFavourite;
 }

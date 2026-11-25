@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import type { SpaceNode, WizardClient } from '@wizardchat/core';
+import type { WizardClient } from '@wizardchat/core';
 import { useAccountData, useClient } from '@/app/data';
 
 const ORDER_MIN = 0x20;
@@ -88,16 +88,6 @@ export function planSpaceReorder(
     if (currentOrders.get(id) !== fresh[i]) updates.set(id, fresh[i]);
   });
   return updates;
-}
-
-export function getSpaceChildOrders(
-  space: SpaceNode | null | undefined
-): Map<string, string | undefined> {
-  const orders = new Map<string, string | undefined>();
-  for (const child of space?.children ?? []) {
-    orders.set(child.roomId, isValidSpaceOrder(child.order) ? child.order : undefined);
-  }
-  return orders;
 }
 
 export async function saveSpaceChildOrders(

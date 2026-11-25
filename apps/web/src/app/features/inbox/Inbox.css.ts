@@ -325,11 +325,3 @@ export const declineButton = style({
     cursor: 'default',
   },
 });
-
-export const mentionBody = style({
-  fontSize: '0.78rem',
-  color: vars.color.textMuted,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-});

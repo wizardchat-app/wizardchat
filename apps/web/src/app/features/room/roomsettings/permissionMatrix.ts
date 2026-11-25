@@ -137,10 +137,6 @@ export function getPermissionGroups(isSpace: boolean): PermissionGroup[] {
   })).filter((group) => group.rows.length > 0);
 }
 
-export function getPermissionRows(isSpace: boolean): PermissionRow[] {
-  return getPermissionGroups(isSpace).flatMap((group) => group.rows);
-}
-
 export type PowerLevelsContent = Record<string, unknown>;
 
 function asObject(value: unknown): Record<string, unknown> | undefined {

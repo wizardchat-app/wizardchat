@@ -253,23 +253,6 @@ export function useServerCapabilities() {
   return useCoreQuery(queryKeys.capabilities(), (c) => c.serverCapabilities(), true, 10 * 60_000);
 }
 
-/** Every room's account data of one type (roomId -> content), live */
-export function useRoomAccountData<T = Record<string, unknown>>(
-  eventType: string
-): ReadonlyMap<string, T> {
-  const [data, setData] = useState<ReadonlyMap<string, T>>(() => new Map());
-  useEffect(() => {
-    const client = getMatrixClientOrNull();
-    setData(new Map());
-    if (!client) return;
-    const subscription = client.watchRoomAccountData(eventType, (pairs) =>
-      setData(new Map(pairs.map(([roomId, content]) => [roomId, content as T])))
-    );
-    return () => subscription.cancel();
-  }, [eventType]);
-  return data;
-}
-
 /** An account data event's content, live */
 export function useAccountData<T = Record<string, unknown>>(eventType: string): T | null {
   const [content, setContent] = useState<T | null>(null);

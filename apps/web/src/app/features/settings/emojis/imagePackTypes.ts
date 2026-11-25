@@ -6,7 +6,6 @@ export const EMOTE_ROOMS_UNSTABLE = 'im.ponies.emote_rooms';
 export const USER_PACK = 'im.ponies.user_emotes';
 
 export const ROOM_PACK_TYPES = [ROOM_PACK_UNSTABLE, ROOM_PACK_STABLE] as const;
-export const EMOTE_ROOMS_TYPES = [EMOTE_ROOMS_UNSTABLE, EMOTE_ROOMS_STABLE] as const;
 
 export interface PackImage {
   url: string;
@@ -60,10 +59,6 @@ export function mergePackInfo(...contents: (Record<string, unknown> | undefined)
     merged.attribution ??= info.attribution;
   }
   return merged;
-}
-
-export function packImages(content: Record<string, unknown> | undefined): PackImage[] {
-  return mergePackImages(content);
 }
 
 export function mergePackImageMap(

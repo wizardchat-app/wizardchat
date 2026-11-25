@@ -1,17 +1,8 @@
 // Auth / session
-export const STORAGE_KEY_CREDENTIALS = 'mx_credentials';
-export const STORAGE_KEY_ACCOUNTS = 'wz_accounts';
 export const STORAGE_KEY_ACTIVE_ACCOUNT = 'wz_active_account';
-export const STORAGE_KEY_DEVICE_ID_PREFIX = 'wz_device_id_';
 export const STORAGE_KEY_ACCOUNT_PROFILE = 'wz_account_profile';
 
-export const STORAGE_KEY_SSO_HOMESERVER_URL = 'wz_sso_hs_url';
-export const STORAGE_KEY_SSO_STATE = 'wz_sso_state';
-export const STORAGE_KEY_SSO_IDP_ID = 'wz_sso_idp_id';
-export const STORAGE_KEY_SSO_ACTION = 'wz_sso_action';
-
 export const STORAGE_KEY_OIDC_CLIENT_ID_PREFIX = 'wz_oidc_client_id_';
-export const STORAGE_KEY_OIDC_PENDING = 'wz_oidc_pending';
 
 // Settings
 export const STORAGE_KEY_THEME = 'wz_theme';

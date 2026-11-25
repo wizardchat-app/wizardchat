@@ -2,9 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { useMediaBlobUrl } from '@/app/components/Avatar/useMediaBlobUrl';
 
-export const PROFILE_BANNER_KEY = 'm.banner_url';
-export const PROFILE_BANNER_UNSTABLE_KEY = 'chat.commet.profile_banner';
-
 interface BannerState {
   mxc: string | null;
   canModify: boolean;

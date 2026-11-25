@@ -104,10 +104,6 @@ export function itemContainsEvent(item: TimelineItem, eventId: string): boolean 
   return item.galleryEvents?.some((e) => entryEventId(e) === eventId) ?? false;
 }
 
-export function indexOfEvent(items: TimelineItem[], eventId: string): number {
-  return items.findIndex((item) => itemContainsEvent(item, eventId));
-}
-
 export type MemberLookup = (userId: string) => { name: string | null; avatarUrl: string | null };
 
 export interface BuildContext {

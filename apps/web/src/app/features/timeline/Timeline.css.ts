@@ -1858,15 +1858,6 @@ export const readReceiptAvatarMark = style({
   color: '#fff',
 });
 
-export const readReceiptOverflow = style({
-  fontSize: chatSize(0.6),
-  color: vars.color.textMuted,
-  marginLeft: '3px',
-  marginRight: '2px',
-  whiteSpace: 'nowrap',
-  userSelect: 'none',
-});
-
 export const readReceiptAvatarBtn = style({
   padding: 0,
   border: 'none',

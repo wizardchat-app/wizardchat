@@ -8,8 +8,3 @@ export async function fetchServerUploadLimit(client: WizardClient): Promise<numb
     return DEFAULT_MAX_UPLOAD_BYTES;
   }
 }
-
-/** Whether the homeserver offers a call server */
-export async function fetchMatrixRtcSupport(client: WizardClient): Promise<boolean> {
-  return !!(await client.rtcServiceUrl().catch(() => null));
-}

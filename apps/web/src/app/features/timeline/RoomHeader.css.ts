@@ -96,10 +96,6 @@ export const headerPanelButtons = style({
 
 export const hideOnMobile = style({});
 
-export const desktopOnly = style({
-  display: 'contents',
-});
-
 export const headerBtn = style({
   width: '32px',
   height: '32px',
