@@ -36,6 +36,18 @@ build-docker:
         echo "=== DRY RUN: image built but not pushed ==="
       else
         docker push "$CI_REGISTRY_IMAGE:$RELEASE_TAG"
+        # Only releases from main move the channel tags, so a rerun on an old release's tag can't
+        # point them back to it
+        if [ -n "$CI_COMMIT_BRANCH" ]; then
+          case "$RELEASE_TAG" in
+            *-next.*) MOVING_TAGS="next" ;;
+            *) MOVING_TAGS="latest next" ;;
+          esac
+          for tag in $MOVING_TAGS; do
+            docker tag "$CI_REGISTRY_IMAGE:$RELEASE_TAG" "$CI_REGISTRY_IMAGE:$tag"
+            docker push "$CI_REGISTRY_IMAGE:$tag"
+          done
+        fi
       fi
 
 deploy:
