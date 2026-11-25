@@ -62,6 +62,7 @@ export function CreateSpaceModal() {
   const [federated, setFederated] = useState(true);
   const [spaceAlias, setSpaceAlias] = useState('');
   const [founders, setFounders] = useState<Founder[]>([]);
+  const [starterRooms, setStarterRooms] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [spaceId, setSpaceId] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
@@ -82,6 +83,7 @@ export function CreateSpaceModal() {
     setSpaceAlias('');
     setSpaceId('');
     setFounders([]);
+    setStarterRooms(true);
   };
 
   const foundersRoomVersion = useFoundersRoomVersion(open);
@@ -117,6 +119,25 @@ export function CreateSpaceModal() {
           await client.setCanonicalAlias(newRoomId, aliasToSet, []);
         } catch (aliasErr) {
           toast.error(t('space.create.aliasCreateFailed', { error: getErrorMessage(aliasErr) }));
+        }
+      }
+
+      if (starterRooms && newRoomId) {
+        for (const [key, isVoice] of [
+          ['space.create.starterChat', false],
+          ['space.create.starterVoice', true],
+        ] as const) {
+          try {
+            await client.createRoom({
+              name: t(key),
+              isVoice,
+              parentSpaceId: newRoomId,
+              federate: federated,
+              access: 'restricted',
+            });
+          } catch (roomErr) {
+            toast.error(t('room.create.failed', { error: getErrorMessage(roomErr) }));
+          }
         }
       }
 
@@ -263,6 +284,13 @@ export function CreateSpaceModal() {
             placeholder={t('room.topicPlaceholder')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+          />
+          <ToggleRow
+            label={t('space.create.starterRooms')}
+            description={t('space.create.starterRoomsNote')}
+            checked={starterRooms}
+            onChange={setStarterRooms}
+            size="sm"
           />
           <ToggleRow
             label={t('space.create.public')}

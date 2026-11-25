@@ -361,6 +361,7 @@ struct CreateRoomView: View {
     @State private var access: Access
     @State private var encrypted = true
     @State private var federate = true
+    @State private var starterRooms = true
     @State private var alias = ""
     @State private var foundersVersion: String?
     @State private var founders: [UserResult] = []
@@ -384,6 +385,12 @@ struct CreateRoomView: View {
                 Section {
                     TextField(String(localized: "common.name"), text: $name)
                     TextField(String(localized: "room.create.topicOptional"), text: $topic, axis: .vertical).lineLimit(1...3)
+                }
+                if isSpace {
+                    Section {
+                        toggleRow(String(localized: "space.create.starterRooms"),
+                                  note: String(localized: "space.create.starterRoomsNote"), isOn: $starterRooms)
+                    }
                 }
                 if !isSpace {
                 Section {
@@ -572,6 +579,14 @@ struct CreateRoomView: View {
                 alias: alias.isEmpty ? nil : alias, spaceId: spaceId, federate: federate,
                 spaceMembers: access == .spaceMembers, founders: founders.map(\.userId), roomVersion: foundersVersion,
                 isSpace: isSpace)
+            if isSpace && starterRooms {
+                for (key, voice) in [("space.create.starterChat", false), ("space.create.starterVoice", true)] {
+                    _ = try? await session.createRoom(
+                        name: String(localized: String.LocalizationValue(key)), topic: nil, isPublic: false,
+                        encrypted: true, isVoice: voice, alias: nil, spaceId: roomId, federate: federate,
+                        spaceMembers: true)
+                }
+            }
             dismiss()
             if let onSpaceCreated { onSpaceCreated(roomId) } else { openRoom(roomId, notifier: notifier) }
         } catch {

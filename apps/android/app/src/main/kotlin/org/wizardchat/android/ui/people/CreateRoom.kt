@@ -23,6 +23,7 @@ import org.wizardchat.android.ui.BarButton
 import org.wizardchat.android.ui.BarTextButton
 import org.wizardchat.android.ui.GroupedRow
 import org.wizardchat.android.ui.GroupedSection
+import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.android.ui.RowDivider
@@ -72,6 +73,7 @@ fun CreateRoomSheet(
     var access by remember { mutableStateOf(if (spaceId == null) RoomAccess.Invite else RoomAccess.SpaceMembers) }
     var encrypted by remember { mutableStateOf(true) }
     var federate by remember { mutableStateOf(true) }
+    var starterRooms by remember { mutableStateOf(true) }
     var alias by remember { mutableStateOf("") }
     var foundersVersion by remember { mutableStateOf<String?>(null) }
     var founders by remember { mutableStateOf(listOf<UserResult>()) }
@@ -102,6 +104,13 @@ fun CreateRoomSheet(
                     roomVersion = foundersVersion,
                     isSpace = isSpace,
                 )
+                if (isSpace && starterRooms) {
+                    for ((key, voice) in listOf("space.create.starterChat" to false, "space.create.starterVoice" to true)) {
+                        runCatching {
+                            session.createRoom(L10n.format(key), null, false, true, voice, null, roomId, federate = federate, spaceMembers = true)
+                        }
+                    }
+                }
                 onDismiss()
                 if (onSpaceCreated != null) {
                     onSpaceCreated(roomId)
@@ -136,6 +145,11 @@ fun CreateRoomSheet(
                         FormField(name, { name = it }, tr("common.name"))
                         RowDivider()
                         FormField(topic, { topic = it }, tr("room.create.topicOptional"), maxLines = 3)
+                    }
+                }
+                if (isSpace) item {
+                    GroupedSection {
+                        ToggleRow(tr("space.create.starterRooms"), starterRooms, { starterRooms = it }, subtitle = tr("space.create.starterRoomsNote"))
                     }
                 }
                 if (!isSpace) item {

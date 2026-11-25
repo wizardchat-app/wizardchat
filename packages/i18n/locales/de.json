@@ -735,6 +735,10 @@
       "failed": "Fehler beim Erstellen des Spaces: {{error}}",
       "aliasCreateFailed": "Space erstellt, aber Adresse konnte nicht gesetzt werden: {{error}}",
       "titleInParent": "Unterraum in {{name}} erstellen",
+      "starterRooms": "Mit Chat- und Sprachraum starten",
+      "starterRoomsNote": "Fügt einen Chatraum „Allgemein“ und einen Sprachraum hinzu, denen alle im Space beitreten können. Ausschalten, um leer zu starten.",
+      "starterChat": "Allgemein",
+      "starterVoice": "Sprachraum",
       "accessInvite": "Privater Space (Nur mit Einladung)",
       "accessPublicNote": "Alle können diesen Space finden und beitreten.",
       "access": "Wer kann diesem Space beitreten?"

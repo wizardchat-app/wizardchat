@@ -735,6 +735,10 @@
       "failed": "Failed to create Space: {{error}}",
       "aliasCreateFailed": "Space created but failed to set address: {{error}}",
       "titleInParent": "Creating sub-space in {{name}}",
+      "starterRooms": "Start with a chat and voice room",
+      "starterRoomsNote": "Adds a General chat room and a Voice room that everyone in the space can join. Turn off to start from scratch.",
+      "starterChat": "General",
+      "starterVoice": "Voice",
       "accessInvite": "Private Space (Invite Only)",
       "accessPublicNote": "Anyone can find and join this space.",
       "access": "Who can join this space?"
