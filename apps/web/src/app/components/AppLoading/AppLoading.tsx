@@ -12,7 +12,11 @@ interface Props {
 
 export function AppLoading({ hiding = false }: Props) {
   const { t } = useTranslation();
-  const messages = t('loading.messages', { returnObjects: true }) as string[];
+  const loaded: unknown = t('loading.messages', { returnObjects: true });
+  const messages =
+    loaded && typeof loaded === 'object'
+      ? Object.values(loaded as Record<string, string>)
+      : [String(loaded)];
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
