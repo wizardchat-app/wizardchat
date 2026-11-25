@@ -1,18 +1,16 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import type { EntryContent, TimelineEntry, WizardClient } from '@wizardchat/core';
+import type { TimelineEntry, WizardClient } from '@wizardchat/core';
 import {
   XIcon,
   ArrowLeftIcon,
-  LockIcon,
   ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
   UploadIcon,
+  ChatDotsIcon,
 } from '@phosphor-icons/react';
 import { Tooltip } from '@/app/components/Tooltip';
-import { Avatar } from '@/app/components/Avatar';
-import { formatTime } from '@/util/format';
 import { formatUserId } from '@/util/matrix';
 import { useToast } from '@/app/hooks/useToast';
 import { useConfirm } from '@/app/hooks/useConfirm';
@@ -27,6 +25,7 @@ import {
   messageLayoutAtom,
   sendReadReceiptsAtom,
   reportMessageAtom,
+  userProfileAtom,
   threadPanelWidthAtom,
   threadPanelExpandedAtom,
   THREAD_PANEL_WIDTH_MIN,
@@ -55,35 +54,6 @@ const MAX_PAGES = 10;
 
 type EventEntry = Extract<TimelineEntry, { kind: 'event' }>;
 
-interface RootInfo {
-  sender: string;
-  senderName: string | null;
-  senderAvatar: string | null;
-  timestamp: number;
-  body: string;
-  undecryptable: boolean;
-}
-
-function contentBody(content: EntryContent): string {
-  switch (content.type) {
-    case 'text':
-    case 'notice':
-    case 'emote':
-    case 'sticker':
-    case 'location':
-      return content.body;
-    case 'image':
-    case 'video':
-    case 'audio':
-    case 'file':
-      return content.media.caption ?? content.media.filename;
-    case 'poll':
-      return content.poll.question;
-    default:
-      return '';
-  }
-}
-
 interface ThreadPanelProps {
   client: WizardClient;
   roomId: string;
@@ -105,7 +75,6 @@ export function ThreadPanel({
   const [droppedFile, setDroppedFile] = useState<File[] | null>(null);
   const clearDroppedFile = useCallback(() => setDroppedFile(null), []);
   const { isDragging, dropProps } = useFileDrop(setDroppedFile);
-  const colorFor = useUsernameColor();
   const toast = useToast();
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
   const confirmDialog = useConfirm();
@@ -117,6 +86,8 @@ export function ThreadPanel({
   const rootId = rootEventId;
   const setThreadLastSeen = useSetAtom(threadLastSeenAtom);
   const setReport = useSetAtom(reportMessageAtom);
+  const setProfile = useSetAtom(userProfileAtom);
+  const colorFor = useUsernameColor();
   const [threadPanelWidth, setThreadPanelWidth] = useAtom(threadPanelWidthAtom);
   const [expanded, setExpanded] = useAtom(threadPanelExpandedAtom);
   const isDesktop = useMediaQuery('(min-width: 769px)');
@@ -147,58 +118,14 @@ export function ThreadPanel({
     setLoaded(true);
   }, [timeline, loading, atStart, loadOlder]);
 
-  const rootEntry = useMemo(
-    () => entries.find((e): e is EventEntry => e.kind === 'event' && e.eventId === rootId) ?? null,
-    [entries, rootId]
-  );
-  const replies = useMemo(
-    () => entries.filter((e) => !(e.kind === 'event' && e.eventId === rootId)),
-    [entries, rootId]
-  );
-
-  const [fetchedRoot, setFetchedRoot] = useState<RootInfo | null>(null);
-  useEffect(() => {
-    setFetchedRoot(null);
-    if (rootEntry || !loaded) return;
-    let cancelled = false;
-    client
-      .eventSource(roomId, rootId)
-      .then((source) => {
-        if (cancelled) return;
-        const ev = source.decrypted ?? source.original;
-        setFetchedRoot({
-          sender: String(source.original.sender ?? ''),
-          senderName: null,
-          senderAvatar: null,
-          timestamp: Number(source.original.origin_server_ts ?? 0),
-          body: String(ev.content?.body ?? ''),
-          undecryptable: !source.decrypted && source.original.type === 'm.room.encrypted',
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [client, roomId, rootId, rootEntry, loaded]);
-
-  const root: RootInfo | null = rootEntry
-    ? {
-        sender: rootEntry.sender,
-        senderName: rootEntry.senderName,
-        senderAvatar: rootEntry.senderAvatar,
-        timestamp: rootEntry.timestamp,
-        body:
-          rootEntry.content.type === 'unableToDecrypt'
-            ? t('timeline.couldNotDecrypt')
-            : contentBody(rootEntry.content),
-        undecryptable: rootEntry.content.type === 'unableToDecrypt',
-      }
-    : fetchedRoot;
-
   const buildContext = useBuildContext(client, roomId);
   const items = useMemo<TimelineItem[]>(
-    () => buildItems(replies, buildContext, t, i18n.language),
-    [replies, buildContext, t, i18n.language]
+    () => buildItems(entries, buildContext, t, i18n.language),
+    [entries, buildContext, t, i18n.language]
+  );
+  const replyCount = useMemo(
+    () => items.filter((item) => item.event.eventId !== rootId).length,
+    [items, rootId]
   );
 
   const { stickerWidget } = useWidgets(client, roomId);
@@ -219,6 +146,14 @@ export function ThreadPanel({
 
   const memberById = useMemo(() => new Map((members ?? []).map((m) => [m.userId, m])), [members]);
 
+  const starter =
+    items[0]?.event.eventId === rootId
+      ? items.find((item) => item.event.eventId !== rootId)
+      : undefined;
+  const starterName = starter
+    ? (memberById.get(starter.senderId)?.displayName ?? starter.senderName)
+    : null;
+
   const receiptUsersOf = useCallback(
     (entry: EventEntry): ReceiptUser[] =>
       entry.readBy
@@ -234,13 +169,6 @@ export function ThreadPanel({
         }),
     [client, memberById]
   );
-
-  const rootSenderId = root?.sender ?? '';
-  const rootMember = memberById.get(rootSenderId);
-  const rootSenderName = rootMember?.displayName ?? root?.senderName ?? formatUserId(rootSenderId);
-  const rootSenderAvatar = rootMember?.avatarUrl ?? root?.senderAvatar ?? null;
-  const rootBody = root?.body ?? '';
-  const rootIsUndecryptable = root?.undecryptable ?? false;
 
   const handleEdit = useCallback(
     (event: EventEntry) => {
@@ -341,7 +269,7 @@ export function ThreadPanel({
     const el = replyListRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [replies.length]);
+  }, [items.length]);
 
   return (
     <aside
@@ -380,7 +308,7 @@ export function ThreadPanel({
         <h2 className={css.threadPanelLabel}>{t('timeline.threadPanel')}</h2>
         <span className={css.threadPanelDivider} />
         <span className={css.threadPanelTitle}>
-          {t('timeline.threadReplies', { count: items.length })}
+          {t('timeline.threadReplies', { count: replyCount })}
         </span>
         {isDesktop && (
           <Tooltip content={expanded ? t('common.collapse') : t('common.expand')}>
@@ -406,33 +334,6 @@ export function ThreadPanel({
         </Tooltip>
       </div>
 
-      <div className={css.threadRootWrap}>
-        <div className={css.threadRootMeta}>
-          <Avatar
-            name={rootSenderName}
-            mxcUrl={rootSenderAvatar}
-            client={client}
-            size="sm"
-            placeholder="logo"
-          />
-          <span className={css.threadRootSender} style={{ color: colorFor(rootSenderId) }}>
-            {rootSenderName}
-          </span>
-          <span className={css.threadRootTime}>
-            {root ? formatTime(root.timestamp, i18n.language) : ''}
-          </span>
-        </div>
-        <div className={css.threadRootContent}>
-          {rootIsUndecryptable ? (
-            <span className={css.threadRootUndecryptable}>
-              <LockIcon size={14} /> {rootBody}
-            </span>
-          ) : (
-            rootBody
-          )}
-        </div>
-      </div>
-
       {!loaded ? (
         <div className={css.threadLoading} aria-busy="true" aria-label={t('common.loading')}>
           <SkeletonRow width1="45%" width2="65%" />
@@ -442,8 +343,38 @@ export function ThreadPanel({
       ) : (
         <ImagePacksProvider client={client} roomId={roomId}>
           <div ref={replyListRef} className={css.threadReplyList}>
-            {items.length === 0 && (
-              <div className={css.threadEmpty}>{t('timeline.threadEmpty')}</div>
+            {starter && starterName && (
+              <div className={css.threadStartedBy}>
+                <ChatDotsIcon size={14} />
+                <span>
+                  <Trans
+                    i18nKey="timeline.threadStartedBy"
+                    values={{ name: starterName }}
+                    components={{
+                      name: (
+                        <button
+                          type="button"
+                          className={css.threadStartedByName}
+                          style={{ color: colorFor(starter.senderId) }}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setProfile({
+                              userId: starter.senderId,
+                              roomId,
+                              anchorRect: {
+                                top: rect.top,
+                                left: rect.left,
+                                width: rect.width,
+                                height: rect.height,
+                              },
+                            });
+                          }}
+                        />
+                      ),
+                    }}
+                  />
+                </span>
+              </div>
             )}
             {items.map((item) => {
               const eventId = item.event.eventId ?? item.event.itemKey;
@@ -488,6 +419,7 @@ export function ThreadPanel({
                 </div>
               );
             })}
+            {replyCount === 0 && <div className={css.threadEmpty}>{t('timeline.threadEmpty')}</div>}
           </div>
         </ImagePacksProvider>
       )}

@@ -960,6 +960,7 @@
     "threadListEmptyMy": "Du hast noch in keinem Thread mitgeschrieben",
     "threadListLoadFailed": "Threads konnten nicht geladen werden",
     "threadPanel": "Thread",
+    "threadStartedBy": "<name>{{name}}</name> hat diesen Thread gestartet",
     "threadEmpty": "Noch keine Antworten. Sei der Erste, der antwortet.",
     "replyInThread": "Im Thread antworten",
     "editPlaceholder": "Deine Nachricht bearbeiten...",

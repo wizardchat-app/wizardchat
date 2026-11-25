@@ -121,52 +121,6 @@ export const threadPanelClose = style({
   },
 });
 
-export const threadRootWrap = style({
-  padding: '12px',
-  borderBottom: `1px solid ${vars.color.border}`,
-  flexShrink: 0,
-  fontSize: '0.9rem',
-});
-
-export const threadRootMeta = style({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  marginBottom: '4px',
-});
-
-export const threadRootSender = style({
-  fontWeight: 600,
-  color: vars.color.textPrimary,
-  fontSize: '0.85rem',
-});
-
-export const threadRootTime = style({
-  color: vars.color.textMuted,
-  fontSize: '0.75rem',
-  flexShrink: 0,
-});
-
-export const threadRootContent = style({
-  color: vars.color.textPrimary,
-  fontSize: '0.9rem',
-  lineHeight: '1.5',
-  wordBreak: 'break-word',
-  overflow: 'hidden',
-  display: '-webkit-box',
-  WebkitLineClamp: 3,
-  WebkitBoxOrient: 'vertical',
-});
-
-export const threadRootUndecryptable = style({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '4px',
-  fontStyle: 'italic',
-  color: vars.color.textMuted,
-  fontSize: '0.85rem',
-});
-
 export const threadReplyList = style({
   flex: 1,
   overflowY: 'auto',
@@ -194,6 +148,31 @@ export const threadLoading = style({
   flexDirection: 'column',
   paddingTop: '8px',
   flex: 1,
+});
+
+export const threadStartedBy = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '4px 16px 0',
+  color: vars.color.textMuted,
+  fontSize: '0.8rem',
+});
+
+export const threadStartedByName = style({
+  font: 'inherit',
+  fontWeight: 600,
+  color: vars.color.textPrimary,
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  ':hover': { textDecoration: 'underline' },
+  ':focus-visible': {
+    outline: `2px solid ${vars.color.accent}`,
+    outlineOffset: '2px',
+    borderRadius: '2px',
+  },
 });
 
 export const threadEmpty = style({
