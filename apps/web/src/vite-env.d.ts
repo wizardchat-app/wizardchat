@@ -66,7 +66,6 @@ interface DesktopAPI {
   installUpdate?: () => void;
   getPlatform?: () => string;
   setTitleBarTheme?: (background: string, foreground: string) => void;
-  onFullscreenChange?: (cb: (fullscreen: boolean) => void) => void;
   getWindowSettings?: () => Promise<DesktopWindowSettings>;
   setWindowSettings?: (patch: Partial<DesktopWindowSettings>) => Promise<DesktopWindowSettings>;
   setTrayState?: (state: DesktopTrayState) => void;
@@ -98,11 +97,4 @@ interface DesktopWindowSettings {
 
 interface Window {
   desktopAPI?: DesktopAPI;
-  Capacitor?: {
-    isNativePlatform?: () => boolean;
-    getPlatform?: () => string;
-    nativePromise?: <T>(plugin: string, method: string, options?: unknown) => Promise<T>;
-    addListener?: <T>(plugin: string, event: string, callback: (data: T) => void) => unknown;
-  };
-  wizardchatNativeBack?: () => boolean;
 }

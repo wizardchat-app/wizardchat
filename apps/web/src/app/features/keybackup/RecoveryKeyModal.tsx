@@ -12,7 +12,7 @@ import { recoveryKeyModalAtom } from '@/app/store/atoms';
 import { Modal } from '@/app/components/Modal';
 import { Button } from '@/app/components/Button';
 import * as css from './RecoveryKeyModal.css';
-import { downloadBlob } from '@/util/nativeApp';
+import { downloadBlob } from '@/util/dom';
 
 export function RecoveryKeyModal() {
   const [state, setState] = useAtom(recoveryKeyModalAtom);

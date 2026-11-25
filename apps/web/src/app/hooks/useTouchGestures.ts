@@ -1,5 +1,4 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { navigateBack, OPEN_LAYER } from '@/util/nativeApp';
 
 const EDGE_WIDTH = 24;
 const LONG_PRESS_MS = 450;
@@ -7,6 +6,29 @@ const MOVE_SLOP = 10;
 const SWIPE_TRIGGER = 64;
 const SWIPE_MAX = 96;
 const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+
+const OPEN_LAYER =
+  '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [aria-modal="true"], [data-back-escape]';
+
+function navigateBack(): boolean {
+  if (document.querySelector(OPEN_LAYER)) {
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return true;
+  }
+  const overlays = document.querySelectorAll<HTMLElement>('[data-back-dismiss]');
+  const overlay = overlays[overlays.length - 1];
+  if (overlay) {
+    overlay.click();
+    return true;
+  }
+  if (document.querySelector('[data-back-root]')) return false;
+  const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+  if (idx > 0) {
+    window.history.back();
+    return true;
+  }
+  return false;
+}
 
 function haptic() {
   navigator.vibrate?.(10);

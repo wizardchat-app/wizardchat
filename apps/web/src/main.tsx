@@ -8,7 +8,6 @@ import { SessionProvider } from '@/app/SessionProvider';
 import { handleAuthCallbackPopup, loadCore } from '@/core/client';
 import { loadClientConfig } from '@/client/config';
 import { registerNotificationServiceWorker } from '@/app/hooks/useNotifications';
-import { installNativeAppHooks } from '@/util/nativeApp';
 import { installDesktopHooks } from '@/bridge/desktop';
 import { installContextMenuGuard } from '@/util/contextMenuGuard';
 import { installFileDropGuard } from '@/app/features/timeline/useFileDrop';
@@ -63,7 +62,6 @@ if (sharePicker) {
 } else if (!handleAuthCallbackPopup()) {
   void loadCore();
   void registerNotificationServiceWorker();
-  installNativeAppHooks();
   installDesktopHooks();
   installContextMenuGuard();
   installFileDropGuard();

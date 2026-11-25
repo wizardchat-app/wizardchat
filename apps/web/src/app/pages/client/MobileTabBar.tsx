@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { mergeHomeAndDmsAtom } from '@/app/store/atoms/settings';
@@ -25,7 +25,6 @@ import { Avatar } from '@/app/components/Avatar';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useProfile } from '@/app/data';
 import { useSwitchContext } from './hooks/useContextNavigation';
-import { useNativeTabBar } from '@/util/nativeTabBar';
 import * as css from './MobileTabBar.css';
 
 interface TabProps {
@@ -108,16 +107,8 @@ export function MobileTabBar() {
   const { data: me } = useProfile(userId);
   const activeTab = youOpen ? 'you' : inboxOpen ? 'inbox' : sidebarView;
 
-  const barRef = useRef<HTMLElement>(null);
-  const nativeBar = useNativeTabBar(barRef);
-
   return (
-    <nav
-      ref={barRef}
-      className={nativeBar ? `${css.tabBar} ${css.tabBarNative}` : css.tabBar}
-      aria-label={t('nav.title')}
-      data-back-root
-    >
+    <nav className={css.tabBar} aria-label={t('nav.title')} data-back-root>
       <Tab
         id="home"
         label={t('nav.home')}

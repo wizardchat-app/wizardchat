@@ -4,8 +4,8 @@ import { vars } from '@/theme/vars.css';
 import { med } from '@/theme/animations.css';
 import { SPACES_LIST_WIDTH, spacesList } from './SpacesList.css';
 import { ROOM_LIST_WIDTH_MIN, TIMELINE_WIDTH_MIN } from '@/const/panelWidths';
-import { bottomDock, roomList } from './RoomListPanel.css';
-import { NATIVE_TAB_BAR, TAB_BAR_HEIGHT } from './MobileTabBar.css';
+import { bottomDock } from './RoomListPanel.css';
+import { TAB_BAR_HEIGHT } from './MobileTabBar.css';
 import { navList } from '@/app/components/Settings/Settings.css';
 
 export const appFrame = style({
@@ -152,20 +152,4 @@ export const mobileInbox = style({
   ...backdrop('primary'),
 });
 
-const UNDER_TAB_BAR = `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`;
-const mobileOnly = (rule: Record<string, string>) => ({ '@media': { '(max-width: 768px)': rule } });
-globalStyle(
-  `${NATIVE_TAB_BAR} ${sidebar}, ${NATIVE_TAB_BAR} ${mobileInbox}`,
-  mobileOnly({ bottom: '0' })
-);
-globalStyle(`${NATIVE_TAB_BAR} ${roomList}`, mobileOnly({ paddingBottom: UNDER_TAB_BAR }));
-globalStyle(
-  `${NATIVE_TAB_BAR} ${spacesList}`,
-  mobileOnly({ paddingBottom: `calc(var(--bottom-dock-inset, 72px) + ${UNDER_TAB_BAR})` })
-);
-globalStyle(
-  `${NATIVE_TAB_BAR} ${bottomDock}`,
-  mobileOnly({ marginBottom: `calc(${UNDER_TAB_BAR} + 8px)` })
-);
-globalStyle(`${NATIVE_TAB_BAR} ${mobileInbox} ${navList}`, { paddingBottom: UNDER_TAB_BAR });
 globalStyle(`${mobileInbox} ${navList}`, { height: '100%' });

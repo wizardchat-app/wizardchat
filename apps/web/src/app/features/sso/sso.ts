@@ -3,7 +3,6 @@ import { appInfo, loadCore, loginWithPopup } from '@/client/initMatrix';
 import type { MatrixCredentials } from '@/client/types';
 import { matrixErrcode } from '@/app/features/auth/matrixError';
 import { errorCode, knownOAuthClients } from '@/core/client';
-import { isNativeApp, openAuthUrlAndWaitForReturn } from '@/util/nativeApp';
 import { isDesktop } from '@/bridge/desktop';
 
 export type { IdentityProvider };
@@ -181,7 +180,6 @@ function waitForBrowserReturn(url: string): Promise<void> {
 }
 
 export function waitForSsoFallback(fallbackUrl: string, homeserverUrl: string): Promise<void> {
-  if (isNativeApp()) return openAuthUrlAndWaitForReturn(fallbackUrl);
   if (isDesktop) return waitForBrowserReturn(fallbackUrl);
 
   return new Promise((resolve, reject) => {

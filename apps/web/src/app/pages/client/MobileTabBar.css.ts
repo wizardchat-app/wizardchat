@@ -24,10 +24,6 @@ export const tabBar = style({
   },
 });
 
-export const tabBarNative = style({ visibility: 'hidden' });
-
-export const NATIVE_TAB_BAR = 'html[data-native-tabbar]';
-
 export const tab = style({
   flex: 1,
   display: 'flex',

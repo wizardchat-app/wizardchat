@@ -1,5 +1,4 @@
-import { globalStyle, style } from '@vanilla-extract/css';
-import { NATIVE_TAB_BAR, TAB_BAR_HEIGHT } from '@/app/pages/client/MobileTabBar.css';
+import { style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
 
@@ -340,8 +339,4 @@ export const mobilePage = style({
   flexDirection: 'column',
   height: '100%',
   padding: '0 8px',
-});
-
-globalStyle(`${NATIVE_TAB_BAR} ${mobilePage} ${content}`, {
-  paddingBottom: `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`,
 });

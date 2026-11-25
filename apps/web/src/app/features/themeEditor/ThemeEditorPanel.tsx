@@ -31,7 +31,7 @@ import {
   randomColors,
   type CustomTheme,
 } from '@/theme/customTheme';
-import { downloadBlob } from '@/util/nativeApp';
+import { downloadBlob } from '@/util/dom';
 import * as sidePanelCss from '@/app/pages/client/SidePanel.css';
 import { ColorPicker } from './ColorPicker';
 import * as css from './ThemeEditor.css';
