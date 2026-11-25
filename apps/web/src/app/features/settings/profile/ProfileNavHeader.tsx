@@ -10,11 +10,9 @@ import * as css from './Profile.css';
 
 export function ProfileNavHeader({
   active = false,
-  narrow = false,
   onSelect,
 }: {
   active?: boolean;
-  narrow?: boolean;
   onSelect: () => void;
 }) {
   const { t } = useTranslation();
@@ -25,7 +23,7 @@ export function ProfileNavHeader({
   return (
     <button
       type="button"
-      className={narrow ? css.navProfileNarrow : active ? css.navProfileActive : css.navProfile}
+      className={active ? css.navProfileActive : css.navProfile}
       aria-current={active ? 'page' : undefined}
       onClick={onSelect}
     >
@@ -33,7 +31,7 @@ export function ProfileNavHeader({
         name={name}
         mxcUrl={user?.avatarUrl ?? null}
         client={getMatrixClientOrNull()}
-        size={narrow ? 'lg' : 'md'}
+        size="md"
         placeholder="logo"
       />
       <span className={css.navProfileText}>

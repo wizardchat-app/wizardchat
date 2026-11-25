@@ -333,10 +333,3 @@ export const mentionBody = style({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 });
-
-export const mobilePage = style({
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  padding: '0 8px',
-});

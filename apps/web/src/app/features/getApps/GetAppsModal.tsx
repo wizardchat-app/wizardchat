@@ -268,7 +268,6 @@ export function GetAppsModal() {
       title={t('getApps.title')}
       subtitle={t('getApps.subtitle')}
       bodyClassName={css.body}
-      fullscreenOnMobile
     >
       {isDesktop ? (
         <>

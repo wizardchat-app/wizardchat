@@ -6,6 +6,7 @@ import { themedAppIconAtom } from '@/app/store/atoms';
 import { baseLogoClass } from '@/theme/themes.css';
 import { WelcomePage } from '@/app/pages/auth/WelcomePage';
 import { ClientLayout } from '@/app/pages/client/ClientLayout';
+import { PhoneGate } from '@/app/pages/PhoneGate';
 import { RequireAuth } from '@/app/features/auth/RequireAuth';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary/ErrorBoundary';
 import { useReducedMotionSync } from '@/app/hooks/useReducedMotion';
@@ -33,21 +34,23 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <Routes>
-        {/* Public */}
-        <Route path="/welcome/:homeserver?" element={<WelcomePage />} />
-        <Route path="/to" element={<MatrixToLink />} />
+      <PhoneGate>
+        <Routes>
+          {/* Public */}
+          <Route path="/welcome/:homeserver?" element={<WelcomePage />} />
+          <Route path="/to" element={<MatrixToLink />} />
 
-        {/* Protected client routes */}
-        <Route
-          path="/*"
-          element={
-            <RequireAuth>
-              <ClientLayout />
-            </RequireAuth>
-          }
-        />
-      </Routes>
+          {/* Protected client routes */}
+          <Route
+            path="/*"
+            element={
+              <RequireAuth>
+                <ClientLayout />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </PhoneGate>
     </ErrorBoundary>
   );
 }

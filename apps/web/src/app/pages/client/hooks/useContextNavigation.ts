@@ -26,7 +26,6 @@ const OVERVIEW = 'overview';
 export interface ContextNavState {
   sidebarView: SidebarView;
   currentSpaceId: string | null;
-  keepDrawer?: boolean;
 }
 
 function contextKey(view: SidebarView, spaceId: string | null): string | null {
@@ -201,7 +200,6 @@ export function useSwitchContext() {
       const state: ContextNavState = {
         sidebarView: view,
         currentSpaceId: spaceId,
-        keepDrawer: true,
       };
       if (!client) {
         navigate('/', { state });

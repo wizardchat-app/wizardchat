@@ -17,9 +17,6 @@ export const spacesList = style({
   borderRight: `1px solid ${vars.color.border}`,
   flexShrink: 0,
   height: '100%',
-  '@media': {
-    '(max-width: 768px)': { paddingTop: '12px' },
-  },
 });
 
 export const spacesScrollArea = style({

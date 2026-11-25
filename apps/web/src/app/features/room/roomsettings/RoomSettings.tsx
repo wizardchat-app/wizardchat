@@ -30,7 +30,6 @@ import { EmojiStickerPanel } from './EmojiStickerPanel';
 import { SoundsPanel } from './SoundsPanel';
 import { DeveloperPanel } from './Developer';
 import { AuditLogPanel } from './AuditLog';
-import { NarrowSettingsList, NarrowSettingsPage } from '@/app/components/Settings/NarrowSettings';
 import {
   SettingsSearchInput,
   SettingsSearchResults,
@@ -39,7 +38,6 @@ import {
   type SettingsSearchResult,
 } from '@/app/components/Settings/SettingsSearch';
 import { ROOM_SETTINGS_INDEX, type RoomSettingsTab } from './searchIndex';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import * as css from '@/app/components/Settings/Settings.css';
 
 type Tab = RoomSettingsTab;
@@ -77,9 +75,6 @@ export function RoomSettings() {
   const developerMode = useAtomValue(developerModeAtom);
   const client = getMatrixClientOrNull();
   const [activeTab, setActiveTab] = useState<Tab>('general');
-  const isNarrow = useMediaQuery('(max-width: 768px)');
-  const [narrowView, setNarrowView] = useState<'list' | 'page'>('list');
-  const backToList = useCallback(() => setNarrowView('list'), []);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -106,7 +101,6 @@ export function RoomSettings() {
     if (roomId) {
       setQuery('');
       setActiveTab(roomSettingsTab ?? 'general');
-      setNarrowView(roomSettingsTab ? 'page' : 'list');
       setRoomSettingsTab(null);
     }
   }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -115,13 +109,8 @@ export function RoomSettings() {
 
   const valid = Boolean(roomId) && Boolean(room && client) && !room?.isInvite;
 
-  const showPage = isNarrow && narrowView === 'page';
-  const openTab = (tab: Tab) => {
-    setActiveTab(tab);
-    setNarrowView('page');
-  };
   const openResult = (result: SettingsSearchResult<Tab>) => {
-    openTab(result.page);
+    setActiveTab(result.page);
     setHighlight(result.pageLabel ? result.label : null);
   };
   const search = (className: string) => (
@@ -149,38 +138,16 @@ export function RoomSettings() {
     <Dialog
       open={Boolean(roomId)}
       trapPaused={emojiPickerOpen}
-      onClose={showPage ? backToList : close}
+      onClose={close}
       size="xl"
       zIndex={7000}
       maxWidth="1080px"
       height="800px"
       surface="primary"
-      fullscreenOnMobile
-      bodyClassName={isNarrow ? `${css.dialogBody} ${css.dialogBodyColumn}` : css.dialogBody}
+      bodyClassName={css.dialogBody}
       ariaLabel={t('common.settings')}
     >
-      {!valid ? null : isNarrow ? (
-        showPage ? (
-          <NarrowSettingsPage
-            title={t(navItems.find((item) => item.tab === shownTab)?.labelKey ?? '')}
-            onBack={backToList}
-            onClose={close}
-          >
-            {panel}
-          </NarrowSettingsPage>
-        ) : (
-          <NarrowSettingsList
-            title={room?.name ?? t('common.settings')}
-            items={pages}
-            onSelect={openTab}
-            onClose={close}
-            search={search(css.navListSearch)}
-            results={
-              results && <SettingsSearchResults results={results} onSelect={openResult} narrow />
-            }
-          />
-        )
-      ) : (
+      {valid && (
         <>
           <nav className={css.nav}>
             <span className={css.navLabel}>{t('common.settings')}</span>

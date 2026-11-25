@@ -26,7 +26,6 @@ import {
   THREAD_PANEL_WIDTH_MAX,
   THREAD_PANEL_WIDTH_DEFAULT,
 } from '@/app/store/atoms';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
 import * as css from './ThreadListPanel.css';
 import * as panelCss from './SidePanel.css';
@@ -74,7 +73,6 @@ export function ThreadListPanel({
   const [threadLastSeen, setThreadLastSeen] = useAtom(threadLastSeenAtom);
   const [threadPanelWidth, setThreadPanelWidth] = useAtom(threadPanelWidthAtom);
   const [expanded, setExpanded] = useAtom(threadPanelExpandedAtom);
-  const isDesktop = useMediaQuery('(min-width: 769px)');
   const myId = client.userId() ?? '';
   const [allThreads, setAllThreads] = useState<ThreadInfo[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -186,12 +184,11 @@ export function ThreadListPanel({
 
   return (
     <aside
-      data-swipe-back="panel"
       className={`${panelCss.sidePanel}${className ? ` ${className}` : ''}${expanded ? ` ${panelCss.sidePanelExpanded}` : ''}`}
       aria-label={t('timeline.threads')}
-      style={isDesktop && !expanded ? { width: `${threadPanelWidth}px` } : undefined}
+      style={!expanded ? { width: `${threadPanelWidth}px` } : undefined}
     >
-      {isDesktop && !expanded && (
+      {!expanded && (
         <PanelResizer
           width={threadPanelWidth}
           onWidthChange={setThreadPanelWidth}
@@ -214,18 +211,17 @@ export function ThreadListPanel({
             </button>
           </Tooltip>
         )}
-        {isDesktop && (
-          <Tooltip content={expanded ? t('common.collapse') : t('common.expand')}>
-            <button
-              type="button"
-              className={panelCss.sidePanelClose}
-              onClick={() => setExpanded((prev) => !prev)}
-              aria-label={expanded ? t('common.collapse') : t('common.expand')}
-            >
-              {expanded ? <ArrowsInSimpleIcon size={16} /> : <ArrowsOutSimpleIcon size={16} />}
-            </button>
-          </Tooltip>
-        )}
+        <Tooltip content={expanded ? t('common.collapse') : t('common.expand')}>
+          <button
+            type="button"
+            className={panelCss.sidePanelClose}
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-label={expanded ? t('common.collapse') : t('common.expand')}
+          >
+            {expanded ? <ArrowsInSimpleIcon size={16} /> : <ArrowsOutSimpleIcon size={16} />}
+          </button>
+        </Tooltip>
+
         <Tooltip content={t('common.close')}>
           <button
             type="button"

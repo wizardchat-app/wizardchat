@@ -236,7 +236,6 @@ export function MediaLightbox({
     <div
       className={css.overlay}
       role="presentation"
-      data-back-escape
       onPointerDown={handleOverlayPointerDown}
       onClick={handleOverlayClick}
       onContextMenu={handleContextMenu}

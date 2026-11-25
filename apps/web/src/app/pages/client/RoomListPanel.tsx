@@ -25,7 +25,6 @@ import {
   closedNavCategoriesAtom,
   pinnedSubSpacesAtom,
   spaceSettingsRoomIdAtom,
-  mobileDrawerOpenAtom,
   favouriteRoomsAtom,
   openRoomChatAtom,
   roomListWidthAtom,
@@ -53,7 +52,7 @@ import {
   pendingCallRoomIdAtom,
 } from '@/app/store/atoms/call';
 import { computeParticipantsBlockHeight } from '@/app/features/voice/participantSize';
-import { useTouchUi, useUiDensitySizes } from '@/app/hooks/useUiDensitySync';
+import { useUiDensitySizes } from '@/app/hooks/useUiDensitySync';
 import { Avatar } from '@/app/components/Avatar';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useRoomActions } from './hooks/useRoomActions';
@@ -66,7 +65,6 @@ import { buildSpaceMenu, markSpaceAsRead, buildHomeMenu, buildDmsMenu } from './
 import { RoomListItem, DmListItem } from './RoomListItem';
 import { UserPanel } from './UserPanel';
 import { isTextFieldTarget } from '@/app/features/keyboardShortcuts/keyEvents';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
 import * as css from './RoomListPanel.css';
 import * as itemCss from './ChatListItem.css';
@@ -320,7 +318,6 @@ function HomeCategoryHeader({
 export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   const { t } = useTranslation();
   const { roomRow: roomItemHeight, categoryHeader: categoryHeaderHeight } = useUiDensitySizes();
-  const touchUi = useTouchUi();
   const [currentRoomId, setCurrentRoomId] = useAtom(currentRoomIdAtom);
   const [currentSpaceId] = useAtom(currentSpaceIdAtom);
   const [sidebarView] = useAtom(sidebarViewAtom);
@@ -343,8 +340,6 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
   const showRoomAvatars = useAtomValue(showRoomAvatarsAtom);
   const { spaces } = useSpaces();
-  const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
-  const isMobile = useMediaQuery('(max-width: 768px)');
   const [roomListWidth, setRoomListWidth] = useAtom(roomListWidthAtom);
 
   const handleNewSectionRef = useRef<() => Promise<void>>(async () => {});
@@ -866,9 +861,9 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
     (entry: RoomEntry, compact?: boolean) => {
       if (!entry.hasVoiceRoom) return roomItemHeight;
       const count = participantCounts.get(entry.roomId) ?? 0;
-      return roomItemHeight + computeParticipantsBlockHeight(count, compact, touchUi);
+      return roomItemHeight + computeParticipantsBlockHeight(count, compact);
     },
-    [participantCounts, roomItemHeight, touchUi]
+    [participantCounts, roomItemHeight]
   );
 
   const homeItemsBase = useMemo((): HomeListItem[] => {
@@ -1427,7 +1422,6 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
       const room = roomsById.get(roomId);
       const navigateToRoom = () => {
         setCurrentRoomId(roomId);
-        setDrawerOpen(false);
         navigate(`/${isDm ? 'dm' : 'r'}/${encodeURIComponent(roomId)}`, {
           state: { sidebarView, currentSpaceId },
         });
@@ -1453,7 +1447,6 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
       callUi.roomId,
       callActions,
       onVoiceJoin,
-      setDrawerOpen,
     ]
   );
 
@@ -1520,19 +1513,17 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   const openChatOnly = useCallback(
     (roomId: string) => {
       setCurrentRoomId(roomId);
-      setDrawerOpen(false);
       navigate(`/r/${encodeURIComponent(roomId)}`, {
         state: { sidebarView, currentSpaceId },
       });
       openRoomChat(roomId);
     },
-    [setCurrentRoomId, navigate, sidebarView, currentSpaceId, setDrawerOpen, openRoomChat]
+    [setCurrentRoomId, navigate, sidebarView, currentSpaceId, openRoomChat]
   );
 
   const openVoiceChat = useCallback(
     (roomId: string) => {
       setCurrentRoomId(roomId);
-      setDrawerOpen(false);
       navigate(`/r/${encodeURIComponent(roomId)}`, {
         state: { sidebarView, currentSpaceId },
       });
@@ -1550,7 +1541,6 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
       roomsById,
       callUi.roomId,
       onVoiceJoin,
-      setDrawerOpen,
     ]
   );
 
@@ -1802,20 +1792,16 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
   };
 
   return (
-    <div
-      className={css.roomListPanel}
-      style={isMobile ? undefined : { width: `${roomListWidth}px` }}
-    >
-      {!isMobile && (
-        <PanelResizer
-          edge="right"
-          width={roomListWidth}
-          onWidthChange={setRoomListWidth}
-          defaultWidth={ROOM_LIST_WIDTH_DEFAULT}
-          min={ROOM_LIST_WIDTH_MIN}
-          max={ROOM_LIST_WIDTH_MAX}
-        />
-      )}
+    <div className={css.roomListPanel} style={{ width: `${roomListWidth}px` }}>
+      <PanelResizer
+        edge="right"
+        width={roomListWidth}
+        onWidthChange={setRoomListWidth}
+        defaultWidth={ROOM_LIST_WIDTH_DEFAULT}
+        min={ROOM_LIST_WIDTH_MIN}
+        max={ROOM_LIST_WIDTH_MAX}
+      />
+
       <header className={css.roomHeader}>
         <Tooltip content={headerLabel}>
           <h2 className={css.roomHeaderTitle}>
@@ -1857,7 +1843,7 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
         </div>
       </header>
 
-      {!isMobile && !isDmView && !isSpaceView && (
+      {!isDmView && !isSpaceView && (
         <div className={css.overviewNav}>
           <button
             type="button"
@@ -1880,7 +1866,7 @@ export function RoomListPanel({ onVoiceJoin }: RoomListPanelProps) {
 
       <div ref={bottomDockRef} className={css.bottomDock}>
         <CallBar />
-        {!isMobile && <UserPanel />}
+        <UserPanel />
       </div>
     </div>
   );

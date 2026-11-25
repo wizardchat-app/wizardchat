@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue } from 'jotai';
@@ -23,9 +23,9 @@ import {
   InfoIcon,
   XIcon,
   SpinnerGapIcon,
+  type Icon as PhosphorIcon,
 } from '@phosphor-icons/react';
 import {
-  mobileYouOpenAtom,
   settingsHighlightAtom,
   settingsOpenAtom,
   settingsPageAtom,
@@ -51,11 +51,6 @@ import { Encryption } from './encryption';
 import { About } from './about';
 import { DesktopSettings } from './desktop';
 import { useKeyboardHints } from '@/app/hooks/useKeyboardHints';
-import {
-  NarrowSettingsList,
-  NarrowSettingsPage,
-  type NarrowSettingsItem,
-} from '@/app/components/Settings/NarrowSettings';
 import {
   SettingsSearchInput,
   SettingsSearchResults,
@@ -165,7 +160,14 @@ function PageContent({ page }: { page: SettingsPage }) {
   }
 }
 
-export function useSettingsNav(): NarrowSettingsItem<SettingsPage>[] {
+interface SettingsNavItem {
+  key: SettingsPage;
+  label: string;
+  Icon: PhosphorIcon;
+  dividerBefore?: boolean;
+}
+
+function useSettingsNav(): SettingsNavItem[] {
   const { t } = useTranslation();
   const keyboardHints = useKeyboardHints();
   return [
@@ -214,18 +216,9 @@ export function Settings() {
   const emojiPickerOpen = !!useAtomValue(emojiPickerAtom);
   const { t } = useTranslation();
   const [open, setOpen] = useAtom(settingsOpenAtom);
-  const youTabOpen = useAtomValue(mobileYouOpenAtom);
   const [targetPage, setTargetPage] = useAtom(settingsPageAtom);
   const [activePage, setActivePage] = useState<SettingsPage>('account');
   const keyboardHints = useKeyboardHints();
-  const [isNarrow, setIsNarrow] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)');
-    setIsNarrow(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
   const targetPageRef = useRef(targetPage);
   targetPageRef.current = targetPage;
 
@@ -245,14 +238,8 @@ export function Settings() {
     navigate('/welcome?add=1');
   };
   const shownPage = !keyboardHints && activePage === 'keybinds' ? 'account' : activePage;
-  const [narrowView, setNarrowView] = useState<'list' | 'page'>('list');
-  const backToList = useCallback(() => setNarrowView('list'), []);
-  const openPage = (page: SettingsPage) => {
-    setActivePage(page);
-    setNarrowView('page');
-  };
   const openResult = (result: SettingsSearchResult<SettingsPage>) => {
-    openPage(result.page);
+    setActivePage(result.page);
     setHighlight(result.pageLabel ? result.label : null);
   };
   const search = (className: string) => (
@@ -272,117 +259,75 @@ export function Settings() {
   // Reset to profile each time the modal opens (unless a target page was set)
   useLayoutEffect(() => {
     if (open) setQuery('');
-    if (open && !targetPageRef.current) {
-      setActivePage('account');
-      setNarrowView('list');
-    }
+    if (open && !targetPageRef.current) setActivePage('account');
   }, [open]);
 
   useLayoutEffect(() => {
     if (!open || !targetPage) return;
     setActivePage(targetPage);
-    setNarrowView('page');
     setTargetPage(null);
   }, [open, targetPage, setTargetPage]);
-
-  const pageOnly = isNarrow && youTabOpen;
-  const showPage = isNarrow && (pageOnly || narrowView === 'page');
 
   return (
     <Dialog
       open={open}
       trapPaused={emojiPickerOpen}
-      onClose={showPage && !pageOnly ? backToList : close}
-      swipeBack={pageOnly}
+      onClose={close}
       size="xl"
       zIndex={7000}
       maxWidth="1080px"
       height="800px"
       surface="primary"
-      fullscreenOnMobile
-      bodyClassName={isNarrow ? `${css.dialogBody} ${css.dialogBodyColumn}` : css.dialogBody}
+      bodyClassName={css.dialogBody}
       ariaLabel={t('settings.title')}
     >
-      {isNarrow ? (
-        showPage ? (
-          <NarrowSettingsPage
-            title={NAV.find((item) => item.key === shownPage)?.label ?? ''}
-            onBack={pageOnly ? close : backToList}
-            onClose={pageOnly ? undefined : close}
-          >
-            {page}
-          </NarrowSettingsPage>
-        ) : (
-          <NarrowSettingsList
-            title={t('settings.title')}
-            items={navItems}
-            onSelect={openPage}
-            onClose={close}
-            search={
-              <>
-                <ProfileNavHeader narrow onSelect={() => openPage('profile')} />
-                {search(css.navListSearch)}
-              </>
-            }
-            results={
-              results && <SettingsSearchResults results={results} onSelect={openResult} narrow />
-            }
-            footer={
-              <div className={css.navListFooter}>
-                <AccountSwitcher onAddAccount={addAccount} />
-              </div>
-            }
+      <>
+        <nav className={css.nav}>
+          <ProfileNavHeader
+            active={activePage === 'profile' && !results}
+            onSelect={() => {
+              setQuery('');
+              setActivePage('profile');
+            }}
           />
-        )
-      ) : (
-        <>
-          <nav className={css.nav}>
-            <ProfileNavHeader
-              active={activePage === 'profile' && !results}
-              onSelect={() => {
-                setQuery('');
-                setActivePage('profile');
-              }}
-            />
-            {search(css.navSearch)}
-            {results ? (
-              <SettingsSearchResults results={results} onSelect={openResult} />
-            ) : (
-              navItems.map((item) => {
-                const isActive = activePage === item.key;
-                return (
-                  <div key={item.key}>
-                    {item.dividerBefore && <div className={css.navDivider} />}
-                    <button
-                      type="button"
-                      className={isActive ? css.navItemActive : css.navItem}
-                      onClick={() => setActivePage(item.key)}
-                    >
-                      <item.Icon size={16} weight={isActive ? 'fill' : 'regular'} />
-                      <span className={css.navLabelText}>{item.label}</span>
-                    </button>
-                  </div>
-                );
-              })
-            )}
-            <div className={css.navFooter}>
-              <AccountSwitcher onAddAccount={addAccount} />
-            </div>
-          </nav>
-
-          <div className={css.content}>
-            <button
-              type="button"
-              className={css.closeBtn}
-              onClick={close}
-              aria-label={t('common.close')}
-            >
-              <XIcon size={18} />
-            </button>
-            {page}
+          {search(css.navSearch)}
+          {results ? (
+            <SettingsSearchResults results={results} onSelect={openResult} />
+          ) : (
+            navItems.map((item) => {
+              const isActive = activePage === item.key;
+              return (
+                <div key={item.key}>
+                  {item.dividerBefore && <div className={css.navDivider} />}
+                  <button
+                    type="button"
+                    className={isActive ? css.navItemActive : css.navItem}
+                    onClick={() => setActivePage(item.key)}
+                  >
+                    <item.Icon size={16} weight={isActive ? 'fill' : 'regular'} />
+                    <span className={css.navLabelText}>{item.label}</span>
+                  </button>
+                </div>
+              );
+            })
+          )}
+          <div className={css.navFooter}>
+            <AccountSwitcher onAddAccount={addAccount} />
           </div>
-        </>
-      )}
+        </nav>
+
+        <div className={css.content}>
+          <button
+            type="button"
+            className={css.closeBtn}
+            onClick={close}
+            aria-label={t('common.close')}
+          >
+            <XIcon size={18} />
+          </button>
+          {page}
+        </div>
+      </>
     </Dialog>
   );
 }

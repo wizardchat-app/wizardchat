@@ -1,10 +1,6 @@
 import { useEffect, useMemo, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  CaretRightIcon,
-  MagnifyingGlassIcon,
-  type Icon as PhosphorIcon,
-} from '@phosphor-icons/react';
+import { MagnifyingGlassIcon, type Icon as PhosphorIcon } from '@phosphor-icons/react';
 import { Input } from '@/app/components/Input';
 import { scrollBehavior } from '@/app/hooks/useReducedMotion';
 import * as css from './Settings.css';
@@ -102,38 +98,26 @@ export function SettingsSearchInput({
 export function SettingsSearchResults<K extends string>({
   results,
   onSelect,
-  narrow,
 }: {
   results: SettingsSearchResult<K>[];
   onSelect: (result: SettingsSearchResult<K>) => void;
-  narrow?: boolean;
 }) {
   const { t } = useTranslation();
-  if (results.length === 0)
-    return (
-      <div className={narrow ? css.navListNoMatches : css.navNoMatches}>{t('nav.noMatches')}</div>
-    );
+  if (results.length === 0) return <div className={css.navNoMatches}>{t('nav.noMatches')}</div>;
   return (
     <>
       {results.map((result) => (
         <button
           key={result.id}
           type="button"
-          className={narrow ? css.navRow : css.navItem}
+          className={css.navItem}
           onClick={() => onSelect(result)}
         >
-          {narrow ? (
-            <span className={css.navRowIcon}>
-              <result.Icon size={22} />
-            </span>
-          ) : (
-            <result.Icon size={16} />
-          )}
-          <span className={`${narrow ? css.navRowLabel : css.navLabelText} ${css.navResult}`}>
+          <result.Icon size={16} />
+          <span className={`${css.navLabelText} ${css.navResult}`}>
             {result.label}
             {result.pageLabel && <span className={css.navResultPage}>{result.pageLabel}</span>}
           </span>
-          {narrow && <CaretRightIcon size={18} className={css.navRowCaret} />}
         </button>
       ))}
     </>

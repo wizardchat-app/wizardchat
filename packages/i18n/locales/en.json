@@ -215,6 +215,11 @@
       "showApprovalCode": "When it asks for a security code, enter this one:"
     }
   },
+  "phoneGate": {
+    "title": "Get the WizardChat app",
+    "body": "The web app doesn't work on phones. Download the WizardChat app for your phone instead.",
+    "getApp": "Download the app"
+  },
   "nav": {
     "reorderFailed": "Couldn't save the new order: {{error}}",
     "title": "Navigation",

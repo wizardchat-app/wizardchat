@@ -44,10 +44,6 @@ export {
 export type { SyncState } from '@wizardchat/core';
 export { syncStateAtom } from '@/app/data/atoms';
 
-// Mobile
-export const mobileDrawerOpenAtom = atom(false);
-export const mobileLastSpaceIdAtom = atom<string | null>(null);
-
 export const connectionLostAtom = atom(false);
 
 // Connection banner
@@ -223,7 +219,6 @@ export const exploreOpenAtom = atom(false);
 
 export const getAppsOpenAtom = atom(false);
 export const inboxOpenAtom = atom(false);
-export const mobileYouOpenAtom = atom(false);
 
 export interface ComposerAttachment {
   id: string;
@@ -344,10 +339,7 @@ const sidePanelContextAtom = atom<SidePanelContext>('room');
 const panelRoomIdAtom = atom<string | null>(null);
 
 const basePanelsAtom = atom<Record<SidePanelContext, BasePanel>>({
-  room:
-    typeof window !== 'undefined' && window.innerWidth >= 768
-      ? { kind: 'members' }
-      : { kind: 'none' },
+  room: { kind: 'members' },
   voice: { kind: 'none' },
 });
 const roomThreadsAtom = atom<Record<string, ThreadsPanelView>>({});

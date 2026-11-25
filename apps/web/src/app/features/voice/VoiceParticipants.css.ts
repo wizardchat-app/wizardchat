@@ -1,11 +1,9 @@
-import { globalStyle, style } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
 import { fast } from '@/theme/animations.css';
-import { TOUCH_UI } from '@/theme/uiDensity';
 import { PARTICIPANT_SIZES } from './participantSize';
 
-const desktop = PARTICIPANT_SIZES.desktop;
-const touch = PARTICIPANT_SIZES.touch;
+const desktop = PARTICIPANT_SIZES;
 const px = (n: number) => `${n}px`;
 
 export const wrap = style({
@@ -14,9 +12,6 @@ export const wrap = style({
   padding: `0 8px ${px(desktop.padBottom)} 36px`,
   gap: px(desktop.gap),
   overflow: 'hidden',
-  selectors: {
-    [`${TOUCH_UI} &`]: { padding: `0 12px ${px(touch.padBottom)} 60px`, gap: px(touch.gap) },
-  },
 });
 
 const entryBase = style({
@@ -30,12 +25,6 @@ const entryBase = style({
   cursor: 'default',
   transition: `background-color ${fast}`,
   ':hover': { backgroundColor: vars.color.bgHover },
-  selectors: {
-    [`${TOUCH_UI} &`]: {
-      gap: '10px',
-      padding: `${px((touch.row - touch.avatar) / 2)} 8px ${px((touch.row - touch.avatar) / 2)} 4px`,
-    },
-  },
 });
 
 export const entry = entryBase;
@@ -53,9 +42,6 @@ const ringBase = style({
   justifyContent: 'center',
   fontSize: '0.6rem',
   fontWeight: 700,
-  selectors: {
-    [`${TOUCH_UI} &`]: { width: px(touch.avatar), height: px(touch.avatar), fontSize: '0.85rem' },
-  },
 });
 
 export const avatarRing = ringBase;
@@ -73,7 +59,6 @@ export const name = style({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   fontSize: '0.82rem',
-  selectors: { [`${TOUCH_UI} &`]: { fontSize: '0.95rem' } },
 });
 
 export const icons = style({
@@ -82,7 +67,6 @@ export const icons = style({
   gap: '5px',
   flexShrink: 0,
   marginLeft: 'auto',
-  selectors: { [`${TOUCH_UI} &`]: { gap: '8px' } },
 });
 
 const iconBase = style({
@@ -109,9 +93,6 @@ export const livePill = style({
   textTransform: 'uppercase',
   letterSpacing: '0.03em',
   userSelect: 'none',
-  selectors: {
-    [`${TOUCH_UI} &`]: { fontSize: '0.68rem', lineHeight: '18px', padding: '0 7px' },
-  },
 });
 
 export const compactWrap = style({
@@ -121,13 +102,6 @@ export const compactWrap = style({
   height: px(desktop.compact),
   padding: `0 8px ${px(desktop.compact - desktop.compactAvatar - 6)} 40px`,
   boxSizing: 'border-box',
-  selectors: {
-    [`${TOUCH_UI} &`]: {
-      gap: '8px',
-      height: px(touch.compact),
-      padding: `0 12px ${px(touch.compact - touch.compactAvatar - 8)} 60px`,
-    },
-  },
 });
 
 const compactAvatarBase = style({
@@ -149,10 +123,7 @@ export const compactAvatarSpeaking = style([
 
 export const compactMore = style({
   fontSize: '0.75rem',
-  selectors: { [`${TOUCH_UI} &`]: { fontSize: '0.9rem' } },
   fontWeight: 600,
   color: vars.color.textMuted,
   whiteSpace: 'nowrap',
 });
-
-globalStyle(`${TOUCH_UI} ${icons} svg`, { width: '16px', height: '16px' });

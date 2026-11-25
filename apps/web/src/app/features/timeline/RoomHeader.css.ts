@@ -24,14 +24,6 @@ export const nameContainer = style({
   flex: 1,
   minWidth: 0,
   overflow: 'hidden',
-  '@media': {
-    '(max-width: 768px)': {
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      justifyContent: 'center',
-      gap: '0px',
-    },
-  },
 });
 
 export const nameRow = style({
@@ -39,21 +31,11 @@ export const nameRow = style({
   alignItems: 'center',
   gap: '6px',
   minWidth: 0,
-  '@media': {
-    '(max-width: 768px)': {
-      width: '100%',
-    },
-  },
 });
 
 export const roomIcon = style({
   color: vars.color.textMuted,
   flexShrink: 0,
-  '@media': {
-    '(max-width: 768px)': {
-      display: 'none',
-    },
-  },
 });
 
 export const roomName = style({
@@ -73,11 +55,6 @@ export const topicDivider = style({
   backgroundColor: vars.color.textMuted,
   flexShrink: 0,
   opacity: 0.5,
-  '@media': {
-    '(max-width: 768px)': {
-      display: 'none',
-    },
-  },
 });
 
 export const topicTrigger = style({
@@ -103,14 +80,6 @@ export const topicTrigger = style({
     outline: `2px solid ${vars.color.accent}`,
     outlineOffset: '1px',
   },
-  '@media': {
-    '(max-width: 768px)': {
-      flex: 'initial',
-      width: '100%',
-      fontSize: '0.75rem',
-      padding: '0 4px',
-    },
-  },
 });
 
 export const headerDivider = style({
@@ -125,21 +94,10 @@ export const headerPanelButtons = style({
   alignItems: 'center',
 });
 
-export const hideOnMobile = style({
-  '@media': {
-    '(max-width: 768px)': {
-      display: 'none',
-    },
-  },
-});
+export const hideOnMobile = style({});
 
 export const desktopOnly = style({
   display: 'contents',
-  '@media': {
-    '(max-width: 768px)': {
-      display: 'none',
-    },
-  },
 });
 
 export const headerBtn = style({

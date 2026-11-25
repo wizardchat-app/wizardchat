@@ -12,7 +12,6 @@ import { useMemberLookup } from '@/app/features/calls/useMemberLookup';
 import { Avatar } from '@/app/components/Avatar';
 import { UserCallMenu, type UserMenuAnchor } from '@/app/features/calls/stage/UserCallMenu';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
-import { useTouchUi } from '@/app/hooks/useUiDensitySync';
 import * as css from './VoiceParticipants.css';
 
 function ParticipantRow({
@@ -28,7 +27,6 @@ function ParticipantRow({
 }) {
   const { t } = useTranslation();
   const client = getMatrixClientOrNull();
-  const touchUi = useTouchUi();
   const setProfile = useSetAtom(userProfileAtom);
   const [menu, setMenu] = useState<UserMenuAnchor | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -76,7 +74,7 @@ function ParticipantRow({
             name={p.name}
             mxcUrl={p.mxcAvatar}
             client={client ?? undefined}
-            size={touchUi ? 'fill' : 'xs'}
+            size="xs"
             placeholder="logo"
           />
         </div>
@@ -122,7 +120,6 @@ function CompactParticipants({
 }) {
   const { t } = useTranslation();
   const client = getMatrixClientOrNull();
-  const touchUi = useTouchUi();
   const setProfile = useSetAtom(userProfileAtom);
   const visible = participants.slice(0, COMPACT_VISIBLE);
   const rest = participants.length - visible.length;
@@ -154,7 +151,7 @@ function CompactParticipants({
               name={p.name}
               mxcUrl={p.mxcAvatar}
               client={client ?? undefined}
-              size={touchUi ? 'sm' : 'xs'}
+              size="xs"
               placeholder="logo"
             />
           </button>

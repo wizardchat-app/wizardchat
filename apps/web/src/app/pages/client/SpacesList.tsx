@@ -8,7 +8,7 @@ import {
   DownloadSimpleIcon,
   SpeakerHighIcon,
 } from '@phosphor-icons/react';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@/app/components/Tooltip';
 import {
@@ -35,7 +35,6 @@ import {
   exploreOpenAtom,
   getAppsOpenAtom,
   pinnedSubSpacesAtom,
-  mobileDrawerOpenAtom,
 } from '@/app/store/atoms';
 import type { SidebarView } from '@/app/store/atoms';
 import { useContextMenuTrigger } from '@/app/hooks/useContextMenuTrigger';
@@ -60,7 +59,6 @@ import { getErrorMessage } from '@/util/error';
 import { isModOnly } from '@/app/features/keyboardShortcuts/keyEvents';
 import { prefetchSpaceHierarchies } from '@/app/features/space/spaceHierarchy';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import * as css from './SpacesList.css';
 import { vars } from '@/theme/vars.css';
 
@@ -159,8 +157,6 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
   const [createSpaceOpen, setCreateSpaceOpen] = useAtom(createSpaceOpenAtom);
   const [exploreOpen, openExplore] = useAtom(exploreOpenAtom);
   const [getAppsOpen, openGetApps] = useAtom(getAppsOpenAtom);
-  const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
-  const isMobile = useMediaQuery('(max-width: 768px)');
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
   const mergeHomeAndDms = useAtomValue(mergeHomeAndDmsAtom);
   const client = getMatrixClientOrNull();
@@ -359,69 +355,66 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
 
   return (
     <div className={css.spacesList}>
-      {!isMobile && (
-        <>
-          {/* Home button */}
-          <Tooltip placement="right" content={t('nav.home')}>
+      <>
+        {/* Home button */}
+        <Tooltip placement="right" content={t('nav.home')}>
+          <button
+            type="button"
+            className={sidebarView === 'home' ? css.spaceBarBtnActive : css.spaceBarBtn}
+            style={{
+              color: sidebarView !== 'home' && homeHasNotif ? vars.color.textPrimary : undefined,
+            }}
+            aria-label={t('nav.home')}
+            onClick={() => {
+              if (sidebarView === 'home') {
+                navigate('/', { state: { sidebarView: 'home', currentSpaceId: null } });
+              } else {
+                onSelectView('home', null);
+              }
+            }}
+            {...homeMenuTrigger}
+          >
+            <span className={css.spacePill} />
+            <HouseIcon size={20} weight={sidebarView === 'home' ? 'fill' : 'regular'} />
+            {homeHasCall && (
+              <span className={css.callBadge}>
+                <SpeakerHighIcon size={12} weight="fill" />
+              </span>
+            )}
+            {homeHasNotif && (
+              <span className={homeHasMention ? css.notifDotMention : css.notifDot} />
+            )}
+          </button>
+        </Tooltip>
+
+        {!mergeHomeAndDms && (
+          <Tooltip placement="right" content={t('room.dm.directMessages')}>
             <button
               type="button"
-              className={sidebarView === 'home' ? css.spaceBarBtnActive : css.spaceBarBtn}
+              className={sidebarView === 'dms' ? css.spaceBarBtnActive : css.spaceBarBtn}
               style={{
-                color: sidebarView !== 'home' && homeHasNotif ? vars.color.textPrimary : undefined,
+                color: sidebarView !== 'dms' && dmsHasNotif ? vars.color.textPrimary : undefined,
               }}
-              aria-label={t('nav.home')}
-              onClick={() => {
-                if (sidebarView === 'home') {
-                  setDrawerOpen(false);
-                  navigate('/', { state: { sidebarView: 'home', currentSpaceId: null } });
-                } else {
-                  onSelectView('home', null);
-                }
-              }}
-              {...homeMenuTrigger}
+              aria-label={t('room.dm.directMessages')}
+              onClick={() => onSelectView('dms', null)}
+              {...dmMenuTrigger}
             >
               <span className={css.spacePill} />
-              <HouseIcon size={20} weight={sidebarView === 'home' ? 'fill' : 'regular'} />
-              {homeHasCall && (
+              <ChatCircleIcon size={20} weight={sidebarView === 'dms' ? 'fill' : 'regular'} />
+              {dmsHasCall && (
                 <span className={css.callBadge}>
                   <SpeakerHighIcon size={12} weight="fill" />
                 </span>
               )}
-              {homeHasNotif && (
-                <span className={homeHasMention ? css.notifDotMention : css.notifDot} />
+              {dmsHasNotif && (
+                <span className={dmsHasMention ? css.notifDotMention : css.notifDot} />
               )}
             </button>
           </Tooltip>
+        )}
 
-          {!mergeHomeAndDms && (
-            <Tooltip placement="right" content={t('room.dm.directMessages')}>
-              <button
-                type="button"
-                className={sidebarView === 'dms' ? css.spaceBarBtnActive : css.spaceBarBtn}
-                style={{
-                  color: sidebarView !== 'dms' && dmsHasNotif ? vars.color.textPrimary : undefined,
-                }}
-                aria-label={t('room.dm.directMessages')}
-                onClick={() => onSelectView('dms', null)}
-                {...dmMenuTrigger}
-              >
-                <span className={css.spacePill} />
-                <ChatCircleIcon size={20} weight={sidebarView === 'dms' ? 'fill' : 'regular'} />
-                {dmsHasCall && (
-                  <span className={css.callBadge}>
-                    <SpeakerHighIcon size={12} weight="fill" />
-                  </span>
-                )}
-                {dmsHasNotif && (
-                  <span className={dmsHasMention ? css.notifDotMention : css.notifDot} />
-                )}
-              </button>
-            </Tooltip>
-          )}
-
-          {orderedSpaces.length > 0 && <div className={css.spacesSeparator} />}
-        </>
-      )}
+        {orderedSpaces.length > 0 && <div className={css.spacesSeparator} />}
+      </>
 
       <DndContext
         sensors={sensors}
@@ -449,7 +442,6 @@ export function SpacesList({ sidebarView, currentSpaceId, onSelectView }: Spaces
                     isActive={isActive}
                     onClick={() => {
                       if (sidebarView === 'space' && currentSpaceId === space.roomId) {
-                        setDrawerOpen(false);
                         navigate(`/space/${encodeURIComponent(space.roomId)}`, {
                           state: { sidebarView: 'space', currentSpaceId: space.roomId },
                         });

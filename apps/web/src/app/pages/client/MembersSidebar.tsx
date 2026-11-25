@@ -12,7 +12,6 @@ import {
   MEMBERS_PANEL_WIDTH_MAX,
 } from '@/app/store/atoms';
 import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { useRoomDetails } from '@/app/data';
 import * as css from './MembersSidebar.css';
 
@@ -32,7 +31,7 @@ export function MembersSidebar({
   const { t } = useTranslation();
   const setInviteModal = useSetAtom(inviteModalRoomIdAtom);
   const [width, setWidth] = useAtom(membersPanelWidthAtom);
-  const resizable = useMediaQuery('(min-width: 769px)') && open;
+  const resizable = open;
 
   const [everOpened, setEverOpened] = useState(open);
 
@@ -54,7 +53,6 @@ export function MembersSidebar({
 
   return (
     <aside
-      data-swipe-back="panel"
       className={`${css.membersSidebar}${className ? ` ${className}` : ''}`}
       aria-label={t('common.members')}
       style={resizable ? { width: `${width}px` } : undefined}

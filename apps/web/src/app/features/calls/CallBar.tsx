@@ -1,9 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import {
-  HeadphonesIcon,
-  MicrophoneIcon,
-  MicrophoneSlashIcon,
   MonitorArrowUpIcon,
   SpeakerHighIcon,
   VideoCameraIcon,
@@ -16,8 +13,6 @@ import { useRoom } from '@/app/data';
 import { useReturnToCall } from './useReturnToCall';
 import { useCallTileVisible } from './useCallParticipants';
 import { useCallSnapshot } from './stage/useCallSnapshot';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
-import { useGlobalVoiceState } from '@/app/features/voice/useGlobalVoice';
 import * as css from './CallBar.css';
 
 export function CallBar() {
@@ -25,9 +20,6 @@ export function CallBar() {
   const ui = useAtomValue(callUiAtom);
   const actions = useAtomValue(callActionsAtom);
   const returnToCall = useReturnToCall();
-  // Mobile has no user panel, so mute/deafen live here
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const { micMuted, deafened, toggleMic, toggleDeafen } = useGlobalVoiceState();
 
   const roomId = ui.roomId;
   const room = useRoom(roomId);
@@ -64,28 +56,6 @@ export function CallBar() {
       </div>
 
       <div className={css.controls}>
-        {isMobile && (
-          <>
-            <button
-              type="button"
-              className={micMuted ? css.ctrlMuted : css.ctrl}
-              onClick={toggleMic}
-              aria-label={micMuted ? t('call.unmute') : t('call.mute')}
-              aria-pressed={micMuted}
-            >
-              {micMuted ? <MicrophoneSlashIcon size={16} /> : <MicrophoneIcon size={16} />}
-            </button>
-            <button
-              type="button"
-              className={deafened ? css.ctrlMuted : css.ctrl}
-              onClick={toggleDeafen}
-              aria-label={deafened ? t('call.undeafen') : t('call.deafen')}
-              aria-pressed={deafened}
-            >
-              <HeadphonesIcon size={16} weight={deafened ? 'fill' : 'regular'} />
-            </button>
-          </>
-        )}
         <Tooltip content={videoTitle}>
           <button
             type="button"

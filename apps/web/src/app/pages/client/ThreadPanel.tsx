@@ -34,7 +34,6 @@ import {
 } from '@/app/store/atoms';
 import type { ReceiptUser } from '@/app/hooks/useRoomReceipts';
 import { useWidgets } from '@/app/hooks/useWidgets';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
 import { buildItems, useBuildContext } from '@/app/hooks/useTimeline';
 import type { TimelineItem } from '@/app/hooks/useTimeline';
@@ -90,7 +89,6 @@ export function ThreadPanel({
   const colorFor = useUsernameColor();
   const [threadPanelWidth, setThreadPanelWidth] = useAtom(threadPanelWidthAtom);
   const [expanded, setExpanded] = useAtom(threadPanelExpandedAtom);
-  const isDesktop = useMediaQuery('(min-width: 769px)');
 
   const { entries, atStart, loading, loadOlder, timeline } = useTimeline(client, roomId, {
     type: 'thread',
@@ -273,10 +271,9 @@ export function ThreadPanel({
 
   return (
     <aside
-      data-swipe-back="panel"
       className={`${css.threadPanel}${className ? ` ${className}` : ''}${expanded ? ` ${css.threadPanelExpanded}` : ''}`}
       aria-label={t('timeline.threadPanel')}
-      style={isDesktop && !expanded ? { width: `${threadPanelWidth}px` } : undefined}
+      style={!expanded ? { width: `${threadPanelWidth}px` } : undefined}
       {...dropProps}
     >
       {isDragging && (
@@ -285,7 +282,7 @@ export function ThreadPanel({
           <span>{t('timeline.dropToUploadThread')}</span>
         </div>
       )}
-      {isDesktop && !expanded && (
+      {!expanded && (
         <PanelResizer
           width={threadPanelWidth}
           onWidthChange={setThreadPanelWidth}
@@ -310,18 +307,17 @@ export function ThreadPanel({
         <span className={css.threadPanelTitle}>
           {t('timeline.threadReplies', { count: replyCount })}
         </span>
-        {isDesktop && (
-          <Tooltip content={expanded ? t('common.collapse') : t('common.expand')}>
-            <button
-              type="button"
-              className={css.threadPanelClose}
-              onClick={() => setExpanded((prev) => !prev)}
-              aria-label={expanded ? t('common.collapse') : t('common.expand')}
-            >
-              {expanded ? <ArrowsInSimpleIcon size={16} /> : <ArrowsOutSimpleIcon size={16} />}
-            </button>
-          </Tooltip>
-        )}
+        <Tooltip content={expanded ? t('common.collapse') : t('common.expand')}>
+          <button
+            type="button"
+            className={css.threadPanelClose}
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-label={expanded ? t('common.collapse') : t('common.expand')}
+          >
+            {expanded ? <ArrowsInSimpleIcon size={16} /> : <ArrowsOutSimpleIcon size={16} />}
+          </button>
+        </Tooltip>
+
         <Tooltip content={t('common.close')}>
           <button
             type="button"

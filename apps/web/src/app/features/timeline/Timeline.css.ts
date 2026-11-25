@@ -1123,23 +1123,6 @@ export const msgActions = style({
   },
 });
 
-export const swipeReplyIcon = style({
-  position: 'absolute',
-  left: '16px',
-  top: '50%',
-  width: '32px',
-  height: '32px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: '50%',
-  backgroundColor: vars.color.bgTertiary,
-  color: vars.color.textPrimary,
-  opacity: 0,
-  transform: 'translateY(-50%) scale(0.6)',
-  pointerEvents: 'none',
-});
-
 export const msgActionBtn = style({
   width: '30px',
   height: '30px',

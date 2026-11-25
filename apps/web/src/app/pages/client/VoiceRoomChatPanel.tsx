@@ -5,7 +5,6 @@ import type { WizardClient } from '@wizardchat/core';
 import { useRoom } from '@/app/data';
 import { Tooltip } from '@/app/components/Tooltip';
 import { PanelResizer } from '@/app/components/PanelResizer/PanelResizer';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import {
   threadPanelWidthAtom,
   THREAD_PANEL_WIDTH_MIN,
@@ -30,7 +29,6 @@ export function VoiceRoomChatPanel({
   onClose,
 }: VoiceRoomChatPanelProps) {
   const { t } = useTranslation();
-  const isDesktop = useMediaQuery('(min-width: 769px)');
   const threadPanelWidth = useAtomValue(threadPanelWidthAtom);
   const setThreadPanelWidth = useSetAtom(threadPanelWidthAtom);
 
@@ -38,20 +36,18 @@ export function VoiceRoomChatPanel({
 
   return (
     <aside
-      data-swipe-back="panel"
       className={`${panelCss.sidePanel}${className ? ` ${className}` : ''}`}
       aria-label={t('room.openChat')}
-      style={isDesktop ? { width: `${threadPanelWidth}px` } : undefined}
+      style={{ width: `${threadPanelWidth}px` }}
     >
-      {isDesktop && (
-        <PanelResizer
-          width={threadPanelWidth}
-          onWidthChange={setThreadPanelWidth}
-          defaultWidth={THREAD_PANEL_WIDTH_DEFAULT}
-          min={THREAD_PANEL_WIDTH_MIN}
-          max={THREAD_PANEL_WIDTH_MAX}
-        />
-      )}
+      <PanelResizer
+        width={threadPanelWidth}
+        onWidthChange={setThreadPanelWidth}
+        defaultWidth={THREAD_PANEL_WIDTH_DEFAULT}
+        min={THREAD_PANEL_WIDTH_MIN}
+        max={THREAD_PANEL_WIDTH_MAX}
+      />
+
       <div className={panelCss.sidePanelHeader}>
         <HashStraightIcon size={16} className={css.titleIcon} />
         <h2 className={panelCss.sidePanelTitle}>{room?.name ?? roomId}</h2>

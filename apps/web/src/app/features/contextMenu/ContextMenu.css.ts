@@ -1,6 +1,6 @@
-import { globalStyle, keyframes, style } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
-import { fast, fadeIn, med } from '@/theme/animations.css';
+import { fast } from '@/theme/animations.css';
 
 export const menu = style({
   position: 'fixed',
@@ -120,52 +120,3 @@ export const menuDivider = style({
   backgroundColor: vars.color.border,
   margin: '4px 0',
 });
-
-const slideUp = keyframes({
-  from: { transform: 'translateY(100%)' },
-  to: { transform: 'translateY(0)' },
-});
-
-export const sheetBackdrop = style({
-  position: 'fixed',
-  inset: 0,
-  zIndex: 9998,
-  backgroundColor: 'rgba(0,0,0,0.5)',
-  animation: `${fadeIn} ${med} ease`,
-});
-
-export const sheet = style({
-  position: 'fixed',
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 9999,
-  maxHeight: '75vh',
-  overflowY: 'auto',
-  backgroundColor: vars.color.bgTertiary,
-  borderTop: `1px solid ${vars.color.border}`,
-  borderRadius: '16px 16px 0 0',
-  padding:
-    '6px env(safe-area-inset-right) calc(8px + env(safe-area-inset-bottom)) env(safe-area-inset-left)',
-  userSelect: 'none',
-  outline: 'none',
-  animation: `${slideUp} ${med} ease`,
-});
-
-export const sheetHandle = style({
-  width: '36px',
-  height: '4px',
-  margin: '4px auto 8px',
-  borderRadius: '2px',
-  backgroundColor: vars.color.border,
-});
-
-globalStyle(`${sheet} [role^="menuitem"]`, {
-  gap: '14px',
-  minHeight: '48px',
-  padding: '0 20px',
-  fontSize: '1rem',
-});
-
-globalStyle(`${sheet} ${menuItemIcon}`, { width: '20px', height: '20px' });
-globalStyle(`${sheet} ${menuItemIcon} svg`, { width: '20px', height: '20px' });

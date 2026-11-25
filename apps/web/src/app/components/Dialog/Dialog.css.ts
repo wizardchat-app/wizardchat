@@ -13,12 +13,6 @@ export const overlay = style({
   padding:
     'calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left))',
   animation: `${fadeIn} ${med} ease`,
-  '@media': {
-    '(max-width: 768px)': {
-      padding:
-        'calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))',
-    },
-  },
 });
 
 const panelBase = style({
@@ -39,23 +33,6 @@ export const panel = style([panelBase, { outline: 'none' }]);
 
 export const panelPrimary = style({
   backgroundColor: vars.color.bgPrimary,
-});
-
-export const panelFullscreenMobile = style({
-  '@media': {
-    '(max-width: 768px)': {
-      position: 'fixed',
-      top: 'env(safe-area-inset-top)',
-      right: 'env(safe-area-inset-right)',
-      bottom: 'env(safe-area-inset-bottom)',
-      left: 'env(safe-area-inset-left)',
-      width: 'auto !important',
-      maxWidth: 'none !important',
-      height: 'auto !important',
-      maxHeight: 'none !important',
-      borderRadius: 0,
-    },
-  },
 });
 
 export const sizes = styleVariants({

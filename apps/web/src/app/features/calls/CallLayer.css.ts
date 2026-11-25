@@ -48,11 +48,6 @@ export const fullscreen = style({
   bottom: 0,
   height: 'auto',
   zIndex: 6000,
-  '@media': {
-    '(max-width: 768px)': {
-      zIndex: 4000,
-    },
-  },
 });
 
 const chromeBar = {

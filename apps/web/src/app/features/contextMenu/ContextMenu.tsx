@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import { computePosition, autoUpdate, flip, shift, offset } from '@floating-ui/dom';
-import { CheckIcon, CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
+import { CheckIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { contextMenuAtom, type ContextMenuItem } from './contextMenuAtom';
 import { emojiPickerAtom } from '@/app/store/atoms';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import * as css from './ContextMenu.css';
 
 const SUBMENU_CLOSE_DELAY = 150;
@@ -19,7 +18,6 @@ function enabledIndexes(items: ContextMenuItem[], baseIndex = 0): number[] {
 export function ContextMenu() {
   const { t } = useTranslation();
   const [menu, setMenu] = useAtom(contextMenuAtom);
-  const asSheet = useMediaQuery('(max-width: 768px)');
   const [picker, setPicker] = useAtom(emojiPickerAtom);
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
@@ -128,7 +126,7 @@ export function ContextMenu() {
   }, [menu, closeMenu]);
 
   useLayoutEffect(() => {
-    if (!menu || asSheet) return;
+    if (!menu) return;
     const menuEl = menuRef.current;
     if (!menuEl) return;
     const anchor = menu.anchor;
@@ -158,10 +156,10 @@ export function ContextMenu() {
         current.style.top = `${y}px`;
       });
     });
-  }, [menu, asSheet]);
+  }, [menu]);
 
   useLayoutEffect(() => {
-    if (!menu || asSheet || openSubIndex === null) return;
+    if (!menu || openSubIndex === null) return;
     const parentEl = itemRefs.current[openSubIndex];
     const subEl = submenuRef.current;
     if (!parentEl || !subEl) return;
@@ -178,7 +176,7 @@ export function ContextMenu() {
         current.style.top = `${y}px`;
       });
     });
-  }, [menu, asSheet, openSubIndex]);
+  }, [menu, openSubIndex]);
 
   useEffect(() => {
     if (!menu) {
@@ -332,7 +330,6 @@ export function ContextMenu() {
           tabIndex={-1}
           onFocus={() => setActive(absoluteIndex)}
           onMouseEnter={() => {
-            if (asSheet) return;
             if (isSubmenuParent) {
               clearCloseTimer();
               setOpenSubIndex(absoluteIndex);
@@ -361,51 +358,6 @@ export function ContextMenu() {
         </div>
       );
     });
-
-  if (asSheet) {
-    return (
-      <>
-        <div
-          className={css.sheetBackdrop}
-          role="presentation"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={closeMenu}
-        />
-        <div
-          ref={menuRef}
-          className={css.sheet}
-          role="menu"
-          aria-label={menuLabel}
-          tabIndex={-1}
-          onKeyDown={handleKeyDown}
-          onMouseDown={(e) => e.stopPropagation()}
-          onMouseUp={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className={css.sheetHandle} />
-          {submenu && openItem ? (
-            <>
-              <div
-                className={css.menuItem}
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => setOpenSubIndex(null)}
-              >
-                <span className={css.menuItemIcon}>
-                  <CaretLeftIcon size={14} />
-                </span>
-                <span className={css.menuItemLabel}>{openItem.label}</span>
-              </div>
-              <div className={css.menuDivider} role="separator" />
-              {renderItems(submenu, totalMainCount)}
-            </>
-          ) : (
-            renderItems(menu.items, 0)
-          )}
-        </div>
-      </>
-    );
-  }
 
   return (
     <div

@@ -1,7 +1,7 @@
 import { style, keyframes } from '@vanilla-extract/css';
 import { backdrop } from '@/theme/backdrop';
 import { vars } from '@/theme/vars.css';
-import { TOUCH_UI, uiZoom } from '@/theme/uiDensity';
+import { uiZoom } from '@/theme/uiDensity';
 import { fast } from '@/theme/animations.css';
 import { ROOM_LIST_WIDTH_DEFAULT, ROOM_LIST_WIDTH_MIN } from '@/const/panelWidths';
 
@@ -13,11 +13,8 @@ export const roomListPanel = style({
   flexDirection: 'column',
   height: '100%',
   borderRight: `1px solid ${vars.color.border}`,
-  flexShrink: 0,
-  '@media': {
-    '(min-width: 769px)': { flexShrink: 1, minWidth: `${ROOM_LIST_WIDTH_MIN}px` },
-    '(max-width: 768px)': { width: 'auto', flex: 1, minWidth: 0, borderRight: 'none' },
-  },
+  flexShrink: 1,
+  minWidth: `${ROOM_LIST_WIDTH_MIN}px`,
 });
 
 export const roomHeader = style({
@@ -30,7 +27,6 @@ export const roomHeader = style({
   color: vars.color.textMuted,
   letterSpacing: '0.04em',
   borderBottom: `1px solid ${vars.color.border}`,
-  selectors: { [`${TOUCH_UI} &`]: { fontSize: '1.2rem' } },
 });
 
 export const roomHeaderTitle = style({
@@ -158,7 +154,6 @@ export const subspaceCategoryHeader = style({
   letterSpacing: '0.02em',
   transition: `background-color ${fast}, color ${fast}`,
   selectors: {
-    [`${TOUCH_UI} &`]: { fontSize: '0.95rem' },
     '&:hover': {
       backgroundColor: vars.color.bgHover,
       color: vars.color.textPrimary,
@@ -300,9 +295,4 @@ export const bottomDock = style({
   borderRadius: vars.radius.md,
   border: `1px solid ${vars.color.border}`,
   backgroundColor: vars.color.bgTertiary,
-  '@media': {
-    '(max-width: 768px)': {
-      selectors: { '&:empty': { display: 'none' } },
-    },
-  },
 });

@@ -15,12 +15,6 @@ export const page = style({
     },
   },
   padding: '24px',
-  '@media': {
-    '(max-width: 768px)': {
-      gap: '16px',
-      padding: `calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))`,
-    },
-  },
 });
 
 export const container = style({
@@ -35,11 +29,6 @@ export const container = style({
   border: `1px solid ${vars.color.border}`,
   padding: '40px 32px',
   margin: 'auto 0',
-  '@media': {
-    '(max-width: 768px)': {
-      order: 1,
-    },
-  },
 });
 
 export const logo = style({
@@ -67,11 +56,6 @@ export const footer = style({
   flexWrap: 'wrap',
   justifyContent: 'center',
   gap: '6px 20px',
-  '@media': {
-    '(max-width: 768px)': {
-      order: 2,
-    },
-  },
 });
 
 export const footerLink = style({
@@ -239,13 +223,6 @@ export const backButton = style({
   selectors: {
     'html.desktop &': {
       top: `${24 + TITLE_BAR_HEIGHT}px`,
-    },
-  },
-  '@media': {
-    '(max-width: 768px)': {
-      position: 'static',
-      alignSelf: 'flex-start',
-      marginLeft: '-12px',
     },
   },
 });

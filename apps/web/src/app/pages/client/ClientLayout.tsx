@@ -6,11 +6,9 @@ import {
   currentSpaceIdAtom,
   currentRoomIdAtom,
   sidebarViewAtom,
-  mobileDrawerOpenAtom,
   globalSearchOpenAtom,
   createSpaceOpenAtom,
   inboxOpenAtom,
-  mobileYouOpenAtom,
   membersPanelOpenAtom,
   spaceMembersPanelOpenAtom,
   threadsPanelViewAtom,
@@ -43,10 +41,9 @@ import { roomsByIdAtom, useRoom, useSpaceGraph } from '@/app/data';
 import { isChildOfSpace, findParentSpaceId, isVoiceRoom } from '@/util/matrix';
 import { Timeline } from '@/app/features/timeline';
 import { TitleBar, TitleBarSearch } from '@/app/components/TitleBar';
-import { Inbox, MobileInboxPage } from '@/app/features/inbox';
-import { MobileSettingsHome } from '@/app/features/settings/MobileSettingsHome';
+import { Inbox } from '@/app/features/inbox';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
-import { useEdgeSwipeBack, useLongPressContextMenu } from '@/app/hooks/useTouchGestures';
+import { useLongPressContextMenu } from '@/app/hooks/useLongPressContextMenu';
 import { TOUCH_FIRST_QUERY } from '@/theme/uiDensity';
 import { AccountSwitchGuard } from '@/app/components/AccountSwitchGuard';
 import { CallLayer } from '@/app/features/calls/CallLayer';
@@ -71,8 +68,6 @@ import { UpdateButton } from '@/app/components/UpdateButton/UpdateButton';
 import { EncryptionWarningButton } from '@/app/components/EncryptionWarningButton/EncryptionWarningButton';
 import { HelpButton } from '@/app/components/HelpButton/HelpButton';
 import { SpacesList } from './SpacesList';
-import { MobileTabBar } from './MobileTabBar';
-import { useMobileListOpen } from './hooks/useMobileListOpen';
 import { RoomListPanel } from './RoomListPanel';
 import { MembersSidebar } from './MembersSidebar';
 import * as sidebarCss from './MembersSidebar.css';
@@ -82,7 +77,6 @@ import { ThreadPanel } from './ThreadPanel';
 import { ThreadListPanel } from './ThreadListPanel';
 import { VoiceRoomChatPanel } from './VoiceRoomChatPanel';
 import { VoiceRoomStage } from '@/app/features/calls/VoiceRoomStage';
-import { MobileHeader } from './MobileHeader';
 import { GlobalModals } from './GlobalModals';
 import { SpaceOverview } from './SpaceOverview';
 import { ActiveNowPanel } from './ActiveNowPanel';
@@ -125,7 +119,6 @@ export function ClientLayout() {
   const client = getMatrixClientOrNull();
   const [currentSpaceId, setCurrentSpaceId] = useAtom(currentSpaceIdAtom);
   const [sidebarView, setSidebarView] = useAtom(sidebarViewAtom);
-  const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
 
   const currentSpaceIdRef = useRef(currentSpaceId);
   currentSpaceIdRef.current = currentSpaceId;
@@ -148,14 +141,6 @@ export function ClientLayout() {
   useRecordLastRoom();
 
   useDocumentTitle();
-  // Close the mobile sidebar drawer whenever the route changes, except on Home/DMs/space
-  // switches, which keep it open so a room can be picked from the new list
-  const keepDrawer = (location.state as { keepDrawer?: boolean } | null)?.keepDrawer === true;
-  const keepDrawerRef = useRef(keepDrawer);
-  keepDrawerRef.current = keepDrawer;
-  useEffect(() => {
-    if (!keepDrawerRef.current) setDrawerOpen(false);
-  }, [location.pathname, setDrawerOpen]);
   const spaceOverviewMatch = location.pathname.match(/^\/space\/(.+)/);
   const spaceOverviewSpaceId = spaceOverviewMatch
     ? decodeURIComponent(spaceOverviewMatch[1])
@@ -466,44 +451,29 @@ export function ClientLayout() {
   useConnectionStatusWatcher();
   useCustomStatusSync(client);
 
-  const isMobile = useMediaQuery('(max-width: 768px)');
   const touchFirst = useMediaQuery(TOUCH_FIRST_QUERY);
   useLongPressContextMenu(touchFirst);
-  useEdgeSwipeBack(touchFirst && isMobile);
-  const mobileListOpen = useMobileListOpen();
-  const inboxOpen = useAtomValue(inboxOpenAtom);
-  const youOpen = useAtomValue(mobileYouOpenAtom);
-  const sidebarClass = [
-    css.sidebar,
-    mobileListOpen ? css.sidebarOpen : null,
-    sidebarView !== 'space' ? css.sidebarNoRail : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
 
   return (
     <>
       <AccountSwitchGuard client={client} />
-      <MobileHeader />
 
       <CallContainerProvider>
         <div className={css.appFrame}>
-          {!isMobile && (
-            <TitleBar
-              center={<TitleBarSearch />}
-              end={
-                <>
-                  <UpdateButton />
-                  <EncryptionWarningButton />
-                  <Inbox />
-                  <HelpButton />
-                </>
-              }
-            />
-          )}
+          <TitleBar
+            center={<TitleBarSearch />}
+            end={
+              <>
+                <UpdateButton />
+                <EncryptionWarningButton />
+                <Inbox />
+                <HelpButton />
+              </>
+            }
+          />
           <div className={css.appShell}>
             {/* Sidebar: spaces column + room list panel */}
-            <nav aria-label={t('nav.title')} className={sidebarClass} data-swipe-back-reveal>
+            <nav aria-label={t('nav.title')} className={css.sidebar}>
               <SpacesList
                 sidebarView={sidebarView}
                 currentSpaceId={currentSpaceId}
@@ -511,21 +481,9 @@ export function ClientLayout() {
               />
               <RoomListPanel onVoiceJoin={joinVoiceRoom} />
             </nav>
-            {mobileListOpen && youOpen && (
-              <div className={css.mobileInbox}>
-                <MobileSettingsHome />
-              </div>
-            )}
-            {mobileListOpen && inboxOpen && !youOpen && (
-              <div className={css.mobileInbox}>
-                <MobileInboxPage />
-              </div>
-            )}
-            {mobileListOpen && <MobileTabBar />}
 
             {/* Main content - call layer above the chat timeline */}
             <main
-              data-swipe-back="screen"
               className={`${css.mainContent}${threadsPanelView && threadPanelExpanded ? ` ${css.mainContentHidden}` : ''}`}
             >
               <CallContainer />
@@ -552,14 +510,6 @@ export function ClientLayout() {
                   : sidebarCss.membersSidebarClosed
               }
             />
-            {membersPanelVisible && (
-              <div
-                className={css.membersDrawerOverlay}
-                role="presentation"
-                data-back-dismiss
-                onClick={() => setMembersVisible(false)}
-              />
-            )}
 
             {threadsPanelView && currentRoomId && client && (
               <>
@@ -583,12 +533,6 @@ export function ClientLayout() {
                     onBack={() => setThreadsPanelView({ type: 'list' })}
                   />
                 )}
-                <div
-                  className={css.drawerOverlay}
-                  role="presentation"
-                  data-back-dismiss
-                  onClick={closeThreads}
-                />
               </>
             )}
 
@@ -601,12 +545,6 @@ export function ClientLayout() {
                   roomId={roomChatRoomId}
                   className={roomChatClosing ? undefined : sidePanelCss.sidePanelOpen}
                   onClose={closeRoomChatPanel}
-                />
-                <div
-                  className={css.drawerOverlay}
-                  role="presentation"
-                  data-back-dismiss
-                  onClick={closeRoomChatPanel}
                 />
               </>
             )}

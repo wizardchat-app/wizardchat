@@ -215,6 +215,11 @@
       "showApprovalCode": "Wenn dort nach einem Sicherheitscode gefragt wird, gib diesen ein:"
     }
   },
+  "phoneGate": {
+    "title": "Hol dir die WizardChat-App",
+    "body": "Die Web-App funktioniert nicht auf Handys. Lade dir stattdessen die WizardChat-App für dein Handy herunter.",
+    "getApp": "App herunterladen"
+  },
   "nav": {
     "reorderFailed": "Neue Reihenfolge konnte nicht gespeichert werden: {{error}}",
     "title": "Navigation",

@@ -10,7 +10,6 @@ export const panel = style({
   overflow: 'hidden',
   ...backdrop('secondary'),
   borderLeft: `1px solid ${vars.color.border}`,
-  '@media': { '(max-width: 768px)': { display: 'none' } },
 });
 
 export const list = style({

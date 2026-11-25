@@ -16,7 +16,6 @@ export const content = style({
   display: 'flex',
   flexDirection: 'column',
   gap: '28px',
-  '@media': { '(max-width: 768px)': { padding: '20px 16px 32px' } },
 });
 
 export const hero = style({

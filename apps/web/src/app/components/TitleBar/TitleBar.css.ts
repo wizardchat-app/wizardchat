@@ -50,9 +50,6 @@ export const titleBar = style({
     'html.desktop-darwin:not(.desktop-fullscreen) &': { paddingLeft: '80px' },
     'html.desktop-other &': { paddingRight: 0 },
   },
-  '@media': {
-    '(max-width: 768px)': { display: 'none' },
-  },
 });
 
 export const titleBarFixed = style([

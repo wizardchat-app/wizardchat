@@ -27,8 +27,6 @@ interface DialogProps {
   size?: DialogSize;
   zIndex?: number;
   surface?: 'secondary' | 'primary';
-  fullscreenOnMobile?: boolean;
-  swipeBack?: boolean;
   trapPaused?: boolean;
   maxWidth?: string;
   height?: string;
@@ -50,8 +48,6 @@ export function Dialog({
   size = 'md',
   zIndex,
   surface = 'secondary',
-  fullscreenOnMobile,
-  swipeBack = false,
   trapPaused = false,
   maxWidth,
   height,
@@ -158,7 +154,6 @@ export function Dialog({
 
   const sizeClass = css.sizes[size];
   const surfaceClass = surface === 'primary' ? css.panelPrimary : undefined;
-  const fullscreenClass = fullscreenOnMobile ? css.panelFullscreenMobile : undefined;
   const panelStyle: React.CSSProperties = {};
   if (maxWidth) panelStyle.maxWidth = maxWidth;
   if (height) panelStyle.height = height;
@@ -168,7 +163,6 @@ export function Dialog({
       className={`${css.overlay}${overlayClassName ? ` ${overlayClassName}` : ''}`}
       style={zIndex !== undefined ? { zIndex } : undefined}
       role="presentation"
-      data-swipe-back={swipeBack ? 'panel' : undefined}
       onPointerDown={(e) => {
         pressedOverlayRef.current = e.target === e.currentTarget;
       }}
@@ -193,9 +187,7 @@ export function Dialog({
       >
         <div
           ref={panelRef}
-          className={[css.panel, sizeClass, surfaceClass, fullscreenClass, className]
-            .filter(Boolean)
-            .join(' ')}
+          className={[css.panel, sizeClass, surfaceClass, className].filter(Boolean).join(' ')}
           style={panelStyle}
           role="dialog"
           aria-modal="true"

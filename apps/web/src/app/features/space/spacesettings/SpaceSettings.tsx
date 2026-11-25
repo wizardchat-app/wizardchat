@@ -27,7 +27,6 @@ import { RoomPermissionsMatrix } from '@/app/features/room/roomsettings/RoomPerm
 import { EmojiStickerPanel } from '@/app/features/room/roomsettings/EmojiStickerPanel';
 import { SoundsPanel } from '@/app/features/room/roomsettings/SoundsPanel';
 import { AuditLogPanel } from '@/app/features/room/roomsettings/AuditLog';
-import { NarrowSettingsList, NarrowSettingsPage } from '@/app/components/Settings/NarrowSettings';
 import {
   SettingsSearchInput,
   SettingsSearchResults,
@@ -39,7 +38,6 @@ import {
   SPACE_SETTINGS_INDEX,
   type SpaceSettingsTab,
 } from '@/app/features/room/roomsettings/searchIndex';
-import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import * as css from '@/app/components/Settings/Settings.css';
 
 type Tab = SpaceSettingsTab;
@@ -67,9 +65,6 @@ export function SpaceSettings() {
   const [spaceId, setSpaceId] = useAtom(spaceSettingsRoomIdAtom);
   const client = getMatrixClientOrNull();
   const [activeTab, setActiveTab] = useState<Tab>('general');
-  const isNarrow = useMediaQuery('(max-width: 768px)');
-  const [narrowView, setNarrowView] = useState<'list' | 'page'>('list');
-  const backToList = useCallback(() => setNarrowView('list'), []);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -95,7 +90,6 @@ export function SpaceSettings() {
     if (spaceId) {
       setQuery('');
       setActiveTab('general');
-      setNarrowView('list');
     }
   }, [spaceId]);
 
@@ -103,13 +97,8 @@ export function SpaceSettings() {
 
   const valid = Boolean(spaceId && space);
 
-  const showPage = isNarrow && narrowView === 'page';
-  const openTab = (tab: Tab) => {
-    setActiveTab(tab);
-    setNarrowView('page');
-  };
   const openResult = (result: SettingsSearchResult<Tab>) => {
-    openTab(result.page);
+    setActiveTab(result.page);
     setHighlight(result.pageLabel ? result.label : null);
   };
   const search = (className: string) => (
@@ -141,38 +130,16 @@ export function SpaceSettings() {
     <Dialog
       open={Boolean(spaceId)}
       trapPaused={emojiPickerOpen}
-      onClose={showPage ? backToList : close}
+      onClose={close}
       size="xl"
       zIndex={7000}
       maxWidth="1080px"
       height="800px"
       surface="primary"
-      fullscreenOnMobile
-      bodyClassName={isNarrow ? `${css.dialogBody} ${css.dialogBodyColumn}` : css.dialogBody}
+      bodyClassName={css.dialogBody}
       ariaLabel={t('common.settings')}
     >
-      {!valid ? null : isNarrow ? (
-        showPage ? (
-          <NarrowSettingsPage
-            title={t(NAV.find((item) => item.tab === shownTab)?.labelKey ?? '')}
-            onBack={backToList}
-            onClose={close}
-          >
-            {panel}
-          </NarrowSettingsPage>
-        ) : (
-          <NarrowSettingsList
-            title={space?.name ?? t('common.settings')}
-            items={pages}
-            onSelect={openTab}
-            onClose={close}
-            search={search(css.navListSearch)}
-            results={
-              results && <SettingsSearchResults results={results} onSelect={openResult} narrow />
-            }
-          />
-        )
-      ) : (
+      {valid && (
         <>
           <nav className={css.nav}>
             <span className={css.navLabel}>{t('common.settings')}</span>

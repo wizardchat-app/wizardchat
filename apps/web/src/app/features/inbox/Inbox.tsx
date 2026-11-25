@@ -11,7 +11,7 @@ import {
 import { Tooltip } from '@/app/components/Tooltip';
 import { Avatar } from '@/app/components/Avatar';
 import { Popover } from '@/app/components/Popover/Popover';
-import { inboxOpenAtom, mobileDrawerOpenAtom, openRoomThreadAtom } from '@/app/store/atoms';
+import { inboxOpenAtom, openRoomThreadAtom } from '@/app/store/atoms';
 import { sendReadReceiptsAtom } from '@/app/store/atoms/settings';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useToast } from '@/app/hooks/useToast';
@@ -34,13 +34,12 @@ const ROUTE_PREFIX: Record<Invite['kind'], string> = {
   space: '/space/',
 };
 
-function InboxContent({ mobile = false }: { mobile?: boolean }) {
+function InboxContent() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const client = getMatrixClientOrNull();
   const setOpen = useSetAtom(inboxOpenAtom);
-  const setDrawerOpen = useSetAtom(mobileDrawerOpenAtom);
   const [tab, setTab] = useState<Tab>('invites');
   const [busyId, setBusyId] = useState<string | null>(null);
   const sendReadReceipts = useAtomValue(sendReadReceiptsAtom);
@@ -57,7 +56,6 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
 
   const openRoom = (kind: Invite['kind'], roomId: string) => {
     setOpen(false);
-    if (mobile) setDrawerOpen(false);
     navigate(ROUTE_PREFIX[kind] + encodeURIComponent(roomId));
   };
 
@@ -121,15 +119,13 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <>
-      {!mobile && (
-        <div className={css.header}>
-          <span id="inbox-title" className={css.title}>
-            <TrayIcon size={18} weight="fill" className={css.titleIcon} />
-            {t('inbox.title')}
-          </span>
-          {markAllButton}
-        </div>
-      )}
+      <div className={css.header}>
+        <span id="inbox-title" className={css.title}>
+          <TrayIcon size={18} weight="fill" className={css.titleIcon} />
+          {t('inbox.title')}
+        </span>
+        {markAllButton}
+      </div>
 
       <div className={css.tabs} role="tablist">
         <button
@@ -174,7 +170,6 @@ function InboxContent({ mobile = false }: { mobile?: boolean }) {
             </span>
           )}
         </button>
-        {mobile && markAllButton}
       </div>
 
       <div className={css.content}>
@@ -378,13 +373,5 @@ export function Inbox() {
         <InboxContent />
       </Popover>
     </>
-  );
-}
-
-export function MobileInboxPage() {
-  return (
-    <section className={css.mobilePage}>
-      <InboxContent mobile />
-    </section>
   );
 }
