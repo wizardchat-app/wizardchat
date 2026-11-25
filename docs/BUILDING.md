@@ -77,9 +77,10 @@ an App Store Connect API key for notarization from `APPLE_API_KEY` (key ID), `AP
 (the `.p8`, base64). They're protected variables, so only pipelines of protected branches like `main` and protected tags get them. Without them, the app
 is signed ad hoc and macOS asks people to allow it in **System Settings -> Privacy & Security**.
 
-The iOS build signs with the same API key: Xcode's automatic signing with Apple's cloud-managed distribution
-certificate, which needs a key with the **Admin** role. It may add an Apple Development certificate to the team now and
-then, which can be revoked. Without the key, the iOS build is unsigned and nothing goes to TestFlight.
+The iOS build signs with the same API key, which needs the **Admin** role: Apple doesn't let API keys create the
+development profiles a signed archive needs, so it archives unsigned, signs ad hoc with the entitlements, and the export
+signs for the App Store with Apple's cloud-managed distribution certificate. A dry run exports without uploading.
+Without the key, the iOS build is unsigned and nothing goes to TestFlight.
 
 Android release builds are signed with the key in `apps/android/keystore.properties` (`storeFile`, `storePassword`,
 `keyAlias`, `keyPassword`; not committed), and are debug-signed without it. `npm run android:bundle` builds the bundle for

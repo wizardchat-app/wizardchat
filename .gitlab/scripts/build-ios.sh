@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the iOS app in apps/ios. With the App Store Connect API key (APPLE_API_KEY, APPLE_API_ISSUER,
-# APPLE_API_KEY_P8, Admin role) it archives with automatic signing and, for releases from main that aren't dry runs,
-# uploads the archive to TestFlight. Without the key it builds unsigned. Either way it writes the sideloading .ipa.
+# APPLE_API_KEY_P8, Admin role) it signs for the App Store and, for releases from main that aren't dry runs, uploads
+# to TestFlight. Without the key it builds unsigned. Either way it writes the sideloading .ipa.
 set -e
 
 VERSION=$(node -p "require('../../package.json').version")
@@ -23,23 +23,45 @@ if [ -n "$APPLE_API_KEY_P8" ]; then
 
   set -- -allowProvisioningUpdates -authenticationKeyPath "$key" -authenticationKeyID "$APPLE_API_KEY" \
     -authenticationKeyIssuerID "$APPLE_API_ISSUER"
+  # Apple refuses API keys for the development profiles a signed archive needs, so archive unsigned, sign ad hoc
+  # with the entitlements and let the export sign for the App Store with the key
   xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Release \
     -destination generic/platform=iOS -derivedDataPath build -archivePath build/WizardChat.xcarchive \
-    "$@" -quiet archive
+    CODE_SIGNING_ALLOWED=NO -quiet archive
   APP=build/WizardChat.xcarchive/Products/Applications/WizardChat.app
-
-  if [ "$DRY_RUN" != "true" ] && [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
-    if xcodebuild -exportArchive -archivePath build/WizardChat.xcarchive \
-      -exportOptionsPlist Config/ExportOptions.plist -exportPath build/export "$@" > "$apple/export.log" 2>&1; then
-      cat "$apple/export.log"
-      echo "Uploaded $VERSION to TestFlight"
+  APP_GROUP=$(xcodebuild -project WizardChat.xcodeproj -target WizardChat -configuration Release -showBuildSettings \
+    | sed -n 's/^ *WZ_APP_GROUP = //p')
+  sign() {
+    if [ -n "$2" ]; then
+      sed "s/\$(WZ_APP_GROUP)/$APP_GROUP/" "$2" > "$apple/signing.entitlements"
+      codesign --force --sign - --entitlements "$apple/signing.entitlements" "$1"
     else
-      cat "$apple/export.log"
-      if grep -qE "Redundant Binary Upload|bundle version must be higher than the previously uploaded" "$apple/export.log"; then
-        echo "$VERSION is already on TestFlight, nothing to upload"
-      else
-        exit 1
-      fi
+      codesign --force --sign - "$1"
+    fi
+  }
+  for framework in "$APP"/Frameworks/*.framework "$APP"/PlugIns/*.appex/Frameworks/*.framework; do
+    if [ -e "$framework" ]; then sign "$framework"; fi
+  done
+  sign "$APP/PlugIns/WizardChatWidgets.appex"
+  sign "$APP/PlugIns/WizardChatNotifications.appex" WizardChatNotifications/WizardChatNotifications.entitlements
+  sign "$APP/PlugIns/WizardChatShare.appex" WizardChatShare/WizardChatShare.entitlements
+  sign "$APP" WizardChat/WizardChat.entitlements
+  codesign -d --entitlements - "$APP" | grep -q "$APP_GROUP"
+
+  options=Config/ExportOptions.plist
+  if [ "$DRY_RUN" = "true" ] || [ "$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH" ]; then
+    options="$apple/ExportOptions.plist"
+    plutil -replace destination -string export -o "$options" Config/ExportOptions.plist
+  fi
+  if xcodebuild -exportArchive -archivePath build/WizardChat.xcarchive \
+    -exportOptionsPlist "$options" -exportPath build/export "$@" > "$apple/export.log" 2>&1; then
+    cat "$apple/export.log"
+  else
+    cat "$apple/export.log"
+    if grep -qE "Redundant Binary Upload|bundle version must be higher than the previously uploaded" "$apple/export.log"; then
+      echo "$VERSION is already on TestFlight, nothing to upload"
+    else
+      exit 1
     fi
   fi
   rm -f "$key"
