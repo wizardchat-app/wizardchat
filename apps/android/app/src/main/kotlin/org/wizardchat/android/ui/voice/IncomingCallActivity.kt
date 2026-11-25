@@ -58,6 +58,7 @@ import org.wizardchat.android.ui.theme.WizardThemeRoot
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.android.ui.followReducedMotion
 import org.wizardchat.tokens.WZ
 
 class IncomingCallActivity : AppCompatActivity() {
@@ -72,6 +73,7 @@ class IncomingCallActivity : AppCompatActivity() {
             answer()
             return
         }
+        followReducedMotion()
         setContent {
             val active = app.prefs.theme(app.prefs.themeMode.isDark(isSystemInDarkTheme()))
             CompositionLocalProvider(

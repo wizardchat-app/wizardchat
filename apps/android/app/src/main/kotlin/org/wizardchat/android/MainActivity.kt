@@ -52,6 +52,7 @@ import org.wizardchat.android.ui.settings.EncryptionSetupScreen
 import org.wizardchat.android.ui.settings.EncryptionSetupState
 import org.wizardchat.android.ui.PrimaryButton
 import org.wizardchat.android.ui.WizardLogo
+import org.wizardchat.android.ui.followReducedMotion
 import org.wizardchat.android.ui.home.MainScreen
 import org.wizardchat.android.ui.login.LoginScreen
 import org.wizardchat.android.ui.theme.WizardThemeRoot
@@ -80,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         pipPrefs.registerOnSharedPreferenceChangeListener(pipListener)
         enableEdgeToEdge()
         handle(intent)
+        followReducedMotion()
         setContent {
             // Status and navigation bar icons follow the app's theme, not the system's
             val active = app.prefs.theme(app.prefs.themeMode.isDark(isSystemInDarkTheme()))

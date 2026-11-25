@@ -72,6 +72,7 @@ import org.wizardchat.android.ui.PhWeight
 import org.wizardchat.android.ui.RowDivider
 import org.wizardchat.android.ui.Spinner
 import org.wizardchat.android.ui.WizardTextField
+import org.wizardchat.android.ui.followReducedMotion
 import org.wizardchat.android.ui.theme.WizardThemeRoot
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
@@ -96,6 +97,7 @@ class ShareActivity : ComponentActivity() {
         enableEdgeToEdge()
         lifecycleScope.launch { app.session.restore() }
         lifecycleScope.launch { load(intent) }
+        followReducedMotion()
         setContent {
             CompositionLocalProvider(LocalSession provides app.session, LocalPrefs provides app.prefs) {
                 WizardThemeRoot(app.prefs.theme(app.prefs.themeMode.isDark(isSystemInDarkTheme()))) {
