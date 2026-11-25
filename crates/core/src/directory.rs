@@ -68,6 +68,34 @@ impl WizardClient {
             .collect())
     }
 
+    /// What a room or space looks like before joining, from its ID or address.
+    pub async fn room_preview(&self, id_or_alias: &str, via: &[String]) -> Result<PublicRoom> {
+        use matrix_sdk::ruma::{OwnedServerName, RoomOrAliasId};
+        let target =
+            <&RoomOrAliasId>::try_from(id_or_alias).map_err(|e| Error::InvalidId(e.to_string()))?;
+        let mut servers: Vec<OwnedServerName> = via
+            .iter()
+            .filter_map(|s| s.as_str().try_into().ok())
+            .collect();
+        if servers.is_empty() {
+            if let Some(server) = target.server_name() {
+                servers.push(server.to_owned());
+            }
+        }
+        let preview = self.sdk().get_room_preview(target, servers).await?;
+        Ok(PublicRoom {
+            id: preview.room_id.to_string(),
+            alias: preview.canonical_alias.map(|a| a.to_string()),
+            name: preview.name,
+            topic: preview.topic,
+            avatar_url: preview.avatar_url.map(|u| u.to_string()),
+            member_count: preview.num_joined_members,
+            is_space: preview.room_type == Some(RoomType::Space),
+            join_rule: preview.join_rule.map(|r| r.as_str().to_owned()),
+            world_readable: preview.is_world_readable.unwrap_or(false),
+        })
+    }
+
     /// Searches the user directory, for starting chats and inviting.
     pub async fn search_users(&self, query: &str, limit: u32) -> Result<Vec<UserResult>> {
         let response = self.sdk().search_users(query, limit.into()).await?;

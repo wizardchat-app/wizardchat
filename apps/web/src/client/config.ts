@@ -5,6 +5,13 @@ export interface ClientConfig {
   defaultHomeserver: number | null;
   allowCustomHomeservers: boolean;
   gifApiUrl: string;
+  featuredCommunities: FeaturedCommunities;
+}
+
+export interface FeaturedCommunities {
+  spaces: string[];
+  rooms: string[];
+  servers: string[] | null;
 }
 
 const DEFAULTS: ClientConfig = {
@@ -12,6 +19,7 @@ const DEFAULTS: ClientConfig = {
   defaultHomeserver: 0,
   allowCustomHomeservers: true,
   gifApiUrl: import.meta.env.GIF_API_URL,
+  featuredCommunities: { spaces: [], rooms: [], servers: null },
 };
 
 let config: ClientConfig = DEFAULTS;
@@ -20,6 +28,37 @@ export const clientConfig = (): ClientConfig => config;
 
 const isString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim() !== '';
+
+function stringList(
+  value: unknown,
+  keep: (s: string) => boolean,
+  clean: (s: string) => string = (s) => s
+): string[] | null {
+  if (!Array.isArray(value)) return null;
+  return [
+    ...new Set(
+      value
+        .filter(isString)
+        .map((s) => clean(s.trim()))
+        .filter(keep)
+    ),
+  ];
+}
+
+const isRoomOrAlias = (s: string) => /^(#[^:\s]+:\S+|![^\s]+)$/.test(s);
+const isServerName = (s: string) => /^[^\s/]+$/.test(s);
+const serverName = (s: string) => s.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
+function parseFeatured(raw: unknown): FeaturedCommunities {
+  const defaults = DEFAULTS.featuredCommunities;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaults;
+  const { spaces, rooms, servers } = raw as Record<string, unknown>;
+  return {
+    spaces: stringList(spaces, isRoomOrAlias) ?? defaults.spaces,
+    rooms: stringList(rooms, isRoomOrAlias) ?? defaults.rooms,
+    servers: stringList(servers, isServerName, serverName) ?? defaults.servers,
+  };
+}
 
 function parse(raw: Record<string, unknown>): ClientConfig {
   const list = Array.isArray(raw.homeserverList)
@@ -42,6 +81,7 @@ function parse(raw: Record<string, unknown>): ClientConfig {
     gifApiUrl: isString(raw.gifApiUrl)
       ? raw.gifApiUrl.trim().replace(/\/+$/, '')
       : DEFAULTS.gifApiUrl,
+    featuredCommunities: parseFeatured(raw.featuredCommunities),
   };
 }
 

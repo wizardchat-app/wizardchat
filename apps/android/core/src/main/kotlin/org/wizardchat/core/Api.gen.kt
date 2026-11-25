@@ -1779,7 +1779,6 @@ data class UploadedFile(
     val waveform: List<Long>? = null,
     val isAnimated: Boolean? = null,
     val thumbnail: UploadedThumbnail? = null,
-    /** From `WizardClient.encodeBlurhash`, for images and videos */
     val blurhash: String? = null,
     val mentions: Mentions? = null,
     val replyTo: String? = null,
@@ -2787,6 +2786,10 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     /** A page of a server's room directory; `kind` narrows to `spaces` or `rooms`. */
     suspend fun publicRoomsPage(query: String, server: String?, kind: String?, limit: Long, since: String? = null): PublicRoomsPage =
         Runtime.call("WizardClient.publicRoomsPage", handle, listOf(Arg.value<String>(query), Arg.value<String?>(server), Arg.value<String?>(kind), Arg.value<Long>(limit), Arg.value<String?>(since)))
+
+    /** What a room or space looks like before joining, from its ID or address. */
+    suspend fun roomPreview(idOrAlias: String, via: List<String>? = null): PublicRoom =
+        Runtime.call("WizardClient.roomPreview", handle, listOf(Arg.value<String>(idOrAlias), Arg.value<List<String>?>(via)))
 
     /** Calls `listener` with a `VerificationFlow` for every incoming verification request. */
     fun watchVerificationRequests(listener: (VerificationFlow) -> Unit): Subscription =

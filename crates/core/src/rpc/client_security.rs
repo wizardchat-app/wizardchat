@@ -3,8 +3,8 @@
 
 use super::{Handle, Listener, Subscription};
 use crate::{
-    DeviceInfo, EncryptionStatus, IdentityChange, PublicRoomsPage, SessionEvent, ThreadPage,
-    UiaAuth, UiaOutcome, UrlPreview, UserTrust, VerificationFlow, WizardClient,
+    DeviceInfo, EncryptionStatus, IdentityChange, PublicRoom, PublicRoomsPage, SessionEvent,
+    ThreadPage, UiaAuth, UiaOutcome, UrlPreview, UserTrust, VerificationFlow, WizardClient,
 };
 
 rpc_methods! {
@@ -154,6 +154,11 @@ rpc_methods! {
                 since.as_deref(),
             )
             .await
+        }
+
+        /// What a room or space looks like before joining, from its ID or address.
+        call fn roomPreview(id_or_alias: String, via: Option<Vec<String>>) -> PublicRoom {
+            this.room_preview(&id_or_alias, &via.unwrap_or_default()).await
         }
 
         /// Calls `listener` with a `VerificationFlow` for every incoming verification request.

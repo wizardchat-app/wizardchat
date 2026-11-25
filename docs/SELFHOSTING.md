@@ -54,7 +54,12 @@ your `dist` folder. Users get the new settings the next time they open or reload
   "homeserverList": ["example.org"],
   "defaultHomeserver": 0,
   "allowCustomHomeservers": false,
-  "gifApiUrl": "https://gifs.example.org"
+  "gifApiUrl": "https://gifs.example.org",
+  "featuredCommunities": {
+    "spaces": ["#community:example.org"],
+    "rooms": ["#welcome:example.org"],
+    "servers": ["example.org"]
+  }
 }
 ```
 
@@ -64,6 +69,7 @@ your `dist` folder. Users get the new settings the next time they open or reload
 | `defaultHomeserver`      | `0`                                               | Which server in the list is picked at first, counting from 0. `null` picks none, so the user types their server.                                    |
 | `allowCustomHomeservers` | `true`                                            | Whether users can type a server that isn't in the list. Always on when the list is empty.                                                           |
 | `gifApiUrl`              | `https://gifs.wizardchat.org`                     | The GIF search service used by the GIF picker.                                                                                                      |
+| `featuredCommunities`    | matrix.org's rooms and the user's own server      | What **Explore** shows. See [Featured communities](#featured-communities).                                                                          |
 
 Keys you leave out, and values that aren't valid, keep their default. If `config.json` can't be read at all, the app
 starts with the defaults and logs a warning in the browser console.
@@ -73,6 +79,22 @@ when your homeserver runs at `matrix.example.org`.
 
 A link like `https://chat.example.org/welcome/example.org` opens the sign-in screen with that server picked. If it isn't
 in the list and `allowCustomHomeservers` is `false`, the default server is picked instead.
+
+### Featured communities
+
+`featuredCommunities` decides what users see in **Explore** (Home, Explore communities). It takes the same keys as
+Cinny's `config.json`:
+
+| Key       | What it does                                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spaces`  | Spaces shown on the **Featured** tab, by address (`#community:example.org`) or room ID.                                                                    |
+| `rooms`   | Rooms shown below them, the same way.                                                                                                                      |
+| `servers` | Servers whose public room directory users can browse. Without `spaces` and `rooms`, the first one fills the Featured tab and the others get their own tab. |
+
+Without `servers`, Explore offers matrix.org's directory on the Featured tab (unless you set `spaces` or `rooms`) and the
+user's own server. With `servers`, it offers exactly the servers you list, so `"servers": []` leaves only the Featured
+tab and **Other**, where users type a server. A space or room that can't be found, or whose server doesn't share a
+preview with the user's server, is left out. Cinny's `openAsDefault` is ignored.
 
 ### Examples
 
@@ -86,6 +108,18 @@ Your server first, and any other one allowed:
 
 ```json
 { "homeserverList": ["example.org", "matrix.org"] }
+```
+
+Your own communities on the Featured tab, and your server's directory:
+
+```json
+{
+  "featuredCommunities": {
+    "spaces": ["#community:example.org"],
+    "rooms": ["#welcome:example.org", "#help:example.org"],
+    "servers": ["example.org"]
+  }
+}
 ```
 
 No server picked, users type their own:

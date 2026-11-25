@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, KeyboardEvent } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import type { PublicRoom, WizardClient as MatrixClient } from '@wizardchat/core';
 import {
   MagnifyingGlassIcon,
@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
+import { clientConfig } from '@/client/config';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { useAllRooms, useJoinedSpaces, useSpaceGraph } from '@/app/data';
 import { LogoHover } from '@/app/components/AppLoading';
@@ -162,7 +163,20 @@ export function ExploreModal() {
     [allRooms, joinedSpaces, spaceGraph]
   );
 
-  const [activeTab, setActiveTab] = useState<ExploreTab>('featured');
+  const featured = clientConfig().featuredCommunities;
+  const curated = featured.spaces.length + featured.rooms.length > 0;
+  const listed = featured.servers;
+  const featuredServer = curated ? null : listed ? (listed[0] ?? null) : 'matrix.org';
+  const hasFeatured = curated || !!featuredServer;
+  const serverPills = useMemo(
+    () => (listed ? [...new Set(curated ? listed : listed.slice(1))] : [homeDomain]),
+    [homeDomain, curated, listed]
+  );
+  const firstTab: ExploreTab = hasFeatured ? 'featured' : serverPills.length ? 'server' : 'other';
+
+  const [activeTab, setActiveTab] = useState<ExploreTab>(firstTab);
+  const [picked, setPickedServer] = useState<string | null>(null);
+  const pickedServer = picked ?? serverPills[0] ?? homeDomain;
   const [otherInput, setOtherInput] = useState('');
   const [otherServer, setOtherServer] = useState('');
   const otherInputRef = useRef<HTMLInputElement>(null);
@@ -182,8 +196,13 @@ export function ExploreModal() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isFeatured = activeTab === 'featured';
+  const showCurated = isFeatured && curated;
   const queryServer =
-    activeTab === 'server' ? homeDomain : activeTab === 'other' ? otherServer : 'matrix.org';
+    activeTab === 'server'
+      ? pickedServer
+      : activeTab === 'other'
+        ? otherServer
+        : (featuredServer ?? '');
 
   const roomsQuery = useQuery({
     queryKey: [
@@ -210,16 +229,41 @@ export function ExploreModal() {
       else if (filter === 'rooms') chunk = chunk.filter((r) => !r.isSpace);
       return { chunk, nextBatch: res.next ?? undefined };
     },
-    enabled: !!client && !!queryServer,
+    enabled: !!client && !!queryServer && !showCurated,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     gcTime: 300_000,
   });
 
-  const rooms = roomsQuery.data?.chunk ?? [];
-  const nextBatch = roomsQuery.data?.nextBatch;
-  const loading = roomsQuery.isFetching;
-  const error = roomsQuery.error ? getErrorMessage(roomsQuery.error) : null;
+  const curatedEntries = useMemo(
+    () => [
+      ...featured.spaces.map((id) => ({ id, section: 'spaces' as const })),
+      ...featured.rooms.map((id) => ({ id, section: 'rooms' as const })),
+    ],
+    [featured.spaces, featured.rooms]
+  );
+  const previews = useQueries({
+    queries: curatedEntries.map(({ id }) => ({
+      queryKey: ['roomPreview', id],
+      queryFn: () => client!.roomPreview(id, null),
+      enabled: open && !!client && showCurated,
+      staleTime: 300_000,
+      gcTime: 600_000,
+      retry: 1,
+    })),
+  });
+  const curatedRooms = (section: 'spaces' | 'rooms') =>
+    curatedEntries.flatMap((entry, i) =>
+      entry.section === section && previews[i].data ? [previews[i].data] : []
+    );
+  const featuredSpaces = curatedRooms('spaces');
+  const featuredRooms = curatedRooms('rooms');
+  const curatedLoading = previews.some((q) => q.isPending && q.fetchStatus !== 'idle');
+
+  const rooms = showCurated ? [] : (roomsQuery.data?.chunk ?? []);
+  const nextBatch = showCurated ? undefined : roomsQuery.data?.nextBatch;
+  const loading = showCurated ? curatedLoading : roomsQuery.isFetching;
+  const error = !showCurated && roomsQuery.error ? getErrorMessage(roomsQuery.error) : null;
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -262,6 +306,33 @@ export function ExploreModal() {
   const handleOtherKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') commitOtherServer();
   };
+
+  const switchTab = (tab: ExploreTab, server?: string) => {
+    setActiveTab(tab);
+    if (server) setPickedServer(server);
+    setQuery('');
+    setDebouncedQuery('');
+    setFilter('all');
+    setPageHistory([undefined]);
+    setCurrentPage(0);
+  };
+
+  const renderCard = (room: PublicRoom) => (
+    <RoomCard
+      key={room.id}
+      roomId={room.id}
+      name={room.name ?? room.alias ?? room.id}
+      alias={room.alias}
+      topic={room.topic}
+      avatarMxc={room.avatarUrl}
+      client={client}
+      members={room.memberCount}
+      isSpace={room.isSpace}
+      isJoined={isRoomJoined(room.id, room.alias)}
+      onJoin={handleJoin}
+      joiningId={joiningId}
+    />
+  );
 
   // When clicking the "other" pill, focus its input
   const handleOtherPillClick = () => {
@@ -324,7 +395,8 @@ export function ExploreModal() {
   const handleClose = () => {
     setOpen(false);
     setTimeout(() => {
-      setActiveTab('featured');
+      setActiveTab(firstTab);
+      setPickedServer(null);
       setQuery('');
       setDebouncedQuery('');
       setFilter('all');
@@ -350,37 +422,28 @@ export function ExploreModal() {
       <div className={css.controlsRow}>
         {/* Server pill switcher */}
         <div className={css.pillGroup}>
-          {/* Featured pill */}
-          <button
-            type="button"
-            className={activeTab === 'featured' ? css.pillActive : css.pill}
-            onClick={() => {
-              setActiveTab('featured');
-              setQuery('');
-              setDebouncedQuery('');
-              setFilter('all');
-              setPageHistory([undefined]);
-              setCurrentPage(0);
-            }}
-          >
-            {t('explore.tabFeatured')}
-          </button>
+          {hasFeatured && (
+            <button
+              type="button"
+              className={activeTab === 'featured' ? css.pillActive : css.pill}
+              onClick={() => switchTab('featured')}
+            >
+              {t('explore.tabFeatured')}
+            </button>
+          )}
 
-          {/* Home server pill */}
-          <button
-            type="button"
-            className={activeTab === 'server' ? css.pillActive : css.pill}
-            onClick={() => {
-              setActiveTab('server');
-              setQuery('');
-              setDebouncedQuery('');
-              setFilter('all');
-              setPageHistory([undefined]);
-              setCurrentPage(0);
-            }}
-          >
-            {homeDomain}
-          </button>
+          {serverPills.map((server) => (
+            <button
+              key={server}
+              type="button"
+              className={
+                activeTab === 'server' && pickedServer === server ? css.pillActive : css.pill
+              }
+              onClick={() => switchTab('server', server)}
+            >
+              {server}
+            </button>
+          ))}
 
           {/* Other server: editable pill */}
           <div
@@ -457,7 +520,9 @@ export function ExploreModal() {
 
         {error && <div className={css.errorBanner}>{t('explore.fetchError', { error })}</div>}
 
-        {loading && !rooms.length && <SkeletonGrid />}
+        {loading && !rooms.length && featuredSpaces.length + featuredRooms.length === 0 && (
+          <SkeletonGrid />
+        )}
 
         {rooms.length > 0 && (activeTab !== 'other' || otherServer) && (
           <>
@@ -465,27 +530,10 @@ export function ExploreModal() {
               {isFeatured
                 ? t('explore.featuredSpaces')
                 : t('explore.publicRoomsOn', {
-                    server: activeTab === 'server' ? homeDomain : otherServer,
+                    server: activeTab === 'server' ? pickedServer : otherServer,
                   })}
             </p>
-            <div className={css.roomGrid}>
-              {rooms.map((room) => (
-                <RoomCard
-                  key={room.id}
-                  roomId={room.id}
-                  name={room.name ?? room.alias ?? room.id}
-                  alias={room.alias}
-                  topic={room.topic}
-                  avatarMxc={room.avatarUrl}
-                  client={client}
-                  members={room.memberCount}
-                  isSpace={room.isSpace}
-                  isJoined={isRoomJoined(room.id, room.alias)}
-                  onJoin={handleJoin}
-                  joiningId={joiningId}
-                />
-              ))}
-            </div>
+            <div className={css.roomGrid}>{rooms.map(renderCard)}</div>
             {(currentPage > 0 || nextBatch) && (
               <div className={css.paginationRow}>
                 <button
@@ -514,9 +562,31 @@ export function ExploreModal() {
           </>
         )}
 
-        {!loading && !error && rooms.length === 0 && (activeTab !== 'other' || otherServer) && (
-          <EmptyState title={t('explore.noResults')} body={t('explore.noResultsBody')} />
+        {showCurated && featuredSpaces.length > 0 && (
+          <>
+            <p className={css.sectionTitle}>{t('explore.featuredSpacesTitle')}</p>
+            <div className={css.roomGrid}>{featuredSpaces.map(renderCard)}</div>
+          </>
         )}
+
+        {showCurated && featuredRooms.length > 0 && (
+          <>
+            <p className={css.sectionTitle}>{t('explore.featuredRoomsTitle')}</p>
+            <div className={css.roomGrid}>{featuredRooms.map(renderCard)}</div>
+          </>
+        )}
+
+        {showCurated && !loading && featuredSpaces.length + featuredRooms.length === 0 && (
+          <EmptyState title={t('explore.featuredEmpty')} body={t('explore.featuredEmptyBody')} />
+        )}
+
+        {!showCurated &&
+          !loading &&
+          !error &&
+          rooms.length === 0 &&
+          (activeTab !== 'other' || otherServer) && (
+            <EmptyState title={t('explore.noResults')} body={t('explore.noResultsBody')} />
+          )}
       </div>
     </Dialog>
   );

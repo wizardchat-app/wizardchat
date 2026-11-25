@@ -1408,9 +1408,6 @@ export type UploadedFile = {
   waveform?: Array<number> | null;
   isAnimated?: boolean;
   thumbnail?: UploadedThumbnail | null;
-  /**
-   * From `WizardClient.encodeBlurhash`, for images and videos
-   */
   blurhash?: string | null;
   mentions?: Mentions | null;
   replyTo?: string | null;
@@ -2768,6 +2765,11 @@ export class WizardClient extends Remote {
       limit,
       since,
     ]) as Promise<PublicRoomsPage>;
+  }
+
+  /** What a room or space looks like before joining, from its ID or address. */
+  roomPreview(idOrAlias: string, via?: Array<string> | null): Promise<PublicRoom> {
+    return runtime.call('WizardClient.roomPreview', this, [idOrAlias, via]) as Promise<PublicRoom>;
   }
 
   /** Calls `listener` with a `VerificationFlow` for every incoming verification request. */

@@ -2789,7 +2789,6 @@ public struct UploadedFile: Codable, Hashable, Sendable {
     public var waveform: [Int]?
     public var isAnimated: Bool?
     public var thumbnail: UploadedThumbnail?
-    /// From `WizardClient.encodeBlurhash`, for images and videos
     public var blurhash: String?
     public var mentions: Mentions?
     public var replyTo: String?
@@ -3966,6 +3965,11 @@ public final class WizardClient: Remote, @unchecked Sendable {
     /// A page of a server's room directory; `kind` narrows to `spaces` or `rooms`.
     public func publicRoomsPage(query: String, server: String?, kind: String?, limit: Int, since: String? = nil) async throws -> PublicRoomsPage {
         try await call("WizardClient.publicRoomsPage", [.value(query), .value(server), .value(kind), .value(limit), .value(since)])
+    }
+
+    /// What a room or space looks like before joining, from its ID or address.
+    public func roomPreview(idOrAlias: String, via: [String]? = nil) async throws -> PublicRoom {
+        try await call("WizardClient.roomPreview", [.value(idOrAlias), .value(via)])
     }
 
     /// Calls `listener` with a `VerificationFlow` for every incoming verification request.
