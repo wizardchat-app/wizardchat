@@ -93,7 +93,7 @@ pub fn supported() -> bool {
 const MAX_WIDTH: usize = 1920;
 const MAX_HEIGHT: usize = 1080;
 const MIN_WINDOW_SIZE: i32 = 64;
-const FRAME_INTERVAL: Duration = Duration::from_micros(33_333);
+const MIN_FRAME_INTERVAL: Duration = Duration::from_micros(16_667);
 const TIMEOUT: Duration = Duration::from_secs(10);
 /// Renders windows drawn with DirectComposition too (Chromium, WinUI)
 const PW_RENDERFULLCONTENT: PRINT_WINDOW_FLAGS = PRINT_WINDOW_FLAGS(2);
@@ -441,7 +441,7 @@ impl Frames {
     /// Waits out the frame interval, then takes the newest frame, so the last change isn't lost
     fn arrived(&mut self, pool: &Direct3D11CaptureFramePool) -> windows::core::Result<()> {
         if let Some(last) = self.last {
-            std::thread::sleep(FRAME_INTERVAL.saturating_sub(last.elapsed()));
+            std::thread::sleep(self.sink.interval().saturating_sub(last.elapsed()));
         }
         let mut frame = pool.TryGetNextFrame()?;
         while let Ok(next) = pool.TryGetNextFrame() {
@@ -771,7 +771,7 @@ fn video(
     let _ = session.SetIsCursorCaptureEnabled(true);
     // Windows 11 24H2 and later; older versions deliver frames as often as the screen refreshes
     let _ = session.SetMinUpdateInterval(TimeSpan {
-        Duration: FRAME_INTERVAL.as_nanos() as i64 / 100,
+        Duration: MIN_FRAME_INTERVAL.as_nanos() as i64 / 100,
     });
     session.StartCapture()?;
     Ok((session, pool))

@@ -218,6 +218,17 @@ export const viewersChip = style({
   userSelect: 'none',
 });
 
+export const qualityChipButton = style([
+  viewersChip,
+  {
+    border: 'none',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    transition: `background-color ${fast}`,
+    ':hover': { background: 'rgba(0, 0, 0, 0.8)' },
+  },
+]);
+
 export const liveBadge = style({
   padding: '0 7px',
   borderRadius: '999px',
@@ -604,6 +615,8 @@ export const userMenuItem = style({
 });
 
 export const userMenuItemDanger = style([userMenuItem, { color: vars.color.danger }]);
+
+export const userMenuCheck = style({ flexShrink: 0, color: vars.color.accent });
 
 export const bubbleRingSmall = style({ width: '72px', height: '72px' });
 

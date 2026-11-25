@@ -1329,6 +1329,9 @@
     "unmuteForMe": "Unmute for me",
     "streamViewers_one": "{{count}} person watching",
     "streamViewers_other": "{{count}} people watching",
+    "streamQuality": "{{height}}p · {{fps}} FPS",
+    "streamFrameRate": "Frame rate",
+    "streamFps": "{{fps}} FPS",
     "micPermission": "Microphone access is needed to join calls. Turn it on in the Settings app.",
     "disconnected": "Disconnected from the call.",
     "callingShort": "Calling...",
@@ -2053,6 +2056,7 @@
     "screens": "Screens",
     "windows": "Windows",
     "shareAudio": "Share audio",
+    "fps60": "60 FPS",
     "screenNumber": "Screen {{number}}"
   },
   "status": {

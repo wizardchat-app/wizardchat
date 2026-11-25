@@ -52,7 +52,6 @@ pub fn supported() -> bool {
 const MAX_WIDTH: usize = 1920;
 const MAX_HEIGHT: usize = 1080;
 const MIN_WINDOW_SIZE: u16 = 64;
-const SHM_INTERVAL: Duration = Duration::from_micros(33_333);
 /// Without shared memory every frame goes through the X socket
 const PLAIN_INTERVAL: Duration = Duration::from_micros(66_666);
 
@@ -547,7 +546,7 @@ fn capture(x: X, target: Target, sink: Sink, stop: Arc<AtomicBool>) {
             }
         }
         next += if shm.is_some() {
-            SHM_INTERVAL
+            sink.interval()
         } else {
             PLAIN_INTERVAL
         };

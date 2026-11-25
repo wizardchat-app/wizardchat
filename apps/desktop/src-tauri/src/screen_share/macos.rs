@@ -443,7 +443,7 @@ pub fn start(id: &str, with_audio: bool, sink: Sink) -> Result<Box<dyn Session>,
         config.setWidth(width);
         config.setHeight(height);
         config.setPixelFormat(kCVPixelFormatType_32BGRA);
-        config.setMinimumFrameInterval(CMTime::new(1, 30));
+        config.setMinimumFrameInterval(CMTime::new(1, 60));
         config.setShowsCursor(true);
         config.setQueueDepth(5);
     }

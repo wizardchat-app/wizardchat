@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import {
+  CheckIcon,
   EyeIcon,
   EyeSlashIcon,
   MonitorArrowUpIcon,
@@ -17,8 +18,10 @@ import {
   callActionsAtom,
   callSessionAtom,
   callUserAudioAtom,
+  screenShareFpsAtom,
   showOwnScreenShareAtom,
 } from '@/app/store/atoms/call';
+import type { ScreenShareFps } from '@/call/media';
 import { userProfileAtom } from '@/app/store/atoms/userProfile';
 import { useDismiss } from './useDismiss';
 import { useCallSnapshot } from './useCallSnapshot';
@@ -64,7 +67,10 @@ const stopBubbling = {
   onDragStart: stop,
 };
 
-function useMenuPosition(ref: React.RefObject<HTMLDivElement | null>, anchor: UserMenuAnchor) {
+function useMenuPosition(
+  ref: React.RefObject<HTMLDivElement | null>,
+  anchor: { x: number; y: number }
+) {
   const [position, setPosition] = useState({ left: anchor.x, top: anchor.y });
   useLayoutEffect(() => {
     const el = ref.current;
@@ -76,6 +82,58 @@ function useMenuPosition(ref: React.RefObject<HTMLDivElement | null>, anchor: Us
     });
   }, [ref, anchor]);
   return position;
+}
+
+const SCREEN_SHARE_FPS: ScreenShareFps[] = [30, 60];
+
+export function StreamFpsMenu({
+  anchor,
+  onClose,
+}: {
+  anchor: { x: number; y: number };
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  const session = useAtomValue(callSessionAtom);
+  const current = useCallSnapshot()?.screenShareFps ?? 30;
+  const setPreferred = useSetAtom(screenShareFpsAtom);
+  const position = useMenuPosition(ref, anchor);
+  useDismiss(ref, onClose);
+  const title = t('call.streamFrameRate');
+
+  return createPortal(
+    <div
+      ref={ref}
+      className={css.userMenu}
+      style={position}
+      role="menu"
+      tabIndex={-1}
+      aria-label={title}
+      onContextMenu={(e) => e.preventDefault()}
+      {...stopBubbling}
+    >
+      <span className={css.userMenuName}>{title}</span>
+      {SCREEN_SHARE_FPS.map((fps) => (
+        <button
+          key={fps}
+          type="button"
+          role="menuitemradio"
+          aria-checked={fps === current}
+          className={css.userMenuItem}
+          onClick={() => {
+            setPreferred(fps);
+            void session?.setScreenShareFps(fps);
+            onClose();
+          }}
+        >
+          <span className={css.userMenuText}>{t('call.streamFps', { fps })}</span>
+          {fps === current && <CheckIcon size={16} weight="bold" className={css.userMenuCheck} />}
+        </button>
+      ))}
+    </div>,
+    document.body
+  );
 }
 
 export function StreamCallMenu({

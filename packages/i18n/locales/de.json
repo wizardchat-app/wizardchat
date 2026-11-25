@@ -1329,6 +1329,9 @@
     "unmuteForMe": "Für mich wieder einschalten",
     "streamViewers_one": "{{count}} Person schaut zu",
     "streamViewers_other": "{{count}} Personen schauen zu",
+    "streamQuality": "{{height}}p · {{fps}} FPS",
+    "streamFrameRate": "Bildrate",
+    "streamFps": "{{fps}} FPS",
     "micPermission": "Für Anrufe braucht WizardChat Zugriff auf das Mikrofon. Du kannst ihn in den Einstellungen erlauben.",
     "disconnected": "Die Verbindung zum Anruf wurde getrennt.",
     "callingShort": "Ruft an...",
@@ -2053,6 +2056,7 @@
     "screens": "Bildschirme",
     "windows": "Fenster",
     "shareAudio": "Audio teilen",
+    "fps60": "60 FPS",
     "screenNumber": "Bildschirm {{number}}"
   },
   "status": {

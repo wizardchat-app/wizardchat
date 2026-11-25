@@ -14,6 +14,7 @@ import {
   pendingCallRoomIdAtom,
   leavingCallRoomIdAtom,
   noiseFilterAtom,
+  screenShareFpsAtom,
   pushToTalkModeAtom,
   showNonVideoParticipantsAtom,
   showOwnScreenShareAtom,
@@ -393,8 +394,8 @@ export function CallController() {
   );
   const toggleVideo = useCallback(() => run((s, snap) => s.setCamera(!snap.camera)), [run]);
   const toggleScreenshare = useCallback(
-    () => run((s, snap) => s.setScreenShare(!snap.screenshare)),
-    [run]
+    () => run((s, snap) => s.setScreenShare(!snap.screenshare, store.get(screenShareFpsAtom))),
+    [run, store]
   );
   const setSpotlight = useCallback(
     (spotlight: boolean) => setUi((prev) => ({ ...prev, isSpotlight: spotlight })),

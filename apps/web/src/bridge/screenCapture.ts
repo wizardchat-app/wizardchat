@@ -15,7 +15,7 @@ interface NativeSource {
   appName: string | null;
 }
 
-type Choice = { id: string; name: string; audio: boolean } | null;
+type Choice = { id: string; name: string; audio: boolean; fps?: number } | null;
 
 export const SHARE_PICKER_EVENT = 'share-picker-choice';
 
@@ -107,12 +107,14 @@ function videoTrack(channel: Channel<ArrayBuffer>) {
         decoding = false;
       });
   };
-  return canvas.captureStream(30).getVideoTracks()[0];
+  return canvas.captureStream().getVideoTracks()[0];
 }
 
 export interface NativeScreenShare {
   video: MediaStreamTrack;
   audio: MediaStreamTrack | null;
+  fps: 30 | 60;
+  setFps(fps: number): void;
   stop(): void;
 }
 
@@ -127,11 +129,12 @@ export async function screenShareAudioSupported(): Promise<boolean> {
   return (await support()).audio;
 }
 
-export async function startScreenShare(): Promise<NativeScreenShare | null | undefined> {
+export async function startScreenShare(fps: number): Promise<NativeScreenShare | null | undefined> {
   const supported = await support();
   if (!supported.video) return undefined;
   const choice = await pickSource();
   if (!choice) return null;
+  const chosenFps = (choice.fps ?? fps) === 60 ? 60 : 30;
   const frames = new Channel<ArrayBuffer>();
   const audioChunks = new Channel<ArrayBuffer>();
   const video = videoTrack(frames);
@@ -140,6 +143,7 @@ export async function startScreenShare(): Promise<NativeScreenShare | null | und
   await invoke('start_screen_capture', {
     id: choice.id,
     audio: withAudio,
+    fps: chosenFps,
     frames,
     audioOut: audioChunks,
   });
@@ -147,6 +151,10 @@ export async function startScreenShare(): Promise<NativeScreenShare | null | und
   return {
     video,
     audio: audio?.track ?? null,
+    fps: chosenFps,
+    setFps(next) {
+      if (!stopped) void invoke('set_screen_capture_fps', { fps: next });
+    },
     stop() {
       if (stopped) return;
       stopped = true;

@@ -31,8 +31,9 @@ import {
 import { themeAtom } from '@/app/store/atoms/settings';
 import { buildCallBackground } from '@/app/features/calls/callBackground';
 import { shownParticipants, useCallSnapshot } from './useCallSnapshot';
-import { StreamCallMenu, UserCallMenu, type UserMenuAnchor } from './UserCallMenu';
+import { StreamCallMenu, StreamFpsMenu, UserCallMenu, type UserMenuAnchor } from './UserCallMenu';
 import { useDismiss } from './useDismiss';
+import { useStreamStats } from './useStreamStats';
 import { SoundboardPanel } from './SoundboardPanel';
 import { useMemberLookup, type MemberInfo } from '../useMemberLookup';
 import {
@@ -132,6 +133,9 @@ function Tile({
   const flash =
     soundboard ?? (participant.reaction ? { emoji: participant.reaction, key: 0 } : null);
   const videoHidden = !screen && participant.cameraHidden;
+  const sendingFps = useCallSnapshot()?.screenShareFps ?? 30;
+  const streamStats = useStreamStats(track, screen && !compact && !unwatched, sendingFps);
+  const [fpsMenu, setFpsMenu] = useState<{ x: number; y: number } | null>(null);
 
   const classes = [
     css.tile,
@@ -202,6 +206,28 @@ function Tile({
       {screen && (
         <span className={css.liveRow}>
           <span className={css.liveBadge}>{t('call.live')}</span>
+          {streamStats &&
+            (participant.isLocal ? (
+              <button
+                type="button"
+                className={css.qualityChipButton}
+                aria-haspopup="menu"
+                aria-expanded={!!fpsMenu}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setFpsMenu(fpsMenu ? null : { x: rect.left, y: rect.bottom + 4 });
+                }}
+              >
+                {t('call.streamQuality', { height: streamStats.height, fps: streamStats.fps })}
+                <CaretDownIcon size={10} weight="bold" />
+              </button>
+            ) : (
+              <span className={css.viewersChip}>
+                {t('call.streamQuality', { height: streamStats.height, fps: streamStats.fps })}
+              </span>
+            ))}
+          {fpsMenu && <StreamFpsMenu anchor={fpsMenu} onClose={() => setFpsMenu(null)} />}
           {participant.isLocal && participant.screenWatchers.length > 0 && (
             <Tooltip content={participant.screenWatchers.map((uid) => lookup(uid).name).join(', ')}>
               <span

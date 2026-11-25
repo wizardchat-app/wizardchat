@@ -208,6 +208,7 @@ pub fn run() {
             screen_share::screen_capture_supported,
             screen_share::desktop_sources,
             screen_share::start_screen_capture,
+            screen_share::set_screen_capture_fps,
             screen_share::stop_screen_capture,
             screen_share::open_share_picker,
         ])

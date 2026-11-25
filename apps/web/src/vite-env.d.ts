@@ -51,8 +51,16 @@ interface DesktopAPI {
   /** Whether the in-app picker offers sharing system audio */
   screenShareAudioSupported?: () => Promise<boolean>;
   /** Native capture with the in-app picker; undefined when this platform has none */
-  startScreenShare?: () => Promise<
-    { video: MediaStreamTrack; audio: MediaStreamTrack | null; stop(): void } | null | undefined
+  startScreenShare?: (fps: number) => Promise<
+    | {
+        video: MediaStreamTrack;
+        audio: MediaStreamTrack | null;
+        fps: 30 | 60;
+        setFps(fps: number): void;
+        stop(): void;
+      }
+    | null
+    | undefined
   >;
   onUpdateDownloaded?: (cb: () => void) => void;
   installUpdate?: () => void;

@@ -75,8 +75,14 @@ export const sourceNameText = style({
   whiteSpace: 'nowrap',
 });
 
-export const audioToggle = style({
+export const toggles = style({
   marginRight: 'auto',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '16px',
+});
+
+export const toggle = style({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',

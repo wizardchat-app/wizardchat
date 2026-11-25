@@ -3,12 +3,12 @@ import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/app/components/Button';
 import { Toggle } from '@/app/components/Toggle';
-import { shareScreenAudioAtom } from '@/app/store/atoms/call';
+import { screenShareFpsAtom, shareScreenAudioAtom } from '@/app/store/atoms/call';
 import * as css from './DesktopSourcePicker.css';
 
 type Tab = 'screen' | 'window';
 
-export type SourceChoice = { id: string; name: string; audio: boolean } | null;
+export type SourceChoice = { id: string; name: string; audio: boolean; fps: number } | null;
 
 export function useSourcePicker(onFinish: (choice: SourceChoice) => void) {
   const { t } = useTranslation();
@@ -18,6 +18,7 @@ export function useSourcePicker(onFinish: (choice: SourceChoice) => void) {
   const [selected, setSelected] = useState<string | null>(null);
   const [shareAudio, setShareAudio] = useAtom(shareScreenAudioAtom);
   const [audioSupported, setAudioSupported] = useState(true);
+  const [fps, setFps] = useAtom(screenShareFpsAtom);
 
   const load = useCallback(() => {
     setSelected(null);
@@ -33,7 +34,7 @@ export function useSourcePicker(onFinish: (choice: SourceChoice) => void) {
 
   const finish = (source: DesktopSource | null) =>
     onFinish(
-      source ? { id: source.id, name: source.name, audio: shareAudio && audioSupported } : null
+      source ? { id: source.id, name: source.name, audio: shareAudio && audioSupported, fps } : null
     );
 
   const visible = sources.filter((s) => s.id.startsWith(`${tab}:`));
@@ -77,17 +78,28 @@ export function useSourcePicker(onFinish: (choice: SourceChoice) => void) {
 
   const footer = (
     <>
-      {audioSupported && (
-        <label className={css.audioToggle}>
+      <div className={css.toggles}>
+        {audioSupported && (
+          <label className={css.toggle}>
+            <Toggle
+              size="sm"
+              checked={shareAudio}
+              onChange={setShareAudio}
+              ariaLabel={t('desktopPicker.shareAudio')}
+            />
+            {t('desktopPicker.shareAudio')}
+          </label>
+        )}
+        <label className={css.toggle}>
           <Toggle
             size="sm"
-            checked={shareAudio}
-            onChange={setShareAudio}
-            ariaLabel={t('desktopPicker.shareAudio')}
+            checked={fps === 60}
+            onChange={(on) => setFps(on ? 60 : 30)}
+            ariaLabel={t('desktopPicker.fps60')}
           />
-          {t('desktopPicker.shareAudio')}
+          {t('desktopPicker.fps60')}
         </label>
-      )}
+      </div>
       <Button variant="secondary" onClick={() => finish(null)}>
         {t('common.cancel')}
       </Button>

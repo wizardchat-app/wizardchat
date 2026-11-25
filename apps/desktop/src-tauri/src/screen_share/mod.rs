@@ -4,7 +4,10 @@
 //! dropped when the webview falls behind), system audio as 48 kHz stereo float samples. The web app
 //! turns them into the tracks it publishes to the call.
 
-use std::sync::{Arc, Condvar, Mutex};
+use std::{
+    sync::{Arc, Condvar, Mutex},
+    time::{Duration, Instant},
+};
 
 use base64::Engine;
 use serde::Serialize;
@@ -59,6 +62,8 @@ pub(crate) struct Sink {
 struct Slot {
     frame: Option<Frame>,
     stopped: bool,
+    fps: u32,
+    last: Option<Instant>,
 }
 
 struct Frame {
@@ -68,6 +73,11 @@ struct Frame {
 }
 
 impl Sink {
+    #[cfg_attr(target_os = "macos", allow(dead_code))]
+    pub(crate) fn interval(&self) -> Duration {
+        Duration::from_secs(1) / self.frame.0.lock().unwrap().fps.max(1)
+    }
+
     /// A BGRA frame; rows may be padded to `stride` bytes
     pub(crate) fn video(&self, width: usize, height: usize, stride: usize, data: &[u8]) {
         let row = width * 4;
@@ -76,6 +86,14 @@ impl Sink {
         }
         let (slot, ready) = &*self.frame;
         let mut slot = slot.lock().unwrap();
+        let interval = Duration::from_secs(1) / slot.fps.max(1);
+        if slot
+            .last
+            .is_some_and(|last| last.elapsed() < interval * 4 / 5)
+        {
+            return;
+        }
+        slot.last = Some(Instant::now());
         let mut bgra = slot.frame.take().map(|f| f.bgra).unwrap_or_default();
         bgra.clear();
         for y in 0..height {
@@ -186,11 +204,16 @@ pub fn start_screen_capture(
     capture: State<'_, Capture>,
     id: String,
     audio: bool,
+    fps: u32,
     frames: Channel<InvokeResponseBody>,
     audio_out: Channel<InvokeResponseBody>,
 ) -> Result<(), String> {
     capture.stop();
-    let frame = Arc::new((Mutex::new(Slot::default()), Condvar::new()));
+    let slot = Slot {
+        fps: fps.clamp(1, 60),
+        ..Slot::default()
+    };
+    let frame = Arc::new((Mutex::new(slot), Condvar::new()));
     let sink = Sink {
         frame: frame.clone(),
         audio: audio_out,
@@ -200,6 +223,13 @@ pub fn start_screen_capture(
     std::thread::spawn(move || encode_frames(encoder_frame, frames));
     *capture.0.lock().unwrap() = Some((session, frame));
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_screen_capture_fps(capture: State<'_, Capture>, fps: u32) {
+    if let Some((_, frame)) = &*capture.0.lock().unwrap() {
+        frame.0.lock().unwrap().fps = fps.clamp(1, 60);
+    }
 }
 
 #[tauri::command]

@@ -16,6 +16,7 @@ import {
   type RemoteTrackPublication,
   type RoomOptions,
   type ScreenShareCaptureOptions,
+  type VideoEncoding,
   isE2EESupported,
   version as livekitVersion,
 } from 'livekit-client';
@@ -59,11 +60,14 @@ export type LeaveReason = 'hangup' | 'switch' | 'unload' | 'signedOut' | 'alone'
 export type DeviceKind = 'audioinput' | 'videoinput' | 'audiooutput';
 export type PreferredDevices = Partial<Record<DeviceKind, string>>;
 export type NoiseFilter = 'off' | 'standard' | 'enhanced';
+export type ScreenShareFps = 30 | 60;
 
 /** Something that can show a track: `track.attach(videoElement)` */
 export interface TrackHandle {
   attach(element: HTMLMediaElement): HTMLMediaElement;
   detach(element: HTMLMediaElement): HTMLMediaElement;
+  getRTCStatsReport(): Promise<RTCStatsReport | undefined>;
+  readonly mediaStreamTrack: MediaStreamTrack;
 }
 
 export interface CallParticipant {
@@ -112,6 +116,7 @@ export interface CallSnapshot {
   camera: boolean;
   deafened: boolean;
   screenshare: boolean;
+  screenShareFps: ScreenShareFps;
   handRaised: boolean;
   pushToTalk: boolean;
   participants: CallParticipant[];
@@ -192,10 +197,15 @@ function waitForNetwork(): Promise<void> {
   });
 }
 
-const SCREEN_SHARE: ScreenShareCaptureOptions = {
+const SCREEN_SHARE_ENCODING: Record<ScreenShareFps, VideoEncoding> = {
+  30: ScreenSharePresets.h1080fps30.encoding,
+  60: { maxBitrate: 8_000_000, maxFramerate: 60, priority: 'medium' },
+};
+const screenShareCapture = (fps: ScreenShareFps): ScreenShareCaptureOptions => ({
+  resolution: { width: 1920, height: 1080, frameRate: fps },
   audio: { restrictOwnAudio: true } as AudioCaptureOptions,
   systemAudio: 'include',
-};
+});
 const SUBSCRIBE_RETRY_MS = 5000;
 const STALE_MEMBER_MS = 20_000;
 const ENCRYPTION_LOG_MS = 10_000;
@@ -219,7 +229,7 @@ function roomOptions(
       videoCodec: 'vp8',
       backupCodec: { codec: 'vp8' },
       videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
-      screenShareEncoding: ScreenSharePresets.h1080fps30.encoding,
+      screenShareEncoding: SCREEN_SHARE_ENCODING[30],
       stopMicTrackOnMute: false,
     },
     videoCaptureDefaults: {
@@ -312,8 +322,11 @@ export class CallMedia {
   private nativeShare: {
     video: MediaStreamTrack;
     audio: MediaStreamTrack | null;
+    fps: ScreenShareFps;
+    setFps(fps: ScreenShareFps): void;
     stop(): void;
   } | null = null;
+  private screenShareFps: ScreenShareFps = 30;
 
   constructor(
     private readonly client: WizardClient,
@@ -329,6 +342,7 @@ export class CallMedia {
       camera: false,
       deafened: false,
       screenshare: false,
+      screenShareFps: 30,
       handRaised: false,
       pushToTalk: false,
       participants: [],
@@ -629,13 +643,16 @@ export class CallMedia {
     this.scheduleUpdate();
   }
 
-  async setScreenShare(enabled: boolean) {
+  async setScreenShare(enabled: boolean, fps: ScreenShareFps = 30) {
+    if (enabled) this.screenShareFps = fps;
     try {
-      if (await this.setNativeScreenShare(enabled)) {
+      if (await this.setNativeScreenShare(enabled, fps)) {
         this.scheduleUpdate();
         return;
       }
-      await this.localParticipant?.setScreenShareEnabled(enabled, SCREEN_SHARE);
+      await this.localParticipant?.setScreenShareEnabled(enabled, screenShareCapture(fps), {
+        screenShareEncoding: SCREEN_SHARE_ENCODING[fps],
+      });
     } catch (error) {
       const name = error instanceof Error ? error.name : '';
       if (name !== 'NotAllowedError' && name !== 'AbortError') throw error;
@@ -647,7 +664,7 @@ export class CallMedia {
    * The desktop app's own picker and native capture; false when this platform has none, so the
    * webview's `getDisplayMedia()` picker is used instead
    */
-  private async setNativeScreenShare(enabled: boolean): Promise<boolean> {
+  private async setNativeScreenShare(enabled: boolean, fps: ScreenShareFps): Promise<boolean> {
     const start = window.desktopAPI?.startScreenShare;
     if (!start) return false;
     if (!enabled) {
@@ -657,15 +674,16 @@ export class CallMedia {
     }
     const participant = this.localParticipant;
     if (!participant) return true;
-    const share = await start();
+    const share = await start(fps);
     if (share === undefined) return false;
     if (share === null) return true;
     this.stopNativeShare();
     this.nativeShare = share;
+    this.screenShareFps = share.fps;
     share.video.addEventListener('ended', () => void this.setScreenShare(false));
     await participant.publishTrack(share.video, {
       source: Track.Source.ScreenShare,
-      videoEncoding: ScreenSharePresets.h1080fps30.encoding,
+      videoEncoding: SCREEN_SHARE_ENCODING[share.fps],
       simulcast: false,
     });
     if (share.audio) {
@@ -676,6 +694,25 @@ export class CallMedia {
       });
     }
     return true;
+  }
+
+  /** Changes the frame rate of the running screen share */
+  async setScreenShareFps(fps: ScreenShareFps) {
+    const track = this.localParticipant?.getTrackPublication(Track.Source.ScreenShare)?.track;
+    if (!track) return;
+    this.screenShareFps = fps;
+    this.scheduleUpdate();
+    if (this.nativeShare) this.nativeShare.setFps(fps);
+    else
+      await track.mediaStreamTrack
+        .applyConstraints({ width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: fps })
+        .catch(() => {});
+    const sender = track.sender;
+    if (!sender) return;
+    const params = sender.getParameters();
+    const { maxFramerate, maxBitrate } = SCREEN_SHARE_ENCODING[fps];
+    for (const encoding of params.encodings) Object.assign(encoding, { maxFramerate, maxBitrate });
+    await sender.setParameters(params).catch(() => {});
   }
 
   private stopNativeShare() {
@@ -1298,6 +1335,7 @@ export class CallMedia {
         microphone: !!local?.isMicrophoneEnabled,
         camera: !!local?.isCameraEnabled,
         screenshare: !!local?.isScreenShareEnabled,
+        screenShareFps: this.screenShareFps,
         deafened: this.deafened,
         participants: this.readParticipants(),
       });

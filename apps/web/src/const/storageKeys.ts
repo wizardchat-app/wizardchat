@@ -56,6 +56,7 @@ export const STORAGE_KEY_CALL_DEVICES = 'wz_call_devices';
 export const STORAGE_KEY_CALL_VOLUMES = 'wz_call_volumes';
 export const STORAGE_KEY_NOISE_FILTER = 'wz_noise_filter';
 export const STORAGE_KEY_SHARE_SCREEN_AUDIO = 'wz_share_screen_audio';
+export const STORAGE_KEY_SCREEN_SHARE_FPS = 'wz_screen_share_fps';
 
 // Device ID whose session verification was skipped on purpose
 export const STORAGE_KEY_VERIFY_SKIPPED_DEVICE = 'wz_verify_skipped_device';
