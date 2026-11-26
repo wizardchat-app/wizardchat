@@ -17,3 +17,13 @@ build-web:
   image: node:22-bookworm
   script:
     - npm run build
+
+nginx-config:
+  stage: lint
+  extends: .branch-rules
+  interruptible: true
+  image: nginx:alpine
+  script:
+    - cp apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+    - mkdir -p /etc/nginx/snippets && cp apps/web/nginx/*.conf /etc/nginx/snippets/
+    - nginx -t
