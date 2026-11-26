@@ -2,7 +2,7 @@ import Foundation
 
 enum ShareInbox {
     // Per build (Config/Signing.xcconfig), since app groups belong to one Apple team
-    static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.ios"
+    static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.app"
 
     struct RoomEntry: Codable, Identifiable, Hashable {
         let id: String

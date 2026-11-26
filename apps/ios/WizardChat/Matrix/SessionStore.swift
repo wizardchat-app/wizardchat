@@ -38,7 +38,7 @@ private struct StoredAccounts: Codable {
 enum SessionStore {
     private static let service = "org.wizardchat.ios.session"
     private static let accountsKey = "accounts"
-    private static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.ios"
+    private static let group = Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String ?? "group.org.wizardchat.app"
     static let appProcess = "main"
     static let extensionProcess = "nse"
     static let pushProcess = "push"

@@ -7,7 +7,7 @@ enum Badge {
     private static let key = "badges"
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: Bundle.main.object(forInfoDictionaryKey: "WZAppGroup") as? String
-            ?? "group.org.wizardchat.ios")
+            ?? "group.org.wizardchat.app")
     }
 
     static func set(_ count: Int, for userId: String) -> Int {

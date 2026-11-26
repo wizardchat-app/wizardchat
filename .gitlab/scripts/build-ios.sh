@@ -49,6 +49,8 @@ if [ -n "$IOS_DISTRIBUTION_P12" ]; then
     security cms -D -i "$profile" > "$apple/profile.plist"
     uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$apple/profile.plist")
     name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$apple/profile.plist")
+    echo "$name: App Groups $(/usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.security.application-groups" \
+      "$apple/profile.plist" 2> /dev/null | tr -s ' \n' ' ' || echo none)"
     cp "$profile" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
     cp "$profile" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$uuid.mobileprovision"
     /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$(basename "$profile" .mobileprovision) string $name" "$options"
