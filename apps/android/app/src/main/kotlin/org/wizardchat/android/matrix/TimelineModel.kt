@@ -98,6 +98,12 @@ data class ChatEntry(
 
     enum class ContentType { text, notice, emote, image, video, audio, file, location }
 
+    val isForwardable: Boolean
+        get() = when (kind) {
+            is Kind.Message, is Kind.Image, is Kind.Sticker, is Kind.Video, is Kind.Audio, is Kind.File, is Kind.Location -> true
+            else -> false
+        }
+
     val editableMedia: MediaContent?
         get() = when (val k = kind) {
             is Kind.Image -> k.media

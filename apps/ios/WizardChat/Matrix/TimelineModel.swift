@@ -26,6 +26,13 @@ struct ChatEntry: Identifiable {
         case dateDivider(Date)
     }
 
+    var isForwardable: Bool {
+        switch kind {
+        case .message, .image, .sticker, .video, .audio, .file, .location: true
+        default: false
+        }
+    }
+
     var editableMedia: MediaContent? {
         switch kind {
         case .image(let media), .video(let media), .file(let media): return media

@@ -181,6 +181,7 @@ class MessageActions(
     val togglePin: (ChatEntry) -> Unit = {},
     val report: (ChatEntry) -> Unit = {},
     val viewSource: (ChatEntry) -> Unit = {},
+    val forward: ((ChatEntry) -> Unit)? = null,
     val editHistory: (ChatEntry) -> Unit = {},
     val openThread: ((ChatEntry) -> Unit)? = null,
     /** Set only in unencrypted rooms */
@@ -213,6 +214,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     var canPin by remember { mutableStateOf(false) }
     var canRedactOthers by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf<ChatEntry?>(null) }
+    var forwarding by remember { mutableStateOf<String?>(null) }
     var sourceText by remember { mutableStateOf<String?>(null) }
     var editHistory by remember { mutableStateOf<List<MessageVersion>?>(null) }
     var linkPreviews by remember { mutableStateOf<LinkPreviewLoader?>(null) }
@@ -400,6 +402,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
         togglePin = { entry -> scope.launch { timeline.togglePin(entry) } },
         report = { reporting = it },
         viewSource = { entry -> scope.launch { sourceText = timeline.source(entry) } },
+        forward = { entry -> forwarding = entry.eventId },
         editHistory = { entry ->
             val eventId = entry.eventId
             if (eventId != null) {
@@ -537,6 +540,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     }
     sourceText?.let { SourceSheet(it) { sourceText = null } }
     editHistory?.let { EditHistorySheet(it) { editHistory = null } }
+    forwarding?.let { eventId -> ForwardSheet(room.id, eventId) { forwarding = null } }
     reporting?.let { entry -> ReportDialog(onDismiss = { reporting = null }) { reason ->
         scope.launch { if (timeline.reportMessage(entry, reason)) CopyToast.show(L10n.format("timeline.reported")) }
     } }
@@ -1515,6 +1519,8 @@ private fun MessageMenu(entry: ChatEntry, actions: MessageActions?, onDismiss: (
             item(tr("common.copyLink"), "link-simple") {
                 copyToClipboard("https://matrix.to/#/${actions.roomId}/$eventId", L10n.format("timeline.linkCopied"))
             }
+            val forward = actions.forward
+            if (forward != null && entry.isForwardable) item(tr("timeline.forward"), "arrow-bend-up-right") { forward(entry) }
             if (actions.canPin) {
                 val pinned = eventId in actions.pinnedIds
                 item(if (pinned) tr("timeline.unpin") else tr("timeline.pin"), if (pinned) "push-pin-slash" else "push-pin") {

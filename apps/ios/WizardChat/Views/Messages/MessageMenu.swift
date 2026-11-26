@@ -225,6 +225,9 @@ struct MessageMenuOverlay: View {
             main.append(.init(title: String(localized: "common.copyLink"), icon: "ph-link-simple-regular") {
                 copyToClipboard(link, message: String(localized: "timeline.linkCopied"))
             })
+            if let forward = actions.forward, entry.isForwardable {
+                main.append(.init(title: String(localized: "timeline.forward"), icon: "ph-arrow-bend-up-right-regular") { forward(entry) })
+            }
             if actions.canPin {
                 let pinned = actions.pinnedIds.contains(eventId)
                 main.append(.init(title: pinned ? String(localized: "timeline.unpin") : String(localized: "timeline.pin"),

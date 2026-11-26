@@ -65,6 +65,7 @@ struct RoomView: View {
     @State private var reporting: ChatEntry?
     @State private var reportReason = ""
     @State private var sourceText: IdentifiedString?
+    @State private var forwarding: IdentifiedString?
     @State private var editHistory: EditHistory?
     @State private var selectingText: IdentifiedString?
     @State private var linkPreviews: LinkPreviewLoader?
@@ -259,6 +260,7 @@ struct RoomView: View {
             }
         }
         .sheet(item: $sourceText) { source in SourceView(json: source.id) }
+        .sheet(item: $forwarding) { forwarding in ForwardSheet(fromRoomId: room.id, eventId: forwarding.id) }
         .sheet(item: $editHistory) { history in EditHistoryView(versions: history.versions) }
         .sheet(item: $selectingText) { text in SelectTextView(text: text.id) }
         .alert(String(localized: "timeline.reportMessage"), isPresented: Binding(get: { reporting != nil }, set: { if !$0 { reporting = nil } })) {
@@ -349,6 +351,7 @@ struct RoomView: View {
             togglePin: { entry in Task { await timeline.togglePin(entry) } },
             report: { reporting = $0 },
             viewSource: { entry in Task { sourceText = await timeline.source(of: entry).map(IdentifiedString.init) } },
+            forward: { entry in forwarding = entry.eventId.map(IdentifiedString.init) },
             editHistory: { entry in
                 guard let eventId = entry.eventId else { return }
                 Task {
@@ -1172,6 +1175,7 @@ struct MessageActions {
     var togglePin: (ChatEntry) -> Void = { _ in }
     var report: (ChatEntry) -> Void = { _ in }
     var viewSource: (ChatEntry) -> Void = { _ in }
+    var forward: ((ChatEntry) -> Void)?
     var editHistory: (ChatEntry) -> Void = { _ in }
     var selectText: (ChatEntry) -> Void = { _ in }
     var openThread: ((ChatEntry) -> Void)?

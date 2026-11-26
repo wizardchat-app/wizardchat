@@ -1,6 +1,7 @@
 [
   ["airplane", "regular"],
   ["arrow-bend-up-left", "regular"],
+  ["arrow-bend-up-right", "regular"],
   ["arrow-circle-up", "fill"],
   ["arrow-circle-up", "regular"],
   ["arrow-counter-clockwise", "regular"],
