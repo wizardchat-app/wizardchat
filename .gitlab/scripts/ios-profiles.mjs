@@ -32,7 +32,7 @@ async function call(method, path, body) {
   });
   if (!response.ok)
     throw new Error(`${method} ${path}: ${response.status} ${await response.text()}`);
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 const certificates = (await call('GET', `/certificates?filter[serialNumber]=${serial}`)).data;
@@ -50,9 +50,16 @@ for (const identifier of bundleIds) {
   const query = new URLSearchParams({
     'filter[name]': name,
     'filter[profileType]': 'IOS_APP_STORE',
-    'filter[profileState]': 'ACTIVE',
   });
-  let profile = (await call('GET', `/profiles?${query}`)).data[0];
+  const existing = (await call('GET', `/profiles?${query}`)).data.filter(
+    (p) => p.attributes.name === name
+  );
+  let profile = existing.find((p) => p.attributes.profileState === 'ACTIVE');
+  // Profiles turn invalid when their App ID's capabilities change, and Apple doesn't allow a second one of that name
+  for (const stale of existing.filter((p) => p !== profile)) {
+    await call('DELETE', `/profiles/${stale.id}`);
+    console.log(`Deleted the ${stale.attributes.profileState.toLowerCase()} profile ${name}`);
+  }
   if (!profile) {
     profile = (
       await call('POST', '/profiles', {
