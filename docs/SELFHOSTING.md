@@ -6,15 +6,18 @@ users sign in to your server by default.
 ## Docker
 
 Every release publishes an image to the [GitLab container registry][registry], tagged with the version
-(`26.12.4`, or `26.12.4-next.1` for next releases). `latest` always points to the newest stable release, and `next` to
-the newest release of either channel. Pin a version if you want to decide when to update. It serves the app with nginx
-on port 80:
+(`v26.12.4`, or `v26.12.4-next.1` for next releases). `latest` always points to the newest stable release, and `next`
+to the newest release of either channel. Pin a version if you want to decide when to update. It serves the app with
+nginx on port 80:
 
 ```sh
 docker run -d --name wizardchat -p 8080:80 registry.gitlab.com/wizardchat/wizardchat:<version>
 ```
 
 Then open <http://localhost:8080>. `/health` answers `OK` for health checks.
+
+The images are built for `linux/amd64` only. On ARM hosts like Apple Silicon Macs, add `--platform linux/amd64` (or
+`platform: linux/amd64` in Compose) so Docker runs them under emulation.
 
 With Docker Compose:
 
