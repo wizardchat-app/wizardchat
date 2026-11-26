@@ -18,6 +18,7 @@ variables:
   npm_config_cache: $CI_PROJECT_DIR/.npm
   npm_config_prefer_offline: 'true'
   WASM_PACK: '0.15.0'
+  WASM_PACK_CACHE: $CI_PROJECT_DIR/.wasm-pack
   SCCACHE: '0.19.0'
   CARGO_XWIN: '0.23.1'
   SCCACHE_DIR: $CI_PROJECT_DIR/.sccache
@@ -49,6 +50,7 @@ workflow:
       paths:
         - .rustup/
         - .sccache/
+        - .wasm-pack/
 
 .install-rust:
   script:
