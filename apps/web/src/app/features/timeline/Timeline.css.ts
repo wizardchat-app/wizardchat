@@ -274,6 +274,8 @@ export const msgContentGrouped = style([
   },
 ]);
 
+globalStyle(`${msgContentGrouped} > *`, { minWidth: 0 });
+
 // Classic variant: same baseline structure, message content rendered inside bubbles.
 const msgBubbleBase = {
   backgroundColor: vars.color.msgOtherBg,
@@ -284,7 +286,7 @@ const msgBubbleBase = {
 export const msgContentClassic = style([
   msgContent,
   msgBubbleBase,
-  { display: 'inline-block', alignSelf: 'flex-start' },
+  { display: 'inline-block', alignSelf: 'flex-start', maxWidth: '100%' },
 ]);
 
 export const msgContentClassicOwn = style([
