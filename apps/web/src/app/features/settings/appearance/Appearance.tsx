@@ -2,6 +2,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import { CustomThemes } from './CustomThemes';
 import { ThemeModeControl, ThemeSlotPicker } from './ThemeSlotPicker';
 import { useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import {
   themeAtom,
   messageLayoutAtom,
@@ -125,7 +126,8 @@ function PreviewMessage({
 }
 
 function ChatPreview({ layout, prettifyLinks }: { layout: MessageLayout; prettifyLinks: boolean }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const client = getMatrixClientOrNull();
   const myId = client?.userId() ?? undefined;
   const { data: me } = useProfile(myId);
@@ -156,11 +158,7 @@ function ChatPreview({ layout, prettifyLinks }: { layout: MessageLayout; prettif
     [t, myId, prettifyLinks]
   );
 
-  const time = (offsetMin: number) =>
-    new Date(Date.now() - offsetMin * 60_000).toLocaleTimeString(i18n.language, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const time = (offsetMin: number) => timeFormat.time(Date.now() - offsetMin * 60_000);
 
   return (
     <div className={css.preview} aria-hidden="true" onClickCapture={(e) => e.preventDefault()}>

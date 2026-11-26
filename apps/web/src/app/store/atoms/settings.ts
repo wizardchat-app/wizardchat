@@ -41,6 +41,7 @@ export type MediaVisibility = 'always' | 'private' | 'never';
 export type StreamerMode = 'always' | 'screenshare' | 'off';
 export type ReducedMotion = 'system' | 'on' | 'off';
 export type ChatDensity = 'compact' | 'default' | 'spacious';
+export type TimeFormat = 'auto' | '12h' | '24h';
 export type { ColorMode, ThemeMode } from '@/theme/themeSlots';
 
 export interface Keybinds {
@@ -87,6 +88,7 @@ export interface Preferences {
   reducedMotion: ReducedMotion;
   chatFontSize: number;
   chatDensity: ChatDensity;
+  timeFormat: TimeFormat;
   uiZoom: number;
   reducedMotionApplied: boolean | null;
   themedAppIcon: boolean;
@@ -203,6 +205,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   reducedMotion: 'system',
   chatFontSize: 15,
   chatDensity: 'default',
+  timeFormat: 'auto',
   uiZoom: 100,
   reducedMotionApplied: null,
   themedAppIcon: false,
@@ -270,6 +273,7 @@ export const streamerModeAtom = preferenceFieldAtom('streamerMode');
 export const reducedMotionAtom = preferenceFieldAtom('reducedMotion');
 export const chatFontSizeAtom = preferenceFieldAtom('chatFontSize');
 export const chatDensityAtom = preferenceFieldAtom('chatDensity');
+export const timeFormatAtom = preferenceFieldAtom('timeFormat');
 export const uiZoomAtom = preferenceFieldAtom('uiZoom');
 export const themedAppIconAtom = preferenceFieldAtom('themedAppIcon');
 export const excludeInsecureSessionsAtom = preferenceFieldAtom('excludeInsecureSessions');

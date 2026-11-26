@@ -42,6 +42,10 @@ export async function signInInBrowser<T>(
   }
 }
 
+export function systemUses12Hour(): Promise<boolean | null> {
+  return invoke<boolean | null>('system_uses_12_hour');
+}
+
 export function deleteDesktopStore(location: string): Promise<void> {
   return invoke('core_delete_store', { location });
 }

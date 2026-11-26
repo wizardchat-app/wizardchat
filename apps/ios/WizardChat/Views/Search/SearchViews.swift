@@ -41,6 +41,7 @@ extension String {
 }
 
 struct RoomSearchView: View {
+    @Environment(\.timeFormat) private var timeFormat
     let room: RoomSummary
     let onJump: (String) -> Void
 
@@ -103,7 +104,7 @@ struct RoomSearchView: View {
                 HStack {
                     HighlightedText(text: entry.senderName, query: needle, font: .wizard(WZ.FontSize.md, .semibold))
                     Spacer()
-                    Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    Text(entry.timestamp.dateTimeText(timeFormat))
                         .font(.wizard(WZ.FontSize.sm))
                         .foregroundStyle(theme.textMuted)
                 }

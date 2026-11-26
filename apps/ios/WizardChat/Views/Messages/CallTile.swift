@@ -2,6 +2,7 @@ import SwiftUI
 import WizardChatCore
 
 struct CallTile: View {
+    @Environment(\.timeFormat) private var timeFormat
     let call: CallHistoryView
     let roomId: String
     var openProfile: (String) -> Void = { _ in }
@@ -66,7 +67,7 @@ struct CallTile: View {
             text[range].link = URL(string: "wizardchat-profile:open")
         }
         let start = Date(timeIntervalSince1970: TimeInterval(call.startedAt) / 1000)
-        var time = AttributedString("  " + start.formatted(date: .omitted, time: .shortened))
+        var time = AttributedString("  " + start.timeText(timeFormat))
         time.font = .wizard(WZ.FontSize.xs)
         time.foregroundColor = theme.textMuted
         return text + time

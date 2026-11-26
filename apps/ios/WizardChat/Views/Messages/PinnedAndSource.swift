@@ -93,6 +93,7 @@ struct EditHistory: Identifiable {
 }
 
 struct EditHistoryView: View {
+    @Environment(\.timeFormat) private var timeFormat
     let versions: [MessageVersion]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -130,8 +131,7 @@ struct EditHistoryView: View {
     }
 
     private func meta(index: Int, of count: Int, timestamp: Int) -> String {
-        let date = Date(timeIntervalSince1970: Double(timestamp) / 1000)
-            .formatted(date: .abbreviated, time: .shortened)
+        let date = Date(timeIntervalSince1970: Double(timestamp) / 1000).dateTimeText(timeFormat)
         if index == 0 { return "\(String(localized: "timeline.editHistoryCurrent")) · \(date)" }
         if index == count - 1 { return "\(String(localized: "timeline.editHistoryOriginal")) · \(date)" }
         return date

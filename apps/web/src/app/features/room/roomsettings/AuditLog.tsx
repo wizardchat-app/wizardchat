@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { WizardClient } from '@wizardchat/core';
 import { ArrowClockwiseIcon, FunnelSimpleIcon } from '@phosphor-icons/react';
@@ -56,7 +57,8 @@ export function AuditLogPanel({
   client: WizardClient;
   isSpace: boolean;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const [filter, setFilter] = useState<AuditFilter>('all');
   const { data: members } = useMembers(roomId);
   const query = useInfiniteQuery({
@@ -149,8 +151,7 @@ export function AuditLogPanel({
     );
   };
 
-  const formatTs = (ts: number) =>
-    new Date(ts).toLocaleString(i18n.language, { dateStyle: 'medium', timeStyle: 'short' });
+  const formatTs = (ts: number) => timeFormat.dateTime(ts);
 
   return (
     <div>

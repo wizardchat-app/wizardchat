@@ -26,6 +26,7 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(try? JSONEncoder().encode(customThemes), forKey: "customThemes") }
     }
     @Published var messageLayout: MessageLayout { didSet { save("messageLayout", messageLayout.rawValue) } }
+    @Published var timeFormat: TimeFormat { didSet { save("timeFormat", timeFormat.rawValue) } }
     @Published var chatFontSize: Double { didSet { save("chatFontSize", chatFontSize) } }
     @Published var chatDensity: Density { didSet { save("chatDensity", chatDensity.rawValue) } }
     @Published var uiDensity: Density { didSet { save("uiDensity", uiDensity.rawValue) } }
@@ -69,6 +70,7 @@ final class AppPreferences: ObservableObject {
         darkTheme = slot("theme.dark", .dark)
         customThemes = d.data(forKey: "customThemes").flatMap { try? JSONDecoder().decode([CustomTheme].self, from: $0) } ?? []
         messageLayout = MessageLayout(rawValue: d.string(forKey: "messageLayout") ?? "") ?? .modern
+        timeFormat = TimeFormat(rawValue: d.string(forKey: "timeFormat") ?? "") ?? .automatic
         chatFontSize = d.object(forKey: "chatFontSize") as? Double ?? Self.defaultChatFontSize
         chatDensity = Density(rawValue: d.string(forKey: "chatDensity") ?? "") ?? .default
         uiDensity = Density(rawValue: d.string(forKey: "uiDensity") ?? "") ?? .default

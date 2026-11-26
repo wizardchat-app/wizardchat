@@ -38,6 +38,7 @@ const SYNCED_PREFERENCES = {
   chatFontSize: (value: unknown) =>
     typeof value === 'number' && Number.isInteger(value) && value >= 8 && value <= 48,
   chatDensity: oneOf('compact', 'default', 'spacious'),
+  timeFormat: oneOf('auto', '12h', '24h'),
   uiZoom: (value: unknown) =>
     typeof value === 'number' && Number.isInteger(value) && value >= 50 && value <= 200,
 } satisfies Partial<Record<keyof Preferences, (value: unknown) => boolean>>;

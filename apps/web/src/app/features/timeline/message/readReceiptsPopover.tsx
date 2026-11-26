@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { userProfileAtom } from '@/app/store/atoms';
-import { formatShortDateLabel, formatTime } from '@/util/format';
+import { formatShortDateLabel } from '@/util/format';
 import { formatUserId } from '@/util/matrix';
 import { Avatar } from '@/app/components/Avatar';
 import { Popover } from '@/app/components/Popover';
@@ -46,6 +47,7 @@ export function ReadReceiptsPopover({
   showTimestamp = true,
 }: ReadReceiptsPopoverProps) {
   const { t, i18n } = useTranslation();
+  const timeFormat = useTimeFormat();
   const setProfile = useSetAtom(userProfileAtom);
 
   useEffect(() => {
@@ -85,8 +87,7 @@ export function ReadReceiptsPopover({
               <span className={css.receiptPopoverUserName}>{formatUserId(user.userId)}</span>
               {showTimestamp && (
                 <span className={css.receiptPopoverTime}>
-                  {formatShortDateLabel(user.ts, t, i18n.language)} ·{' '}
-                  {formatTime(user.ts, i18n.language)}
+                  {formatShortDateLabel(user.ts, t, i18n.language)} · {timeFormat.time(user.ts)}
                 </span>
               )}
             </span>

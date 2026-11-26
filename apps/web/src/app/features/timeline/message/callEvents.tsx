@@ -1,5 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { Trans, useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import type { TFunction } from 'i18next';
 import { PhoneIcon, PhoneXIcon, VideoCameraIcon } from '@phosphor-icons/react';
 import type { CallHistoryView, WizardClient as MatrixClient } from '@wizardchat/core';
@@ -8,7 +9,6 @@ import { callActionsAtom, callUiAtom } from '@/app/store/atoms/call';
 import { userProfileAtom } from '@/app/store/atoms';
 import { useUsernameColor } from '@/app/hooks/useUsernameColor';
 import { useLoadedMembers } from './members';
-import { formatTime } from '@/util/format';
 import { formatUserId } from '@/util/matrix';
 import * as css from '../Timeline.css';
 
@@ -54,7 +54,8 @@ function callLine(call: CallHistoryView, me: string | null, t: TFunction) {
 }
 
 export function CallHistoryDisplay({ call, client, roomId }: CallHistoryProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const room = useRoom(roomId);
   const callUi = useAtomValue(callUiAtom);
   const callActions = useAtomValue(callActionsAtom);
@@ -113,7 +114,7 @@ export function CallHistoryDisplay({ call, client, roomId }: CallHistoryProps) {
             ),
           }}
         />{' '}
-        <span className={css.callLineTime}>{formatTime(call.startedAt, i18n.language)}</span>
+        <span className={css.callLineTime}>{timeFormat.time(call.startedAt)}</span>
       </span>
       {isOngoing && !inCall && roomId && callActions && (
         <button

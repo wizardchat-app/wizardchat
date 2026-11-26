@@ -149,6 +149,7 @@ private struct ThemedRoot<Content: View>: View {
         let theme = prefs.theme(for: prefs.themeMode.forcedScheme ?? systemScheme)
         content(theme)
             .environment(\.theme, theme)
+            .environment(\.timeFormat, prefs.timeFormat)
             .tint(theme.control)
             .toggleStyle(SwitchToggleStyle(tint: theme.accent))
             .preferredColorScheme(prefs.themeMode.forcedScheme)

@@ -720,6 +720,7 @@ private struct TimelineRow: View {
 }
 
 struct MessageRow: View {
+    @Environment(\.timeFormat) private var timeFormat
     let entry: ChatEntry
     var actions: MessageActions?
     var isPrivateRoom = true
@@ -779,7 +780,7 @@ struct MessageRow: View {
                 if isCompact {
                     if !isMessageText {
                         HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space3) {
-                            Text(entry.timestamp, format: .dateTime.hour().minute())
+                            Text(entry.timestamp.timeText(timeFormat))
                                 .font(.wizard(WZ.FontSize.xs * scale))
                                 .foregroundStyle(theme.textMuted)
                             Text(entry.senderName)
@@ -796,7 +797,7 @@ struct MessageRow: View {
                             .foregroundStyle(senderColor)
                             .lineLimit(1)
                             .onTapGesture { actions?.openProfile(entry.sender) }
-                        Text(entry.timestamp, format: .dateTime.hour().minute())
+                        Text(entry.timestamp.timeText(timeFormat))
                             .font(.wizard(WZ.FontSize.sm * scale))
                             .foregroundStyle(theme.textMuted)
                         if let eventId = entry.eventId, actions?.pinnedIds.contains(eventId) == true {
@@ -914,7 +915,7 @@ struct MessageRow: View {
 
     private var compactPrefix: Text {
         guard isCompact else { return Text(verbatim: "") }
-        return Text(entry.timestamp, format: .dateTime.hour().minute())
+        return Text(entry.timestamp.timeText(timeFormat))
             .font(.wizard(WZ.FontSize.xs * scale))
             .foregroundColor(theme.textMuted)
             + Text(verbatim: "  ")

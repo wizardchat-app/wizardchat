@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import java.text.DateFormat
 import java.text.Normalizer
+import java.time.Instant
 import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -65,6 +66,7 @@ import org.wizardchat.android.ui.home.Route
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.android.ui.room.Formats
 import org.wizardchat.core.EntryContent
 import org.wizardchat.core.RoomSummary
 import org.wizardchat.core.RoomTimeline
@@ -452,7 +454,7 @@ private fun SearchResultRow(entry: SearchEntry, needle: String, onClick: () -> U
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HighlightedText(entry.senderName, needle, Modifier.weight(1f), style = wizardFont(WZ.FontSize.md, FontWeight.SemiBold), maxLines = 1)
                 Text(
-                    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(entry.event.timestamp)),
+                    Formats.abbreviatedDateTime(Instant.ofEpochMilli(entry.event.timestamp)),
                     style = wizardFont(WZ.FontSize.sm),
                     color = theme.textMuted,
                 )

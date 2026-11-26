@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import type { MessageVersion, WizardClient } from '@wizardchat/core';
 import { ClockCounterClockwiseIcon } from '@phosphor-icons/react';
 import { Modal } from '@/app/components/Modal';
 import { markdownToHtml, plainTextToHtml } from '@/util/markdownToHtml';
-import { formatDateLabel, formatTime } from '@/util/format';
+import { formatDateLabel } from '@/util/format';
 import { SkeletonRow } from '../SkeletonRow';
 import * as css from './EditHistoryModal.css';
 
@@ -17,6 +18,7 @@ interface EditHistoryModalProps {
 
 export function EditHistoryModal({ roomId, eventId, client, onClose }: EditHistoryModalProps) {
   const { t, i18n } = useTranslation();
+  const timeFormat = useTimeFormat();
   const [versions, setVersions] = useState<MessageVersion[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -71,7 +73,7 @@ export function EditHistoryModal({ roomId, eventId, client, onClose }: EditHisto
                   )}
                   <span>
                     {formatDateLabel(version.timestamp, t, i18n.language)}{' '}
-                    {formatTime(version.timestamp, i18n.language)}
+                    {timeFormat.time(version.timestamp)}
                   </span>
                 </div>
                 <div className={css.body} dangerouslySetInnerHTML={{ __html: html }} />

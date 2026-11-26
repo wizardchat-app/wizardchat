@@ -123,6 +123,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ),
 
   ['language', 'settings.language.languageDisplay'],
+  ['language', 'settings.language.timeFormat'],
 
   ['sessions', 'settings.sessions.currentDevice'],
   ['sessions', 'settings.sessions.yourDevices', 'settings.sessions.devicesDescription'],

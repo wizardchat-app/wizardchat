@@ -23,8 +23,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.matrix.MessageMention
+import org.wizardchat.android.matrix.TimeFormat
 import org.wizardchat.android.matrix.RoomMention
 
 /** Pills for mentions: [own] for you and whole-room mentions, [other] for everyone else */
@@ -198,14 +200,31 @@ internal object Formats {
     private val zone get() = ZoneId.systemDefault()
     private val locale get() = Locale.getDefault()
 
-    fun time(instant: Instant): String =
-        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale).format(instant.atZone(zone))
+    private val patterns = ConcurrentHashMap<String, DateTimeFormatter>()
+
+    private fun hourSkeleton(): String {
+        val app = WizardApplication.instance
+        return when (app.prefs.timeFormat) {
+            TimeFormat.automatic -> if (DateFormat.is24HourFormat(app)) "H" else "h"
+            TimeFormat.twelveHour -> "h"
+            TimeFormat.twentyFourHour -> "H"
+        }
+    }
+
+    private fun format(instant: Instant, skeleton: String): String {
+        val locale = locale
+        val formatter = patterns.getOrPut("$locale|$skeleton") {
+            DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
+        }
+        return formatter.format(instant.atZone(zone))
+    }
+
+    fun time(instant: Instant): String = format(instant, hourSkeleton() + "m")
 
     fun abbreviatedDate(instant: Instant): String =
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).format(instant.atZone(zone))
 
-    fun abbreviatedDateTime(instant: Instant): String =
-        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale).format(instant.atZone(zone))
+    fun abbreviatedDateTime(instant: Instant): String = format(instant, "yMMMd" + hourSkeleton() + "m")
 
     /** "October 31, 2026" */
     fun longDate(instant: Instant): String =

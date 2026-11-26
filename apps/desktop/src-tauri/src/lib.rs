@@ -8,6 +8,7 @@ mod loopback;
 mod media;
 mod rpc;
 mod screen_share;
+mod time_format;
 mod tray;
 mod update;
 
@@ -200,6 +201,7 @@ pub fn run() {
             global_keys::global_key_set,
             global_keys::global_keys_permission,
             keep_awake::keep_awake,
+            time_format::system_uses_12_hour,
             tray::window_settings,
             tray::set_window_settings,
             tray::set_tray_state,

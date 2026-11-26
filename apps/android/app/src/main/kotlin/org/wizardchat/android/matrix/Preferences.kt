@@ -32,6 +32,7 @@ enum class MessageLayout { modern, classic, compact }
 enum class Density { compact, default, spacious }
 enum class ReducedMotion { system, on, off }
 enum class MediaVisibility { always, private, never }
+enum class TimeFormat { automatic, twelveHour, twentyFourHour }
 
 /** Settings on this device, plus the few that sync with the web through account data */
 class AppPreferences(context: Context) {
@@ -50,6 +51,7 @@ class AppPreferences(context: Context) {
     ) { putString("customThemes", Json.encodeToString(it)) }
         private set
     var messageLayout by pref(enumPref("messageLayout", MessageLayout.modern)) { putString("messageLayout", it.name) }
+    var timeFormat by pref(enumPref("timeFormat", TimeFormat.automatic)) { putString("timeFormat", it.name) }
     var chatFontSize by pref(defaults.getFloat("chatFontSize", DEFAULT_CHAT_FONT_SIZE)) { putFloat("chatFontSize", it) }
     var chatDensity by pref(enumPref("chatDensity", Density.default)) { putString("chatDensity", it.name) }
     var uiDensity by pref(enumPref("uiDensity", Density.default)) { putString("uiDensity", it.name) }

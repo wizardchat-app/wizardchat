@@ -266,6 +266,10 @@ struct LanguageSettings: View {
             SettingsSection {
                 PickerRow(label: "settings.language.languageDisplay", selection: $prefs.language,
                           options: [("", "settings.language.languageSystem")] + AppPreferences.languages.map { ($0, "\(Self.label($0))") })
+                SettingsDivider()
+                PickerRow(label: "settings.language.timeFormat", selection: $prefs.timeFormat,
+                          options: [(.automatic, "settings.language.timeFormatAuto"), (.twelveHour, "settings.language.timeFormat12h"),
+                                    (.twentyFourHour, "settings.language.timeFormat24h")])
             }
             if changed {
                 StatusText(text: String(localized: "settings.language.restartHint"), isError: false)

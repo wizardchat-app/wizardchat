@@ -3,6 +3,7 @@ import { streamerModeActiveAtom } from '@/app/store/atoms';
 import { HIDDEN_TEXT, RevealButton } from '@/app/components/Secret';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import {
   SpinnerGapIcon,
   DevicesIcon,
@@ -14,7 +15,7 @@ import {
 } from '@phosphor-icons/react';
 import { Tooltip } from '@/app/components/Tooltip';
 import { Button } from '@/app/components/Button';
-import { formatDateLabel, formatTime } from '@/util/format';
+import { formatDateLabel } from '@/util/format';
 import { useContextMenu } from '@/app/hooks/useContextMenu';
 import type { ContextMenuItem } from '@/app/features/contextMenu/contextMenuAtom';
 import * as css from './Sessions.css';
@@ -48,6 +49,7 @@ export function DeviceCard({
   extraMenuItems,
 }: DeviceCardProps) {
   const { t, i18n } = useTranslation();
+  const timeFormat = useTimeFormat();
   const { openContextMenu } = useContextMenu();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -103,7 +105,7 @@ export function DeviceCard({
   };
 
   const lastActivity = d.lastSeenTs
-    ? `${formatDateLabel(d.lastSeenTs, t, i18n.language)} ${formatTime(d.lastSeenTs, i18n.language)}`
+    ? `${formatDateLabel(d.lastSeenTs, t, i18n.language)} ${timeFormat.time(d.lastSeenTs)}`
     : '-';
 
   return (

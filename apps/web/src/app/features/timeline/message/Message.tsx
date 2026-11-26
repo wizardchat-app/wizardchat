@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import type { RoomTimeline, WizardClient as MatrixClient } from '@wizardchat/core';
 import { SmileyIcon, WarningIcon, ChatDotsIcon } from '@phosphor-icons/react';
 import { Tooltip } from '@/app/components/Tooltip';
@@ -9,7 +10,6 @@ import { MediaLightbox } from '@/app/components/MediaLightbox/MediaLightbox';
 import { MessageActionToolbar } from './MessageActionToolbar';
 import { ViewSourceModal } from './ViewSourceModal';
 import { EditHistoryModal } from './EditHistoryModal';
-import { formatTime } from '@/util/format';
 import { formatUserId } from '@/util/matrix';
 import { AuthMediaImg } from '@/app/components/AuthMediaImg';
 import { useContextMenu, isMenuOpenKey, syntheticMouseEvent } from '@/app/hooks/useContextMenu';
@@ -199,7 +199,8 @@ export const Message = memo(function Message({
   isHovered,
   onHover,
 }: MessageProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const timeFormat = useTimeFormat();
   const msgRowRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const emojiPicker = useAtomValue(emojiPickerAtom);
@@ -1007,7 +1008,7 @@ export const Message = memo(function Message({
               >
                 {senderName}
               </button>
-              <span className={css.msgTime}>{formatTime(ts, i18n.language)}</span>
+              <span className={css.msgTime}>{timeFormat.time(ts)}</span>
               {isEdited && (
                 <button type="button" className={css.editedMarkerHeader} onClick={openEditHistory}>
                   {t('timeline.edited')}
@@ -1076,9 +1077,9 @@ export const Message = memo(function Message({
                 <span className={css.compactHeader}>
                   <span
                     className={css.compactTime}
-                    title={new Date(ts).toLocaleString(i18n.language)}
+                    title={timeFormat.dateTime(ts, { dateStyle: 'medium', timeStyle: 'medium' })}
                   >
-                    {formatTime(ts, i18n.language)}
+                    {timeFormat.time(ts)}
                   </span>
                   <button
                     type="button"

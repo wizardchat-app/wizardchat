@@ -1,5 +1,6 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import type { RoomTimeline, WizardClient as MatrixClient } from '@wizardchat/core';
 import { ArrowBendDownRightIcon, PushPinIcon, PushPinSlashIcon } from '@phosphor-icons/react';
 import { Popover } from '@/app/components/Popover/Popover';
@@ -8,7 +9,7 @@ import { Avatar } from '@/app/components/Avatar';
 import { useRoomDetails, useTimeline } from '@/app/data';
 import { useToast } from '@/app/hooks/useToast';
 import { getErrorMessage } from '@/util/error';
-import { formatShortDateLabel, formatTime } from '@/util/format';
+import { formatShortDateLabel } from '@/util/format';
 import { formatUserId } from '@/util/matrix';
 import { togglePin } from './message/pinning';
 import { ReplyMediaThumb, isReplyMediaEvent } from './message/ReplyMediaThumb';
@@ -121,6 +122,7 @@ interface PinnedItemProps {
 
 function PinnedItem({ client, roomId, timeline, event, canUnpin, onJumpTo }: PinnedItemProps) {
   const { t, i18n } = useTranslation();
+  const timeFormat = useTimeFormat();
   const toast = useToast();
   const [unpinning, setUnpinning] = useState(false);
   const members = useLoadedMembers(roomId);
@@ -173,7 +175,7 @@ function PinnedItem({ client, roomId, timeline, event, canUnpin, onJumpTo }: Pin
         <div className={css.meta}>
           <span className={css.sender}>{senderName}</span>
           <span className={css.time}>
-            {formatShortDateLabel(ts, t, i18n.language)}, {formatTime(ts, i18n.language)}
+            {formatShortDateLabel(ts, t, i18n.language)}, {timeFormat.time(ts)}
           </span>
         </div>
         {content}

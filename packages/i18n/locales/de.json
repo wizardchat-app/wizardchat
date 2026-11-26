@@ -1575,7 +1575,11 @@
       "ignoredUsersHidden_other": "{{count}} ignorierte Personen, im Streamer-Modus ausgeblendet"
     },
     "language": {
-      "title": "Sprache",
+      "title": "Sprache & Zeit",
+      "timeFormat": "Zeitformat",
+      "timeFormatAuto": "Automatisch",
+      "timeFormat12h": "12-Stunden",
+      "timeFormat24h": "24-Stunden",
       "languageDisplay": "Anzeigesprache",
       "languageSystem": "System",
       "restartHint": "Schließe WizardChat und öffne es erneut, um die Sprache zu wechseln."

@@ -1,6 +1,5 @@
 package org.wizardchat.android.ui.settings
 
-import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -57,7 +56,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
-import java.util.Date
+import java.time.Instant
 import java.util.Locale
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.LocalSession
@@ -65,12 +64,14 @@ import org.wizardchat.android.matrix.AppPreferences
 import org.wizardchat.android.matrix.Density
 import org.wizardchat.android.matrix.MediaVisibility
 import org.wizardchat.android.matrix.MessageLayout
+import org.wizardchat.android.matrix.TimeFormat
 import org.wizardchat.android.matrix.MessageMention
 import org.wizardchat.android.matrix.ReducedMotion
 import org.wizardchat.android.matrix.deviceId
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.WizardLogo
+import org.wizardchat.android.ui.room.Formats
 import org.wizardchat.android.ui.room.MentionColors
 import org.wizardchat.android.ui.room.MessageText
 import org.wizardchat.android.ui.theme.ThemeChoice
@@ -385,7 +386,7 @@ private fun PreviewMessage(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    DateFormat.getTimeFormat(context).format(Date(timestamp)),
+                    Formats.time(Instant.ofEpochMilli(timestamp)),
                     style = wizardFont(WZ.FontSize.sm * scale),
                     color = theme.textMuted,
                 )
@@ -475,7 +476,7 @@ internal fun PrivacySettings(onBack: () -> Unit) {
     }
 }
 
-/** The app language; Android applies it right away (per-app languages), so there's no "reopen" note */
+/** The app language and time format; Android applies the language right away (per-app languages), so there's no "reopen" note */
 @Composable
 internal fun LanguageSettings(onBack: () -> Unit) {
     val prefs = LocalPrefs.current
@@ -486,6 +487,17 @@ internal fun LanguageSettings(onBack: () -> Unit) {
                 prefs.language,
                 listOf("" to tr("settings.language.languageSystem")) + prefs.languages.map { it to languageLabel(it) },
                 { prefs.language = it },
+            )
+            SettingsDivider()
+            PickerRow(
+                tr("settings.language.timeFormat"),
+                prefs.timeFormat,
+                listOf(
+                    TimeFormat.automatic to tr("settings.language.timeFormatAuto"),
+                    TimeFormat.twelveHour to tr("settings.language.timeFormat12h"),
+                    TimeFormat.twentyFourHour to tr("settings.language.timeFormat24h"),
+                ),
+                { prefs.timeFormat = it },
             )
         }
     }
