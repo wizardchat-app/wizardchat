@@ -25,6 +25,29 @@ interface LightboxMedia {
   revealed?: boolean;
 }
 
+interface View {
+  s: number;
+  x: number;
+  y: number;
+}
+
+interface WebKitGestureEvent extends UIEvent {
+  scale: number;
+  clientX: number;
+  clientY: number;
+}
+
+const IDENTITY: View = { s: 1, x: 0, y: 0 };
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 10;
+const ZOOM_STEP = 1.25;
+const clampZoom = (z: number) => Math.min(Math.max(z, MIN_ZOOM), MAX_ZOOM);
+const clampAxis = (pos: number, base: number, size: number, viewport: number) =>
+  size <= viewport
+    ? (viewport - size) / 2 - base
+    : Math.min(Math.max(pos, viewport - size - base), -base);
+const wheelUnit = (e: WheelEvent) => (e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1);
+
 interface MediaLightboxProps {
   src?: string;
   name?: string;
@@ -60,10 +83,11 @@ export function MediaLightbox({
   onNext,
   onRevealItem,
 }: MediaLightboxProps) {
-  const [zoom, setZoom] = useState(1);
-  const [fitW, setFitW] = useState(0);
-  const [fitH, setFitH] = useState(0);
+  const [view, setViewState] = useState<View>(IDENTITY);
+  const viewRef = useRef<View>(IDENTITY);
   const imgRef = useRef<HTMLImageElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const videoRef = useRef<HTMLVideoElement>(null);
   const hasStartedPlayback = useRef(false);
 
@@ -75,11 +99,15 @@ export function MediaLightbox({
   const curSrc = isCarousel ? (current?.src ?? '') : src;
   const curFilename = isCarousel ? (current?.filename ?? '') : (filename ?? '');
 
+  const setView = useCallback((v: View) => {
+    viewRef.current = v;
+    setViewState(v);
+  }, []);
+
   useEffect(() => {
-    setZoom(1);
-    setFitW(0);
-    setFitH(0);
-  }, [curIndex, src]);
+    pointersRef.current.clear();
+    setView(IDENTITY);
+  }, [curIndex, src, setView]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -107,36 +135,187 @@ export function MediaLightbox({
     [onClose]
   );
 
-  const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setFitW(rect.width);
-    setFitH(rect.height);
+  const canZoom = type === 'image' && !!curSrc && !(current?.isSpoiler && !current.revealed);
+
+  const getBaseRect = useCallback(() => {
+    const img = imgRef.current;
+    const parent = img?.offsetParent;
+    if (!img || !parent || !img.offsetWidth || !img.offsetHeight) return null;
+    const p = parent.getBoundingClientRect();
+    return {
+      left: p.left + parent.clientLeft + img.offsetLeft,
+      top: p.top + parent.clientTop + img.offsetTop,
+      width: img.offsetWidth,
+      height: img.offsetHeight,
+    };
   }, []);
 
-  const isZoomed = zoom > 1 && fitW > 0 && fitH > 0;
+  const applyView = useCallback(
+    (next: View) => {
+      const base = getBaseRect();
+      const overlay = overlayRef.current;
+      if (!base || !overlay) return;
+      const s = clampZoom(next.s);
+      setView({
+        s,
+        x: clampAxis(next.x, base.left, base.width * s, overlay.clientWidth),
+        y: clampAxis(next.y, base.top, base.height * s, overlay.clientHeight),
+      });
+    },
+    [getBaseRect, setView]
+  );
 
-  let imgClassName = css.image;
-  let imgStyle: React.CSSProperties = {};
+  const zoomTo = useCallback(
+    (nextScale: number, clientX: number, clientY: number) => {
+      const base = getBaseRect();
+      if (!base) return;
+      const cur = viewRef.current;
+      const k = clampZoom(nextScale) / cur.s;
+      applyView({
+        s: cur.s * k,
+        x: clientX - base.left - (clientX - base.left - cur.x) * k,
+        y: clientY - base.top - (clientY - base.top - cur.y) * k,
+      });
+    },
+    [getBaseRect, applyView]
+  );
 
-  if (isZoomed) {
-    imgClassName = css.imageZoomed;
-    imgStyle.width = fitW * zoom;
-    imgStyle.height = fitH * zoom;
-    imgStyle.flexShrink = 0;
-  }
+  const panBy = useCallback(
+    (dx: number, dy: number) => {
+      const cur = viewRef.current;
+      applyView({ s: cur.s, x: cur.x + dx, y: cur.y + dy });
+    },
+    [applyView]
+  );
+
+  const zoomAtCenter = useCallback(
+    (nextScale: number) => {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      zoomTo(nextScale, overlay.clientWidth / 2, overlay.clientHeight / 2);
+    },
+    [zoomTo]
+  );
+
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay || !canZoom) return undefined;
+
+    let inGesture = false;
+    let lastGestureScale = 1;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (inGesture) return;
+        const delta = Math.min(Math.max(e.deltaY * wheelUnit(e), -50), 50);
+        zoomTo(viewRef.current.s * Math.exp(-delta * 0.01), e.clientX, e.clientY);
+      } else if (viewRef.current.s > 1) {
+        e.preventDefault();
+        panBy(-e.deltaX * wheelUnit(e), -e.deltaY * wheelUnit(e));
+      }
+    };
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      inGesture = true;
+      lastGestureScale = 1;
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      const g = e as WebKitGestureEvent;
+      zoomTo((viewRef.current.s * g.scale) / lastGestureScale, g.clientX, g.clientY);
+      lastGestureScale = g.scale;
+    };
+    const onGestureEnd = (e: Event) => {
+      e.preventDefault();
+      inGesture = false;
+    };
+    const onResize = () => applyView(viewRef.current);
+
+    overlay.addEventListener('wheel', onWheel, { passive: false });
+    overlay.addEventListener('gesturestart', onGestureStart);
+    overlay.addEventListener('gesturechange', onGestureChange);
+    overlay.addEventListener('gestureend', onGestureEnd);
+    window.addEventListener('resize', onResize);
+    return () => {
+      overlay.removeEventListener('wheel', onWheel);
+      overlay.removeEventListener('gesturestart', onGestureStart);
+      overlay.removeEventListener('gesturechange', onGestureChange);
+      overlay.removeEventListener('gestureend', onGestureEnd);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [canZoom, zoomTo, panBy, applyView]);
+
+  const handleImgPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLImageElement>) => {
+      if (!canZoom) return;
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        return;
+      }
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    },
+    [canZoom]
+  );
+
+  const handleImgPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLImageElement>) => {
+      const pointers = pointersRef.current;
+      const prev = pointers.get(e.pointerId);
+      if (!prev) return;
+      if (pointers.size === 1) {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (viewRef.current.s > 1) panBy(e.clientX - prev.x, e.clientY - prev.y);
+        return;
+      }
+      const [a, b] = [...pointers.values()];
+      const beforeDist = Math.hypot(a.x - b.x, a.y - b.y);
+      const beforeX = (a.x + b.x) / 2;
+      const beforeY = (a.y + b.y) / 2;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const [c, d] = [...pointers.values()];
+      const afterX = (c.x + d.x) / 2;
+      const afterY = (c.y + d.y) / 2;
+      if (beforeDist > 0) {
+        const afterDist = Math.hypot(c.x - d.x, c.y - d.y);
+        zoomTo((viewRef.current.s * afterDist) / beforeDist, afterX, afterY);
+      }
+      panBy(afterX - beforeX, afterY - beforeY);
+    },
+    [panBy, zoomTo]
+  );
+
+  const handleImgPointerUp = useCallback((e: React.PointerEvent<HTMLImageElement>) => {
+    pointersRef.current.delete(e.pointerId);
+  }, []);
+
+  const handleImgDoubleClick = useCallback(
+    (e: React.MouseEvent<HTMLImageElement>) => {
+      if (!canZoom) return;
+      if (viewRef.current.s > 1) setView(IDENTITY);
+      else zoomTo(2.5, e.clientX, e.clientY);
+    },
+    [canZoom, setView, zoomTo]
+  );
+
+  const zoom = view.s;
+  const imgStyle: React.CSSProperties = {
+    transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`,
+  };
 
   const { t } = useTranslation();
   const zoomPercent = zoom === 1 ? t('mediaLightbox.fit') : `${Math.round(zoom * 100)}%`;
-  const canZoomOut = zoom > 1;
-  const canZoomIn = zoom < 10;
+  const canZoomOut = zoom > MIN_ZOOM;
+  const canZoomIn = zoom < MAX_ZOOM;
 
   const handleZoomIn = useCallback(() => {
-    setZoom((z) => Math.min(z + 0.25, 10));
-  }, []);
+    zoomAtCenter(viewRef.current.s * ZOOM_STEP);
+  }, [zoomAtCenter]);
 
   const handleZoomOut = useCallback(() => {
-    setZoom((z) => Math.max(z - 0.25, 1));
-  }, []);
+    zoomAtCenter(viewRef.current.s / ZOOM_STEP);
+  }, [zoomAtCenter]);
 
   const toolbarContent = (
     <div className={css.toolbar}>
@@ -195,7 +374,7 @@ export function MediaLightbox({
           <button
             type="button"
             className={css.zoomLabel}
-            onClick={() => setZoom(1)}
+            onClick={() => setView(IDENTITY)}
             disabled={zoom === 1}
           >
             {zoomPercent}
@@ -234,6 +413,7 @@ export function MediaLightbox({
 
   return createPortal(
     <div
+      ref={overlayRef}
       className={css.overlay}
       role="presentation"
       onPointerDown={handleOverlayPointerDown}
@@ -248,7 +428,7 @@ export function MediaLightbox({
       >
         <XIcon size={20} />
       </button>
-      <div className={css.mediaWrap} style={{ overflow: isZoomed ? 'auto' : 'hidden' }}>
+      <div className={css.mediaWrap}>
         {isCarousel && current?.isSpoiler && !current.revealed ? (
           <div className={css.spoilerSlide}>
             <MediaSpoiler
@@ -281,9 +461,13 @@ export function MediaLightbox({
             ref={imgRef}
             src={curSrc}
             alt=""
-            className={imgClassName}
+            className={zoom > 1 ? `${css.image} ${css.imagePannable}` : css.image}
             style={imgStyle}
-            onLoad={handleImgLoad}
+            onPointerDown={handleImgPointerDown}
+            onPointerMove={handleImgPointerMove}
+            onPointerUp={handleImgPointerUp}
+            onPointerCancel={handleImgPointerUp}
+            onDoubleClick={handleImgDoubleClick}
             draggable={false}
           />
         ) : (

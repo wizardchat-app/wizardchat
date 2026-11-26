@@ -10,6 +10,8 @@ export const overlay = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  overflow: 'hidden',
+  touchAction: 'none',
   animation: `${fadeIn} ${fast} ease`,
 });
 
@@ -37,13 +39,15 @@ export const image = style({
   objectFit: 'contain',
   borderRadius: vars.radius.sm,
   userSelect: 'none',
+  transformOrigin: '0 0',
+  touchAction: 'none',
 });
 
-export const imageZoomed = style({
-  maxWidth: 'none',
-  maxHeight: 'none',
-  borderRadius: vars.radius.sm,
-  userSelect: 'none',
+export const imagePannable = style({
+  cursor: 'grab',
+  ':active': {
+    cursor: 'grabbing',
+  },
 });
 
 export const video = style({
