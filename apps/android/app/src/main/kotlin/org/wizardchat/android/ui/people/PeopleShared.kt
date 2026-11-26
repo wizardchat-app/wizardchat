@@ -86,7 +86,7 @@ import org.wizardchat.core.UserProfile
 import org.wizardchat.core.UserResult
 import org.wizardchat.tokens.WZ
 
-/** Closes the sheets this one was opened from, e.g. after opening a room from a profile inside room info */
+/** Closes the sheets this one was opened from, e.g. after opening a room from a profile inside room settings */
 internal val LocalCloseParents = compositionLocalOf<() -> Unit> { {} }
 
 /** A member's power level; members without one are the room's creators */

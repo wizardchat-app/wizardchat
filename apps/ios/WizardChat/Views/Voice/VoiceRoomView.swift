@@ -11,7 +11,7 @@ struct VoiceRoomView: View {
     @EnvironmentObject private var notifier: MessageNotifier
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
-    @State private var showInfo = false
+    @State private var showSettings = false
     @State private var showCallServer = false
     @State private var barWidth: CGFloat = 0
 
@@ -32,7 +32,7 @@ struct VoiceRoomView: View {
         .toolbarBackgroundVisibility(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button { showInfo = true } label: {
+                Button { showSettings = true } label: {
                     RoomTitle(room: room, maxWidth: RoomTitle.maxWidth(barWidth: barWidth, buttons: 1))
                         .fixedSize()
                         .padding(.leading, prefs.showRoomAvatars ? WZ.Space.space3 : WZ.Space.space6)
@@ -43,7 +43,7 @@ struct VoiceRoomView: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint(String(localized: "timeline.showsRoomInfoMembers"))
+                .accessibilityHint(String(localized: "timeline.showsRoomSettingsMembers"))
             }
             .glassBackgroundHidden()
             ToolbarItem(placement: .topBarTrailing) {
@@ -52,9 +52,9 @@ struct VoiceRoomView: View {
             }
         }
         .sheet(isPresented: $showCallServer) { CallServerSheet() }
-        .sheet(isPresented: $showInfo) {
-            RoomInfoView(room: room, client: client) { eventId in
-                showInfo = false
+        .sheet(isPresented: $showSettings) {
+            RoomSettingsView(room: room, client: client) { eventId in
+                showSettings = false
                 notifier.eventToFocus = (room.id, eventId)
                 onOpenChat()
             }

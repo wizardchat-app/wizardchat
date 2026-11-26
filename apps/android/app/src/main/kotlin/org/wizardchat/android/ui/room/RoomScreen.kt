@@ -144,7 +144,7 @@ import org.wizardchat.android.ui.copyToClipboard
 import org.wizardchat.android.ui.home.LocalCalls
 import org.wizardchat.android.ui.home.LocalNavigator
 import org.wizardchat.android.ui.home.Route
-import org.wizardchat.android.ui.people.RoomInfoSheet
+import org.wizardchat.android.ui.people.RoomSettingsSheet
 import org.wizardchat.android.ui.people.UserProfileSheet
 import org.wizardchat.android.ui.theme.nameColor
 import org.wizardchat.android.ui.theme.theme
@@ -209,7 +209,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     var editing by remember { mutableStateOf<ChatEntry?>(null) }
     var reactingTo by remember { mutableStateOf<ChatEntry?>(null) }
     val reactionPacks = remember { PacksStore() }
-    var showInfo by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var canPin by remember { mutableStateOf(false) }
     var canRedactOthers by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf<ChatEntry?>(null) }
@@ -431,7 +431,7 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
     }
 
     Column(Modifier.fillMaxSize().background(theme.bgSecondary)) {
-        RoomTopBar(room, onBack, onShowInfo = { showInfo = true }, onCall = ::startCall,
+        RoomTopBar(room, onBack, onShowSettings = { showSettings = true }, onCall = ::startCall,
             inCall = room.inCall || calls.isInCall(room.id),
             inThread = threadRoot != null, onShowThreads = { showThreads = true })
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -514,16 +514,16 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
         }
     }
 
-    if (showInfo) {
-        RoomInfoSheet(
+    if (showSettings) {
+        RoomSettingsSheet(
             room,
             client,
             onDismiss = {
-                showInfo = false
+                showSettings = false
                 scope.launch { timeline.loadPinned() }
             },
             onJump = { eventId ->
-                showInfo = false
+                showSettings = false
                 scope.launch { timeline.loadPinned() }
                 notifier.eventToFocus = room.id to eventId
             },
@@ -562,7 +562,7 @@ private const val TOP_ID = "timeline-top"
 private fun RoomTopBar(
     room: RoomSummary,
     onBack: () -> Unit,
-    onShowInfo: () -> Unit,
+    onShowSettings: () -> Unit,
     onCall: (Boolean) -> Unit,
     inCall: Boolean,
     inThread: Boolean,
@@ -571,7 +571,7 @@ private fun RoomTopBar(
     RoomHeader(
         room,
         onBack,
-        onShowInfo = if (inThread) null else onShowInfo,
+        onShowSettings = if (inThread) null else onShowSettings,
         title = { if (inThread) ThreadTitle(room) else RoomTitle(room) },
     ) {
         if (!inThread) {
@@ -596,11 +596,11 @@ private fun RoomTopBar(
 internal fun RoomHeader(
     room: RoomSummary,
     onBack: () -> Unit,
-    onShowInfo: (() -> Unit)?,
+    onShowSettings: (() -> Unit)?,
     title: @Composable () -> Unit = { RoomTitle(room) },
     actions: @Composable RowScope.() -> Unit,
 ) {
-    val hint = tr("timeline.showsRoomInfoMembers")
+    val hint = tr("timeline.showsRoomSettingsMembers")
     Row(
         Modifier.fillMaxWidth().background(theme.bgSecondary).statusBarsPadding().height(WZ.Space.space12).padding(horizontal = WZ.Space.space2),
         verticalAlignment = Alignment.CenterVertically,
@@ -610,7 +610,7 @@ internal fun RoomHeader(
             Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .clickable(enabled = onShowInfo != null, onClick = { onShowInfo?.invoke() })
+                .clickable(enabled = onShowSettings != null, onClick = { onShowSettings?.invoke() })
                 .semantics { contentDescription = "${room.displayName}. $hint" }
                 .padding(horizontal = WZ.Space.space4),
             contentAlignment = Alignment.CenterStart,

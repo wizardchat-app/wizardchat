@@ -660,11 +660,11 @@
       "deleteMessage": "Die Räume darin kommen zurück in die normale Raumliste. Das gilt auch in anderen Apps mit Bereichen, z. B. Element.",
       "failed": "Bereiche konnten nicht aktualisiert werden: {{error}}"
     },
+    "settingsTitle": "Raumeinstellungen",
     "info": {
       "leaveConfirm": "{{name}} verlassen?",
       "leaveConversation": "Unterhaltung verlassen",
       "conversation": "Unterhaltung",
-      "title": "Rauminfo",
       "changePicture": "Raumbild ändern"
     },
     "jumpToDate": {
@@ -1055,7 +1055,7 @@
       "image": "Bild",
       "video": "Video"
     },
-    "showsRoomInfoMembers": "Zeigt Rauminfo, Mitglieder und angeheftete Nachrichten",
+    "showsRoomSettingsMembers": "Zeigt Raumeinstellungen, Mitglieder und angeheftete Nachrichten",
     "voiceCall": "Sprachanruf",
     "videoCall": "Videoanruf",
     "reportMessage": "Nachricht melden?",
@@ -1921,7 +1921,7 @@
     "thisRoom": "Diesen Raum durchsuchen",
     "searchingOlder": "Ältere Nachrichten werden durchsucht...",
     "roomsAndDms": "Räume und Direktnachrichten",
-    "encryptedRoomsHint": "Verschlüsselte Räume kann der Server nicht durchsuchen. Nutze stattdessen die Suche in der Rauminfo."
+    "encryptedRoomsHint": "Verschlüsselte Räume kann der Server nicht durchsuchen. Nutze stattdessen die Suche in den Raumeinstellungen."
   },
   "explore": {
     "title": "Entdecken",

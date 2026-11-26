@@ -27,7 +27,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -45,7 +44,6 @@ import org.wizardchat.android.matrix.memberProfile
 import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.BarTextButton
 import org.wizardchat.android.ui.ConfirmDialog
-import org.wizardchat.android.ui.GroupedRow
 import org.wizardchat.android.ui.GroupedSection
 import org.wizardchat.android.ui.L10n
 import org.wizardchat.android.ui.PhIcon
@@ -67,7 +65,7 @@ import org.wizardchat.android.ui.voice.RoomSoundPacksScreen
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
 
-/** Pages pushed inside room info and space settings */
+/** Pages pushed inside room and space settings */
 internal sealed interface PeoplePage {
     data class Members(val roomId: String) : PeoplePage
     data class Roles(val roomId: String) : PeoplePage
@@ -81,15 +79,17 @@ internal sealed interface PeoplePage {
     data class Widgets(val canManage: Boolean) : PeoplePage
     data object Bridges : PeoplePage
     data class Nickname(val roomId: String, val space: Boolean) : PeoplePage
+    data class Security(val roomId: String, val space: Boolean, val direct: Boolean = false) : PeoplePage
 }
 
-/** The pages shared by room info and space settings; false for pages the caller shows itself */
+/** The pages shared by room and space settings; false for pages the caller shows itself */
 @Composable
 internal fun SharedPage(page: PeoplePage, push: (PeoplePage) -> Unit, pop: () -> Unit): Boolean {
     when (page) {
         is PeoplePage.Members -> MembersScreen(page.roomId, pop)
         is PeoplePage.Roles -> RolesPermissionsScreen(page.roomId, pop)
         is PeoplePage.Nickname -> NicknameScreen(page.roomId, page.space, pop)
+        is PeoplePage.Security -> RoomSecurityScreen(page.roomId, page.space, page.direct, pop)
         is PeoplePage.Packs -> RoomPacksScreen(page.roomId, pop) { key, content, canEdit ->
             push(PeoplePage.PackEditor(page.roomId, key, content, canEdit))
         }
@@ -110,7 +110,7 @@ internal fun SharedPage(page: PeoplePage, push: (PeoplePage) -> Unit, pop: () ->
 
 /** Room details and settings; `onJump` opens a message */
 @Composable
-fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit, onJump: (String) -> Unit) {
+fun RoomSettingsSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit, onJump: (String) -> Unit) {
     val context = LocalContext.current
     val session = LocalSession.current
     val scope = rememberCoroutineScope()
@@ -123,16 +123,12 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
     var hasCustomAvatar by remember { mutableStateOf(false) }
     var confirmResetAvatar by remember { mutableStateOf(false) }
     var memberCount by remember { mutableStateOf(0L) }
-    var encrypted by remember { mutableStateOf(false) }
     var alias by remember { mutableStateOf<String?>(null) }
     var canEditName by remember { mutableStateOf(false) }
     var canEditTopic by remember { mutableStateOf(false) }
     var canEditAvatar by remember { mutableStateOf(false) }
     var canPin by remember { mutableStateOf(false) }
     var canManageWidgets by remember { mutableStateOf(false) }
-    var canEnableEncryption by remember { mutableStateOf(false) }
-    var isPublic by remember { mutableStateOf(false) }
-    var confirmEncryption by remember { mutableStateOf(false) }
     var bridges by remember { mutableStateOf<List<RoomBridge>>(emptyList()) }
     var pinnedCount by remember { mutableStateOf(0) }
     var showJumpToDate by remember { mutableStateOf(false) }
@@ -166,16 +162,13 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
         alias = info?.canonicalAlias
         pinnedCount = info?.pinnedEventIds?.size ?: 0
         memberCount = info?.memberCount ?: room.memberCount
-        encrypted = info?.isEncrypted ?: room.isEncrypted
         info?.permissions?.let { permissions ->
             canEditName = permissions.changeName
             canEditTopic = permissions.changeTopic
             canEditAvatar = permissions.changeAvatar
             canPin = permissions.pin
             canManageWidgets = permissions.manageWidgets
-            canEnableEncryption = permissions.enableEncryption
         }
-        isPublic = info?.isPublic ?: false
         bridges = loadBridges(session, room.id)
     }
 
@@ -239,7 +232,7 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
             } else {
             SheetPage {
                 SheetBar(
-                    tr(if (room.isDirect) "room.info.conversation" else "room.info.title"),
+                    tr(if (room.isDirect) "room.info.conversation" else "room.settingsTitle"),
                     trailing = { BarTextButton(tr("common.done"), onDismiss, bold = true) },
                 )
                 FormList(Modifier.weight(1f)) {
@@ -302,18 +295,6 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
 
                     item {
                         GroupedSection {
-                            GroupedRow(
-                                tr("room.settings.general.e2ee"),
-                                Modifier.alpha(if (encrypted || canEnableEncryption) 1f else WZ.Opacity.disabled),
-                                subtitle = tr(if (encrypted) "room.settings.general.encryptionEnabledNote" else "room.settings.general.encryptionNote"),
-                            ) {
-                                WizardSwitch(encrypted, { if (it && canEnableEncryption && !saving) confirmEncryption = true })
-                            }
-                        }
-                    }
-
-                    item {
-                        GroupedSection {
                             NicknameRow(room.id, space = false, push)
                             RowDivider()
                             NavRow(tr("common.members"), "users", { push(PeoplePage.Members(room.id)) }, value = "$memberCount")
@@ -325,6 +306,8 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                             NavRow(tr("room.header.pinnedMessages"), "push-pin", { push(PeoplePage.Pinned(canPin)) }, value = "$pinnedCount")
                             RowDivider()
                             ActionRow(tr("room.header.jumpToDate"), "clock-counter-clockwise", { showJumpToDate = true })
+                            RowDivider()
+                            NavRow(tr("room.settings.security.title"), "lock", { push(PeoplePage.Security(room.id, space = false, direct = room.isDirect)) })
                             if (!room.isDirect) {
                                 RowDivider()
                                 NavRow(tr("room.settings.permissions.title"), "shield-check", { push(PeoplePage.Roles(room.id)) })
@@ -356,28 +339,6 @@ fun RoomInfoSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> Unit
                 }
             }
 
-            if (confirmEncryption) {
-                val confirm = tr("room.settings.general.encryptionConfirm")
-                ConfirmDialog(
-                    title = tr("room.settings.general.e2ee"),
-                    confirmLabel = tr("common.confirm"),
-                    message = if (isPublic) tr("room.settings.general.encryptionPublicRoomWarning") + "\n\n" + confirm else confirm,
-                    onConfirm = {
-                        scope.launch {
-                            saving = true
-                            try {
-                                client.enableEncryption(room.id)
-                                encrypted = true
-                            } catch (e: Exception) {
-                                error = L10n.format("room.settings.general.encryptionEnableFailed", errorText(e))
-                            } finally {
-                                saving = false
-                            }
-                        }
-                    },
-                    onDismiss = { confirmEncryption = false },
-                )
-            }
             if (confirmResetAvatar) {
                 ConfirmDialog(
                     title = tr("room.dm.resetAvatarConfirm", room.dmUserName ?: room.displayName),

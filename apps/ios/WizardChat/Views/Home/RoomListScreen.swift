@@ -20,7 +20,7 @@ struct RoomListScreen: View {
     @Environment(\.theme) private var theme
     @State private var search = ""
     @State private var leaving: RoomSummary?
-    @State private var infoRoom: RoomSummary?
+    @State private var settingsRoom: RoomSummary?
     @State private var showNewRoom = false
     @State private var showNewMessage = false
     @State private var showSpaceSettings = false
@@ -203,9 +203,9 @@ struct RoomListScreen: View {
         .alert(sectionError ?? "", isPresented: Binding(get: { sectionError != nil }, set: { if !$0 { sectionError = nil } })) {
             Button(String(localized: "common.close"), role: .cancel) {}
         }
-        .sheet(item: $infoRoom) { room in
-            RoomInfoView(room: room, client: roomList.client) { eventId in
-                infoRoom = nil
+        .sheet(item: $settingsRoom) { room in
+            RoomSettingsView(room: room, client: roomList.client) { eventId in
+                settingsRoom = nil
                 notifier.eventToFocus = (room.id, eventId)
                 openRoom(room.id, notifier: notifier)
             }
@@ -260,8 +260,8 @@ struct RoomListScreen: View {
             Button { Task { await roomList.setRead(room, read: true) } } label: {
                 Label(menu: String(localized: "common.markRead"), icon: "ph-envelope-simple-open-regular")
             }
-            Button { infoRoom = room } label: {
-                Label(menu: String(localized: "room.info.title"), icon: "ph-info-regular")
+            Button { settingsRoom = room } label: {
+                Label(menu: String(localized: "room.settingsTitle"), icon: "ph-gear-regular")
             }
             Menu {
                 Picker(selection: Binding(get: { roomList.notificationMode(of: room) },

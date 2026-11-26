@@ -58,7 +58,7 @@ struct RoomView: View {
     @State private var menuTarget: MessageMenuTarget?
     @State private var afterMenu: (() -> Void)?
     @StateObject private var reactionPacks = PacksStore()
-    @State private var showInfo = false
+    @State private var showSettings = false
     @State private var barWidth: CGFloat = 0
     @State private var canPin = false
     @State private var canRedactOthers = false
@@ -201,7 +201,7 @@ struct RoomView: View {
                         .frame(minHeight: WZ.Size.touchTarget)
                         .floatingGlass(in: Capsule())
                 } else {
-                    Button { showInfo = true } label: {
+                    Button { showSettings = true } label: {
                         RoomTitle(room: room, maxWidth: RoomTitle.maxWidth(barWidth: barWidth, buttons: 2))
                             .fixedSize()
                             .padding(.leading, prefs.showRoomAvatars ? WZ.Space.space3 : WZ.Space.space6)
@@ -212,7 +212,7 @@ struct RoomView: View {
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint(String(localized: "timeline.showsRoomInfoMembers"))
+                    .accessibilityHint(String(localized: "timeline.showsRoomSettingsMembers"))
                 }
             }
             .glassBackgroundHidden()
@@ -252,9 +252,9 @@ struct RoomView: View {
                 JoinCallBar(room: room).padding(.top, WZ.Space.space3)
             }
         }
-        .sheet(isPresented: $showInfo, onDismiss: { Task { await timeline.loadPinned() } }) {
-            RoomInfoView(room: room, client: timeline.client) { eventId in
-                showInfo = false
+        .sheet(isPresented: $showSettings, onDismiss: { Task { await timeline.loadPinned() } }) {
+            RoomSettingsView(room: room, client: timeline.client) { eventId in
+                showSettings = false
                 notifier.eventToFocus = (room.id, eventId)
             }
         }

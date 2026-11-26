@@ -52,7 +52,7 @@ import org.wizardchat.core.Member
 import org.wizardchat.core.MutualRoom
 import org.wizardchat.tokens.WZ
 
-/** A room's members grouped by role (a page inside room info or space settings) */
+/** A room's members grouped by role (a page inside room or space settings) */
 @Composable
 internal fun MembersScreen(roomId: String, onBack: () -> Unit) {
     val session = LocalSession.current

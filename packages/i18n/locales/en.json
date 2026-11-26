@@ -660,11 +660,11 @@
       "deleteMessage": "The rooms in it go back to the normal room list. This also applies in other apps that show sections, like Element.",
       "failed": "Couldn't update sections: {{error}}"
     },
+    "settingsTitle": "Room Settings",
     "info": {
       "leaveConfirm": "Leave {{name}}?",
       "leaveConversation": "Leave conversation",
       "conversation": "Conversation",
-      "title": "Room Info",
       "changePicture": "Change room picture"
     },
     "jumpToDate": {
@@ -1055,7 +1055,7 @@
       "image": "Image",
       "video": "Video"
     },
-    "showsRoomInfoMembers": "Shows room info, members and pinned messages",
+    "showsRoomSettingsMembers": "Shows room settings, members and pinned messages",
     "voiceCall": "Voice call",
     "videoCall": "Video call",
     "reportMessage": "Report message?",
@@ -1921,7 +1921,7 @@
     "thisRoom": "Search this room",
     "searchingOlder": "Searching older messages...",
     "roomsAndDms": "Rooms and DMs",
-    "encryptedRoomsHint": "Encrypted rooms can't be searched by the server. Use Search in a room's info instead."
+    "encryptedRoomsHint": "Encrypted rooms can't be searched by the server. Use Search in a room's settings instead."
   },
   "explore": {
     "title": "Explore",

@@ -2,7 +2,7 @@ import WizardChatCore
 import PhotosUI
 import SwiftUI
 
-struct RoomInfoView: View {
+struct RoomSettingsView: View {
     let room: RoomSummary
     let client: WizardClient
     var onJump: ((String) -> Void)?
@@ -16,16 +16,12 @@ struct RoomInfoView: View {
     @State private var hasCustomAvatar = false
     @State private var confirmResetAvatar = false
     @State private var memberCount = 0
-    @State private var encrypted = false
     @State private var alias: String?
     @State private var canEditName = false
     @State private var canEditTopic = false
     @State private var canEditAvatar = false
     @State private var canPin = false
     @State private var canManageWidgets = false
-    @State private var canEnableEncryption = false
-    @State private var isPublic = false
-    @State private var confirmEncryption = false
     @State private var bridges: [RoomBridge] = []
     @State private var pinnedCount = 0
     @State private var confirmLeave = false
@@ -90,20 +86,6 @@ struct RoomInfoView: View {
                 }
 
                 Section {
-                    Toggle(isOn: Binding(get: { encrypted }, set: { if $0 { confirmEncryption = true } })) {
-                        VStack(alignment: .leading, spacing: WZ.Space.space0) {
-                            Text(String(localized: "room.settings.general.e2ee")).foregroundStyle(theme.textPrimary)
-                            Text(encrypted ? String(localized: "room.settings.general.encryptionEnabledNote")
-                                           : String(localized: "room.settings.general.encryptionNote"))
-                                .font(.wizard(WZ.FontSize.sm))
-                                .foregroundStyle(theme.textMuted)
-                        }
-                    }
-                    .tint(theme.accent)
-                    .disabled(encrypted || !canEnableEncryption || saving)
-                }
-
-                Section {
                     NicknameRow(roomId: room.id)
                     NavigationLink {
                         MembersView(roomId: room.id)
@@ -133,6 +115,11 @@ struct RoomInfoView: View {
                         } label: {
                             Label(String(localized: "room.header.jumpToDate"), image: "ph-clock-counter-clockwise-regular")
                         }
+                    }
+                    NavigationLink {
+                        RoomSecurityView(roomId: room.id, direct: room.isDirect)
+                    } label: {
+                        Label(String(localized: "room.settings.security.title"), image: "ph-lock-regular")
                     }
                     if !room.isDirect {
                         NavigationLink {
@@ -180,7 +167,7 @@ struct RoomInfoView: View {
                 }
             }
             .tint(theme.control)
-            .navigationTitle(room.isDirect ? String(localized: "room.info.conversation") : String(localized: "room.info.title"))
+            .navigationTitle(room.isDirect ? String(localized: "room.info.conversation") : String(localized: "room.settingsTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button(String(localized: "common.done")) { dismiss() } }
@@ -192,16 +179,6 @@ struct RoomInfoView: View {
                         dismiss()
                     }
                 }
-            }
-            .alert(String(localized: "room.settings.general.e2ee"), isPresented: $confirmEncryption) {
-                Button(String(localized: "common.cancel"), role: .cancel) {}
-                Button(String(localized: "common.confirm"), role: .destructive) {
-                    Task { await enableEncryption() }
-                }
-            } message: {
-                Text(isPublic
-                     ? String(localized: "room.settings.general.encryptionPublicRoomWarning") + "\n\n" + String(localized: "room.settings.general.encryptionConfirm")
-                     : String(localized: "room.settings.general.encryptionConfirm"))
             }
             .confirmationDialog(L10n.format("room.dm.resetAvatarConfirm", room.dmUserName ?? room.displayName),
                                 isPresented: $confirmResetAvatar, titleVisibility: .visible) {
@@ -262,16 +239,13 @@ struct RoomInfoView: View {
         alias = info?.canonicalAlias
         pinnedCount = info?.pinnedEventIds.count ?? 0
         memberCount = info?.memberCount ?? room.memberCount
-        encrypted = info?.isEncrypted ?? room.isEncrypted
         if let permissions = info?.permissions {
             canEditName = permissions.changeName
             canEditTopic = permissions.changeTopic
             canEditAvatar = permissions.changeAvatar
             canPin = permissions.pin
             canManageWidgets = permissions.manageWidgets
-            canEnableEncryption = permissions.enableEncryption
         }
-        isPublic = info?.isPublic ?? false
         bridges = await RoomBridge.load(client: client, roomId: room.id)
     }
 
@@ -303,17 +277,6 @@ struct RoomInfoView: View {
             hasCustomAvatar = avatarUrl != nil
         } catch {
             self.error = error.localizedDescription
-        }
-    }
-
-    private func enableEncryption() async {
-        saving = true
-        defer { saving = false }
-        do {
-            try await client.enableEncryption(roomId: room.id)
-            encrypted = true
-        } catch {
-            self.error = L10n.format("room.settings.general.encryptionEnableFailed", error.localizedDescription)
         }
     }
 

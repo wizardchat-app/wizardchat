@@ -86,6 +86,9 @@ struct SpaceSettingsView: View {
                 Section {
                     NicknameRow(roomId: space.id, space: true)
                     NavigationLink { MembersView(roomId: space.id) } label: { Label(String(localized: "common.members"), image: "ph-users-regular") }
+                    NavigationLink { RoomSecurityView(roomId: space.id, space: true) } label: {
+                        Label(String(localized: "room.settings.security.title"), image: "ph-lock-regular")
+                    }
                     NavigationLink { RolesPermissionsView(roomId: space.id) } label: {
                         Label(String(localized: "room.settings.permissions.title"), image: "ph-shield-check-regular")
                     }

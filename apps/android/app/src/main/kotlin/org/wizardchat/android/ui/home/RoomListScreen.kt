@@ -77,7 +77,7 @@ import org.wizardchat.android.ui.WizardTextField
 import org.wizardchat.android.ui.WizardTopBar
 import org.wizardchat.android.ui.copyToClipboard
 import org.wizardchat.android.ui.people.CreateRoomSheet
-import org.wizardchat.android.ui.people.RoomInfoSheet
+import org.wizardchat.android.ui.people.RoomSettingsSheet
 import org.wizardchat.android.ui.people.SpaceSettingsSheet
 import org.wizardchat.android.ui.people.UserPickerMode
 import org.wizardchat.android.ui.people.UserPickerSheet
@@ -107,7 +107,7 @@ fun RoomListScreen(
     val scope = rememberCoroutineScope()
     var search by remember { mutableStateOf("") }
     var leaving by remember { mutableStateOf<RoomSummary?>(null) }
-    var infoRoom by remember { mutableStateOf<RoomSummary?>(null) }
+    var settingsRoom by remember { mutableStateOf<RoomSummary?>(null) }
     var showNewRoom by remember { mutableStateOf(false) }
     var showNewMessage by remember { mutableStateOf(false) }
     var showSpaceSettings by remember { mutableStateOf(false) }
@@ -276,7 +276,7 @@ fun RoomListScreen(
                             onOpen = { navigator.push(Route.Room(room.id)) },
                             onToggleRead = { read -> scope.launch { roomList.setRead(room, read) } },
                             onLeave = { leaving = room },
-                            onOpenInfo = { infoRoom = room },
+                            onOpenSettings = { settingsRoom = room },
                             onToggleFavourite = { sectionTask { roomList.client.setFavourite(room.id, !room.isFavourite) } },
                             onMoveToSection = if (selection == SidebarSelection.Dms) null else ({ movingRoom = room }),
                             notificationMode = roomList.notificationMode(room),
@@ -352,9 +352,9 @@ fun RoomListScreen(
     if (showSpaceSettings && spaceId != null) {
         roomList.space(spaceId)?.let { space -> SpaceSettingsSheet(space, roomList, onDismiss = { showSpaceSettings = false }) }
     }
-    infoRoom?.let { room ->
-        RoomInfoSheet(room, roomList.client, onDismiss = { infoRoom = null }) { eventId ->
-            infoRoom = null
+    settingsRoom?.let { room ->
+        RoomSettingsSheet(room, roomList.client, onDismiss = { settingsRoom = null }) { eventId ->
+            settingsRoom = null
             MessageNotifier.shared.eventToFocus = room.id to eventId
             navigator.push(Route.Room(room.id))
         }
@@ -384,7 +384,7 @@ private fun SwipeableRoomRow(
     onOpen: () -> Unit,
     onToggleRead: (Boolean) -> Unit,
     onLeave: () -> Unit,
-    onOpenInfo: () -> Unit,
+    onOpenSettings: () -> Unit,
     onToggleFavourite: () -> Unit,
     onMoveToSection: (() -> Unit)?,
     notificationMode: NotificationMode?,
@@ -446,7 +446,7 @@ private fun SwipeableRoomRow(
                 { menuOpen = false },
                 listOfNotNull(
                     MenuItem(tr("common.markRead"), "envelope-simple-open") { onToggleRead(true) },
-                    MenuItem(tr("room.info.title"), "info", onClick = onOpenInfo),
+                    MenuItem(tr("room.settingsTitle"), "gear", onClick = onOpenSettings),
                     MenuItem(tr("room.notifications.title"), "bell") { notificationsOpen = true },
                     MenuItem(tr(if (room.isFavourite) "room.removeFavourite" else "room.addFavourite"), "star", onClick = onToggleFavourite),
                     onMoveToSection?.let { MenuItem(tr("room.sections.moveTo"), "list-bullets", onClick = it) },

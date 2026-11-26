@@ -81,7 +81,7 @@ import org.wizardchat.android.ui.Avatar
 import org.wizardchat.android.ui.BarButton
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PhWeight
-import org.wizardchat.android.ui.people.RoomInfoSheet
+import org.wizardchat.android.ui.people.RoomSettingsSheet
 import org.wizardchat.android.ui.room.RoomHeader
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
@@ -97,10 +97,10 @@ fun VoiceRoomScreen(room: RoomSummary, onBack: () -> Unit, onOpenChat: () -> Uni
     val session = LocalSession.current
     val live = session.roomList?.room(room.id) ?: room
     val inThisCall = calls.isInCall(room.id)
-    var showInfo by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(theme.bgSecondary)) {
-        RoomHeader(live, onBack, onShowInfo = { showInfo = true }) {
+        RoomHeader(live, onBack, onShowSettings = { showSettings = true }) {
             BarButton("chat-text", tr("room.openChat"), onOpenChat)
         }
         if (inThisCall) {
@@ -110,9 +110,9 @@ fun VoiceRoomScreen(room: RoomSummary, onBack: () -> Unit, onOpenChat: () -> Uni
         }
     }
     val client = session.client
-    if (showInfo && client != null) {
-        RoomInfoSheet(live, client, onDismiss = { showInfo = false }) { eventId ->
-            showInfo = false
+    if (showSettings && client != null) {
+        RoomSettingsSheet(live, client, onDismiss = { showSettings = false }) { eventId ->
+            showSettings = false
             MessageNotifier.shared.eventToFocus = room.id to eventId
             onOpenChat()
         }
