@@ -77,10 +77,13 @@ an App Store Connect API key for notarization from `APPLE_API_KEY` (key ID), `AP
 (the `.p8`, base64). They're protected variables, so only pipelines of protected branches like `main` and protected tags get them. Without them, the app
 is signed ad hoc and macOS asks people to allow it in **System Settings -> Privacy & Security**.
 
-The iOS build signs with the same API key, which needs the **Admin** role: Apple doesn't let API keys create the
-development profiles a signed archive needs, so it archives unsigned, signs ad hoc with the entitlements, and the export
-signs for the App Store with Apple's cloud-managed distribution certificate. A dry run exports without uploading.
-Without the key, the iOS build is unsigned and nothing goes to TestFlight.
+The iOS build signs with an Apple Distribution certificate, since Xcode can't sign apps with an App Group through an
+API key. It's in the masked, protected variables `IOS_DISTRIBUTION_P12` (the `.p12`, base64) and
+`IOS_DISTRIBUTION_P12_PASSWORD`. The App Store profiles for the app and its extensions are found or created
+with the API key above (`.gitlab/scripts/ios-profiles.mjs`, named `WizardChat CI <bundle ID> <serial>`). The build is
+archived unsigned, signed ad hoc with the entitlements, exported with the profiles and uploaded with `altool` (a dry
+run only validates it). The certificate expires after a year: create a new one, replace `IOS_DISTRIBUTION_P12`, and new
+profiles follow on their own. Without `IOS_DISTRIBUTION_P12`, the iOS build is unsigned and nothing goes to TestFlight.
 
 Android release builds are signed with the key in `apps/android/keystore.properties` (`storeFile`, `storePassword`,
 `keyAlias`, `keyPassword`; not committed), and are debug-signed without it. `npm run android:bundle` builds the bundle for
