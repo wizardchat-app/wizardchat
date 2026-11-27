@@ -25,6 +25,8 @@ struct RoomSettingsView: View {
     @State private var bridges: [RoomBridge] = []
     @State private var pinnedCount = 0
     @State private var confirmLeave = false
+    @State private var reportingRoom = false
+    @State private var reportReason = ""
     @State private var photo: PhotosPickerItem?
     @State private var saving = false
     @State private var error: String?
@@ -160,6 +162,10 @@ struct RoomSettingsView: View {
                               image: "ph-sign-out-regular")
                             .foregroundStyle(theme.danger)
                     }
+                    Button(role: .destructive) { reportingRoom = true } label: {
+                        Label(String(localized: "room.reportRoom"), image: "ph-flag-regular")
+                            .foregroundStyle(theme.danger)
+                    }
                 }
 
                 if let error {
@@ -180,6 +186,17 @@ struct RoomSettingsView: View {
                     }
                 }
             }
+            .alert(String(localized: "room.reportRoomTitle"), isPresented: $reportingRoom) {
+                TextField(String(localized: "common.reasonOptional"), text: $reportReason)
+                Button(String(localized: "timeline.reportShort"), role: .destructive) {
+                    let reason = reportReason
+                    reportReason = ""
+                    Task { await reportRoom(reason) }
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) { reportReason = "" }
+            } message: {
+                Text(String(localized: "room.reportRoomDesc"))
+            }
             .confirmationDialog(L10n.format("room.dm.resetAvatarConfirm", room.dmUserName ?? room.displayName),
                                 isPresented: $confirmResetAvatar, titleVisibility: .visible) {
                 Button(String(localized: "room.settings.general.resetAvatar"), role: .destructive) {
@@ -192,6 +209,15 @@ struct RoomSettingsView: View {
             }
         }
         .task { await load() }
+    }
+
+    private func reportRoom(_ reason: String) async {
+        do {
+            try await client.reportRoom(roomId: room.id, reason: reason)
+            CopyToast.shared.show(String(localized: "room.reportRoomSuccess"))
+        } catch {
+            self.error = L10n.format("room.reportRoomFailed", error.localizedDescription)
+        }
     }
 
     @ViewBuilder

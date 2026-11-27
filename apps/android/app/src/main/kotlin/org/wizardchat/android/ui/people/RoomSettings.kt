@@ -1,5 +1,6 @@
 package org.wizardchat.android.ui.people
 
+import org.wizardchat.android.ui.CopyToast
 import org.wizardchat.android.ui.room.JumpToDateDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -53,6 +54,7 @@ import org.wizardchat.android.ui.Spinner
 import org.wizardchat.android.ui.WizardSheet
 import org.wizardchat.android.ui.home.LocalNavigator
 import org.wizardchat.android.ui.room.PinnedMessagesScreen
+import org.wizardchat.android.ui.room.ReportDialog
 import org.wizardchat.android.ui.room.RoomMediaScreen
 import org.wizardchat.android.ui.search.RoomSearchScreen
 import org.wizardchat.android.ui.theme.theme
@@ -133,6 +135,7 @@ fun RoomSettingsSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> 
     var pinnedCount by remember { mutableStateOf(0) }
     var showJumpToDate by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var reportingRoom by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
@@ -333,6 +336,8 @@ fun RoomSettingsSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> 
                                 { confirmLeave = true },
                                 theme.danger,
                             )
+                            RowDivider()
+                            ActionRow(tr("room.reportRoom"), "flag", { reportingRoom = true }, theme.danger)
                         }
                     }
                     item { ErrorText(error) }
@@ -360,6 +365,22 @@ fun RoomSettingsSheet(room: RoomSummary, client: WizardClient, onDismiss: () -> 
                     },
                     onDismiss = { confirmResetAvatar = false },
                 )
+            }
+            if (reportingRoom) {
+                ReportDialog(
+                    onDismiss = { reportingRoom = false },
+                    title = tr("room.reportRoomTitle"),
+                    message = tr("room.reportRoomDesc"),
+                ) { reason ->
+                    scope.launch {
+                        try {
+                            client.reportRoom(room.id, reason.orEmpty())
+                            CopyToast.show(L10n.format("room.reportRoomSuccess"))
+                        } catch (e: Exception) {
+                            error = L10n.format("room.reportRoomFailed", errorText(e))
+                        }
+                    }
+                }
             }
             if (confirmLeave) {
                 ConfirmDialog(

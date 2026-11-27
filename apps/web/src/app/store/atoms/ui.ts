@@ -232,6 +232,7 @@ export const composerFocusRequestAtom = atom<{ key: string; at: number } | null>
 
 export interface ReportMessageState {
   open: boolean;
+  kind?: 'message' | 'room';
   roomId: string;
   eventId: string;
   senderId: string;

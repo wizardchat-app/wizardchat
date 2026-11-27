@@ -1573,17 +1573,22 @@ private fun MenuDialog(title: String, onDismiss: () -> Unit, options: List<Pair<
     )
 }
 
-/** "Report message" with an optional reason */
+/** "Report message" (or a room) with an optional reason */
 @Composable
-private fun ReportDialog(onDismiss: () -> Unit, onReport: (String?) -> Unit) {
+internal fun ReportDialog(
+    onDismiss: () -> Unit,
+    title: String = tr("timeline.reportMessage"),
+    message: String = tr("timeline.yourHomeserverSAdmins"),
+    onReport: (String?) -> Unit,
+) {
     var reason by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = theme.bgTertiary,
-        title = { Text(tr("timeline.reportMessage"), style = wizardFont(WZ.FontSize.xl, FontWeight.SemiBold), color = theme.textPrimary) },
+        title = { Text(title, style = wizardFont(WZ.FontSize.xl, FontWeight.SemiBold), color = theme.textPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-                Text(tr("timeline.yourHomeserverSAdmins"), style = wizardFont(WZ.FontSize.md), color = theme.textMuted)
+                Text(message, style = wizardFont(WZ.FontSize.md), color = theme.textMuted)
                 WizardTextField(reason, { reason = it }, tr("common.reasonOptional"))
             }
         },

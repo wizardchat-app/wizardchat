@@ -12,6 +12,8 @@ export function ReportMessageModal() {
   const [reason, setReason] = useState('');
 
   const open = state.open;
+  const isRoom = state.kind === 'room';
+  const title = isRoom ? t('room.reportRoomTitle') : t('timeline.reportTitle');
 
   useEffect(() => {
     if (open) setReason('');
@@ -28,12 +30,14 @@ export function ReportMessageModal() {
       onClose={() => close(false)}
       size="lg"
       zIndex={7000}
-      title={t('timeline.reportTitle')}
+      title={title}
       className={css.dialog}
       bodyClassName={css.dialogBody}
-      ariaLabel={t('timeline.reportTitle')}
+      ariaLabel={title}
     >
-      <div className={css.infoDesc}>{t('timeline.reportDesc')}</div>
+      <div className={css.infoDesc}>
+        {isRoom ? t('room.reportRoomDesc') : t('timeline.reportDesc')}
+      </div>
 
       <textarea
         className={css.reasonInput}
@@ -50,7 +54,7 @@ export function ReportMessageModal() {
           {t('common.cancel')}
         </Button>
         <Button variant="primary" size="sm" onClick={() => close(true)}>
-          {t('timeline.report')}
+          {isRoom ? t('room.reportRoom') : t('timeline.report')}
         </Button>
       </div>
     </Dialog>

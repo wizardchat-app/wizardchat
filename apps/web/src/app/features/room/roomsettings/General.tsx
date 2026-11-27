@@ -3,7 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { HistoryVisibility, JoinRule } from '@wizardchat/core';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { CameraIcon, ArrowUpIcon, TrashIcon } from '@phosphor-icons/react';
+import { CameraIcon, ArrowUpIcon, TrashIcon, FlagIcon } from '@phosphor-icons/react';
+import { useSetAtom } from 'jotai';
+import { reportMessageAtom } from '@/app/store/atoms';
 import { useConfirm } from '@/app/hooks/useConfirm';
 import {
   parentSpacesOf,
@@ -49,6 +51,7 @@ export function GeneralPanel({ roomId, onClose }: GeneralPanelProps) {
   const myUserId = useUserId();
   const confirmDialog = useConfirm();
   const toast = useToast();
+  const setReport = useSetAtom(reportMessageAtom);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: settings } = useRoomSettings(roomId);
@@ -345,6 +348,19 @@ export function GeneralPanel({ roomId, onClose }: GeneralPanelProps) {
       void refresh();
     } catch (err) {
       toast.error(getErrorMessage(err));
+    }
+  };
+
+  const handleReportRoom = async () => {
+    const reason = await new Promise<string | null>((resolve) => {
+      setReport({ open: true, kind: 'room', roomId, eventId: '', senderId: '', resolve });
+    });
+    if (reason === null) return;
+    try {
+      await client.reportRoom(roomId, reason);
+      toast.success(t('room.reportRoomSuccess'));
+    } catch (err) {
+      toast.error(t('room.reportRoomFailed', { error: getErrorMessage(err) }));
     }
   };
 
@@ -659,6 +675,15 @@ export function GeneralPanel({ roomId, onClose }: GeneralPanelProps) {
           </div>
         </>
       )}
+
+      <div className={css.divider} />
+
+      <div className={css.section}>
+        <Button variant="danger" onClick={handleReportRoom}>
+          <FlagIcon size={14} className={css.iconBefore} />
+          {t('room.reportRoom')}
+        </Button>
+      </div>
     </div>
   );
 }
