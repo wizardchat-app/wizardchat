@@ -25,7 +25,6 @@ import { FilePreviewModal, previewKind } from './FilePreview';
 import { CopyButton } from '@/app/components/Button';
 import { Tooltip } from '@/app/components/Tooltip';
 import { highlightQuery } from '@/app/hooks/useSearch';
-import type { ImagePackImage } from '@/app/hooks/useImagePacks';
 import { useRoom } from '@/app/data';
 import {
   renderTextContent,
@@ -66,71 +65,8 @@ function parseGeoUri(uri: string | undefined): { lat: number; lon: number } | nu
   return { lat, lon };
 }
 
-const packsCache = new WeakMap<Map<string, ImagePackImage>, Map<string, string>>();
-
-function applyImagePacks(baseHtml: string, imagePacks: Map<string, ImagePackImage>): string {
-  let inner = packsCache.get(imagePacks);
-  if (!inner) {
-    inner = new Map();
-    packsCache.set(imagePacks, inner);
-  }
-  const cached = inner.get(baseHtml);
-  if (cached !== undefined) return cached;
-  const scratchDiv = document.createElement('div');
-  scratchDiv.innerHTML = baseHtml;
-  const SHORTCODE_RE = /:([a-zA-Z0-9_-]+):/g;
-  const walker = document.createTreeWalker(scratchDiv, NodeFilter.SHOW_TEXT);
-  const replacements: Array<{ node: Text; fragments: (string | HTMLImageElement)[] }> = [];
-  let node: Text | null;
-  while ((node = walker.nextNode() as Text | null)) {
-    const text = node.nodeValue ?? '';
-    if (!text.includes(':')) continue;
-    SHORTCODE_RE.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    let lastIdx = 0;
-    const fragments: (string | HTMLImageElement)[] = [];
-    let hadMatch = false;
-    while ((match = SHORTCODE_RE.exec(text)) !== null) {
-      const shortcode = match[1];
-      const pack = imagePacks.get(shortcode);
-      if (!pack || !pack.usage.includes('emoticon')) continue;
-      if (!pack.url.startsWith('mxc://')) continue;
-      hadMatch = true;
-      if (match.index > lastIdx) fragments.push(text.slice(lastIdx, match.index));
-      const img = document.createElement('img');
-      img.alt = '';
-      img.title = match[0];
-      img.className = css.inlinePackEmoji;
-      img.dataset.mediaMxc = pack.url;
-      fragments.push(img);
-      lastIdx = match.index + match[0].length;
-    }
-    if (hadMatch) {
-      if (lastIdx < text.length) fragments.push(text.slice(lastIdx));
-      replacements.push({ node, fragments });
-    }
-  }
-  for (const { node: textNode, fragments } of replacements) {
-    const parent = textNode.parentNode;
-    if (!parent) continue;
-    for (const frag of fragments) {
-      if (typeof frag === 'string') {
-        parent.insertBefore(document.createTextNode(frag), textNode);
-      } else {
-        parent.insertBefore(frag, textNode);
-      }
-    }
-    parent.removeChild(textNode);
-  }
-  const result = scratchDiv.innerHTML;
-  if (inner.size > 200) inner.clear();
-  inner.set(baseHtml, result);
-  return result;
-}
-
 function renderRichTextHtml(
   content: Record<string, unknown>,
-  imagePacks: Map<string, ImagePackImage> | undefined,
   myId: string,
   prettifyLinks: boolean
 ): string {
@@ -147,12 +83,7 @@ function renderRichTextHtml(
           ),
         }
       : content;
-  let html = renderTextContent(renderContent, myId, prettifyLinks);
-  const baseHtml = html;
-  if (imagePacks && imagePacks.size > 0) {
-    html = applyImagePacks(baseHtml, imagePacks);
-  }
-  return html;
+  return renderTextContent(renderContent, myId, prettifyLinks);
 }
 
 type RichSegment =
@@ -508,7 +439,6 @@ interface MessageContentProps {
   roomId?: string;
   onMentionClick?: (userId: string, rect: DOMRect) => void;
   optimisticBody?: string | null;
-  imagePacks?: Map<string, ImagePackImage>;
   requestFullRes?: () => Promise<string | null>;
   mediaCover?: MediaCover | null;
   onRevealMedia?: () => void;
@@ -534,7 +464,6 @@ export function MessageContent({
   onMentionClick,
   roomId,
   optimisticBody = null,
-  imagePacks,
   requestFullRes,
   mediaCover = null,
   onRevealMedia,
@@ -589,9 +518,9 @@ export function MessageContent({
       const captionContent: Record<string, unknown> = media.captionHtml
         ? { body: caption, format: 'org.matrix.custom.html', formatted_body: media.captionHtml }
         : { body: caption };
-      return renderRichTextHtml(captionContent, imagePacks, myId, prettifyLinks);
+      return renderRichTextHtml(captionContent, myId, prettifyLinks);
     },
-    [myId, prettifyLinks, imagePacks, hideCaption]
+    [myId, prettifyLinks, hideCaption]
   );
 
   if (isRedacted) {
@@ -948,7 +877,7 @@ export function MessageContent({
   const textContent = textRenderContent(textBody, textHtml);
 
   if (content.type === 'emote') {
-    const html = renderRichTextHtml(textContent, imagePacks, myId, prettifyLinks);
+    const html = renderRichTextHtml(textContent, myId, prettifyLinks);
     return (
       <em className={css.emoteMsg}>
         * {senderName}{' '}
@@ -965,7 +894,7 @@ export function MessageContent({
   }
 
   if (content.type === 'notice') {
-    const html = renderRichTextHtml(textContent, imagePacks, myId, prettifyLinks);
+    const html = renderRichTextHtml(textContent, myId, prettifyLinks);
     return (
       <RichHtml
         html={html}
@@ -997,7 +926,7 @@ export function MessageContent({
     );
   }
 
-  const html = renderRichTextHtml(textContent, imagePacks, myId, prettifyLinks);
+  const html = renderRichTextHtml(textContent, myId, prettifyLinks);
   const firstUrl = extractFirstUrl(textBody, textHtml ?? undefined);
   const isEncrypted = !!roomId && room?.isEncrypted === true;
   const emojiOnlyMsg = largeEmoji && isRenderedEmojiOnly(html);

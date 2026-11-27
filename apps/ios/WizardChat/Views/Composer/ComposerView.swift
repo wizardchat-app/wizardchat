@@ -119,7 +119,9 @@ struct ComposerView: View {
             if let editing, let text = editing.editableText {
                 usedEmotes = Self.emotes(in: editing.rich ?? [])
                 mentions = Dictionary(editing.mentions.map { ($0.label, $0.userId) }, uniquingKeysWith: { first, _ in first })
-                draft = text
+                draft = usedEmotes.keys.reduce(text) { marked, code in
+                    marked.replacingOccurrences(of: ":\(code):", with: Self.markedEmote(code))
+                }
                 focused = true
             }
         }
@@ -694,7 +696,7 @@ struct ComposerView: View {
             draft += emoji.u + " "
         case .custom(let image):
             usedEmotes[image.shortcode] = image
-            draft += ":\(image.shortcode): "
+            draft += Self.markedEmote(image.shortcode) + " "
         case .command: break
         }
     }
@@ -721,7 +723,7 @@ struct ComposerView: View {
 
     private func insertEmoji(_ text: String, _ image: PackImage?) {
         if let image { usedEmotes[image.shortcode] = image }
-        draft += text
+        draft += image.map { Self.markedEmote($0.shortcode) } ?? text
     }
 
     private func submit() async {
@@ -738,7 +740,7 @@ struct ComposerView: View {
             let room = RoomMention.isIn(text)
             usedEmotes = [:]
             mentions = [:]
-            await timeline.edit(editing, newText: text, html: html,
+            await timeline.edit(editing, newText: Self.withoutEmoteMarks(text), html: html,
                                 mentions: Mentions(userIds: Array(Set(userIds)).sorted(), room: room ? true : nil))
             return
         }
@@ -753,7 +755,7 @@ struct ComposerView: View {
             let room = RoomMention.isIn(text)
             usedEmotes = [:]
             mentions = [:]
-            await timeline.sendFiles(pending.map(\.url), caption: text.isEmpty ? nil : text, captionHtml: html,
+            await timeline.sendFiles(pending.map(\.url), caption: text.isEmpty ? nil : Self.withoutEmoteMarks(text), captionHtml: html,
                                      mentions: Mentions(userIds: Array(Set(userIds)).sorted(), room: room ? true : nil),
                                      replyTo: reply)
             return
@@ -762,7 +764,7 @@ struct ComposerView: View {
         draft = ""
         replyTo = nil
         if text.hasPrefix("/"), !text.hasPrefix("//"),
-           let result = await SlashCommand.run(text, timeline: timeline, session: session, replyTo: reply) {
+           let result = await SlashCommand.run(Self.withoutEmoteMarks(text), timeline: timeline, session: session, replyTo: reply) {
             if case .unknown = result { await send(text, replyTo: reply) }
             return
         }
@@ -783,7 +785,7 @@ struct ComposerView: View {
         usedEmotes = [:]
         mentions = [:]
         roomLinks = [:]
-        await timeline.send(text, html: html, replyTo: replyTo,
+        await timeline.send(Self.withoutEmoteMarks(text), html: html, replyTo: replyTo,
                             mentions: Mentions(userIds: Array(Set(userIds)).sorted(), room: room ? true : nil))
     }
 
@@ -791,7 +793,7 @@ struct ComposerView: View {
     /// the Markdown into HTML); its Markdown is rendered first so formatting isn't lost.
     static func richHtml(_ text: String, emotes: [String: PackImage], mentions: [String: String],
                          client: WizardClient?, roomLinks: [String: String] = [:]) async -> String? {
-        let usedEmotes = emotes.filter { text.contains(":\($0.key):") }
+        let usedEmotes = emotes.filter { text.contains(markedEmote($0.key)) }
         let usedMentions = mentions.filter { text.contains($0.key) }
         let usedRooms = roomLinks.filter { text.contains($0.key) }
         guard !usedEmotes.isEmpty || !usedMentions.isEmpty || !usedRooms.isEmpty else { return nil }
@@ -812,11 +814,18 @@ struct ComposerView: View {
         }
         for (code, image) in usedEmotes {
             html = html.replacingOccurrences(
-                of: ":\(code):",
+                of: markedEmote(code),
                 with: "<img data-mx-emoticon height=\"32\" src=\"\(image.url)\" alt=\":\(code):\" title=\":\(code):\">")
         }
-        return html
+        return withoutEmoteMarks(html)
     }
+
+    /// Picked custom emoji are prefixed with a word joiner, so shortcodes typed by hand stay text
+    static let emoteMark = "\u{2060}"
+
+    static func markedEmote(_ code: String) -> String { emoteMark + ":\(code):" }
+
+    static func withoutEmoteMarks(_ text: String) -> String { text.replacingOccurrences(of: emoteMark, with: "") }
 
     private func sendSticker(_ sticker: PackImage) async {
         var info: [String: JSONValue] = [:]

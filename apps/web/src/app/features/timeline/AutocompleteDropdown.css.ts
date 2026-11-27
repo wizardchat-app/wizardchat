@@ -59,6 +59,13 @@ export const emojiChar = style({
   textAlign: 'center',
 });
 
+export const emojiImg = style({
+  width: '24px',
+  height: '24px',
+  objectFit: 'contain',
+  flexShrink: 0,
+});
+
 export const emojiName = style({
   fontSize: '0.88rem',
   color: 'inherit',

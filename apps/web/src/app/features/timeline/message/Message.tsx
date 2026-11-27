@@ -779,7 +779,6 @@ export const Message = memo(function Message({
         onMediaClick={handleMediaClick}
         roomId={roomId}
         optimisticBody={optimisticBody}
-        imagePacks={imagePacks}
         requestFullRes={requestFullRes}
         mediaCover={mediaCover}
         onRevealMedia={handleRevealMedia}

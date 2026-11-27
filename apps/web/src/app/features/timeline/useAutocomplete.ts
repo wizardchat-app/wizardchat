@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import type { WizardClient } from '@wizardchat/core';
 import { useAllJoinedSpaces, useAllRooms, useMembers, useRoom } from '@/app/data';
@@ -8,9 +8,11 @@ import { ReactEditor } from 'slate-react';
 import { emojiFrequencyAtom } from '@/app/store/atoms';
 import emojibaseData from 'emojibase-data/en/data.json';
 import emojibaseShortcodes from 'emojibase-data/en/shortcodes/emojibase.json';
+import { useImagePacks } from '@/app/hooks/useImagePacks';
 import { getCommandSuggestions } from './composer/commands';
 import type {
   CustomEditor,
+  EmoticonElement,
   MentionElement,
   RoomLinkElement,
   RoomMentionElement,
@@ -20,6 +22,7 @@ interface EmojiEntry {
   id: string;
   char: string;
   searchKeys: string[];
+  mxcUrl?: string;
 }
 
 let EMOJI_LIST: EmojiEntry[] | null = null;
@@ -62,6 +65,7 @@ export interface EmojiSuggestion {
   kind: 'emoji';
   id: string;
   char: string;
+  mxcUrl?: string;
 }
 
 export interface MentionSuggestion {
@@ -119,7 +123,7 @@ const CLOSED: AutocompleteState = {
 };
 
 export function useAutocomplete(
-  _client: WizardClient,
+  client: WizardClient,
   roomId: string,
   options?: { disableCommands?: boolean }
 ) {
@@ -136,6 +140,22 @@ export function useAutocomplete(
   allRoomsRef.current = allRooms;
   const allSpacesRef = useRef(allSpaces);
   allSpacesRef.current = allSpaces;
+  const { packs } = useImagePacks(client, roomId);
+  const customEmojis = useMemo(() => {
+    const list: EmojiEntry[] = [];
+    for (const [shortcode, img] of packs) {
+      if (!img.usage.includes('emoticon') || !img.url.startsWith('mxc://')) continue;
+      list.push({
+        id: shortcode,
+        char: `:${shortcode}:`,
+        searchKeys: [shortcode.toLowerCase()],
+        mxcUrl: img.url,
+      });
+    }
+    return list;
+  }, [packs]);
+  const customEmojisRef = useRef(customEmojis);
+  customEmojisRef.current = customEmojis;
   const [state, setState] = useState<AutocompleteState>(CLOSED);
   const freq = useAtomValue(emojiFrequencyAtom);
   const setFreq = useSetAtom(emojiFrequencyAtom);
@@ -194,22 +214,27 @@ export function useAutocomplete(
           focus: cursor,
         };
 
-        const list = getEmojiList();
+        const list = [...customEmojisRef.current, ...getEmojiList()];
         const results = list
-          .filter((e) => e.id.startsWith(query) || e.searchKeys.some((k) => k.startsWith(query)))
-          .map((e) => ({ ...e, freq: freq[e.char] ?? 0 }))
+          .filter((e) => e.searchKeys.some((k) => k.startsWith(query)))
+          .map((e) => ({ ...e, freq: freq[e.mxcUrl ?? e.char] ?? 0 }))
           .sort((a, b) => {
-            const aExact = a.id === query,
-              bExact = b.id === query;
+            const aExact = a.id.toLowerCase() === query,
+              bExact = b.id.toLowerCase() === query;
             if (aExact !== bExact) return aExact ? -1 : 1;
-            const aId = a.id.startsWith(query),
-              bId = b.id.startsWith(query);
+            const aId = a.id.toLowerCase().startsWith(query),
+              bId = b.id.toLowerCase().startsWith(query);
             if (aId !== bId) return aId ? -1 : 1;
             if (a.id.length !== b.id.length) return a.id.length - b.id.length;
             return b.freq - a.freq;
           })
           .slice(0, 20)
-          .map((e): EmojiSuggestion => ({ kind: 'emoji', id: e.id, char: e.char }));
+          .map((e): EmojiSuggestion => ({
+            kind: 'emoji',
+            id: e.id,
+            char: e.char,
+            mxcUrl: e.mxcUrl,
+          }));
 
         if (results.length > 0) {
           setState({
@@ -397,8 +422,21 @@ export function useAutocomplete(
 
       if (suggestion.kind === 'emoji') {
         Transforms.select(editor, state.triggerRange);
-        Transforms.insertText(editor, suggestion.char + ' ');
-        const char = suggestion.char;
+        if (suggestion.mxcUrl) {
+          Transforms.delete(editor);
+          const emoticonNode: EmoticonElement = {
+            type: 'emoticon',
+            mxcUrl: suggestion.mxcUrl,
+            shortcode: suggestion.id,
+            children: [{ text: '' }],
+          };
+          Transforms.insertNodes(editor, emoticonNode);
+          Transforms.move(editor, { unit: 'offset' });
+          Transforms.insertText(editor, ' ');
+        } else {
+          Transforms.insertText(editor, suggestion.char + ' ');
+        }
+        const char = suggestion.mxcUrl ?? suggestion.char;
         setFreq((prev) => {
           const next = { ...prev, [char]: (prev[char] ?? 0) + 1 };
           const entries = Object.entries(next);

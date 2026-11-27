@@ -1039,18 +1039,6 @@ const inlineEmojiPlaceholder = {
   color: 'transparent',
 };
 
-export const inlinePackEmoji = style({
-  display: 'inline-block',
-  width: 'auto',
-  height: '1em',
-  verticalAlign: 'middle',
-  objectFit: 'contain',
-  margin: '0 1px',
-  selectors: {
-    '&:not([data-media-loaded])': inlineEmojiPlaceholder,
-  },
-});
-
 globalStyle('img[data-mx-emoticon]', {
   display: 'inline-block',
   width: 'auto',

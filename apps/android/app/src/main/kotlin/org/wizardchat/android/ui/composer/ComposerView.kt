@@ -333,7 +333,7 @@ fun ComposerView(
             is Suggestion.EmojiItem -> setDraft("$base${suggestion.emoji.e} ")
             is Suggestion.Custom -> {
                 usedEmotes[suggestion.image.shortcode] = suggestion.image
-                setDraft("$base:${suggestion.image.shortcode}: ")
+                setDraft("$base${markedEmote(suggestion.image.shortcode)} ")
             }
             is Suggestion.Command -> Unit
         }
@@ -371,12 +371,13 @@ fun ComposerView(
         val links = roomLinks.filterKeys { message.contains(it) }.entries.sortedByDescending { it.key.length }
         val body = links.fold(message) { text, (label, link) -> text.replace(label, RoomLinks.target(link) ?: link) }
         val html = richHtml(body, usedEmotes, mentions, timeline.client, links.associate { (_, link) -> (RoomLinks.target(link) ?: link) to link })
+        val plain = body.withoutEmoteMarks()
         val userIds = mentions.filter { message.contains(it.key) && it.value != session.userId }.values.toSet().sorted()
         val room = RoomMention.isIn(message)
         usedEmotes.clear()
         mentions.clear()
         roomLinks.clear()
-        timeline.send(body, html = html, replyTo = reply, mentions = Mentions(userIds, if (room) true else null))
+        timeline.send(plain, html = html, replyTo = reply, mentions = Mentions(userIds, if (room) true else null))
     }
 
     suspend fun submit() {
@@ -393,7 +394,7 @@ fun ComposerView(
             val room = RoomMention.isIn(message)
             usedEmotes.clear()
             mentions.clear()
-            timeline.edit(entry, message, html, Mentions(userIds, if (room) true else null))
+            timeline.edit(entry, message.withoutEmoteMarks(), html, Mentions(userIds, if (room) true else null))
             return
         }
 
@@ -409,7 +410,7 @@ fun ComposerView(
             mentions.clear()
             timeline.sendFiles(
                 pending.map { Uri.fromFile(it.file) },
-                caption = message.ifEmpty { null },
+                caption = message.withoutEmoteMarks().ifEmpty { null },
                 replyTo = reply,
                 captionHtml = html,
                 mentions = Mentions(userIds, if (room) true else null),
@@ -420,7 +421,7 @@ fun ComposerView(
         setDraft("")
         onReplyToChange(null)
         if (message.startsWith("/") && !message.startsWith("//")) {
-            val result = SlashCommand.run(message, timeline, session, reply)
+            val result = SlashCommand.run(message.withoutEmoteMarks(), timeline, session, reply)
             if (result != null) {
                 if (result == SlashCommand.Result.unknown) send(message, reply)
                 return
@@ -467,7 +468,7 @@ fun ComposerView(
 
     fun insertEmoji(emoji: String, image: PackImage?) {
         if (image != null) usedEmotes[image.shortcode] = image
-        setDraft(draft.text.toString() + emoji)
+        setDraft(draft.text.toString() + if (image != null) markedEmote(image.shortcode) else emoji)
     }
 
     LaunchedEffect(room.id) { packStore.load(session, room.id) }
@@ -489,7 +490,7 @@ fun ComposerView(
         usedEmotes.putAll(emotesIn(entry.rich.orEmpty()))
         mentions.clear()
         entry.mentions.forEach { mentions.putIfAbsent(it.label, it.userId) }
-        setDraft(text)
+        setDraft(usedEmotes.keys.fold(text) { marked, code -> marked.replace(":$code:", markedEmote(code)) })
         focus(true)
     }
     LaunchedEffect(replyTo?.id) { if (replyTo != null) focus(true) }
@@ -682,7 +683,7 @@ internal suspend fun richHtml(
     client: WizardClient,
     roomLinks: Map<String, String> = emptyMap(),
 ): String? {
-    val usedEmotes = emotes.filter { text.contains(":${it.key}:") }
+    val usedEmotes = emotes.filter { text.contains(markedEmote(it.key)) }
     val usedMentions = mentions.filter { text.contains(it.key) }
     val usedRooms = roomLinks.filter { text.contains(it.key) }
     if (usedEmotes.isEmpty() && usedMentions.isEmpty() && usedRooms.isEmpty()) return null
@@ -696,12 +697,19 @@ internal suspend fun richHtml(
     }
     for ((code, image) in usedEmotes) {
         html = html.replace(
-            ":$code:",
+            markedEmote(code),
             "<img data-mx-emoticon height=\"32\" src=\"${image.url}\" alt=\":$code:\" title=\":$code:\">",
         )
     }
-    return html
+    return html.withoutEmoteMarks()
 }
+
+/** Picked custom emoji are prefixed with a word joiner, so shortcodes typed by hand stay text */
+private const val EMOTE_MARK = "\u2060"
+
+internal fun markedEmote(code: String) = "$EMOTE_MARK:$code:"
+
+internal fun String.withoutEmoteMarks() = replace(EMOTE_MARK, "")
 
 private fun ByteArray.startsWith(vararg bytes: Int) = size >= bytes.size && bytes.indices.all { this[it] == bytes[it].toByte() }
 
@@ -738,7 +746,7 @@ internal fun emotesIn(blocks: List<RichBlock>): Map<String, PackImage> =
         code to PackImage(shortcode = code, url = url, emoticon = true, sticker = false)
     }
 
-private val shortcodePattern = Regex(":([^\\s:]+):")
+private val shortcodePattern = Regex("$EMOTE_MARK:([^\\s:]+):")
 
 private class EmojiOutput(private val emotes: Map<String, PackImage>) : OutputTransformation {
     override fun TextFieldBuffer.transformOutput() {

@@ -5,6 +5,7 @@ import type { MouseEvent, RefObject } from 'react';
 import type { WizardClient as MatrixClient } from '@wizardchat/core';
 import { computePosition, autoUpdate, flip, shift, offset } from '@floating-ui/dom';
 import { Avatar } from '@/app/components/Avatar';
+import { AuthMediaImg } from '@/app/components/AuthMediaImg';
 import type { AutocompleteState, Suggestion } from './useAutocomplete';
 import { KeyCaps } from '@/app/components/KeyCaps';
 import * as css from './AutocompleteDropdown.css';
@@ -105,7 +106,16 @@ export function AutocompleteDropdown({
           if (suggestion.kind === 'emoji') {
             return (
               <div key={suggestion.char} className={itemClass} {...optionProps}>
-                <span className={css.emojiChar}>{suggestion.char}</span>
+                {suggestion.mxcUrl ? (
+                  <AuthMediaImg
+                    client={client}
+                    mxcUrl={suggestion.mxcUrl}
+                    alt=""
+                    className={css.emojiImg}
+                  />
+                ) : (
+                  <span className={css.emojiChar}>{suggestion.char}</span>
+                )}
                 <span className={css.emojiName}>:{suggestion.id}:</span>
               </div>
             );

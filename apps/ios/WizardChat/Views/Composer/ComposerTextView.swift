@@ -114,7 +114,7 @@ final class EmojiAttachment: NSTextAttachment {
 }
 
 extension ComposerTextView {
-    private static let shortcode = try! NSRegularExpression(pattern: ":([^\\s:]+):")
+    private static let shortcode = try! NSRegularExpression(pattern: ComposerView.emoteMark + ":([^\\s:]+):")
 
     static func attributed(_ text: String, emotes: [String: UIImage], font: UIFont, color: UIColor) -> NSAttributedString {
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
@@ -146,7 +146,7 @@ extension ComposerTextView {
         let ns = attributed.string as NSString
         attributed.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributed.length)) { value, range, _ in
             if let emoji = value as? EmojiAttachment {
-                out += String(repeating: ":\(emoji.shortcode):", count: range.length)
+                out += String(repeating: ComposerView.markedEmote(emoji.shortcode), count: range.length)
             } else if value == nil {
                 out += ns.substring(with: range)
             }
@@ -158,7 +158,7 @@ extension ComposerTextView {
         var result: [(Int, Int)] = []
         attributed.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributed.length)) { value, range, _ in
             if let emoji = value as? EmojiAttachment {
-                let length = (":\(emoji.shortcode):" as NSString).length
+                let length = (ComposerView.markedEmote(emoji.shortcode) as NSString).length
                 result += Array(repeating: (1, length), count: range.length)
             } else {
                 result.append((range.length, value == nil ? range.length : 0))
