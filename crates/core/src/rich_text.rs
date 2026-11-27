@@ -88,6 +88,41 @@ pub fn rich_blocks(html: &str) -> Option<Vec<RichBlock>> {
     (!blocks.is_empty()).then_some(blocks)
 }
 
+/// The first line of the blocks' text, without formatting, for one-line previews
+pub(crate) fn first_line(blocks: &[RichBlock]) -> Option<String> {
+    plain_text(blocks)
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(str::to_owned)
+}
+
+/// The blocks' text without formatting, one block per line
+pub(crate) fn plain_text(blocks: &[RichBlock]) -> String {
+    let mut text = String::new();
+    push_plain(blocks, &mut text);
+    text
+}
+
+fn push_plain(blocks: &[RichBlock], out: &mut String) {
+    for block in blocks {
+        match block {
+            RichBlock::Paragraph { spans } | RichBlock::Heading { spans, .. } => {
+                out.extend(spans.iter().map(|span| span.text.as_str()));
+            }
+            RichBlock::Quote { blocks } => push_plain(blocks, out),
+            RichBlock::ItemList { items, .. } => {
+                for item in items {
+                    push_plain(item, out);
+                }
+            }
+            RichBlock::Code { text } => out.push_str(text),
+            RichBlock::Rule => {}
+        }
+        out.push('\n');
+    }
+}
+
 fn name(node: &NodeRef) -> Option<String> {
     node.as_element().map(|e| e.name.local.to_string())
 }
@@ -356,6 +391,14 @@ mod tests {
             text: text.into(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn first_line_drops_formatting() {
+        let blocks = rich_blocks("<h1>Big <strong>news</strong></h1><p>more</p>").unwrap();
+        assert_eq!(first_line(&blocks).as_deref(), Some("Big news"));
+        let blocks = rich_blocks("<blockquote><p><em>quoted</em></p></blockquote>").unwrap();
+        assert_eq!(first_line(&blocks).as_deref(), Some("quoted"));
     }
 
     #[test]

@@ -268,6 +268,12 @@ fn sanitize(html: &str) -> String {
     html.to_string()
 }
 
+/// The text of a message's formatted body without its formatting, or `None` when it has none
+pub(crate) fn formatted_text(html: &str) -> Option<String> {
+    crate::rich_text::rich_blocks(&sanitize(html))
+        .map(|blocks| crate::rich_text::plain_text(&blocks))
+}
+
 /// The HTML a message's Markdown turns into, as sending it without HTML would produce; `None`
 /// when it has no formatting
 pub fn markdown_to_html(body: &str) -> Option<String> {
@@ -605,14 +611,24 @@ fn is_svg(media: &MediaInfo) -> bool {
 /// A one-line plain-text summary, for reply previews and notifications
 pub(crate) fn summary_of(content: &TimelineItemContent) -> String {
     match content_of(content, None, None) {
-        EntryContent::Text { body, .. }
-        | EntryContent::Notice { body, .. }
-        | EntryContent::Emote { body, .. }
-        | EntryContent::Sticker { body, .. } => body.lines().next().unwrap_or_default().to_owned(),
+        EntryContent::Text { body, rich, .. }
+        | EntryContent::Notice { body, rich, .. }
+        | EntryContent::Emote { body, rich, .. } => rich
+            .as_deref()
+            .and_then(crate::rich_text::first_line)
+            .unwrap_or_else(|| body.lines().next().unwrap_or_default().to_owned()),
+        EntryContent::Sticker { body, .. } => body.lines().next().unwrap_or_default().to_owned(),
         EntryContent::Image { media }
         | EntryContent::Video { media }
         | EntryContent::Audio { media }
-        | EntryContent::File { media } => media.caption.unwrap_or(media.filename),
+        | EntryContent::File { media } => media
+            .caption_html
+            .as_deref()
+            .and_then(crate::rich_text::rich_blocks)
+            .as_deref()
+            .and_then(crate::rich_text::first_line)
+            .or(media.caption)
+            .unwrap_or(media.filename),
         EntryContent::Poll { poll } => poll.question,
         EntryContent::Location { body, .. } => body,
         _ => String::new(),

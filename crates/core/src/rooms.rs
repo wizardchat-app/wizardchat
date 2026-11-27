@@ -1280,7 +1280,13 @@ fn last_message_of(event: &Value) -> Option<LastMessage> {
             .unwrap_or_default(),
         _ => str_at(content, "/body").unwrap_or_default(),
     };
-    let body = strip_reply_fallback(body);
+    let formatted = (str_at(content, "/format") == Some("org.matrix.custom.html"))
+        .then(|| str_at(content, "/formatted_body"))
+        .flatten()
+        .and_then(crate::content::formatted_text);
+    let body = formatted
+        .as_deref()
+        .unwrap_or_else(|| strip_reply_fallback(body));
     let mut preview: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
     if preview.chars().count() > PREVIEW_CHARS {
         preview = preview.chars().take(PREVIEW_CHARS).collect();
@@ -1435,5 +1441,26 @@ impl WizardClient {
             }
             on_update(contents.clone().into_iter().collect());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn last_message_shows_formatted_text() {
+        let event = serde_json::json!({
+            "type": "m.room.message",
+            "sender": "@a:x",
+            "origin_server_ts": 1,
+            "content": {
+                "msgtype": "m.text",
+                "body": "# News\n**bold**",
+                "format": "org.matrix.custom.html",
+                "formatted_body": "<h1>News</h1>\n<p><strong>bold</strong></p>",
+            },
+        });
+        assert_eq!(last_message_of(&event).unwrap().body, "News bold");
     }
 }
