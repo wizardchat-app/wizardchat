@@ -1047,6 +1047,7 @@ fun ThreadSummaryBadge(thread: ThreadSummaryView, roomId: String, onOpen: () -> 
     val hint = tr("timeline.openThread")
     Row(
         Modifier
+            .padding(top = WZ.Space.space2)
             .widthIn(max = WZ.Size.panel)
             .clip(RoundedCornerShape(WZ.Radius.lg))
             .background(theme.fill)
