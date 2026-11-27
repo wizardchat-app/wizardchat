@@ -653,14 +653,16 @@ struct ReadReceiptsView: View {
     @State private var showList = false
 
     var body: some View {
+        let visible = userIds.prefix(userIds.count > 4 ? 3 : 4)
+        let overflow = userIds.count - visible.count
         Button { showList = true } label: {
             HStack(spacing: -WZ.Space.space2) {
-                ForEach(userIds.prefix(4), id: \.self) { userId in
+                ForEach(visible, id: \.self) { userId in
                     ReceiptAvatar(roomId: roomId, userId: userId, size: 16)
                         .overlay(Circle().stroke(theme.bgPrimary, lineWidth: WZ.BorderWidth.thin))
                 }
-                if userIds.count > 4 {
-                    Text("+\(userIds.count - 4)")
+                if overflow > 0 {
+                    Text("+\(overflow)")
                         .font(.wizard(WZ.FontSize.xs, .semibold))
                         .foregroundStyle(theme.textMuted)
                         .padding(.leading, WZ.Space.space4)

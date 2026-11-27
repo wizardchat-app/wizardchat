@@ -749,12 +749,6 @@ struct MessageRow: View {
     }
     private var senderColor: Color { theme.nameColor(entry.sender, colored: prefs.colorUsernames) }
 
-    private var receiptsWidth: CGFloat {
-        guard !entry.readBy.isEmpty, actions != nil else { return 0 }
-        let shown = CGFloat(min(entry.readBy.count, 4))
-        return 16 + 12 * (shown - 1) + (entry.readBy.count > 4 ? 28 : 0) + WZ.Space.space3
-    }
-
     private var isMessageText: Bool {
         if case .message = entry.kind { true } else { false }
     }
@@ -779,83 +773,82 @@ struct MessageRow: View {
                     .onTapGesture { actions?.openProfile(entry.sender) }
                     .accessibilityAddTraits(.isButton)
             }
-            VStack(alignment: .leading, spacing: WZ.Space.space0) {
-                if isCompact {
-                    if !isMessageText {
-                        HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space3) {
-                            Text(entry.timestamp.timeText(timeFormat))
-                                .font(.wizard(WZ.FontSize.xs * scale))
-                                .foregroundStyle(theme.textMuted)
+            VStack(alignment: .trailing, spacing: WZ.Space.space0) {
+                VStack(alignment: .leading, spacing: WZ.Space.space0) {
+                    if isCompact {
+                        if !isMessageText {
+                            HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space3) {
+                                Text(entry.timestamp.timeText(timeFormat))
+                                    .font(.wizard(WZ.FontSize.xs * scale))
+                                    .foregroundStyle(theme.textMuted)
+                                Text(entry.senderName)
+                                    .font(.wizard(WZ.FontSize.md * scale, .semibold))
+                                    .foregroundStyle(senderColor)
+                                    .lineLimit(1)
+                                    .onTapGesture { actions?.openProfile(entry.sender) }
+                            }
+                        }
+                    } else if !entry.isGrouped {
+                        HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space4) {
                             Text(entry.senderName)
                                 .font(.wizard(WZ.FontSize.md * scale, .semibold))
                                 .foregroundStyle(senderColor)
                                 .lineLimit(1)
                                 .onTapGesture { actions?.openProfile(entry.sender) }
-                        }
-                    }
-                } else if !entry.isGrouped {
-                    HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space4) {
-                        Text(entry.senderName)
-                            .font(.wizard(WZ.FontSize.md * scale, .semibold))
-                            .foregroundStyle(senderColor)
-                            .lineLimit(1)
-                            .onTapGesture { actions?.openProfile(entry.sender) }
-                        Text(entry.timestamp.timeText(timeFormat))
-                            .font(.wizard(WZ.FontSize.sm * scale))
-                            .foregroundStyle(theme.textMuted)
-                        if let eventId = entry.eventId, actions?.pinnedIds.contains(eventId) == true {
-                            Image("ph-push-pin-regular")
-                                .font(.system(size: WZ.SizeIcon.xs * scale, weight: .semibold))
+                            Text(entry.timestamp.timeText(timeFormat))
+                                .font(.wizard(WZ.FontSize.sm * scale))
                                 .foregroundStyle(theme.textMuted)
-                                .accessibilityLabel(String(localized: "timeline.pinned"))
+                            if let eventId = entry.eventId, actions?.pinnedIds.contains(eventId) == true {
+                                Image("ph-push-pin-regular")
+                                    .font(.system(size: WZ.SizeIcon.xs * scale, weight: .semibold))
+                                    .foregroundStyle(theme.textMuted)
+                                    .accessibilityLabel(String(localized: "timeline.pinned"))
+                            }
+                        }
+                        .padding(.bottom, WZ.Space.space2)
+                    }
+                    if let quote = entry.replyTo {
+                        ReplyQuoteView(quote: quote, isPrivateRoom: isPrivateRoom)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard let actions, !quote.eventId.isEmpty else { return }
+                                notifier.eventToFocus = (actions.roomId, quote.eventId)
+                            }
+                    }
+                    HStack(alignment: .bottom, spacing: WZ.Space.space3) {
+                        messageContent
+                            .opacity(entry.isSending && !entry.sendFailed ? 0.5 : 1)
+                        if entry.sendFailed {
+                            Button { showFailed = true } label: {
+                                Image("ph-warning-circle-regular")
+                                    .font(.system(size: WZ.SizeIcon.md))
+                                    .foregroundStyle(theme.danger)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(String(localized: "timeline.notSent"))
+                            .confirmationDialog(String(localized: "timeline.notSentTitle"), isPresented: $showFailed, titleVisibility: .visible) {
+                                Button(String(localized: "composer.voice.retry")) { actions?.retry() }
+                                Button(String(localized: "common.delete"), role: .destructive) { actions?.delete(entry) }
+                            }
                         }
                     }
-                    .padding(.bottom, WZ.Space.space2)
-                }
-                if let quote = entry.replyTo {
-                    ReplyQuoteView(quote: quote, isPrivateRoom: isPrivateRoom)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard let actions, !quote.eventId.isEmpty else { return }
-                            notifier.eventToFocus = (actions.roomId, quote.eventId)
-                        }
-                }
-                HStack(alignment: .bottom, spacing: WZ.Space.space3) {
-                    messageContent
-                        .opacity(entry.isSending && !entry.sendFailed ? 0.5 : 1)
-                    if entry.sendFailed {
-                        Button { showFailed = true } label: {
-                            Image("ph-warning-circle-regular")
-                                .font(.system(size: WZ.SizeIcon.md))
-                                .foregroundStyle(theme.danger)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(String(localized: "timeline.notSent"))
-                        .confirmationDialog(String(localized: "timeline.notSentTitle"), isPresented: $showFailed, titleVisibility: .visible) {
-                            Button(String(localized: "composer.voice.retry")) { actions?.retry() }
-                            Button(String(localized: "common.delete"), role: .destructive) { actions?.delete(entry) }
-                        }
+                    if let loader = actions?.linkPreviews, case .message(let body, _, _) = entry.kind,
+                       let url = MessageText.firstPreviewURL(in: body) {
+                        LinkPreviewCard(url: url, loader: loader)
+                    }
+                    if !entry.reactions.isEmpty && entry.allowsActions {
+                        ReactionsBar(reactions: entry.reactions) { key in actions?.react(key, entry) }
+                    }
+                    if let thread = entry.thread, thread.replies > 0, let actions, let openThread = actions.openThread {
+                        ThreadSummaryBadge(thread: thread, roomId: actions.roomId) { openThread(entry) }
                     }
                 }
-                if let loader = actions?.linkPreviews, case .message(let body, _, _) = entry.kind,
-                   let url = MessageText.firstPreviewURL(in: body) {
-                    LinkPreviewCard(url: url, loader: loader)
-                }
-                if !entry.reactions.isEmpty && entry.allowsActions {
-                    ReactionsBar(reactions: entry.reactions) { key in actions?.react(key, entry) }
-                }
-                if let thread = entry.thread, thread.replies > 0, let actions, let openThread = actions.openThread {
-                    ThreadSummaryBadge(thread: thread, roomId: actions.roomId) { openThread(entry) }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.trailing, receiptsWidth)
-            .overlay(alignment: .bottomTrailing) {
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, WZ.Space.space5)
                 if !entry.readBy.isEmpty, let roomId = actions?.roomId {
                     ReadReceiptsView(roomId: roomId, userIds: entry.readBy, readAt: entry.readAt)
                 }
             }
-            .padding(.trailing, WZ.Space.space5)
         }
         .padding(.horizontal, WZ.Space.space6)
         .padding(.top, (entry.isGrouped || isCompact ? 1 : 6) * spacing)

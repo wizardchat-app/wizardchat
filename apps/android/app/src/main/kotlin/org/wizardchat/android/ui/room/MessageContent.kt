@@ -979,26 +979,25 @@ fun ReactionsBar(reactions: List<ChatEntry.ReactionGroup>, onToggle: (String) ->
 fun ReadReceiptsView(roomId: String, userIds: List<String>, readAt: Map<String, java.time.Instant> = emptyMap(), modifier: Modifier = Modifier) {
     var showList by remember { mutableStateOf(false) }
     val label = L10n.format("timeline.seenBy", userIds.size)
+    val visible = userIds.take(if (userIds.size > 4) 3 else 4)
+    val overflow = userIds.size - visible.size
     Row(
         modifier
             .clickable { showList = true }
             .padding(vertical = WZ.Space.space1)
             .semantics { contentDescription = label },
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(-WZ.Space.space2),
     ) {
-        userIds.take(4).forEachIndexed { index, userId ->
-            Box(
-                Modifier
-                    .offset(x = (-WZ.Space.space2) * index)
-                    .border(WZ.BorderWidth.thin, theme.bgPrimary, CircleShape),
-            ) {
+        visible.forEach { userId ->
+            Box(Modifier.border(WZ.BorderWidth.thin, theme.bgPrimary, CircleShape)) {
                 ReceiptAvatar(roomId, userId, 16.dp)
             }
         }
-        if (userIds.size > 4) {
+        if (overflow > 0) {
             Text(
-                "+${userIds.size - 4}",
-                Modifier.offset(x = (-WZ.Space.space2) * 4).padding(start = WZ.Space.space4),
+                "+$overflow",
+                Modifier.padding(start = WZ.Space.space4),
                 style = wizardFont(WZ.FontSize.xs, FontWeight.SemiBold),
                 color = theme.textMuted,
             )

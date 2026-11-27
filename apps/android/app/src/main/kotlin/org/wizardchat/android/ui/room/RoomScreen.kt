@@ -992,11 +992,8 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                     )
                 }
                 val receiptRoomId = actions?.roomId?.takeIf { entry.readBy.isNotEmpty() }
-                val receiptsWidth = if (receiptRoomId == null) 0.dp else {
-                    16.dp * minOf(entry.readBy.size, 4) + (if (entry.readBy.size > 4) 28.dp else 0.dp) + WZ.Space.space3
-                }
-                Box(Modifier.weight(1f).padding(end = WZ.Space.space5)) {
-                    Column(Modifier.fillMaxWidth().padding(end = receiptsWidth)) {
+                Column(Modifier.weight(1f)) {
+                    Column(Modifier.fillMaxWidth().padding(end = WZ.Space.space5)) {
                         if (isCompact) {
                             if (entry.kind !is ChatEntry.Kind.Message) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
@@ -1083,7 +1080,7 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                         }
                     }
                     if (receiptRoomId != null) {
-                        ReadReceiptsView(receiptRoomId, entry.readBy, entry.readAt, Modifier.align(Alignment.BottomEnd))
+                        ReadReceiptsView(receiptRoomId, entry.readBy, entry.readAt, Modifier.align(Alignment.End))
                     }
                 }
             }
