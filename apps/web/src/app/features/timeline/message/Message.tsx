@@ -216,6 +216,7 @@ export const Message = memo(function Message({
     src: string;
     type: 'image' | 'video';
     initialTime?: number;
+    loadingFull?: boolean;
   } | null>(null);
   const [viewSourceEvent, setViewSourceEvent] = useState<MatrixEvent | null>(null);
   const [editHistoryOpen, setEditHistoryOpen] = useState(false);
@@ -413,10 +414,11 @@ export const Message = memo(function Message({
         setLightboxItem({ src, type, initialTime: opts?.currentTime ?? 0 });
         return;
       }
-      setLightboxItem({ src, type });
+      setLightboxItem({ src, type, loadingFull: true });
       requestFullRes().then((full) => {
-        if (!full) return;
-        setLightboxItem((prev) => (prev?.src === src ? { src: full, type } : prev));
+        setLightboxItem((prev) =>
+          prev?.src === src ? { src: full ?? src, type, loadingFull: false } : prev
+        );
       });
     },
     [requestFullRes]
@@ -1222,6 +1224,7 @@ export const Message = memo(function Message({
           src={lightboxItem.src}
           type={lightboxItem.type}
           initialTime={lightboxItem.initialTime}
+          loadingFull={lightboxItem.loadingFull}
           name={senderName}
           filename={media ? (media.caption ?? media.filename) : undefined}
           client={client}

@@ -199,6 +199,7 @@ export function MessageGallery({
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxTick, setLightboxTick] = useState(0);
+  const [loadingFullIndex, setLoadingFullIndex] = useState<number | null>(null);
 
   const openLightbox = useCallback((index: number) => {
     setRevealedIndices((prev) => (prev.has(index) ? prev : new Set(prev).add(index)));
@@ -213,16 +214,22 @@ export function MessageGallery({
   }, [lightboxIndex]);
 
   useEffect(() => {
-    if (lightboxIndex === null) return;
+    if (lightboxIndex === null) return undefined;
     const ready = srcsRef.current[lightboxIndex];
-    if (!ready?.src) return;
+    if (!ready?.src) return undefined;
+    let current = true;
+    setLoadingFullIndex(lightboxIndex);
     void (async () => {
       const full = await ready.requestFullRes();
       if (full && srcsRef.current[lightboxIndex]?.src !== full) {
         srcsRef.current[lightboxIndex] = { ...ready, src: full };
         setTick((n) => n + 1);
       }
+      if (current) setLoadingFullIndex((i) => (i === lightboxIndex ? null : i));
     })();
+    return () => {
+      current = false;
+    };
   }, [lightboxIndex, lightboxTick, tick]);
 
   const goPrev = useCallback(() => {
@@ -289,6 +296,7 @@ export function MessageGallery({
           avatarMxc={senderAvatar}
           client={client}
           onRevealItem={handleRevealTile}
+          loadingFull={loadingFullIndex === lightboxIndex}
           onClose={closeLightbox}
         />
       )}

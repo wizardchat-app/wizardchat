@@ -13,6 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/app/components/Avatar';
+import { Spinner } from '@/app/components/Spinner';
 import { MediaSpoiler } from '@/app/features/timeline/message/MediaSpoiler';
 import * as css from './MediaLightbox.css';
 
@@ -64,6 +65,7 @@ interface MediaLightboxProps {
   onPrev?: () => void;
   onNext?: () => void;
   onRevealItem?: (index: number) => void;
+  loadingFull?: boolean;
 }
 
 export function MediaLightbox({
@@ -82,6 +84,7 @@ export function MediaLightbox({
   onPrev,
   onNext,
   onRevealItem,
+  loadingFull = false,
 }: MediaLightboxProps) {
   const [view, setViewState] = useState<View>(IDENTITY);
   const viewRef = useRef<View>(IDENTITY);
@@ -472,6 +475,11 @@ export function MediaLightbox({
           />
         ) : (
           <div className={css.loading} />
+        )}
+        {loadingFull && canZoom && (
+          <div className={css.fullResLoading} role="status" aria-label={t('common.loading')}>
+            <Spinner size="sm" className={css.fullResSpinner} />
+          </div>
         )}
       </div>
       {toolbarContent}

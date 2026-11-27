@@ -1,6 +1,6 @@
 import { style } from '@vanilla-extract/css';
 import { vars } from '@/theme/vars.css';
-import { fadeIn, fast } from '@/theme/animations.css';
+import { fadeIn, fast, med } from '@/theme/animations.css';
 
 export const overlay = style({
   position: 'fixed',
@@ -76,6 +76,31 @@ export const closeBtn = style({
   zIndex: 8001,
   ':hover': {
     backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+});
+
+export const fullResLoading = style({
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: '36px',
+  height: '36px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(0,0,0,0.5)',
+  pointerEvents: 'none',
+  animation: `${fadeIn} ${med} ease 250ms both`,
+});
+
+export const fullResSpinner = style({
+  selectors: {
+    [`${fullResLoading} &`]: {
+      borderColor: 'rgba(255,255,255,0.25)',
+      borderTopColor: '#fff',
+    },
   },
 });
 
