@@ -2,6 +2,9 @@ package org.wizardchat.android.ui.voice
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -11,6 +14,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +58,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -78,6 +84,7 @@ import org.wizardchat.android.matrix.MessageNotifier
 import org.wizardchat.android.matrix.RingingCall
 import org.wizardchat.android.matrix.displayName
 import org.wizardchat.android.ui.Avatar
+import org.wizardchat.android.ui.expressiveClickable
 import org.wizardchat.android.ui.BarButton
 import org.wizardchat.android.ui.PhIcon
 import org.wizardchat.android.ui.PhWeight
@@ -351,34 +358,42 @@ private fun Control(
     )
 }
 
-/** The bar above the tab island while you're in a call */
+/** The bar above the tab island (or the composer) while you're in a call */
 @Composable
 fun CallBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val calls = CallManager.shared
     val room = calls.room ?: return
     if (!calls.isInCall) return
-    val joined = calls.state == CallManager.State.Joined
     val returnLabel = tr("call.returnToCall")
+    val status = tr(
+        when {
+            calls.reconnecting -> "call.statusReconnecting"
+            calls.status == CallStatus.joiningSlow -> "call.joiningSlow"
+            calls.status == CallStatus.connected -> "call.statusConnected"
+            else -> "call.statusConnecting"
+        },
+    )
     Row(
         modifier
             .fillMaxWidth()
-            .height(WZ.Space.space11)
+            .height(WZ.Size.callControl)
             .floatingGlass()
-            .padding(start = WZ.Space.space4, end = WZ.Space.space3),
-        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+            .padding(start = WZ.Space.space2, end = WZ.Space.space3),
+        horizontalArrangement = Arrangement.spacedBy(WZ.Space.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             Modifier
                 .weight(1f)
+                .fillMaxHeight()
+                .clip(CircleShape)
                 .clickable(onClick = onClick)
-                .semantics { contentDescription = returnLabel },
-            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
+                .semantics(mergeDescendants = true) { contentDescription = "$returnLabel, ${room.displayName}, $status" }
+                .padding(start = WZ.Space.space2),
+            horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(WZ.Space.space9).clip(CircleShape).background(theme.success), contentAlignment = Alignment.Center) {
-                PhIcon("speaker-high", PhWeight.regular, size = WZ.SizeIcon.sm, tint = theme.textOnAccent)
-            }
+            Avatar(room.displayName, room.avatarUrl, WZ.SizeControl.md, cornerRadius = WZ.Radius.md)
             Column {
                 Text(
                     room.displayName,
@@ -388,14 +403,7 @@ fun CallBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    tr(
-                        when {
-                            calls.reconnecting -> "call.statusReconnecting"
-                            calls.status == CallStatus.joiningSlow -> "call.joiningSlow"
-                            calls.status == CallStatus.connected -> "call.statusConnected"
-                            else -> "call.statusConnecting"
-                        },
-                    ),
+                    status,
                     style = wizardFont(WZ.FontSize.sm),
                     color = if (calls.reconnecting) theme.warningColor else if (calls.status == CallStatus.connected) theme.success else theme.textMuted,
                     maxLines = 1,
@@ -403,42 +411,31 @@ fun CallBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
             }
         }
         if (LocalPrefs.current.pushToTalk) {
-            PushToTalkButton()
+            PushToTalkButton(size = WZ.SizeControl.md, iconSize = WZ.SizeIcon.md, plain = true)
         } else {
-            BarControl(if (calls.micMuted) "microphone-slash" else "microphone", calls.micMuted, tr(if (calls.micMuted) "call.unmute" else "call.mute")) {
+            BarGlyph(if (calls.micMuted) "microphone-slash" else "microphone", calls.micMuted, tr(if (calls.micMuted) "call.unmute" else "call.mute")) {
                 calls.toggleMic()
             }
         }
-        BarControl(
-            if (calls.deafened) "speaker-slash" else "speaker-high",
-            calls.deafened,
-            tr(if (calls.deafened) "call.undeafen" else "call.deafen"),
-                    ) { calls.toggleDeafen() }
-        RoundIconButton(
-            "phone-x",
-            tr("common.leave"),
-            background = theme.danger,
-            tint = theme.textOnAccent,
-            onClick = { calls.leave() },
-            size = WZ.Space.space10,
-            iconSize = WZ.SizeIcon.sm,
-        )
+        BarGlyph(if (calls.deafened) "speaker-slash" else "speaker-high", calls.deafened, tr(if (calls.deafened) "call.undeafen" else "call.deafen")) {
+            calls.toggleDeafen()
+        }
+        BarGlyph("phone-x", true, tr("common.leave")) { calls.leave() }
     }
 }
 
 @Composable
-private fun BarControl(icon: String, active: Boolean, label: String, weight: PhWeight = PhWeight.regular, onClick: () -> Unit) {
-    RoundIconButton(
-        icon,
-        label,
-        background = if (active) theme.danger else theme.fill,
-        tint = if (active) theme.textOnAccent else theme.textPrimary,
-        onClick = onClick,
-        active = active,
-        size = WZ.Space.space10,
-        iconSize = WZ.SizeIcon.sm,
-        weight = weight,
-    )
+private fun BarGlyph(icon: String, danger: Boolean, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(WZ.SizeControl.md)
+            .clip(CircleShape)
+            .expressiveClickable(onClick, role = Role.Button, pressedScale = 0.88f)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        PhIcon(icon, size = WZ.SizeIcon.md, tint = if (danger) theme.danger else theme.textPrimary)
+    }
 }
 
 /** Someone in a voice room's call, in the lobby list */
@@ -579,7 +576,13 @@ fun DMCallScreen(onDismiss: () -> Unit) {
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         BackHandler(onBack = onDismiss)
-        DMCallContent(onDismiss)
+        val shown = remember { MutableTransitionState(false).apply { targetState = true } }
+        AnimatedVisibility(
+            shown,
+            enter = scaleIn(spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow), 0.4f, TransformOrigin(0.5f, 0.92f)) + fadeIn(),
+        ) {
+            DMCallContent(onDismiss)
+        }
     }
 }
 
@@ -688,7 +691,7 @@ fun CallErrorBanner(modifier: Modifier = Modifier) {
 private const val ERROR_VISIBLE_MILLIS = 6000L
 
 @Composable
-fun PushToTalkButton(size: Dp = WZ.Space.space10, iconSize: Dp = WZ.SizeIcon.sm) {
+fun PushToTalkButton(size: Dp = WZ.Space.space10, iconSize: Dp = WZ.SizeIcon.sm, plain: Boolean = false) {
     val calls = CallManager.shared
     val haptics = LocalHapticFeedback.current
     val talking = calls.talking
@@ -700,7 +703,7 @@ fun PushToTalkButton(size: Dp = WZ.Space.space10, iconSize: Dp = WZ.SizeIcon.sm)
             .scale(scale)
             .size(size)
             .clip(CircleShape)
-            .background(if (talking) theme.success else theme.fill)
+            .background(if (talking) theme.success else if (plain) Color.Transparent else theme.fill)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)

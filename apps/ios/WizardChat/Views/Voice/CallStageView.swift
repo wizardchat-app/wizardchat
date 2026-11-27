@@ -509,6 +509,7 @@ struct CallBackdrop: View {
                     .blur(radius: 60)
                     .opacity(0.55)
                     .frame(width: geo.size.width, height: geo.size.height)
+                theme.bgTertiary.opacity(0.5)
             }
         }
         .clipped()
@@ -878,7 +879,7 @@ private struct CallingView: View {
                     }
                 }
                 .font(.wizard(WZ.FontSize.lg))
-                .foregroundStyle(calls.ring == .declined ? theme.danger : local?.cameraTrack != nil ? .white.opacity(0.85) : theme.textMuted)
+                .foregroundStyle(calls.ring == .declined ? theme.danger : local?.cameraTrack != nil ? .white.opacity(0.85) : theme.textSecondary)
                 if calls.ring == .declined || calls.ring == .unanswered {
                     Button { calls.ringAgain() } label: { Label(String(localized: "call.callAgain"), image: "ph-phone-outgoing-regular") }
                         .buttonStyle(PrimaryButtonStyle())

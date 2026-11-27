@@ -151,6 +151,7 @@ import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.withNameColors
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.android.ui.voice.CallBar
 import org.wizardchat.android.ui.voice.JoinCallBar
 import org.wizardchat.android.ui.voice.rememberMemberProfile
 import org.wizardchat.core.CallHistoryView
@@ -496,6 +497,15 @@ fun RoomScreen(room: RoomSummary, client: WizardClient, onBack: () -> Unit, thre
                     style = wizardFont(WZ.FontSize.sm),
                     color = theme.textMuted,
                     textAlign = TextAlign.Center,
+                )
+            }
+            if (threadRoot == null && calls.isInCall && (calls.room?.id != room.id || room.isDirect)) {
+                CallBar(
+                    onClick = {
+                        val callRoom = calls.room
+                        if (callRoom?.isDirect == true) calls.showCallScreen = true else callRoom?.let { navigator.openRoom(it.id) }
+                    },
+                    modifier = Modifier.padding(horizontal = WZ.Space.space5),
                 )
             }
             org.wizardchat.android.ui.composer.IdentityWarning(room.id, client, room.isEncrypted)

@@ -173,7 +173,7 @@ struct RoomView: View {
                 }
                 if threadRoot == nil, calls.isInCall, calls.room?.id != room.id || room.isDirect {
                     CallBar { calls.showCallScreen = true }
-                        .padding(.horizontal, WZ.Space.space6)
+                        .padding(.horizontal, WZ.Space.space4)
                 }
                 IdentityWarning(roomId: room.id, client: timeline.client, encrypted: room.isEncrypted)
                 if session.connectionLost {

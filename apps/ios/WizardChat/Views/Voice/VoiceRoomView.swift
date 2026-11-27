@@ -248,6 +248,8 @@ struct CallBar: View {
     @EnvironmentObject private var prefs: AppPreferences
     @Environment(\.theme) private var theme
 
+    private var compact: Bool { style == .inline }
+
     private var statusText: String {
         switch calls.status {
         case .reconnecting: String(localized: "call.statusReconnecting")
@@ -257,79 +259,91 @@ struct CallBar: View {
         }
     }
 
+    private var statusColor: Color {
+        calls.reconnecting ? theme.warningColor : calls.status == .connected ? theme.success : theme.textMuted
+    }
+
     var body: some View {
         if let room = calls.room, calls.isInCall {
-            HStack(spacing: style == .inline ? WZ.Space.space3 : WZ.Space.space4) {
+            HStack(spacing: compact ? WZ.Space.space2 : WZ.Space.space3) {
                 Button(action: onOpen) {
-                    HStack(spacing: WZ.Space.space4) {
-                        Image("ph-speaker-high-regular")
-                            .font(.system(size: WZ.SizeIcon.sm, weight: .bold))
-                            .foregroundStyle(theme.textOnAccent)
-                            .frame(width: style == .inline ? WZ.Space.space8 : WZ.Space.space9,
-                                   height: style == .inline ? WZ.Space.space8 : WZ.Space.space9)
-                            .background(theme.success, in: Circle())
+                    HStack(spacing: compact ? WZ.Space.space4 : WZ.Space.space5) {
+                        artwork(room)
                         VStack(alignment: .leading, spacing: WZ.Space.space0) {
-                            Text(room.displayName).font(.wizard(WZ.FontSize.md, .semibold)).foregroundStyle(theme.textPrimary)
-                            if style != .inline {
-                                Text(statusText)
-                                    .font(.wizard(WZ.FontSize.sm))
-                                    .foregroundStyle(calls.reconnecting ? theme.warningColor
-                                        : calls.status == .connected ? theme.success : theme.textMuted)
-                            }
+                            Text(room.displayName)
+                                .font(.wizard(compact ? WZ.FontSize.sm : WZ.FontSize.md, .semibold))
+                                .foregroundStyle(theme.textPrimary)
+                            Text(statusText)
+                                .font(.wizard(compact ? WZ.FontSize.xs : WZ.FontSize.sm))
+                                .foregroundStyle(statusColor)
+                                .contentTransition(.opacity)
                         }
                         .lineLimit(1)
-                        if style != .inline { Spacer(minLength: 0) }
+                        Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(String(localized: "call.returnToCall"))
+                .accessibilityValue("\(room.displayName), \(statusText)")
+                .accessibilityAddTraits(.isButton)
                 if prefs.pushToTalk {
-                    PushToTalkButton(size: buttonSize)
+                    PushToTalkButton(size: buttonSize, iconSize: iconSize, plain: true)
                 } else {
-                    barButton(calls.micMuted ? "ph-microphone-slash-regular" : "ph-microphone-regular", active: calls.micMuted,
-                              label: calls.micMuted ? "call.unmute" : "call.mute") { calls.toggleMic() }
+                    glyph(calls.micMuted ? "ph-microphone-slash-regular" : "ph-microphone-regular",
+                          color: calls.micMuted ? theme.danger : theme.textPrimary,
+                          label: calls.micMuted ? "call.unmute" : "call.mute") { calls.toggleMic() }
                 }
-                barButton(calls.deafened ? "ph-speaker-slash-regular" : "ph-speaker-high-regular", active: calls.deafened,
+                if !compact {
+                    glyph(calls.deafened ? "ph-speaker-slash-regular" : "ph-speaker-high-regular",
+                          color: calls.deafened ? theme.danger : theme.textPrimary,
                           label: calls.deafened ? "call.undeafen" : "call.deafen") { calls.toggleDeafen() }
-                Button { calls.leave() } label: {
-                    Image("ph-phone-x-regular")
-                        .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                        .foregroundStyle(theme.textOnAccent)
-                        .frame(width: buttonSize, height: buttonSize)
-                        .background(theme.danger, in: Circle())
+                    glyph("ph-phone-x-regular", color: theme.danger, label: "common.leave") { calls.leave() }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "common.leave"))
             }
-            .padding(.leading, style == .inline ? WZ.Space.space2 : WZ.Space.space4)
-            .padding(.trailing, WZ.Space.space3)
-            .frame(height: style == .inline ? nil : WZ.Space.space11)
-            .frame(maxWidth: style == .inline ? .infinity : nil)
+            .padding(.leading, compact ? WZ.Space.space3 : WZ.Space.space4)
+            .padding(.trailing, compact ? WZ.Space.space2 : WZ.Space.space3)
             .modifier(CallBarBackground(floating: style == .floating))
+            .animation(.snappy(duration: WZ.MotionDuration.normal), value: calls.micMuted)
+            .animation(.snappy(duration: WZ.MotionDuration.normal), value: calls.deafened)
         }
     }
 
-    private func barButton(_ icon: String, active: Bool, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+    private func artwork(_ room: RoomSummary) -> some View {
+        AvatarView(name: room.displayName, url: room.avatarUrl,
+                   size: compact ? WZ.SizeAvatar.sm : WZ.SizeControl.md, cornerRadius: WZ.Radius.md)
+            .accessibilityHidden(true)
+    }
+
+    private func glyph(_ icon: String, color: Color, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(icon)
-                .font(.system(size: WZ.SizeIcon.sm, weight: .semibold))
-                .foregroundStyle(active ? theme.textOnAccent : theme.textPrimary)
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundStyle(color)
+                .contentTransition(.symbolEffect(.replace))
                 .frame(width: buttonSize, height: buttonSize)
-                .background(active ? theme.danger : theme.fill, in: Circle())
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
     }
 
-    private var buttonSize: CGFloat { style == .inline ? WZ.Space.space9 : WZ.Space.space10 }
+    private var buttonSize: CGFloat { compact ? WZ.Space.space9 : WZ.SizeControl.md }
+    private var iconSize: CGFloat { compact ? WZ.SizeIcon.sm : WZ.SizeIcon.md }
 }
 
 private struct CallBarBackground: ViewModifier {
     let floating: Bool
 
     func body(content: Content) -> some View {
-        if floating { content.floatingGlass(in: Capsule()) } else { content }
+        if floating {
+            content
+                .frame(height: WZ.Space.space11)
+                .floatingGlass(in: Capsule())
+        } else {
+            content
+        }
     }
 }
 
@@ -412,6 +426,7 @@ private struct MiniAvatar: View {
 struct PushToTalkButton: View {
     var size: CGFloat = WZ.Space.space10
     var iconSize: CGFloat = WZ.SizeIcon.sm
+    var plain = false
     @EnvironmentObject private var calls: CallManager
     @Environment(\.theme) private var theme
     @GestureState private var pressing = false
@@ -422,7 +437,7 @@ struct PushToTalkButton: View {
             .font(.system(size: iconSize, weight: .semibold))
             .foregroundStyle(talking ? theme.textOnAccent : theme.textPrimary)
             .frame(width: size, height: size)
-            .background(talking ? theme.success : theme.fill, in: Circle())
+            .background(talking ? theme.success : plain ? .clear : theme.fill, in: Circle())
             .scaleEffect(talking ? 0.92 : 1)
             .contentShape(Circle())
             .gesture(DragGesture(minimumDistance: 0).updating($pressing) { _, state, _ in state = true })

@@ -181,10 +181,8 @@ fun MainScreen(roomList: RoomListModel) {
 
     fun showsIsland(item: Tab) = !keyboardVisible && paths[item].orEmpty().none { it is Route.Room || it is Route.Chat || it is Route.Thread }
 
-    fun showsCallBar(item: Tab): Boolean {
-        val callRoom = calls.room ?: return false
-        return calls.isInCall && !keyboardVisible && paths[item]?.lastOrNull() != Route.Room(callRoom.id)
-    }
+    // Inside rooms the bar sits above the composer instead (RoomScreen)
+    fun showsCallBar(item: Tab) = calls.room != null && calls.isInCall && showsIsland(item)
 
     val navigator = remember(tab) {
         Navigator(

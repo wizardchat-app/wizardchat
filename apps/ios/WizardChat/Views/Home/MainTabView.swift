@@ -24,6 +24,7 @@ struct MainTabView: View {
     @State private var showInbox = false
     @State private var showExplore = false
     @State private var whatsNew: WhatsNew.Entry?
+    @Namespace private var callTransition
     @StateObject private var encryptionSetup = EncryptionSetupModel()
     @AppStorage(EncryptionSetupScreen.skippedKey) private var skippedVerificationDevice = ""
 
@@ -45,7 +46,7 @@ struct MainTabView: View {
         }
         .tint(theme.accent)
         .modifier(MinimizeTabBarOnScroll())
-        .modifier(CallAccessoryModifier(show: showsCallBar(in: tab), onOpen: openCall))
+        .modifier(CallAccessoryModifier(show: showsCallBar(in: tab), namespace: callTransition, onOpen: openCall))
         .task(id: "\(session.avatarUrl ?? "")|\(session.displayName ?? session.userId ?? "")") {
             profileIcon = await AvatarImage.circular(session.avatarUrl, name: session.displayName ?? session.userId ?? "",
                                                      media: session.media, theme: theme, side: WZ.SizeIcon.xl)
@@ -73,7 +74,9 @@ struct MainTabView: View {
             }
         }
         .animation(.spring(duration: WZ.MotionDuration.slow), value: calls.incoming)
-        .fullScreenCover(isPresented: $calls.showCallScreen) { DMCallScreen() }
+        .fullScreenCover(isPresented: $calls.showCallScreen) {
+            DMCallScreen().navigationTransition(.zoom(sourceID: CallAccessoryModifier.sourceID, in: callTransition))
+        }
         .alert(calls.alert ?? "", isPresented: Binding(get: { calls.alert != nil && !calls.showCallScreen },
                                                        set: { if !$0 { calls.alert = nil } })) {
             if calls.failureNeedsCallServer {
@@ -248,6 +251,7 @@ struct MainTabView: View {
     private func callBar(in item: Tab) -> some View {
         if !CallAccessoryModifier.supported, showsCallBar(in: item) {
             CallBar(onOpen: openCall)
+            .matchedTransitionSource(id: CallAccessoryModifier.sourceID, in: callTransition)
             .padding(.horizontal, WZ.Space.space6)
             .padding(.bottom, WZ.Space.space2)
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -320,7 +324,10 @@ struct MainTabView: View {
 }
 
 private struct CallAccessoryModifier: ViewModifier {
+    static let sourceID = "call"
+
     let show: Bool
+    let namespace: Namespace.ID
     let onOpen: () -> Void
 
     static var supported: Bool {
@@ -330,7 +337,9 @@ private struct CallAccessoryModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if #available(iOS 26.1, *) {
-            content.tabViewBottomAccessory(isEnabled: show) { CallAccessory(onOpen: onOpen) }
+            content.tabViewBottomAccessory(isEnabled: show) {
+                CallAccessory(onOpen: onOpen).matchedTransitionSource(id: Self.sourceID, in: namespace)
+            }
         } else {
             content
         }

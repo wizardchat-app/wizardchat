@@ -694,6 +694,7 @@ private fun FloatingPip(
 internal fun Backdrop(name: String, avatarUrl: String?, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxSize().background(theme.bgTertiary), contentAlignment = Alignment.Center) {
         Avatar(name, avatarUrl, min(max(maxWidth.value, maxHeight.value), 1200f).dp, modifier = Modifier.blur(60.dp).alpha(0.55f))
+        Box(Modifier.fillMaxSize().background(theme.bgTertiary.copy(alpha = 0.5f)))
     }
 }
 
@@ -1108,7 +1109,7 @@ private fun CallingView(room: RoomSummary, local: CallParticipantInfo?, insets: 
                 color = when {
                     calls.ring == CallManager.RingState.declined -> theme.danger
                     onVideo -> Color.White.copy(alpha = 0.85f)
-                    else -> theme.textMuted
+                    else -> theme.textSecondary
                 },
                 textAlign = TextAlign.Center,
             )
