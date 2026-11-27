@@ -587,6 +587,8 @@ export type Notification = {
   threadId: string | null;
 };
 
+export type NotificationGroup = 'directChats' | 'groupChats' | 'userMentions' | 'roomMentions';
+
 export type NotificationKind =
   | 'message'
   | 'image'
@@ -598,6 +600,8 @@ export type NotificationKind =
   | 'sticker'
   | 'poll'
   | 'invite';
+
+export type NotificationLevel = 'off' | 'on' | 'noisy';
 
 /**
  * How much a room notifies
@@ -612,6 +616,17 @@ export type NotificationPrefs = {
   groupChats: NotificationMode;
   userMentions: boolean;
   roomMentions: boolean;
+  keywords: Array<string>;
+};
+
+export type NotificationRules = {
+  directChats: NotificationLevel;
+  groupChats: NotificationLevel;
+  /**
+   * Missing when the server doesn't have these rules
+   */
+  userMentions: NotificationLevel | null;
+  roomMentions: NotificationLevel | null;
   keywords: Array<string>;
 };
 
@@ -1223,6 +1238,64 @@ export type StoreConfig = {
 export type SyncState = 'idle' | 'running' | 'offline' | 'error' | 'terminated';
 
 /**
+ * The app settings synced across the account's devices. Every field is optional: unset or
+ * invalid values are left out, and `updateSyncedSettings` only writes the fields that are set.
+ */
+export type SyncedSettings = {
+  /**
+   * A language code, or `system`
+   */
+  language?: string | null;
+  /**
+   * `classic`, `modern` or `compact`
+   */
+  messageLayout?: string | null;
+  typingIndicators?: boolean | null;
+  sendReadReceipts?: boolean | null;
+  notificationSound?: boolean | null;
+  /**
+   * `always`, `private` or `never`
+   */
+  mediaVisibility?: string | null;
+  /**
+   * `always`, `screenshare` or `off`
+   */
+  streamerMode?: string | null;
+  prettifyLinks?: boolean | null;
+  markdown?: boolean | null;
+  showRoomAvatars?: boolean | null;
+  mergeHomeAndDms?: boolean | null;
+  showPresenceDots?: boolean | null;
+  colorUsernames?: boolean | null;
+  groupImages?: boolean | null;
+  stripPhotoMetadata?: boolean | null;
+  compressImages?: boolean | null;
+  largeEmoji?: boolean | null;
+  emoticonsToEmoji?: boolean | null;
+  showJoinLeave?: boolean | null;
+  showProfileChanges?: boolean | null;
+  customThemes?: Array<JsonValue> | null;
+  lightTheme?: string | null;
+  darkTheme?: string | null;
+  themedAppIcon?: boolean | null;
+  chatFontSize?: number | null;
+  /**
+   * `compact`, `default` or `spacious`
+   */
+  chatDensity?: string | null;
+  /**
+   * `auto`, `12h` or `24h`
+   */
+  timeFormat?: string | null;
+  uiZoom?: number | null;
+  /**
+   * The theme of versions before light and dark themes, read only
+   */
+  theme?: string | null;
+  activeCustomTheme?: string | null;
+};
+
+/**
  * An email address on the account
  */
 export type ThirdPartyId = { medium: string; address: string; validatedAt: number };
@@ -1828,6 +1901,14 @@ export class WizardClient extends Remote {
     return runtime.call('WizardClient.setMentionRule', this, [rule, enabled]) as Promise<void>;
   }
 
+  notificationRules(): Promise<NotificationRules> {
+    return runtime.call('WizardClient.notificationRules', this, []) as Promise<NotificationRules>;
+  }
+
+  setNotificationLevel(group: NotificationGroup, level: NotificationLevel): Promise<void> {
+    return runtime.call('WizardClient.setNotificationLevel', this, [group, level]) as Promise<void>;
+  }
+
   addNotificationKeyword(keyword: string): Promise<void> {
     return runtime.call('WizardClient.addNotificationKeyword', this, [keyword]) as Promise<void>;
   }
@@ -2325,6 +2406,18 @@ export class WizardClient extends Remote {
     );
   }
 
+  syncedSettings(): Promise<SyncedSettings> {
+    return runtime.call('WizardClient.syncedSettings', this, []) as Promise<SyncedSettings>;
+  }
+
+  watchSyncedSettings(listener: (value: SyncedSettings) => void): Subscription {
+    return runtime.watch('WizardClient.watchSyncedSettings', this, [listener], Subscription);
+  }
+
+  updateSyncedSettings(changes: SyncedSettings): Promise<void> {
+    return runtime.call('WizardClient.updateSyncedSettings', this, [changes]) as Promise<void>;
+  }
+
   roomTags(roomId: string): Promise<Array<RoomTag>> {
     return runtime.call('WizardClient.roomTags', this, [roomId]) as Promise<Array<RoomTag>>;
   }
@@ -2681,19 +2774,6 @@ export class WizardClient extends Remote {
   /** Calls `listener` with the users whose devices or identity (and so their trust) changed. */
   watchTrustChanges(listener: (value: Array<string>) => void): Subscription {
     return runtime.watch('WizardClient.watchTrustChanges', this, [listener], Subscription);
-  }
-
-  pushRules(): Promise<JsonValue> {
-    return runtime.call('WizardClient.pushRules', this, []) as Promise<JsonValue>;
-  }
-
-  /** `off`, `silent`, `loud` or `highlight` for a push rule. */
-  setPushRuleLevel(kind: string, ruleId: string, level: string): Promise<void> {
-    return runtime.call('WizardClient.setPushRuleLevel', this, [
-      kind,
-      ruleId,
-      level,
-    ]) as Promise<void>;
   }
 
   urlPreview(url: string): Promise<UrlPreview | null> {

@@ -1,12 +1,13 @@
 import SwiftUI
 import UserNotifications
+import WizardChatCore
 
 struct NotificationSettingsPage: View {
     @EnvironmentObject private var prefs: AppPreferences
     @EnvironmentObject private var session: MatrixSession
     @Environment(\.theme) private var theme
 
-    @State private var rules: PushRules?
+    @State private var rules: NotificationRules?
     @State private var busy = false
     @State private var keyword = ""
     @State private var error: String?
@@ -27,23 +28,21 @@ struct NotificationSettingsPage: View {
 
             if let rules {
                 SettingsSection(title: "room.settings.permissions.groups.messages", note: "settings.notifications.levelHint") {
-                    levelRow("room.dm.directMessages", PushRuleSets.dms, rules)
+                    levelRow("room.dm.directMessages", .directChats, rules.directChats)
                     SettingsDivider()
-                    levelRow("settings.notifications.rooms", PushRuleSets.rooms, rules)
+                    levelRow("settings.notifications.rooms", .groupChats, rules.groupChats)
                 }
                 SettingsSection(title: "settings.notifications.otherEventsLabel") {
-                    let userMention = rules.present(PushRuleSets.userMention)
-                    let roomMention = rules.present(PushRuleSets.roomMention)
-                    if userMention.isEmpty {
-                        unavailable
+                    if let level = rules.userMentions {
+                        levelRow("settings.notifications.userMention", .userMentions, level)
                     } else {
-                        levelRow("settings.notifications.userMention", userMention, rules)
+                        unavailable
                     }
                     SettingsDivider()
-                    if roomMention.isEmpty {
-                        unavailable
+                    if let level = rules.roomMentions {
+                        levelRow("settings.notifications.roomMention", .roomMentions, level)
                     } else {
-                        levelRow("settings.notifications.roomMention", roomMention, rules)
+                        unavailable
                     }
                 }
                 SettingsSection(title: "settings.notifications.keywordsLabel",
@@ -91,21 +90,21 @@ struct NotificationSettingsPage: View {
             .foregroundStyle(theme.textMuted)
     }
 
-    private func levelRow(_ label: LocalizedStringKey, _ managed: [ManagedRule], _ rules: PushRules) -> some View {
+    private func levelRow(_ label: LocalizedStringKey, _ group: NotificationGroup, _ level: NotificationLevel) -> some View {
         PickerRow(
             label: label,
             selection: Binding(
-                get: { rules.level(of: managed) },
-                set: { level in setLevel(level, managed, rules) }
+                get: { level },
+                set: { level in setLevel(level, group) }
             ),
-            options: NotifLevel.allCases.map { ($0, LocalizedStringKey($0.title)) }
+            options: NotificationLevel.allCases.map { ($0, LocalizedStringKey("settings.notifications.level." + $0.rawValue)) }
         )
         .disabled(busy)
     }
 
-    private func setLevel(_ level: NotifLevel, _ managed: [ManagedRule], _ rules: PushRules) {
+    private func setLevel(_ level: NotificationLevel, _ group: NotificationGroup) {
         Task {
-            await run { try await rules.setLevel(level, for: managed, client: session.requireClient) }
+            await run { try await session.requireClient.setNotificationLevel(group: group, level: level) }
         }
     }
 
@@ -122,7 +121,7 @@ struct NotificationSettingsPage: View {
 
     private func reload() async {
         do {
-            rules = PushRules(json: try await session.requireClient.pushRules())
+            rules = try await session.requireClient.notificationRules()
         } catch {
             self.error = error.localizedDescription
         }

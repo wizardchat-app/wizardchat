@@ -4,8 +4,9 @@ use serde_json::Value;
 
 use super::{Bytes, Listener, Subscription};
 use crate::{
-    CustomStatus, EmojiPack, MentionRule, MutualRoom, NotificationMode, NotificationPrefs,
-    Presence, PresenceInfo, SearchHit, UiaAuth, UiaOutcome, UserProfile, Widget, WizardClient,
+    CustomStatus, EmojiPack, MentionRule, MutualRoom, NotificationGroup, NotificationLevel,
+    NotificationMode, NotificationPrefs, NotificationRules, Presence, PresenceInfo, SearchHit,
+    UiaAuth, UiaOutcome, UserProfile, Widget, WizardClient,
 };
 
 rpc_methods! {
@@ -97,6 +98,14 @@ rpc_methods! {
 
         call fn setMentionRule(rule: MentionRule, enabled: bool) -> () {
             this.set_mention_rule(rule, enabled).await
+        }
+
+        call fn notificationRules() -> NotificationRules {
+            Ok(this.notification_rules().await)
+        }
+
+        call fn setNotificationLevel(group: NotificationGroup, level: NotificationLevel) -> () {
+            this.set_notification_level(group, level).await
         }
 
         call fn addNotificationKeyword(keyword: String) -> () {

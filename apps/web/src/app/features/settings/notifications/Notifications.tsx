@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PlusIcon, XIcon, InfoIcon } from '@phosphor-icons/react';
 import { useAtom } from 'jotai';
+import type { NotificationGroup, NotificationLevel, NotificationRules } from '@wizardchat/core';
 import { getMatrixClientOrNull } from '@/client/initMatrix';
 import { ToggleRow } from '@/app/components/Toggle';
 import { Tooltip } from '@/app/components/Tooltip';
@@ -11,48 +12,26 @@ import { getErrorMessage } from '@/util/error';
 import { Select } from '@/app/components/Select';
 import * as layoutCss from '../Settings.css';
 import * as css from './Notifications.css';
-import {
-  type ManagedRule,
-  type PushRules,
-  type NotifRowLevel,
-  DM_RULES,
-  ROOM_RULES,
-  getUserMentionRules,
-  getRoomMentionRules,
-  deriveRowLevel,
-  setRowLevel,
-  listKeywordRules,
-  addKeywordRule,
-  removeKeywordRule,
-  normalizeKeyword,
-} from './accountNotifications';
-
-const LEVELS: NotifRowLevel[] = ['off', 'on', 'noisy'];
+const LEVELS: NotificationLevel[] = ['off', 'on', 'noisy'];
 
 export function Notifications() {
   const { t } = useTranslation();
   const client = getMatrixClientOrNull();
   const [notificationSounds, setNotificationSounds] = useAtom(notificationSoundsAtom);
   const [notificationBanners, setNotificationBanners] = useAtom(notificationBannersAtom);
-  const [rules, setRules] = useState<PushRules | undefined>(undefined);
+  const [rules, setRules] = useState<NotificationRules | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keywordInput, setKeywordInput] = useState('');
 
-  const fetchRules = useCallback(async (): Promise<PushRules | undefined> => {
-    if (!client) return undefined;
-    const raw = (await client.pushRules()) as { global?: PushRules } & PushRules;
-    return raw.global ?? raw;
-  }, [client]);
-
   const load = useCallback(async () => {
     if (!client) return;
     try {
-      setRules(await fetchRules());
+      setRules(await client.notificationRules());
     } catch (err) {
       setError(getErrorMessage(err));
     }
-  }, [client, fetchRules]);
+  }, [client]);
 
   useEffect(() => {
     void load();
@@ -78,33 +57,29 @@ export function Notifications() {
   if (!client) return null;
 
   const ready = !busy && !!rules;
-  const userMentionRules = getUserMentionRules(rules);
-  const roomMentionRules = getRoomMentionRules(rules);
-  const keywords = listKeywordRules(rules);
+  const keywords = rules?.keywords ?? [];
 
-  const handleLevel = (managed: ManagedRule[], level: NotifRowLevel) => {
-    if (!rules) return;
-    void run(() => setRowLevel(client, rules, managed, level));
+  const handleLevel = (group: NotificationGroup, level: NotificationLevel) => {
+    void run(() => client.setNotificationLevel(group, level));
   };
 
   const handleAddKeyword = () => {
     if (!ready) return;
-    const keyword = normalizeKeyword(keywordInput);
+    const keyword = keywordInput.trim();
     if (!keyword) return;
-    if (keywords.some((r) => r.rule_id === keyword)) {
+    if (keywords.includes(keyword)) {
       setError(t('settings.notifications.keywordExists'));
       return;
     }
     setKeywordInput('');
-    void run(() => addKeywordRule(client, keyword));
+    void run(() => client.addNotificationKeyword(keyword));
   };
 
   const handleRemoveKeyword = (keyword: string) => {
-    void run(() => removeKeywordRule(client, keyword));
+    void run(() => client.removeNotificationKeyword(keyword));
   };
 
-  const renderLevelRow = (label: string, managed: ManagedRule[]) => {
-    const level = deriveRowLevel(rules, managed);
+  const renderLevelRow = (label: string, group: NotificationGroup, level: NotificationLevel) => {
     return (
       <div className={layoutCss.settingRow}>
         <div className={layoutCss.settingInfo}>
@@ -118,7 +93,7 @@ export function Notifications() {
             value: lv,
             label: t(`settings.notifications.level.${lv}`),
           }))}
-          onChange={(v) => handleLevel(managed, v as NotifRowLevel)}
+          onChange={(v) => handleLevel(group, v as NotificationLevel)}
         />
       </div>
     );
@@ -163,8 +138,8 @@ export function Notifications() {
             </span>
           </Tooltip>
         </h3>
-        {renderLevelRow(t('settings.notifications.dms'), DM_RULES)}
-        {renderLevelRow(t('settings.notifications.rooms'), ROOM_RULES)}
+        {renderLevelRow(t('settings.notifications.dms'), 'directChats', rules?.directChats ?? 'on')}
+        {renderLevelRow(t('settings.notifications.rooms'), 'groupChats', rules?.groupChats ?? 'on')}
       </div>
 
       <div className={layoutCss.divider} />
@@ -178,13 +153,21 @@ export function Notifications() {
             </span>
           </Tooltip>
         </h3>
-        {userMentionRules.length > 0 ? (
-          renderLevelRow(t('settings.notifications.userMention'), userMentionRules)
+        {!rules || rules.userMentions ? (
+          renderLevelRow(
+            t('settings.notifications.userMention'),
+            'userMentions',
+            rules?.userMentions ?? 'on'
+          )
         ) : (
           <p className={layoutCss.settingNote}>{t('settings.notifications.ruleUnavailable')}</p>
         )}
-        {roomMentionRules.length > 0 ? (
-          renderLevelRow(t('settings.notifications.roomMention'), roomMentionRules)
+        {!rules || rules.roomMentions ? (
+          renderLevelRow(
+            t('settings.notifications.roomMention'),
+            'roomMentions',
+            rules?.roomMentions ?? 'on'
+          )
         ) : (
           <p className={layoutCss.settingNote}>{t('settings.notifications.ruleUnavailable')}</p>
         )}
@@ -223,14 +206,14 @@ export function Notifications() {
           </p>
         ) : (
           <ul className={css.keywordList}>
-            {keywords.map((rule) => (
-              <li key={rule.rule_id} className={css.keywordItem}>
-                <span className={css.keywordText}>{rule.rule_id}</span>
+            {keywords.map((keyword) => (
+              <li key={keyword} className={css.keywordItem}>
+                <span className={css.keywordText}>{keyword}</span>
                 <button
                   type="button"
                   className={css.keywordDel}
                   disabled={busy}
-                  onClick={() => handleRemoveKeyword(rule.rule_id)}
+                  onClick={() => handleRemoveKeyword(keyword)}
                   aria-label={t('common.remove')}
                 >
                   <XIcon size={14} />

@@ -13,8 +13,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import org.wizardchat.android.WizardApplication
 import org.wizardchat.android.push.Push
 import org.wizardchat.android.ui.L10n
@@ -29,6 +27,7 @@ import org.wizardchat.core.SessionEvent
 import org.wizardchat.core.StoreConfig
 import org.wizardchat.core.Subscription
 import org.wizardchat.core.SyncState
+import org.wizardchat.core.SyncedSettings
 import org.wizardchat.core.WizardClient
 import org.wizardchat.core.WizardError
 
@@ -308,28 +307,18 @@ class MatrixSession(private val scope: CoroutineScope = MainScope()) {
     }
 
     private var settingsSave: Job? = null
-    private var unconfirmedSettings: Map<String, JsonElement> = emptyMap()
 
-    /** The synced settings, with this device's changes the server hasn't sent back yet on top */
-    suspend fun loadSyncedSettings(): Map<String, JsonElement>? {
+    suspend fun loadSyncedSettings(): SyncedSettings? {
         settingsSave?.join()
-        val stored = storedSyncedSettings()
-        if (stored != null && unconfirmedSettings.all { (key, value) -> stored[key] == value }) unconfirmedSettings = emptyMap()
-        return if (unconfirmedSettings.isEmpty()) stored else (stored ?: emptyMap()) + unconfirmedSettings
+        return runCatching { client?.syncedSettings() }.getOrNull()
     }
 
-    private suspend fun storedSyncedSettings(): Map<String, JsonElement>? =
-        runCatching { client?.accountData(AppPreferences.SYNCED_ACCOUNT_DATA_TYPE) as? JsonObject }.getOrNull()
-
     // Runs in the session's scope: a language change recreates the activity, which would cancel it
-    fun saveSyncedSettings(settings: Map<String, JsonElement>) {
-        unconfirmedSettings = unconfirmedSettings + settings
+    fun saveSyncedSettings(settings: SyncedSettings) {
         val previous = settingsSave
         settingsSave = scope.launch {
             previous?.join()
-            val client = client ?: return@launch
-            val content = (storedSyncedSettings() ?: emptyMap()) + settings
-            runCatching { client.setAccountData(AppPreferences.SYNCED_ACCOUNT_DATA_TYPE, JsonObject(content)) }
+            runCatching { client?.updateSyncedSettings(settings) }
         }
     }
 

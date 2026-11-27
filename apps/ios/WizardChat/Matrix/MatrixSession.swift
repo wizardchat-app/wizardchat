@@ -308,17 +308,12 @@ final class MatrixSession: ObservableObject {
         if let stored { await forget(stored) }
     }
 
-    func loadSyncedSettings() async -> [String: JSONValue]? {
-        guard case .object(let content) = try? await client?.accountData(eventType: AppPreferences.syncedAccountDataType)
-        else { return nil }
-        return content
+    func loadSyncedSettings() async -> SyncedSettings? {
+        try? await client?.syncedSettings()
     }
 
-    func saveSyncedSettings(_ settings: [String: JSONValue]) async {
-        guard let client else { return }
-        var content = await loadSyncedSettings() ?? [:]
-        content.merge(settings) { _, new in new }
-        try? await client.setAccountData(eventType: AppPreferences.syncedAccountDataType, content: .object(content))
+    func saveSyncedSettings(_ settings: SyncedSettings) async {
+        try? await client?.updateSyncedSettings(changes: settings)
     }
 
     func applyPresence(_ visible: Bool) async {

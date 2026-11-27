@@ -770,6 +770,14 @@ data class Notification(
 )
 
 @Serializable
+enum class NotificationGroup {
+    @SerialName("directChats") directChats,
+    @SerialName("groupChats") groupChats,
+    @SerialName("userMentions") userMentions,
+    @SerialName("roomMentions") roomMentions,
+}
+
+@Serializable
 enum class NotificationKind {
     @SerialName("message") message,
     @SerialName("image") image,
@@ -781,6 +789,13 @@ enum class NotificationKind {
     @SerialName("sticker") sticker,
     @SerialName("poll") poll,
     @SerialName("invite") invite,
+}
+
+@Serializable
+enum class NotificationLevel {
+    @SerialName("off") off,
+    @SerialName("on") on,
+    @SerialName("noisy") noisy,
 }
 
 /** How much a room notifies */
@@ -798,6 +813,16 @@ data class NotificationPrefs(
     val groupChats: NotificationMode,
     val userMentions: Boolean,
     val roomMentions: Boolean,
+    val keywords: List<String>,
+)
+
+@Serializable
+data class NotificationRules(
+    val directChats: NotificationLevel,
+    val groupChats: NotificationLevel,
+    /** Missing when the server doesn't have these rules */
+    val userMentions: NotificationLevel? = null,
+    val roomMentions: NotificationLevel? = null,
     val keywords: List<String>,
 )
 
@@ -1519,6 +1544,51 @@ enum class SyncState {
     @SerialName("terminated") terminated,
 }
 
+/**
+ * The app settings synced across the account's devices. Every field is optional: unset or
+ * invalid values are left out, and `updateSyncedSettings` only writes the fields that are set.
+ */
+@Serializable
+data class SyncedSettings(
+    /** A language code, or `system` */
+    val language: String? = null,
+    /** `classic`, `modern` or `compact` */
+    val messageLayout: String? = null,
+    val typingIndicators: Boolean? = null,
+    val sendReadReceipts: Boolean? = null,
+    val notificationSound: Boolean? = null,
+    /** `always`, `private` or `never` */
+    val mediaVisibility: String? = null,
+    /** `always`, `screenshare` or `off` */
+    val streamerMode: String? = null,
+    val prettifyLinks: Boolean? = null,
+    val markdown: Boolean? = null,
+    val showRoomAvatars: Boolean? = null,
+    val mergeHomeAndDms: Boolean? = null,
+    val showPresenceDots: Boolean? = null,
+    val colorUsernames: Boolean? = null,
+    val groupImages: Boolean? = null,
+    val stripPhotoMetadata: Boolean? = null,
+    val compressImages: Boolean? = null,
+    val largeEmoji: Boolean? = null,
+    val emoticonsToEmoji: Boolean? = null,
+    val showJoinLeave: Boolean? = null,
+    val showProfileChanges: Boolean? = null,
+    val customThemes: List<JsonElement>? = null,
+    val lightTheme: String? = null,
+    val darkTheme: String? = null,
+    val themedAppIcon: Boolean? = null,
+    val chatFontSize: Long? = null,
+    /** `compact`, `default` or `spacious` */
+    val chatDensity: String? = null,
+    /** `auto`, `12h` or `24h` */
+    val timeFormat: String? = null,
+    val uiZoom: Long? = null,
+    /** The theme of versions before light and dark themes, read only */
+    val theme: String? = null,
+    val activeCustomTheme: String? = null,
+)
+
 /** An email address on the account */
 @Serializable
 data class ThirdPartyId(
@@ -2195,6 +2265,13 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
         Runtime.callUnit("WizardClient.setMentionRule", handle, listOf(Arg.value<MentionRule>(rule), Arg.value<Boolean>(enabled)))
     }
 
+    suspend fun notificationRules(): NotificationRules =
+        Runtime.call("WizardClient.notificationRules", handle, listOf())
+
+    suspend fun setNotificationLevel(group: NotificationGroup, level: NotificationLevel) {
+        Runtime.callUnit("WizardClient.setNotificationLevel", handle, listOf(Arg.value<NotificationGroup>(group), Arg.value<NotificationLevel>(level)))
+    }
+
     suspend fun addNotificationKeyword(keyword: String) {
         Runtime.callUnit("WizardClient.addNotificationKeyword", handle, listOf(Arg.value<String>(keyword)))
     }
@@ -2500,6 +2577,16 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     fun watchAccountData(eventType: String, listener: (JsonElement?) -> Unit): Subscription =
         Runtime.watch("WizardClient.watchAccountData", handle, listOf(Arg.value<String>(eventType), Arg.listener<JsonElement?>(listener)), ::Subscription)
 
+    suspend fun syncedSettings(): SyncedSettings =
+        Runtime.call("WizardClient.syncedSettings", handle, listOf())
+
+    fun watchSyncedSettings(listener: (SyncedSettings) -> Unit): Subscription =
+        Runtime.watch("WizardClient.watchSyncedSettings", handle, listOf(Arg.listener<SyncedSettings>(listener)), ::Subscription)
+
+    suspend fun updateSyncedSettings(changes: SyncedSettings) {
+        Runtime.callUnit("WizardClient.updateSyncedSettings", handle, listOf(Arg.value<SyncedSettings>(changes)))
+    }
+
     suspend fun roomTags(roomId: String): List<RoomTag> =
         Runtime.call("WizardClient.roomTags", handle, listOf(Arg.value<String>(roomId)))
 
@@ -2744,14 +2831,6 @@ class WizardClient(handle: Long, props: JsonObject) : Remote(handle, props) {
     /** Calls `listener` with the users whose devices or identity (and so their trust) changed. */
     fun watchTrustChanges(listener: (List<String>) -> Unit): Subscription =
         Runtime.watch("WizardClient.watchTrustChanges", handle, listOf(Arg.listener<List<String>>(listener)), ::Subscription)
-
-    suspend fun pushRules(): JsonElement =
-        Runtime.call("WizardClient.pushRules", handle, listOf())
-
-    /** `off`, `silent`, `loud` or `highlight` for a push rule. */
-    suspend fun setPushRuleLevel(kind: String, ruleId: String, level: String) {
-        Runtime.callUnit("WizardClient.setPushRuleLevel", handle, listOf(Arg.value<String>(kind), Arg.value<String>(ruleId), Arg.value<String>(level)))
-    }
 
     suspend fun urlPreview(url: String): UrlPreview? =
         Runtime.call("WizardClient.urlPreview", handle, listOf(Arg.value<String>(url)))

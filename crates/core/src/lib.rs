@@ -39,6 +39,7 @@ mod settings;
 mod sound_packs;
 mod soundboard;
 mod spaces;
+mod synced_settings;
 mod timeline;
 #[cfg(not(target_arch = "wasm32"))]
 mod token_file;
@@ -83,11 +84,15 @@ pub use rooms::{CreateRoomOptions, InviteInfo, LastMessage, RoomFilter, RoomKind
 pub use rooms::{UnreadMention, UnreadThread};
 pub use sections::RoomSection;
 pub use session::{Session, StoreConfig};
-pub use settings::{MentionRule, NotificationMode, NotificationPrefs};
+pub use settings::{
+    MentionRule, NotificationGroup, NotificationLevel, NotificationMode, NotificationPrefs,
+    NotificationRules,
+};
 pub use sound_packs::{RoomSoundPacks, SoundPack, SoundPackSource};
 pub use soundboard::{soundboard_credits, SoundCredit, SoundboardSound};
 pub use spaces::SpaceHierarchy;
 pub use spaces::{SpaceChild, SpaceLink, SpaceNode, SpaceSummary};
+pub use synced_settings::SyncedSettings;
 pub use timeline::{
     Attachment, MentionsInput, MentionsView, MessageKind, Reaction, ReadReceiptView, RoomTimeline,
     SendState, ThreadSummaryView, TimelineEntry, TimelineKind, TypingUser,

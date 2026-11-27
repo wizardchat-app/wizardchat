@@ -473,15 +473,38 @@ async fn main() -> Result<(), BoxError> {
     client
         .set_account_data(
             "org.wizardchat.settings",
-            serde_json::json!({ "theme": "hallow" }),
+            serde_json::json!({ "theme": "hallow", "sendTyping": false, "fromTheFuture": 1 }),
         )
         .await?;
-    let stored = client.account_data("org.wizardchat.settings").await?;
-    assert_eq!(
-        stored.and_then(|v| v.get("theme").cloned()),
-        Some(serde_json::json!("hallow"))
-    );
-    println!("synced settings stored in account data");
+    client
+        .update_synced_settings(wizardchat_core::SyncedSettings {
+            color_usernames: Some(false),
+            chat_font_size: Some(18),
+            ..Default::default()
+        })
+        .await?;
+    let settings = client.synced_settings().await?;
+    assert_eq!(settings.color_usernames, Some(false));
+    assert_eq!(settings.chat_font_size, Some(18));
+    let stored = client
+        .account_data("org.wizardchat.settings")
+        .await?
+        .unwrap();
+    assert_eq!(stored["theme"], "hallow");
+    assert_eq!(stored["sendTyping"], false);
+    assert_eq!(stored["fromTheFuture"], 1);
+    assert_eq!(stored["colorUsernames"], false);
+    let mut settings = client.synced_settings().await?;
+    for _ in 0..20 {
+        if settings.typing_indicators.is_some() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        settings = client.synced_settings().await?;
+    }
+    assert_eq!(settings.typing_indicators, Some(false));
+    assert_eq!(settings.theme.as_deref(), Some("hallow"));
+    println!("synced settings merged into account data and read back, with the old typing key");
 
     client.logout().await?;
     let _ = std::fs::remove_dir_all(&store_dir);

@@ -76,6 +76,119 @@ pub enum MentionRule {
     Room,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationLevel {
+    Off,
+    On,
+    Noisy,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationGroup {
+    DirectChats,
+    GroupChats,
+    UserMentions,
+    RoomMentions,
+}
+
+impl NotificationGroup {
+    fn rules(self) -> &'static [(&'static str, &'static str)] {
+        match self {
+            Self::DirectChats => &[
+                ("underride", ".m.rule.room_one_to_one"),
+                ("underride", ".m.rule.encrypted_room_one_to_one"),
+            ],
+            Self::GroupChats => &[
+                ("underride", ".m.rule.message"),
+                ("underride", ".m.rule.encrypted"),
+            ],
+            Self::UserMentions => &[
+                ("override", ".m.rule.is_user_mention"),
+                ("override", ".m.rule.contains_display_name"),
+                ("content", ".m.rule.contains_user_name"),
+            ],
+            Self::RoomMentions => &[
+                ("override", ".m.rule.is_room_mention"),
+                ("override", ".m.rule.roomnotif"),
+            ],
+        }
+    }
+
+    fn level(self, ruleset: &Ruleset) -> Option<NotificationLevel> {
+        let rules: Vec<_> = self
+            .rules()
+            .iter()
+            .filter_map(|(kind, id)| ruleset.get(RuleKind::from(*kind), id))
+            .collect();
+        if rules.is_empty() {
+            return None;
+        }
+        let audible: Vec<_> = rules
+            .iter()
+            .filter(|rule| rule.enabled() && rule.actions().iter().any(Action::should_notify))
+            .collect();
+        Some(if audible.is_empty() {
+            NotificationLevel::Off
+        } else if audible
+            .iter()
+            .any(|rule| rule.actions().iter().any(|a| a.sound().is_some()))
+        {
+            NotificationLevel::Noisy
+        } else {
+            NotificationLevel::On
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationRules {
+    pub direct_chats: NotificationLevel,
+    pub group_chats: NotificationLevel,
+    /// Missing when the server doesn't have these rules
+    pub user_mentions: Option<NotificationLevel>,
+    pub room_mentions: Option<NotificationLevel>,
+    pub keywords: Vec<String>,
+}
+
+impl NotificationRules {
+    fn from_ruleset(ruleset: &Ruleset) -> Self {
+        Self {
+            direct_chats: NotificationGroup::DirectChats
+                .level(ruleset)
+                .unwrap_or(NotificationLevel::Off),
+            group_chats: NotificationGroup::GroupChats
+                .level(ruleset)
+                .unwrap_or(NotificationLevel::Off),
+            user_mentions: NotificationGroup::UserMentions.level(ruleset),
+            room_mentions: NotificationGroup::RoomMentions.level(ruleset),
+            keywords: ruleset
+                .content
+                .iter()
+                .map(|rule| rule.rule_id.clone())
+                .filter(|id| !id.starts_with('.'))
+                .collect(),
+        }
+    }
+}
+
+/// Mention rules keep their highlight; the rest only change sound
+fn push_rule_level(level: NotificationLevel, actions: &[Action]) -> &'static str {
+    let highlight = actions.iter().any(Action::is_highlight);
+    match (level, highlight) {
+        (NotificationLevel::Off, _) => "off",
+        (NotificationLevel::On, false) => "silent",
+        (NotificationLevel::On, true) => "highlightSilent",
+        (NotificationLevel::Noisy, false) => "loud",
+        (NotificationLevel::Noisy, true) => "highlight",
+    }
+}
+
 fn notification_error(error: impl std::fmt::Display) -> Error {
     Error::Sdk(error.to_string())
 }
@@ -345,8 +458,41 @@ impl WizardClient {
     /// its highlight) are kept, and rules that highlight by default highlight again when
     /// switched back on.
     pub async fn set_push_rule_level(&self, kind: &str, rule_id: &str, level: &str) -> Result<()> {
-        let kind = RuleKind::from(kind);
         let ruleset = self.notification_settings().await.ruleset().await;
+        self.send_push_rule_level(&ruleset, kind, rule_id, level)
+            .await?;
+        self.refresh_push_rules().await
+    }
+
+    pub async fn notification_rules(&self) -> NotificationRules {
+        NotificationRules::from_ruleset(&self.notification_settings().await.ruleset().await)
+    }
+
+    pub async fn set_notification_level(
+        &self,
+        group: NotificationGroup,
+        level: NotificationLevel,
+    ) -> Result<()> {
+        let ruleset = self.notification_settings().await.ruleset().await;
+        for (kind, rule_id) in group.rules() {
+            let Some(rule) = ruleset.get(RuleKind::from(*kind), rule_id) else {
+                continue;
+            };
+            let level = push_rule_level(level, rule.actions());
+            self.send_push_rule_level(&ruleset, kind, rule_id, level)
+                .await?;
+        }
+        self.refresh_push_rules().await
+    }
+
+    async fn send_push_rule_level(
+        &self,
+        ruleset: &Ruleset,
+        kind: &str,
+        rule_id: &str,
+        level: &str,
+    ) -> Result<()> {
+        let kind = RuleKind::from(kind);
         let rule = ruleset.get(kind.clone(), rule_id);
         if !rule.is_none_or(|r| r.enabled()) {
             self.sdk()
@@ -398,7 +544,7 @@ impl WizardClient {
                 actions,
             ))
             .await?;
-        self.refresh_push_rules().await
+        Ok(())
     }
 }
 
@@ -460,5 +606,92 @@ impl WizardClient {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use matrix_sdk::ruma::{
+        push::{
+            Action, HighlightTweakValue, NewPatternedPushRule, PatternedPushRule, RuleKind,
+            Ruleset, Tweak,
+        },
+        user_id,
+    };
+
+    use super::{push_rule_level, NotificationGroup, NotificationLevel, NotificationRules};
+
+    fn server_default() -> Ruleset {
+        Ruleset::server_default(user_id!("@wizard:example.org"))
+    }
+
+    #[test]
+    fn levels_of_the_server_defaults() {
+        let rules = NotificationRules::from_ruleset(&server_default());
+        assert_eq!(rules.direct_chats, NotificationLevel::Noisy);
+        assert_eq!(rules.group_chats, NotificationLevel::On);
+        assert_eq!(rules.user_mentions, Some(NotificationLevel::Noisy));
+        assert_eq!(rules.room_mentions, Some(NotificationLevel::On));
+        assert!(rules.keywords.is_empty());
+    }
+
+    #[test]
+    fn muted_or_disabled_rules_are_off() {
+        let mut ruleset = server_default();
+        ruleset
+            .set_actions(RuleKind::Underride, ".m.rule.message", vec![])
+            .unwrap();
+        ruleset
+            .set_enabled(RuleKind::Underride, ".m.rule.encrypted", false)
+            .unwrap();
+        assert_eq!(
+            NotificationGroup::GroupChats.level(&ruleset),
+            Some(NotificationLevel::Off)
+        );
+    }
+
+    #[test]
+    fn missing_groups_and_keywords() {
+        let mut ruleset = server_default();
+        ruleset.override_.retain(|rule| {
+            rule.rule_id != ".m.rule.is_room_mention" && rule.rule_id != ".m.rule.roomnotif"
+        });
+        ruleset.underride.clear();
+        ruleset
+            .content
+            .insert(PatternedPushRule::from(NewPatternedPushRule::new(
+                "wizard".into(),
+                "wizard".into(),
+                vec![Action::Notify],
+            )));
+        let rules = NotificationRules::from_ruleset(&ruleset);
+        assert_eq!(rules.room_mentions, None);
+        assert_eq!(rules.direct_chats, NotificationLevel::Off);
+        assert_eq!(rules.keywords, ["wizard"]);
+    }
+
+    #[test]
+    fn highlighting_rules_keep_their_highlight() {
+        let highlight = [
+            Action::Notify,
+            Action::SetTweak(Tweak::Highlight(HighlightTweakValue::Yes)),
+        ];
+        assert_eq!(
+            push_rule_level(NotificationLevel::On, &highlight),
+            "highlightSilent"
+        );
+        assert_eq!(
+            push_rule_level(NotificationLevel::Noisy, &highlight),
+            "highlight"
+        );
+        assert_eq!(
+            push_rule_level(NotificationLevel::Noisy, &[Action::Notify]),
+            "loud"
+        );
+        assert_eq!(
+            push_rule_level(NotificationLevel::On, &[Action::Notify]),
+            "silent"
+        );
+        assert_eq!(push_rule_level(NotificationLevel::Off, &highlight), "off");
     }
 }

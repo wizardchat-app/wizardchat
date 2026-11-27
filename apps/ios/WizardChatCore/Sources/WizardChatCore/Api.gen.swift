@@ -1207,6 +1207,13 @@ public struct Notification: Codable, Hashable, Sendable {
     }
 }
 
+public enum NotificationGroup: String, Codable, Hashable, Sendable, CaseIterable {
+    case directChats = "directChats"
+    case groupChats = "groupChats"
+    case userMentions = "userMentions"
+    case roomMentions = "roomMentions"
+}
+
 public enum NotificationKind: String, Codable, Hashable, Sendable, CaseIterable {
     case message = "message"
     case image = "image"
@@ -1218,6 +1225,12 @@ public enum NotificationKind: String, Codable, Hashable, Sendable, CaseIterable 
     case sticker = "sticker"
     case poll = "poll"
     case invite = "invite"
+}
+
+public enum NotificationLevel: String, Codable, Hashable, Sendable, CaseIterable {
+    case off = "off"
+    case on = "on"
+    case noisy = "noisy"
 }
 
 /// How much a room notifies
@@ -1236,6 +1249,23 @@ public struct NotificationPrefs: Codable, Hashable, Sendable {
     public var keywords: [String]
 
     public init(directChats: NotificationMode, groupChats: NotificationMode, userMentions: Bool, roomMentions: Bool, keywords: [String]) {
+        self.directChats = directChats
+        self.groupChats = groupChats
+        self.userMentions = userMentions
+        self.roomMentions = roomMentions
+        self.keywords = keywords
+    }
+}
+
+public struct NotificationRules: Codable, Hashable, Sendable {
+    public var directChats: NotificationLevel
+    public var groupChats: NotificationLevel
+    /// Missing when the server doesn't have these rules
+    public var userMentions: NotificationLevel?
+    public var roomMentions: NotificationLevel?
+    public var keywords: [String]
+
+    public init(directChats: NotificationLevel, groupChats: NotificationLevel, userMentions: NotificationLevel? = nil, roomMentions: NotificationLevel? = nil, keywords: [String]) {
         self.directChats = directChats
         self.groupChats = groupChats
         self.userMentions = userMentions
@@ -2383,6 +2413,81 @@ public enum SyncState: String, Codable, Hashable, Sendable, CaseIterable {
     case terminated = "terminated"
 }
 
+/// The app settings synced across the account's devices. Every field is optional: unset or
+/// invalid values are left out, and `updateSyncedSettings` only writes the fields that are set.
+public struct SyncedSettings: Codable, Hashable, Sendable {
+    /// A language code, or `system`
+    public var language: String?
+    /// `classic`, `modern` or `compact`
+    public var messageLayout: String?
+    public var typingIndicators: Bool?
+    public var sendReadReceipts: Bool?
+    public var notificationSound: Bool?
+    /// `always`, `private` or `never`
+    public var mediaVisibility: String?
+    /// `always`, `screenshare` or `off`
+    public var streamerMode: String?
+    public var prettifyLinks: Bool?
+    public var markdown: Bool?
+    public var showRoomAvatars: Bool?
+    public var mergeHomeAndDms: Bool?
+    public var showPresenceDots: Bool?
+    public var colorUsernames: Bool?
+    public var groupImages: Bool?
+    public var stripPhotoMetadata: Bool?
+    public var compressImages: Bool?
+    public var largeEmoji: Bool?
+    public var emoticonsToEmoji: Bool?
+    public var showJoinLeave: Bool?
+    public var showProfileChanges: Bool?
+    public var customThemes: [JSONValue]?
+    public var lightTheme: String?
+    public var darkTheme: String?
+    public var themedAppIcon: Bool?
+    public var chatFontSize: Int?
+    /// `compact`, `default` or `spacious`
+    public var chatDensity: String?
+    /// `auto`, `12h` or `24h`
+    public var timeFormat: String?
+    public var uiZoom: Int?
+    /// The theme of versions before light and dark themes, read only
+    public var theme: String?
+    public var activeCustomTheme: String?
+
+    public init(language: String? = nil, messageLayout: String? = nil, typingIndicators: Bool? = nil, sendReadReceipts: Bool? = nil, notificationSound: Bool? = nil, mediaVisibility: String? = nil, streamerMode: String? = nil, prettifyLinks: Bool? = nil, markdown: Bool? = nil, showRoomAvatars: Bool? = nil, mergeHomeAndDms: Bool? = nil, showPresenceDots: Bool? = nil, colorUsernames: Bool? = nil, groupImages: Bool? = nil, stripPhotoMetadata: Bool? = nil, compressImages: Bool? = nil, largeEmoji: Bool? = nil, emoticonsToEmoji: Bool? = nil, showJoinLeave: Bool? = nil, showProfileChanges: Bool? = nil, customThemes: [JSONValue]? = nil, lightTheme: String? = nil, darkTheme: String? = nil, themedAppIcon: Bool? = nil, chatFontSize: Int? = nil, chatDensity: String? = nil, timeFormat: String? = nil, uiZoom: Int? = nil, theme: String? = nil, activeCustomTheme: String? = nil) {
+        self.language = language
+        self.messageLayout = messageLayout
+        self.typingIndicators = typingIndicators
+        self.sendReadReceipts = sendReadReceipts
+        self.notificationSound = notificationSound
+        self.mediaVisibility = mediaVisibility
+        self.streamerMode = streamerMode
+        self.prettifyLinks = prettifyLinks
+        self.markdown = markdown
+        self.showRoomAvatars = showRoomAvatars
+        self.mergeHomeAndDms = mergeHomeAndDms
+        self.showPresenceDots = showPresenceDots
+        self.colorUsernames = colorUsernames
+        self.groupImages = groupImages
+        self.stripPhotoMetadata = stripPhotoMetadata
+        self.compressImages = compressImages
+        self.largeEmoji = largeEmoji
+        self.emoticonsToEmoji = emoticonsToEmoji
+        self.showJoinLeave = showJoinLeave
+        self.showProfileChanges = showProfileChanges
+        self.customThemes = customThemes
+        self.lightTheme = lightTheme
+        self.darkTheme = darkTheme
+        self.themedAppIcon = themedAppIcon
+        self.chatFontSize = chatFontSize
+        self.chatDensity = chatDensity
+        self.timeFormat = timeFormat
+        self.uiZoom = uiZoom
+        self.theme = theme
+        self.activeCustomTheme = activeCustomTheme
+    }
+}
+
 /// An email address on the account
 public struct ThirdPartyId: Codable, Hashable, Sendable {
     public var medium: String
@@ -3285,6 +3390,14 @@ public final class WizardClient: Remote, @unchecked Sendable {
         _ = try await call("WizardClient.setMentionRule", [.value(rule), .value(enabled)]) as Empty
     }
 
+    public func notificationRules() async throws -> NotificationRules {
+        try await call("WizardClient.notificationRules", [])
+    }
+
+    public func setNotificationLevel(group: NotificationGroup, level: NotificationLevel) async throws {
+        _ = try await call("WizardClient.setNotificationLevel", [.value(group), .value(level)]) as Empty
+    }
+
     public func addNotificationKeyword(keyword: String) async throws {
         _ = try await call("WizardClient.addNotificationKeyword", [.value(keyword)]) as Empty
     }
@@ -3630,6 +3743,19 @@ public final class WizardClient: Remote, @unchecked Sendable {
         watch("WizardClient.watchAccountData", [.value(eventType), .listener(JSONValue?.self, listener)])
     }
 
+    public func syncedSettings() async throws -> SyncedSettings {
+        try await call("WizardClient.syncedSettings", [])
+    }
+
+    @discardableResult
+    public func watchSyncedSettings(listener: @escaping @Sendable (SyncedSettings) -> Void) -> Subscription {
+        watch("WizardClient.watchSyncedSettings", [.listener(SyncedSettings.self, listener)])
+    }
+
+    public func updateSyncedSettings(changes: SyncedSettings) async throws {
+        _ = try await call("WizardClient.updateSyncedSettings", [.value(changes)]) as Empty
+    }
+
     public func roomTags(roomId: String) async throws -> [RoomTag] {
         try await call("WizardClient.roomTags", [.value(roomId)])
     }
@@ -3915,15 +4041,6 @@ public final class WizardClient: Remote, @unchecked Sendable {
     @discardableResult
     public func watchTrustChanges(listener: @escaping @Sendable ([String]) -> Void) -> Subscription {
         watch("WizardClient.watchTrustChanges", [.listener([String].self, listener)])
-    }
-
-    public func pushRules() async throws -> JSONValue {
-        try await call("WizardClient.pushRules", [])
-    }
-
-    /// `off`, `silent`, `loud` or `highlight` for a push rule.
-    public func setPushRuleLevel(kind: String, ruleId: String, level: String) async throws {
-        _ = try await call("WizardClient.setPushRuleLevel", [.value(kind), .value(ruleId), .value(level)]) as Empty
     }
 
     public func urlPreview(url: String) async throws -> UrlPreview? {

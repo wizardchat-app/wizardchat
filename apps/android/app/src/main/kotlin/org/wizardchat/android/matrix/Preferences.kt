@@ -8,23 +8,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
 import org.wizardchat.android.R
 import org.wizardchat.android.ui.theme.ThemeMode
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import org.wizardchat.android.ui.theme.CustomTheme
 import org.wizardchat.android.ui.theme.ThemeChoice
 import org.wizardchat.android.ui.theme.WizardTheme
 import org.wizardchat.android.ui.theme.fallbackTheme
 import org.wizardchat.android.ui.theme.themeFrom
 import org.wizardchat.core.Subscription
+import org.wizardchat.core.SyncedSettings
 import org.wizardchat.core.WizardClient
 import org.wizardchat.tokens.WZ
 
@@ -114,8 +109,8 @@ class AppPreferences(context: Context) {
 
     fun watchSynced(client: WizardClient) {
         syncedSubscription?.cancel()
-        syncedSubscription = client.watchAccountData(SYNCED_ACCOUNT_DATA_TYPE) { content ->
-            scope.launch { (content as? JsonObject)?.let(::applySynced) }
+        syncedSubscription = client.watchSyncedSettings { settings ->
+            scope.launch { applySynced(settings) }
         }
     }
 
@@ -128,7 +123,7 @@ class AppPreferences(context: Context) {
         ThemeChoice.from(defaults.getString(key, null))
             ?: ThemeChoice.Builtin(legacyTheme?.takeIf { it.isDark == dark } ?: fallbackTheme(dark))
 
-    var onSyncedSettingsChange: ((Map<String, JsonElement>) -> Unit)? = null
+    var onSyncedSettingsChange: ((SyncedSettings) -> Unit)? = null
     private var isApplyingRemote = false
     private val scope = MainScope()
     private var syncedSubscription: Subscription? = null
@@ -151,39 +146,39 @@ class AppPreferences(context: Context) {
         ReducedMotion.off -> false
     }
 
-    val syncedSettings: Map<String, JsonElement>
-        get() = mapOf(
-            "language" to JsonPrimitive(language.ifEmpty { "system" }),
-            "sendReadReceipts" to JsonPrimitive(sendReadReceipts),
-            "sendTyping" to JsonPrimitive(typingIndicators),
-            "notificationSound" to JsonPrimitive(notificationSounds),
-            "colorUsernames" to JsonPrimitive(colorUsernames),
-            "groupImages" to JsonPrimitive(groupImages),
-            "largeEmoji" to JsonPrimitive(largeEmoji),
-            "emoticonsToEmoji" to JsonPrimitive(emoticonsToEmoji),
-            "showJoinLeave" to JsonPrimitive(showJoinLeave),
-            "showProfileChanges" to JsonPrimitive(showProfileChanges),
-            "mergeHomeAndDms" to JsonPrimitive(mergeHomeAndDms),
+    val syncedSettings: SyncedSettings
+        get() = SyncedSettings(
+            language = language.ifEmpty { "system" },
+            typingIndicators = typingIndicators,
+            sendReadReceipts = sendReadReceipts,
+            notificationSound = notificationSounds,
+            mergeHomeAndDms = mergeHomeAndDms,
+            colorUsernames = colorUsernames,
+            groupImages = groupImages,
+            largeEmoji = largeEmoji,
+            emoticonsToEmoji = emoticonsToEmoji,
+            showJoinLeave = showJoinLeave,
+            showProfileChanges = showProfileChanges,
         )
 
-    fun applySynced(json: Map<String, JsonElement>) {
+    fun applySynced(settings: SyncedSettings) {
         isApplyingRemote = true
         try {
-            (json["language"] as? JsonPrimitive)?.contentOrNull?.let { value ->
+            settings.language?.let { value ->
                 val language = if (value == "system") "" else value
                 if (language != this.language && (language.isEmpty() || language in languages)) this.language = language
             }
-            (json["sendReadReceipts"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != sendReadReceipts) sendReadReceipts = it }
-            (json["sendTyping"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != typingIndicators) typingIndicators = it }
-            (json["notificationSound"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != notificationSounds) notificationSounds = it }
-            (json["colorUsernames"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != colorUsernames) colorUsernames = it }
-            (json["groupImages"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != groupImages) groupImages = it }
-            (json["largeEmoji"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != largeEmoji) largeEmoji = it }
-            (json["emoticonsToEmoji"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != emoticonsToEmoji) emoticonsToEmoji = it }
-            (json["showJoinLeave"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showJoinLeave) showJoinLeave = it }
-            (json["showProfileChanges"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != showProfileChanges) showProfileChanges = it }
-            (json["mergeHomeAndDms"] as? JsonPrimitive)?.booleanOrNull?.let { if (it != mergeHomeAndDms) mergeHomeAndDms = it }
-            (json["customThemes"] as? JsonArray)?.mapNotNull(CustomTheme::from)?.let { if (it != customThemes) customThemes = it }
+            settings.sendReadReceipts?.let { if (it != sendReadReceipts) sendReadReceipts = it }
+            settings.typingIndicators?.let { if (it != typingIndicators) typingIndicators = it }
+            settings.notificationSound?.let { if (it != notificationSounds) notificationSounds = it }
+            settings.colorUsernames?.let { if (it != colorUsernames) colorUsernames = it }
+            settings.groupImages?.let { if (it != groupImages) groupImages = it }
+            settings.largeEmoji?.let { if (it != largeEmoji) largeEmoji = it }
+            settings.emoticonsToEmoji?.let { if (it != emoticonsToEmoji) emoticonsToEmoji = it }
+            settings.showJoinLeave?.let { if (it != showJoinLeave) showJoinLeave = it }
+            settings.showProfileChanges?.let { if (it != showProfileChanges) showProfileChanges = it }
+            settings.mergeHomeAndDms?.let { if (it != mergeHomeAndDms) mergeHomeAndDms = it }
+            settings.customThemes?.mapNotNull(CustomTheme::from)?.let { if (it != customThemes) customThemes = it }
         } finally {
             isApplyingRemote = false
         }
@@ -214,6 +209,5 @@ class AppPreferences(context: Context) {
     companion object {
         val CHAT_FONT_SIZES = listOf(12f, 14f, 15f, 16f, 18f, 20f, 24f)
         const val DEFAULT_CHAT_FONT_SIZE = 15f
-        const val SYNCED_ACCOUNT_DATA_TYPE = "org.wizardchat.settings"
     }
 }

@@ -12,11 +12,7 @@ import {
 } from '@/app/store/atoms';
 import i18n from '@/i18n';
 import { isSupportedLanguage } from '@/i18n/languages';
-import {
-  SETTINGS_ACCOUNT_DATA_TYPE,
-  parseSettings,
-  pickSyncedPreferences,
-} from '@/client/settingsSync';
+import { fromCoreSettings, pickSyncedPreferences } from '@/client/settingsSync';
 import { resume, loadCredentials, logout, getMatrixClientOrNull } from '@/client/initMatrix';
 import { AppLoading, FADE_OUT_MS } from '@/app/components/AppLoading';
 import { DataSync } from '@/app/data';
@@ -36,8 +32,9 @@ function useApplyStoredSettings() {
   const setLanguage = useSetAtom(languageAtom);
   const setPreferences = useSetAtom(preferencesAtom);
   return async (client: WizardClient) => {
-    const content = await client.cachedAccountData(SETTINGS_ACCOUNT_DATA_TYPE).catch(() => null);
-    const settings = parseSettings(content);
+    const synced = await client.syncedSettings().catch(() => null);
+    if (!synced) return;
+    const settings = fromCoreSettings(synced);
     if (settings.messageLayout) setMessageLayout(settings.messageLayout);
     if (settings.language && isSupportedLanguage(settings.language)) {
       setLanguage(settings.language);

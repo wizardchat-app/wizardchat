@@ -11,7 +11,6 @@ enum MediaVisibility: String, CaseIterable { case always, `private`, never }
 final class AppPreferences: ObservableObject {
     static let chatFontSizes: [Double] = [12, 14, 15, 16, 18, 20, 24]
     static let defaultChatFontSize: Double = 15
-    static let syncedAccountDataType = "org.wizardchat.settings"
     static let languages: [String] = Bundle.main.localizations
         .filter { $0 != "Base" }
         .sorted { $0 != $1 && ($0 == "en" || ($1 != "en" && $0 < $1)) }
@@ -53,7 +52,7 @@ final class AppPreferences: ObservableObject {
     @Published var developerMode: Bool { didSet { save("developerMode", developerMode) } }
     @Published var pushToTalk: Bool { didSet { save("pushToTalk", pushToTalk) } }
 
-    var onSyncedSettingsChange: (([String: JSONValue]) -> Void)?
+    var onSyncedSettingsChange: ((SyncedSettings) -> Void)?
     private var isApplyingRemote = false
     private var syncedSubscription: Subscription?
 
@@ -123,10 +122,8 @@ final class AppPreferences: ObservableObject {
 
     func watchSynced(_ client: WizardClient) {
         syncedSubscription?.cancel()
-        syncedSubscription = client.watchAccountData(eventType: Self.syncedAccountDataType) { [weak self] content in
-            MainActor.assumeIsolated {
-                if case .object(let json)? = content { self?.applySynced(json) }
-            }
+        syncedSubscription = client.watchSyncedSettings { [weak self] settings in
+            MainActor.assumeIsolated { self?.applySynced(settings) }
         }
     }
 
@@ -156,42 +153,42 @@ final class AppPreferences: ObservableObject {
         }
     }
 
-    var syncedSettings: [String: JSONValue] {
-        [
-            "language": .string(language.isEmpty ? "system" : language),
-            "sendReadReceipts": .bool(sendReadReceipts),
-            "sendTyping": .bool(typingIndicators),
-            "notificationSound": .bool(notificationSounds),
-            "colorUsernames": .bool(colorUsernames),
-            "groupImages": .bool(groupImages),
-            "largeEmoji": .bool(largeEmoji),
-            "emoticonsToEmoji": .bool(emoticonsToEmoji),
-            "showJoinLeave": .bool(showJoinLeave),
-            "showProfileChanges": .bool(showProfileChanges),
-            "mergeHomeAndDms": .bool(mergeHomeAndDms),
-        ]
+    var syncedSettings: SyncedSettings {
+        SyncedSettings(
+            language: language.isEmpty ? "system" : language,
+            typingIndicators: typingIndicators,
+            sendReadReceipts: sendReadReceipts,
+            notificationSound: notificationSounds,
+            mergeHomeAndDms: mergeHomeAndDms,
+            colorUsernames: colorUsernames,
+            groupImages: groupImages,
+            largeEmoji: largeEmoji,
+            emoticonsToEmoji: emoticonsToEmoji,
+            showJoinLeave: showJoinLeave,
+            showProfileChanges: showProfileChanges
+        )
     }
 
-    func applySynced(_ json: [String: JSONValue]) {
+    func applySynced(_ settings: SyncedSettings) {
         isApplyingRemote = true
         defer { isApplyingRemote = false }
-        if let value = json["language"]?.string {
+        if let value = settings.language {
             let language = value == "system" ? "" : value
             if language != self.language, language.isEmpty || Self.languages.contains(language) {
                 self.language = language
             }
         }
-        if case .bool(let value) = json["sendReadReceipts"], value != sendReadReceipts { sendReadReceipts = value }
-        if case .bool(let value) = json["sendTyping"], value != typingIndicators { typingIndicators = value }
-        if case .bool(let value) = json["notificationSound"], value != notificationSounds { notificationSounds = value }
-        if case .bool(let value) = json["colorUsernames"], value != colorUsernames { colorUsernames = value }
-        if case .bool(let value) = json["groupImages"], value != groupImages { groupImages = value }
-        if case .bool(let value) = json["largeEmoji"], value != largeEmoji { largeEmoji = value }
-        if case .bool(let value) = json["emoticonsToEmoji"], value != emoticonsToEmoji { emoticonsToEmoji = value }
-        if case .bool(let value) = json["showJoinLeave"], value != showJoinLeave { showJoinLeave = value }
-        if case .bool(let value) = json["showProfileChanges"], value != showProfileChanges { showProfileChanges = value }
-        if case .bool(let value) = json["mergeHomeAndDms"], value != mergeHomeAndDms { mergeHomeAndDms = value }
-        if case .array(let list) = json["customThemes"] {
+        if let value = settings.sendReadReceipts, value != sendReadReceipts { sendReadReceipts = value }
+        if let value = settings.typingIndicators, value != typingIndicators { typingIndicators = value }
+        if let value = settings.notificationSound, value != notificationSounds { notificationSounds = value }
+        if let value = settings.colorUsernames, value != colorUsernames { colorUsernames = value }
+        if let value = settings.groupImages, value != groupImages { groupImages = value }
+        if let value = settings.largeEmoji, value != largeEmoji { largeEmoji = value }
+        if let value = settings.emoticonsToEmoji, value != emoticonsToEmoji { emoticonsToEmoji = value }
+        if let value = settings.showJoinLeave, value != showJoinLeave { showJoinLeave = value }
+        if let value = settings.showProfileChanges, value != showProfileChanges { showProfileChanges = value }
+        if let value = settings.mergeHomeAndDms, value != mergeHomeAndDms { mergeHomeAndDms = value }
+        if let list = settings.customThemes {
             let themes = list.compactMap(CustomTheme.init(json:))
             if themes != customThemes { customThemes = themes }
         }

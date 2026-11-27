@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
-import type { WizardClient as MatrixClient } from '@wizardchat/core';
+import type {
+  SyncedSettings as CoreSyncedSettings,
+  WizardClient as MatrixClient,
+} from '@wizardchat/core';
 import {
   messageLayoutAtom,
   languageAtom,
@@ -11,13 +14,11 @@ import { useSyncReady } from '@/app/hooks/useSync';
 import i18n from '@/i18n';
 import { isSupportedLanguage } from '@/i18n/languages';
 import {
-  SETTINGS_ACCOUNT_DATA_TYPE,
   SYNCED_PREFERENCE_KEYS,
   type SyncedPreferences,
   type SyncedSettings,
-  parseSettings,
+  fromCoreSettings,
   pickSyncedPreferences,
-  readSettingsFromContent,
   settingsEqual,
 } from '@/client/settingsSync';
 
@@ -30,7 +31,6 @@ export function useSettingsSync(client: MatrixClient | null): void {
   const syncReady = useSyncReady();
   const [remoteKnown, setRemoteKnown] = useState(false);
   const remoteRef = useRef<Partial<SyncedSettings>>({});
-  const contentRef = useRef<Record<string, unknown>>({});
 
   const applyRemote = useCallback(
     (settings: Partial<SyncedSettings>) => {
@@ -51,12 +51,10 @@ export function useSettingsSync(client: MatrixClient | null): void {
   useEffect(() => {
     setRemoteKnown(false);
     remoteRef.current = {};
-    contentRef.current = {};
     if (!client || !syncReady) return;
-    const subscription = client.watchAccountData(SETTINGS_ACCOUNT_DATA_TYPE, (content) => {
-      const settings = parseSettings(content);
-      remoteRef.current = readSettingsFromContent(content);
-      contentRef.current = content && typeof content === 'object' ? content : {};
+    const subscription = client.watchSyncedSettings((synced) => {
+      const settings = fromCoreSettings(synced);
+      remoteRef.current = settings;
       if (Object.keys(settings).length > 0) {
         applyRemote(settings);
       }
@@ -85,12 +83,10 @@ export function useSettingsSync(client: MatrixClient | null): void {
         (Object.keys(next) as (keyof SyncedSettings)[])
           .filter((key) => next[key] !== current[key])
           .map((key) => [key, next[key]])
-      );
-      client
-        .setAccountData(SETTINGS_ACCOUNT_DATA_TYPE, { ...contentRef.current, ...changed })
-        .catch(() => {
-          // Non-fatal - the local value stays applied and the next change retries
-        });
+      ) as CoreSyncedSettings;
+      client.updateSyncedSettings(changed).catch(() => {
+        // Non-fatal - the local value stays applied and the next change retries
+      });
     }, PUSH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [client, syncReady, remoteKnown, messageLayout, language, syncedPreferences]);

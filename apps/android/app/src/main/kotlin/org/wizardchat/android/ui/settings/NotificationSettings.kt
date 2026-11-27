@@ -42,10 +42,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.wizardchat.android.LocalPrefs
 import org.wizardchat.android.LocalSession
-import org.wizardchat.android.matrix.ManagedRule
-import org.wizardchat.android.matrix.NotifLevel
-import org.wizardchat.android.matrix.PushRuleSets
-import org.wizardchat.android.matrix.PushRules
 import org.wizardchat.android.matrix.rtc.IncomingCallNotifier
 import org.wizardchat.android.push.Push
 import org.wizardchat.android.push.PushProvider
@@ -59,6 +55,9 @@ import org.wizardchat.android.ui.WizardTextField
 import org.wizardchat.android.ui.theme.theme
 import org.wizardchat.android.ui.theme.wizardFont
 import org.wizardchat.android.ui.tr
+import org.wizardchat.core.NotificationGroup
+import org.wizardchat.core.NotificationLevel
+import org.wizardchat.core.NotificationRules
 import org.wizardchat.tokens.WZ
 
 private fun notificationsAllowed(context: Context): Boolean {
@@ -75,7 +74,7 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var rules by remember { mutableStateOf<PushRules?>(null) }
+    var rules by remember { mutableStateOf<NotificationRules?>(null) }
     var busy by remember { mutableStateOf(false) }
     var keyword by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -112,7 +111,7 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
 
     suspend fun reload() {
         try {
-            rules = PushRules(session.requireClient.pushRules())
+            rules = session.requireClient.notificationRules()
         } catch (failure: Exception) {
             error = failure.text
         }
@@ -145,12 +144,12 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
     LaunchedEffect(Unit) { reload() }
 
     @Composable
-    fun LevelRow(label: String, managed: List<ManagedRule>, rules: PushRules) {
+    fun LevelRow(label: String, group: NotificationGroup, level: NotificationLevel) {
         PickerRow(
             label,
-            rules.level(managed),
-            NotifLevel.entries.map { it to it.title },
-            { level -> scope.launch { run { rules.setLevel(level, managed, session.requireClient) } } },
+            level,
+            NotificationLevel.entries.map { it to L10n.format("settings.notifications.level.${it.name}") },
+            { level -> scope.launch { run { session.requireClient.setNotificationLevel(group, level) } } },
             enabled = !busy,
         )
     }
@@ -217,16 +216,14 @@ internal fun NotificationSettingsPage(onBack: () -> Unit) {
         val current = rules
         if (current != null) {
             SettingsSection(tr("room.settings.permissions.groups.messages"), tr("settings.notifications.levelHint")) {
-                LevelRow(tr("room.dm.directMessages"), PushRuleSets.dms, current)
+                LevelRow(tr("room.dm.directMessages"), NotificationGroup.directChats, current.directChats)
                 SettingsDivider()
-                LevelRow(tr("settings.notifications.rooms"), PushRuleSets.rooms, current)
+                LevelRow(tr("settings.notifications.rooms"), NotificationGroup.groupChats, current.groupChats)
             }
             SettingsSection(tr("settings.notifications.otherEventsLabel")) {
-                val userMention = current.present(PushRuleSets.userMention)
-                val roomMention = current.present(PushRuleSets.roomMention)
-                if (userMention.isEmpty()) Unavailable() else LevelRow(tr("settings.notifications.userMention"), userMention, current)
+                current.userMentions?.let { LevelRow(tr("settings.notifications.userMention"), NotificationGroup.userMentions, it) } ?: Unavailable()
                 SettingsDivider()
-                if (roomMention.isEmpty()) Unavailable() else LevelRow(tr("settings.notifications.roomMention"), roomMention, current)
+                current.roomMentions?.let { LevelRow(tr("settings.notifications.roomMention"), NotificationGroup.roomMentions, it) } ?: Unavailable()
             }
             SettingsSection(tr("settings.notifications.keywordsLabel"), tr("settings.notifications.keywordsNote")) {
                 SettingsItem {

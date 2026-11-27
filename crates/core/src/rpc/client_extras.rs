@@ -7,7 +7,7 @@ use crate::{
     CallSession, IncomingCall, IncomingCallEvent, Notification, PushedEvent, PusherConfig,
     QrLoginControl, QrLoginStatus, RedactedEvent, ResolvedAlias, RoomSection, RoomSoundPacks,
     RoomTag, ServerFeatures, SfuConfig, SoundCredit, SoundPack, SoundboardSound, SpaceNode,
-    StateChange, WizardClient,
+    StateChange, SyncedSettings, WizardClient,
 };
 
 rpc_methods! {
@@ -36,6 +36,22 @@ rpc_methods! {
                     tracing::error!("account data stream failed: {error}");
                 }
             }))
+        }
+
+        call fn syncedSettings() -> SyncedSettings {
+            this.synced_settings().await
+        }
+
+        watch fn watchSyncedSettings(listener: Listener<SyncedSettings>) -> Subscription {
+            Ok(listener.clone().watch(async move {
+                if let Err(error) = this.watch_synced_settings(|s| listener.emit(&s)).await {
+                    tracing::error!("synced settings stream failed: {error}");
+                }
+            }))
+        }
+
+        call fn updateSyncedSettings(changes: SyncedSettings) -> () {
+            this.update_synced_settings(changes).await
         }
 
         call fn roomTags(room_id: String) -> Vec<RoomTag> {

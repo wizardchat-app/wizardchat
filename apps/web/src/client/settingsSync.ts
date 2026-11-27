@@ -1,50 +1,37 @@
+import type { SyncedSettings as CoreSyncedSettings } from '@wizardchat/core';
 import type { MessageLayout, Preferences } from '@/app/store/atoms';
 import { isCustomThemeList, type CustomTheme } from '@/theme/customTheme';
 import { legacyThemeSlot, slotKey } from '@/theme/themeSlots';
 
-export const SETTINGS_ACCOUNT_DATA_TYPE = 'org.wizardchat.settings';
+export const SYNCED_PREFERENCE_KEYS = [
+  'typingIndicators',
+  'sendReadReceipts',
+  'mediaVisibility',
+  'streamerMode',
+  'prettifyLinks',
+  'markdown',
+  'showRoomAvatars',
+  'mergeHomeAndDms',
+  'showPresenceDots',
+  'colorUsernames',
+  'groupImages',
+  'stripPhotoMetadata',
+  'compressImages',
+  'largeEmoji',
+  'emoticonsToEmoji',
+  'showJoinLeave',
+  'showProfileChanges',
+  'customThemes',
+  'lightTheme',
+  'darkTheme',
+  'themedAppIcon',
+  'chatFontSize',
+  'chatDensity',
+  'timeFormat',
+  'uiZoom',
+] as const satisfies readonly (keyof Preferences & keyof CoreSyncedSettings)[];
 
-const isBoolean = (value: unknown) => typeof value === 'boolean';
-const oneOf =
-  (...allowed: string[]) =>
-  (value: unknown) =>
-    typeof value === 'string' && allowed.includes(value);
-
-const isThemeSlot = (value: unknown) =>
-  typeof value === 'string' && value.length > 0 && value.length <= 64;
-
-const SYNCED_PREFERENCES = {
-  typingIndicators: isBoolean,
-  sendReadReceipts: isBoolean,
-  mediaVisibility: oneOf('always', 'private', 'never'),
-  streamerMode: oneOf('always', 'screenshare', 'off'),
-  prettifyLinks: isBoolean,
-  markdown: isBoolean,
-  showRoomAvatars: isBoolean,
-  mergeHomeAndDms: isBoolean,
-  showPresenceDots: isBoolean,
-  colorUsernames: isBoolean,
-  groupImages: isBoolean,
-  stripPhotoMetadata: isBoolean,
-  compressImages: isBoolean,
-  largeEmoji: isBoolean,
-  emoticonsToEmoji: isBoolean,
-  showJoinLeave: isBoolean,
-  showProfileChanges: isBoolean,
-  customThemes: isCustomThemeList,
-  lightTheme: isThemeSlot,
-  darkTheme: isThemeSlot,
-  themedAppIcon: isBoolean,
-  chatFontSize: (value: unknown) =>
-    typeof value === 'number' && Number.isInteger(value) && value >= 8 && value <= 48,
-  chatDensity: oneOf('compact', 'default', 'spacious'),
-  timeFormat: oneOf('auto', '12h', '24h'),
-  uiZoom: (value: unknown) =>
-    typeof value === 'number' && Number.isInteger(value) && value >= 50 && value <= 200,
-} satisfies Partial<Record<keyof Preferences, (value: unknown) => boolean>>;
-
-export type SyncedPreferenceKey = keyof typeof SYNCED_PREFERENCES;
-export const SYNCED_PREFERENCE_KEYS = Object.keys(SYNCED_PREFERENCES) as SyncedPreferenceKey[];
+export type SyncedPreferenceKey = (typeof SYNCED_PREFERENCE_KEYS)[number];
 export type SyncedPreferences = Pick<Preferences, SyncedPreferenceKey>;
 
 export interface SyncedSettings extends SyncedPreferences {
@@ -52,33 +39,25 @@ export interface SyncedSettings extends SyncedPreferences {
   language: string;
 }
 
-const MESSAGE_LAYOUTS: MessageLayout[] = ['classic', 'modern', 'compact'];
-
-export function parseSettings(raw: unknown): Partial<SyncedSettings> {
-  if (!raw || typeof raw !== 'object') return {};
-  const content = raw as Record<string, unknown>;
+/** The core's synced settings (already validated there) as the web app's preferences */
+export function fromCoreSettings(core: CoreSyncedSettings): Partial<SyncedSettings> {
   const settings: Partial<SyncedSettings> = {};
-
-  if (
-    typeof content.messageLayout === 'string' &&
-    (MESSAGE_LAYOUTS as string[]).includes(content.messageLayout)
-  ) {
-    settings.messageLayout = content.messageLayout as MessageLayout;
-  }
-
-  if (typeof content.language === 'string' && content.language.trim() !== '') {
-    settings.language = content.language;
-  }
+  if (core.messageLayout) settings.messageLayout = core.messageLayout as MessageLayout;
+  if (core.language) settings.language = core.language;
 
   for (const key of SYNCED_PREFERENCE_KEYS) {
-    if (SYNCED_PREFERENCES[key](content[key])) {
-      (settings as Record<string, unknown>)[key] = content[key];
+    const value = core[key];
+    if (value !== null && value !== undefined) {
+      (settings as Record<string, unknown>)[key] = value;
     }
+  }
+  if (settings.customThemes !== undefined && !isCustomThemeList(settings.customThemes)) {
+    delete settings.customThemes;
   }
 
   if (settings.lightTheme === undefined && settings.darkTheme === undefined) {
     const customThemes: CustomTheme[] = settings.customThemes ?? [];
-    const slot = legacyThemeSlot(content.theme, content.activeCustomTheme, customThemes);
+    const slot = legacyThemeSlot(core.theme, core.activeCustomTheme, customThemes);
     if (slot) settings[slotKey(slot.mode)] = slot.value;
   }
 
@@ -93,11 +72,6 @@ export function pickSyncedPreferences(
     if (settings[key] !== undefined) (picked as Record<string, unknown>)[key] = settings[key];
   }
   return picked;
-}
-
-/** The settings stored in account data (from `client.accountData(SETTINGS_ACCOUNT_DATA_TYPE)`) */
-export function readSettingsFromContent(content: unknown): Partial<SyncedSettings> {
-  return content ? parseSettings(content) : {};
 }
 
 export function settingsEqual(a: Partial<SyncedSettings>, b: Partial<SyncedSettings>): boolean {

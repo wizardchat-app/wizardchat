@@ -1,4 +1,4 @@
-//! `WizardClient`: encryption, recovery, verification, identity, push rules, threads, space
+//! `WizardClient`: encryption, recovery, verification, identity, threads, space
 //! children and devices
 
 use super::{Handle, Listener, Subscription};
@@ -98,15 +98,6 @@ rpc_methods! {
                     tracing::error!("trust changes stream failed: {error}");
                 }
             }))
-        }
-
-        call fn pushRules() -> serde_json::Value {
-            this.push_rules().await
-        }
-
-        /// `off`, `silent`, `loud` or `highlight` for a push rule.
-        call fn setPushRuleLevel(kind: String, rule_id: String, level: String) -> () {
-            this.set_push_rule_level(&kind, &rule_id, &level).await
         }
 
         call fn urlPreview(url: String) -> Option<UrlPreview> {

@@ -16,7 +16,8 @@ use std::{
 use serde_json::json;
 use wizardchat_core::{
     Attachment, CreateRoomOptions, EntryContent, ListDiff, MentionsInput, MessageKind,
-    NotificationMode, StoreConfig, TimelineEntry, WizardClient,
+    NotificationGroup, NotificationLevel, NotificationMode, StoreConfig, TimelineEntry,
+    WizardClient,
 };
 
 use common::BoxError;
@@ -289,7 +290,37 @@ async fn main() -> Result<(), BoxError> {
         .contains(&json!({ "set_tweak": "highlight" })));
     println!("\"off\" empties the rule's actions; back on, it highlights again");
 
+    me.set_notification_level(NotificationGroup::GroupChats, NotificationLevel::Noisy)
+        .await?;
+    me.set_notification_level(NotificationGroup::UserMentions, NotificationLevel::On)
+        .await?;
+    let levels = me.notification_rules().await;
+    assert_eq!(levels.group_chats, NotificationLevel::Noisy);
+    assert_eq!(levels.user_mentions, Some(NotificationLevel::On));
+    let rules = me.push_rules().await?;
+    let mention = rule_of(&rules, "override", ".m.rule.is_user_mention").unwrap();
+    assert!(mention["actions"]
+        .as_array()
+        .unwrap()
+        .contains(&json!({ "set_tweak": "highlight" })));
+    me.set_notification_level(NotificationGroup::GroupChats, NotificationLevel::Off)
+        .await?;
+    assert_eq!(
+        me.notification_rules().await.group_chats,
+        NotificationLevel::Off
+    );
+    me.set_notification_level(NotificationGroup::GroupChats, NotificationLevel::On)
+        .await?;
+    me.set_notification_level(NotificationGroup::UserMentions, NotificationLevel::Noisy)
+        .await?;
+    println!("notification levels per group set and read back; mentions keep their highlight");
+
     me.add_notification_keyword("wizardword").await?;
+    assert!(me
+        .notification_rules()
+        .await
+        .keywords
+        .contains(&"wizardword".to_owned()));
     let rules = me.push_rules().await?;
     let keyword = rule_of(&rules, "content", "wizardword").unwrap();
     assert!(keyword["actions"]
