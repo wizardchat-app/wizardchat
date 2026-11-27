@@ -1,9 +1,6 @@
-build-android:
-  stage: build
-  extends: [.release-rules, .rust-cache]
+.android:
   image: node:22-bookworm
   tags: [saas-linux-large-amd64]
-  needs: [release-version]
   variables:
     ANDROID_HOME: $CI_PROJECT_DIR/.android-sdk
     ANDROID_CMDLINE_TOOLS: '15859902'
@@ -27,14 +24,53 @@ build-android:
       paths:
         - .gradle/caches/
         - .gradle/wrapper/
+
+.install-android-sdk:
   script:
-    - test -n "$ANDROID_KEYSTORE_BASE64" && test -n "$ANDROID_KEYSTORE_PASSWORD"
     - apt-get update && apt-get install -y --no-install-recommends openjdk-17-jdk-headless unzip cmake
     - curl -sSfL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS}_latest.zip" -o /tmp/cmdline-tools.zip
     - mkdir -p "$ANDROID_HOME/cmdline-tools" && unzip -q /tmp/cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
     - mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
     - (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
     - '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;$ANDROID_NDK" > /dev/null'
+
+# Compiles both Android flavours against a debug core, so merge requests catch Kotlin and Android-only Rust errors
+android-check:
+  stage: build
+  extends: .android
+  interruptible: true
+  needs: []
+  rules:
+    - if: '$CHANNEL == "next" || $CHANNEL == "stable"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - apps/android/**/*
+        - crates/**/*
+        - packages/**/*
+        - Cargo.toml
+        - Cargo.lock
+        - rust-toolchain.toml
+        - package-lock.json
+        - .gitlab-ci.yml
+        - .gitlab/ci/*
+  script:
+    - !reference [.install-android-sdk, script]
+    - !reference [.install-rust, script]
+    - !reference [.install-sccache-linux, script]
+    - npm ci --ignore-scripts
+    - npm run assets
+    - apps/android/scripts/build-core.sh --debug
+    - (cd apps/android && ./gradlew --no-daemon :app:compileGplayDebugKotlin :app:compileFdroidDebugKotlin)
+    - sccache --show-stats
+
+build-android:
+  stage: build
+  extends: [.release-rules, .android]
+  needs: [release-version]
+  script:
+    - test -n "$ANDROID_KEYSTORE_BASE64" && test -n "$ANDROID_KEYSTORE_PASSWORD"
+    - !reference [.install-android-sdk, script]
     - !reference [.install-rust, script]
     - !reference [.install-sccache-linux, script]
     - npm ci --ignore-scripts
@@ -59,6 +95,39 @@ build-android:
       - target/android/*.apk
       - target/play/WizardChat.aab
     expire_in: 1 day
+
+# Compiles the iOS app and its extensions unsigned against a debug core, so merge requests catch Swift errors
+ios-check:
+  stage: build
+  extends: .rust-cache
+  interruptible: true
+  tags: [saas-macos-medium-m1]
+  needs: []
+  rules:
+    - if: '$CHANNEL == "next" || $CHANNEL == "stable"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - apps/ios/**/*
+        - crates/**/*
+        - packages/**/*
+        - Cargo.toml
+        - Cargo.lock
+        - rust-toolchain.toml
+        - package-lock.json
+        - .gitlab-ci.yml
+        - .gitlab/ci/*
+  script:
+    - !reference [.install-rust, script]
+    - !reference [.install-sccache-mac, script]
+    - brew install xcodegen
+    - npm ci --ignore-scripts
+    - npm run assets
+    - apps/ios/scripts/build-core.sh --debug --device-only
+    - cd apps/ios && xcodegen generate
+    - xcodebuild -project WizardChat.xcodeproj -scheme WizardChat -configuration Debug -destination generic/platform=iOS
+      -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= -quiet build
+    - sccache --show-stats
 
 # The TestFlight upload and an IPA for sideloading (SideStore, AltStore and the like re-sign it on the device)
 build-ios:

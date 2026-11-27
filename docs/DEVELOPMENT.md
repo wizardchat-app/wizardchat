@@ -89,7 +89,9 @@ This runs ESLint, Prettier, the translation check, rustfmt and clippy (native an
 files you commit. For core changes, also run `cargo test -p wizardchat-core`.
 
 CI runs the same checks on every merge request and branch, plus the core's unit tests and a check that the generated
-APIs match `crates/core/src/rpc` (run `npm run core:types` and commit the result if it fails).
+APIs match `crates/core/src/rpc` (run `npm run core:types` and commit the result if it fails). When a change touches the
+core, the shared packages or a native app, CI also compiles the Android app (both flavours) and the iOS app (unsigned)
+against a debug core.
 
 The Rust build cache in `target/` grows quickly (tens of GB once you build for several platforms). It's safe to delete
 at any time with `cargo clean`.
