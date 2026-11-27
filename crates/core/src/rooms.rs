@@ -1072,7 +1072,7 @@ async fn unread_counts(room: &Room) -> Option<UnreadCounts> {
     let fallback = server.max(room.num_unread_notifications());
     if room.num_unread_messages() == 0 && room.read_receipts().latest_active.is_some() {
         return Some(UnreadCounts {
-            notifications: if encrypted { fallback } else { 0 },
+            notifications: if encrypted { server } else { 0 },
             mentions: 0,
         });
     }
@@ -1080,7 +1080,7 @@ async fn unread_counts(room: &Room) -> Option<UnreadCounts> {
     Some(UnreadCounts {
         notifications: match (scan.boundary_found, encrypted) {
             (true, false) => scan.count,
-            (true, true) => scan.count.max(fallback),
+            (true, true) => scan.count.max(server),
             (false, _) => fallback.max(scan.count),
         },
         mentions: if scan.boundary_found {
