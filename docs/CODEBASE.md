@@ -79,7 +79,8 @@ The core has to compile for native targets and for `wasm32-unknown-unknown`; `np
 
 ## Checking a change
 
-There are no test suites. Build, run `npm run check`, and use the app: the web app in a browser, `npm run desktop`,
+Only the core has unit tests (`cargo test -p wizardchat-core`); add them for logic that doesn't need a homeserver. Build,
+run `npm run check`, and use the app: the web app in a browser, `npm run desktop`,
 `npm run android` on an emulator (it reaches a server on your machine at `http://10.0.2.2:8008`), `npm run ios` in the
 simulator. For core changes, also run the example for the area you changed (see [DEVELOPMENT.md](DEVELOPMENT.md)).
 

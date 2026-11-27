@@ -10,6 +10,43 @@ lint:
     - npm run format:check
     - npm run i18n
 
+rust-check:
+  stage: lint
+  extends: .rust-cache
+  interruptible: true
+  image: node:22-bookworm
+  tags: [saas-linux-large-amd64]
+  rules:
+    - if: '$CHANNEL == "next" || $CHANNEL == "stable"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - crates/**/*
+        - apps/desktop/src-tauri/**/*
+        - Cargo.toml
+        - Cargo.lock
+        - rust-toolchain.toml
+        - apps/web/src/core/rpc/api.gen.ts
+        - apps/ios/WizardChatCore/Sources/WizardChatCore/Api.gen.swift
+        - apps/android/core/src/main/kotlin/org/wizardchat/core/Api.gen.kt
+        - package-lock.json
+        - .gitlab-ci.yml
+        - .gitlab/ci/*
+    - if: '$CI_COMMIT_BRANCH'
+  before_script:
+    - !reference [.install-rust, script]
+    - !reference [.install-sccache-linux, script]
+    - npm ci --ignore-scripts
+  script:
+    - cargo fmt --all --check
+    # The desktop crate needs the GTK/WebKit system libraries and the built web app
+    - cargo clippy --workspace --exclude wizardchat-desktop --all-targets --all-features -- -D warnings
+    - cargo clippy -p wizardchat-core -p wizardchat-core-wasm --target wasm32-unknown-unknown -- -D warnings
+    - cargo test -p wizardchat-core -p wizardchat-denoise
+    - npm run core:types
+    - git diff --exit-code -- apps/web/src/core/rpc/api.gen.ts apps/ios/WizardChatCore/Sources/WizardChatCore/Api.gen.swift apps/android/core/src/main/kotlin/org/wizardchat/core/Api.gen.kt
+    - sccache --show-stats
+
 build-web:
   stage: build
   extends: [.branch-rules, .rust-web]
