@@ -905,6 +905,7 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
     val scale = prefs.chatScale
     val spacing = prefs.chatSpacing
     val isCompact = prefs.messageLayout == MessageLayout.compact
+    val alignRight = prefs.messageLayout == MessageLayout.classic && entry.isOwn && prefs.alignOwnRight
     var showFailed by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var swipe by remember { mutableFloatStateOf(0f) }
@@ -981,7 +982,7 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                     ),
                 horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
             ) {
-                if (!isCompact && entry.isGrouped) {
+                if (!isCompact && (entry.isGrouped || alignRight)) {
                     Spacer(Modifier.width(WZ.SizeAvatar.md))
                 } else if (!isCompact) {
                     Avatar(
@@ -993,7 +994,10 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                 }
                 val receiptRoomId = actions?.roomId?.takeIf { entry.readBy.isNotEmpty() }
                 Column(Modifier.weight(1f)) {
-                    Column(Modifier.fillMaxWidth().padding(end = WZ.Space.space5)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(end = WZ.Space.space5),
+                        horizontalAlignment = if (alignRight) Alignment.End else Alignment.Start,
+                    ) {
                         if (isCompact) {
                             if (entry.kind !is ChatEntry.Kind.Message) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space3)) {
@@ -1014,14 +1018,16 @@ fun MessageRow(entry: ChatEntry, actions: MessageActions? = null, isPrivateRoom:
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4),
                             ) {
-                                Text(
-                                    entry.senderName,
-                                    Modifier.weight(1f, fill = false).clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
-                                    style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
-                                    color = nameColor(entry.sender),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                if (!alignRight) {
+                                    Text(
+                                        entry.senderName,
+                                        Modifier.weight(1f, fill = false).clickable(enabled = actions != null) { actions?.openProfile?.invoke(entry.sender) },
+                                        style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
+                                        color = nameColor(entry.sender),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                                 Text(Formats.time(entry.timestamp), style = wizardFont(WZ.FontSize.sm * scale), color = theme.textMuted)
                                 val eventId = entry.eventId
                                 if (eventId != null && actions?.pinnedIds?.contains(eventId) == true) {

@@ -6,6 +6,7 @@ import { useTimeFormat } from '@/app/hooks/useTimeFormat';
 import {
   themeAtom,
   messageLayoutAtom,
+  alignOwnRightAtom,
   prettifyLinksAtom,
   markdownAtom,
   showRoomAvatarsAtom,
@@ -50,6 +51,7 @@ const mentionMarkdown = (name: string, userId: string) =>
 interface PreviewMessageProps {
   layout: MessageLayout;
   isOwn: boolean;
+  alignRight?: boolean;
   senderId: string;
   senderName: string;
   senderAvatar?: string | null;
@@ -60,6 +62,7 @@ interface PreviewMessageProps {
 function PreviewMessage({
   layout,
   isOwn,
+  alignRight,
   senderId,
   senderName,
   senderAvatar,
@@ -100,20 +103,30 @@ function PreviewMessage({
   return (
     <div className={timelineCss.msgRow}>
       <div className={timelineCss.msgHoverRegion}>
-        <div className={timelineCss.msgAvatarCol}>
-          <Avatar
-            name={senderName}
-            mxcUrl={senderAvatar}
-            client={client}
-            size="sm"
-            placeholder="logo"
-          />
-        </div>
-        <div className={timelineCss.msgBody}>
+        {!alignRight && (
+          <div className={timelineCss.msgAvatarCol}>
+            <Avatar
+              name={senderName}
+              mxcUrl={senderAvatar}
+              client={client}
+              size="sm"
+              placeholder="logo"
+            />
+          </div>
+        )}
+        <div
+          className={
+            alignRight
+              ? `${timelineCss.msgBody} ${timelineCss.msgBodyOwnRight}`
+              : timelineCss.msgBody
+          }
+        >
           <div className={timelineCss.msgMeta}>
-            <span className={css.previewSender} style={{ color: senderColor }}>
-              {senderName}
-            </span>
+            {!alignRight && (
+              <span className={css.previewSender} style={{ color: senderColor }}>
+                {senderName}
+              </span>
+            )}
             <span className={timelineCss.msgTime}>{time}</span>
           </div>
           <div className={contentClass}>
@@ -125,7 +138,15 @@ function PreviewMessage({
   );
 }
 
-function ChatPreview({ layout, prettifyLinks }: { layout: MessageLayout; prettifyLinks: boolean }) {
+function ChatPreview({
+  layout,
+  alignOwnRight,
+  prettifyLinks,
+}: {
+  layout: MessageLayout;
+  alignOwnRight: boolean;
+  prettifyLinks: boolean;
+}) {
   const { t } = useTranslation();
   const timeFormat = useTimeFormat();
   const client = getMatrixClientOrNull();
@@ -173,6 +194,7 @@ function ChatPreview({ layout, prettifyLinks }: { layout: MessageLayout; prettif
       <PreviewMessage
         layout={layout}
         isOwn
+        alignRight={layout === 'classic' && alignOwnRight}
         senderId={myId ?? '@you:wizardchat.org'}
         senderName={myName}
         senderAvatar={me?.avatarUrl}
@@ -187,6 +209,7 @@ export function Appearance() {
   const { t } = useTranslation();
   const theme = useAtomValue(themeAtom);
   const [layout, setLayout] = useAtom(messageLayoutAtom);
+  const [alignOwnRight, setAlignOwnRight] = useAtom(alignOwnRightAtom);
   const [prettifyLinks, setPrettifyLinks] = useAtom(prettifyLinksAtom);
   const [markdown, setMarkdown] = useAtom(markdownAtom);
   const [showRoomAvatars, setShowRoomAvatars] = useAtom(showRoomAvatarsAtom);
@@ -210,7 +233,7 @@ export function Appearance() {
       <h2 className={layoutCss.panelTitle}>{t('settings.appearance.title')}</h2>
 
       <div className={layoutCss.section}>
-        <ChatPreview layout={layout} prettifyLinks={prettifyLinks} />
+        <ChatPreview layout={layout} alignOwnRight={alignOwnRight} prettifyLinks={prettifyLinks} />
 
         <ThemeModeControl />
         <ThemeSlotPicker mode="light" />
@@ -243,6 +266,13 @@ export function Appearance() {
             onChange={setLayout}
           />
         </div>
+        {layout === 'classic' && (
+          <ToggleRow
+            label={t('settings.appearance.alignOwnRight')}
+            checked={alignOwnRight}
+            onChange={setAlignOwnRight}
+          />
+        )}
 
         <div className={layoutCss.settingRow}>
           <div className={layoutCss.settingInfo}>

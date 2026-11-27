@@ -89,6 +89,7 @@ export interface Preferences {
   chatFontSize: number;
   chatDensity: ChatDensity;
   timeFormat: TimeFormat;
+  alignOwnRight: boolean;
   uiZoom: number;
   reducedMotionApplied: boolean | null;
   themedAppIcon: boolean;
@@ -206,6 +207,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   chatFontSize: 15,
   chatDensity: 'default',
   timeFormat: 'auto',
+  alignOwnRight: false,
   uiZoom: 100,
   reducedMotionApplied: null,
   themedAppIcon: false,
@@ -274,6 +276,7 @@ export const reducedMotionAtom = preferenceFieldAtom('reducedMotion');
 export const chatFontSizeAtom = preferenceFieldAtom('chatFontSize');
 export const chatDensityAtom = preferenceFieldAtom('chatDensity');
 export const timeFormatAtom = preferenceFieldAtom('timeFormat');
+export const alignOwnRightAtom = preferenceFieldAtom('alignOwnRight');
 export const uiZoomAtom = preferenceFieldAtom('uiZoom');
 export const themedAppIconAtom = preferenceFieldAtom('themedAppIcon');
 export const excludeInsecureSessionsAtom = preferenceFieldAtom('excludeInsecureSessions');

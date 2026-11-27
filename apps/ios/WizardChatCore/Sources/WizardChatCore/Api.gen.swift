@@ -2447,6 +2447,7 @@ public struct SyncedSettings: Codable, Hashable, Sendable {
     public var chatFontSize: Int?
     /// `compact`, `default` or `spacious`
     public var chatDensity: String?
+    public var alignOwnRight: Bool?
     /// `auto`, `12h` or `24h`
     public var timeFormat: String?
     public var uiZoom: Int?
@@ -2454,7 +2455,7 @@ public struct SyncedSettings: Codable, Hashable, Sendable {
     public var theme: String?
     public var activeCustomTheme: String?
 
-    public init(language: String? = nil, messageLayout: String? = nil, typingIndicators: Bool? = nil, sendReadReceipts: Bool? = nil, notificationSound: Bool? = nil, mediaVisibility: String? = nil, streamerMode: String? = nil, prettifyLinks: Bool? = nil, markdown: Bool? = nil, showRoomAvatars: Bool? = nil, mergeHomeAndDms: Bool? = nil, showPresenceDots: Bool? = nil, colorUsernames: Bool? = nil, groupImages: Bool? = nil, stripPhotoMetadata: Bool? = nil, compressImages: Bool? = nil, largeEmoji: Bool? = nil, emoticonsToEmoji: Bool? = nil, showJoinLeave: Bool? = nil, showProfileChanges: Bool? = nil, customThemes: [JSONValue]? = nil, lightTheme: String? = nil, darkTheme: String? = nil, themedAppIcon: Bool? = nil, chatFontSize: Int? = nil, chatDensity: String? = nil, timeFormat: String? = nil, uiZoom: Int? = nil, theme: String? = nil, activeCustomTheme: String? = nil) {
+    public init(language: String? = nil, messageLayout: String? = nil, typingIndicators: Bool? = nil, sendReadReceipts: Bool? = nil, notificationSound: Bool? = nil, mediaVisibility: String? = nil, streamerMode: String? = nil, prettifyLinks: Bool? = nil, markdown: Bool? = nil, showRoomAvatars: Bool? = nil, mergeHomeAndDms: Bool? = nil, showPresenceDots: Bool? = nil, colorUsernames: Bool? = nil, groupImages: Bool? = nil, stripPhotoMetadata: Bool? = nil, compressImages: Bool? = nil, largeEmoji: Bool? = nil, emoticonsToEmoji: Bool? = nil, showJoinLeave: Bool? = nil, showProfileChanges: Bool? = nil, customThemes: [JSONValue]? = nil, lightTheme: String? = nil, darkTheme: String? = nil, themedAppIcon: Bool? = nil, chatFontSize: Int? = nil, chatDensity: String? = nil, alignOwnRight: Bool? = nil, timeFormat: String? = nil, uiZoom: Int? = nil, theme: String? = nil, activeCustomTheme: String? = nil) {
         self.language = language
         self.messageLayout = messageLayout
         self.typingIndicators = typingIndicators
@@ -2481,6 +2482,7 @@ public struct SyncedSettings: Codable, Hashable, Sendable {
         self.themedAppIcon = themedAppIcon
         self.chatFontSize = chatFontSize
         self.chatDensity = chatDensity
+        self.alignOwnRight = alignOwnRight
         self.timeFormat = timeFormat
         self.uiZoom = uiZoom
         self.theme = theme

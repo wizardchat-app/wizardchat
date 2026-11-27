@@ -104,6 +104,10 @@ struct AppearanceSettings: View {
                           options: [(.modern, "settings.appearance.modern"), (.classic, "settings.appearance.classic"),
                                     (.compact, "settings.appearance.compact")])
                 SettingsDivider()
+                if prefs.messageLayout == .classic {
+                    ToggleRow(label: "settings.appearance.alignOwnRight", isOn: $prefs.alignOwnRight)
+                    SettingsDivider()
+                }
                 VStack(alignment: .leading, spacing: WZ.Space.space4) {
                     HStack {
                         Text(String(localized: "settings.appearance.textSize"))

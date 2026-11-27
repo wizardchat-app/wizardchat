@@ -1489,6 +1489,7 @@
       "classic": "Classic",
       "modern": "Modern",
       "compact": "Compact",
+      "alignOwnRight": "Show my messages on the right",
       "theme": "Theme",
       "previewOtherMessage": "hey {{mention}}, here is a link: https://wizardchat.org",
       "previewOwnMessage": "casting a message for {{mention}}",

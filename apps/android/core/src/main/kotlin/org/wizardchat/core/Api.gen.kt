@@ -1581,6 +1581,7 @@ data class SyncedSettings(
     val chatFontSize: Long? = null,
     /** `compact`, `default` or `spacious` */
     val chatDensity: String? = null,
+    val alignOwnRight: Boolean? = null,
     /** `auto`, `12h` or `24h` */
     val timeFormat: String? = null,
     val uiZoom: Long? = null,

@@ -75,6 +75,8 @@ targets:
       - name: Version from package.json
         script: ./scripts/set-version.sh
         basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WZ_BUNDLE_PREFIX).ios
@@ -118,6 +120,8 @@ targets:
       - name: Version from package.json
         script: ./scripts/set-version.sh
         basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WZ_BUNDLE_PREFIX).ios.widgets
@@ -151,6 +155,8 @@ targets:
       - name: Version from package.json
         script: ./scripts/set-version.sh
         basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WZ_BUNDLE_PREFIX).ios.notifications
@@ -190,6 +196,8 @@ targets:
       - name: Version from package.json
         script: ./scripts/set-version.sh
         basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WZ_BUNDLE_PREFIX).ios.share

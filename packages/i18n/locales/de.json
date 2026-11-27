@@ -1489,6 +1489,7 @@
       "classic": "Klassisch",
       "modern": "Modern",
       "compact": "Kompakt",
+      "alignOwnRight": "Eigene Nachrichten rechts anzeigen",
       "theme": "Thema",
       "previewOtherMessage": "hey {{mention}}, hier ist ein Link: https://wizardchat.org",
       "previewOwnMessage": "Nachricht für {{mention}} wird gezaubert",

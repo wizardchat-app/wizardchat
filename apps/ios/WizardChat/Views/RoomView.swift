@@ -740,6 +740,7 @@ struct MessageRow: View {
     private var spacing: CGFloat { prefs.chatSpacing }
     private var isClassic: Bool { prefs.messageLayout == .classic }
     private var isCompact: Bool { prefs.messageLayout == .compact }
+    private var alignRight: Bool { isClassic && entry.isOwn && prefs.alignOwnRight }
     private static let editedURL = URL(string: "wizardchat-internal://edit-history")!
     private var editedLink: AttributedString {
         var text = AttributedString(String(localized: "timeline.edited"))
@@ -765,7 +766,7 @@ struct MessageRow: View {
         HStack(alignment: .top, spacing: WZ.Space.space5) {
             if isCompact {
                 EmptyView()
-            } else if entry.isGrouped {
+            } else if entry.isGrouped || alignRight {
                 Color.clear.frame(width: WZ.SizeAvatar.md, height: WZ.Space.space0)
             } else {
                 AvatarView(name: entry.senderName, url: entry.senderAvatarUrl, size: WZ.SizeAvatar.md)
@@ -774,7 +775,7 @@ struct MessageRow: View {
                     .accessibilityAddTraits(.isButton)
             }
             VStack(alignment: .trailing, spacing: WZ.Space.space0) {
-                VStack(alignment: .leading, spacing: WZ.Space.space0) {
+                VStack(alignment: alignRight ? .trailing : .leading, spacing: WZ.Space.space0) {
                     if isCompact {
                         if !isMessageText {
                             HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space3) {
@@ -790,11 +791,13 @@ struct MessageRow: View {
                         }
                     } else if !entry.isGrouped {
                         HStack(alignment: .firstTextBaseline, spacing: WZ.Space.space4) {
-                            Text(entry.senderName)
-                                .font(.wizard(WZ.FontSize.md * scale, .semibold))
-                                .foregroundStyle(senderColor)
-                                .lineLimit(1)
-                                .onTapGesture { actions?.openProfile(entry.sender) }
+                            if !alignRight {
+                                Text(entry.senderName)
+                                    .font(.wizard(WZ.FontSize.md * scale, .semibold))
+                                    .foregroundStyle(senderColor)
+                                    .lineLimit(1)
+                                    .onTapGesture { actions?.openProfile(entry.sender) }
+                            }
                             Text(entry.timestamp.timeText(timeFormat))
                                 .font(.wizard(WZ.FontSize.sm * scale))
                                 .foregroundStyle(theme.textMuted)
@@ -843,7 +846,7 @@ struct MessageRow: View {
                         ThreadSummaryBadge(thread: thread, roomId: actions.roomId) { openThread(entry) }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: alignRight ? .trailing : .leading)
                 .padding(.trailing, WZ.Space.space5)
                 if !entry.readBy.isEmpty, let roomId = actions?.roomId {
                     ReadReceiptsView(roomId: roomId, userIds: entry.readBy, readAt: entry.readAt)

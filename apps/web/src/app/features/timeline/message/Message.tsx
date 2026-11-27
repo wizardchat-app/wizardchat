@@ -40,6 +40,7 @@ import { getMediaInfoSpoiler } from './spoiler';
 import type { MediaCover } from './MediaSpoiler';
 import { markdownToHtml, plainTextToHtml } from '@/util/markdownToHtml';
 import { emojiPickerAtom } from '@/app/store/atoms/ui';
+import { alignOwnRightAtom } from '@/app/store/atoms/settings';
 import { contextMenuAtom } from '@/app/features/contextMenu/contextMenuAtom';
 import {
   entryEventId,
@@ -205,6 +206,7 @@ export const Message = memo(function Message({
   const toast = useToast();
   const emojiPicker = useAtomValue(emojiPickerAtom);
   const contextMenu = useAtomValue(contextMenuAtom);
+  const alignRight = useAtomValue(alignOwnRightAtom) && isOwn && variant === 'classic';
   const pickerOpenForThisRow =
     emojiPicker?.anchor != null && msgRowRef.current?.contains(emojiPicker.anchor) === true;
   const menuOpenForThisRow =
@@ -969,7 +971,7 @@ export const Message = memo(function Message({
         className={`${css.msgHoverRegion} ${css.msgJumpFlash}`}
         data-flashing={isFlashing ? 'true' : undefined}
       >
-        {!isCompact && (
+        {!isCompact && !alignRight && (
           <div className={css.msgAvatarCol}>
             {!isGrouped && (
               <button
@@ -996,17 +998,27 @@ export const Message = memo(function Message({
           </div>
         )}
 
-        <div className={isCompact ? css.compactBody : css.msgBody}>
+        <div
+          className={
+            isCompact
+              ? css.compactBody
+              : alignRight
+                ? `${css.msgBody} ${css.msgBodyOwnRight}`
+                : css.msgBody
+          }
+        >
           {!isGrouped && !isCompact ? (
             <div className={css.msgMeta}>
-              <button
-                type="button"
-                className={css.msgSender}
-                style={senderNameStyle}
-                onClick={handleNameClick}
-              >
-                {senderName}
-              </button>
+              {!alignRight && (
+                <button
+                  type="button"
+                  className={css.msgSender}
+                  style={senderNameStyle}
+                  onClick={handleNameClick}
+                >
+                  {senderName}
+                </button>
+              )}
               <span className={css.msgTime}>{timeFormat.time(ts)}</span>
               {isEdited && (
                 <button type="button" className={css.editedMarkerHeader} onClick={openEditHistory}>

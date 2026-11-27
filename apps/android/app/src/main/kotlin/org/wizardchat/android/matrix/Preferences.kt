@@ -47,6 +47,7 @@ class AppPreferences(context: Context) {
         private set
     var messageLayout by pref(enumPref("messageLayout", MessageLayout.modern)) { putString("messageLayout", it.name) }
     var timeFormat by pref(enumPref("timeFormat", TimeFormat.automatic)) { putString("timeFormat", it.name) }
+    var alignOwnRight by pref(defaults.getBoolean("alignOwnRight", false)) { putBoolean("alignOwnRight", it) }
     var chatFontSize by pref(defaults.getFloat("chatFontSize", DEFAULT_CHAT_FONT_SIZE)) { putFloat("chatFontSize", it) }
     var chatDensity by pref(enumPref("chatDensity", Density.default)) { putString("chatDensity", it.name) }
     var uiDensity by pref(enumPref("uiDensity", Density.default)) { putString("uiDensity", it.name) }

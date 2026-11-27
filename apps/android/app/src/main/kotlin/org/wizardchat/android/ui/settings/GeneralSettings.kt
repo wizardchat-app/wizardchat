@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -120,6 +122,10 @@ internal fun AppearanceSettings(onBack: () -> Unit) {
                 { prefs.messageLayout = it },
             )
             SettingsDivider()
+            if (prefs.messageLayout == MessageLayout.classic) {
+                ToggleRow(tr("settings.appearance.alignOwnRight"), prefs.alignOwnRight, { prefs.alignOwnRight = it })
+                SettingsDivider()
+            }
             SettingsItem {
                 Row(
                     Modifier.pointerInput(Unit) {
@@ -358,6 +364,7 @@ private fun PreviewMessage(
     val scale = prefs.chatScale
     val spacing = prefs.chatSpacing
     val isClassic = prefs.messageLayout == MessageLayout.classic
+    val alignRight = isClassic && isOwn && prefs.alignOwnRight
     val linkColor = if (isClassic && isOwn && theme.isDark) theme.textOnAccent else theme.linkColor
     val text = MessageText.attributed(
         body,
@@ -374,17 +381,26 @@ private fun PreviewMessage(
             .padding(top = (6 * spacing).dp, bottom = (2 * spacing).dp),
         horizontalArrangement = Arrangement.spacedBy(WZ.Space.space5),
     ) {
-        Avatar(sender, avatarUrl, size = WZ.SizeAvatar.md, modifier = Modifier.padding(top = WZ.Space.space1))
-        Column(Modifier.weight(1f).padding(end = WZ.Space.space5)) {
+        if (alignRight) {
+            Spacer(Modifier.width(WZ.SizeAvatar.md))
+        } else {
+            Avatar(sender, avatarUrl, size = WZ.SizeAvatar.md, modifier = Modifier.padding(top = WZ.Space.space1))
+        }
+        Column(
+            Modifier.weight(1f).padding(end = WZ.Space.space5),
+            horizontalAlignment = if (alignRight) Alignment.End else Alignment.Start,
+        ) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(WZ.Space.space4)) {
-                Text(
-                    sender,
-                    Modifier.weight(1f, fill = false),
-                    style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
-                    color = nameColor(senderId),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (!alignRight) {
+                    Text(
+                        sender,
+                        Modifier.weight(1f, fill = false),
+                        style = wizardFont(WZ.FontSize.md * scale, FontWeight.SemiBold),
+                        color = nameColor(senderId),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     Formats.time(Instant.ofEpochMilli(timestamp)),
                     style = wizardFont(WZ.FontSize.sm * scale),

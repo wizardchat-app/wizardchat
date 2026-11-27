@@ -1283,6 +1283,7 @@ export type SyncedSettings = {
    * `compact`, `default` or `spacious`
    */
   chatDensity?: string | null;
+  alignOwnRight?: boolean | null;
   /**
    * `auto`, `12h` or `24h`
    */

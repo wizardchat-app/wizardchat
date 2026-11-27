@@ -82,6 +82,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   ['appearance', 'settings.appearance.lightTheme'],
   ['appearance', 'settings.appearance.darkTheme'],
   ['appearance', 'settings.appearance.messageLayout'],
+  ['appearance', 'settings.appearance.alignOwnRight'],
   ['appearance', 'settings.appearance.textSize'],
   ['appearance', 'settings.appearance.density'],
   ['appearance', 'settings.appearance.uiZoom', 'settings.appearance.uiZoomNote'],

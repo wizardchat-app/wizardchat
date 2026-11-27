@@ -96,6 +96,9 @@ pub struct SyncedSettings {
     #[cfg_attr(feature = "typegen", specta(optional))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_density: Option<String>,
+    #[cfg_attr(feature = "typegen", specta(optional))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub align_own_right: Option<bool>,
     /// `auto`, `12h` or `24h`
     #[cfg_attr(feature = "typegen", specta(optional))]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -166,6 +169,7 @@ impl SyncedSettings {
             themed_app_icon: bool_of("themedAppIcon"),
             chat_font_size: int_in("chatFontSize", 8..=48),
             chat_density: one_of("chatDensity", &["compact", "default", "spacious"]),
+            align_own_right: bool_of("alignOwnRight"),
             time_format: one_of("timeFormat", &["auto", "12h", "24h"]),
             ui_zoom: int_in("uiZoom", 50..=200),
             theme: string_of("theme").map(str::to_owned),

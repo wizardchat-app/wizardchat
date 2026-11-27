@@ -252,6 +252,12 @@ export const msgBody = style({
   paddingRight: '12px',
 });
 
+export const msgBodyOwnRight = style({
+  paddingLeft: '48px',
+});
+
+globalStyle(`${msgBodyOwnRight} > ${msgMeta}`, { justifyContent: 'flex-end' });
+
 export const msgContent = style({
   backgroundColor: 'transparent',
   color: vars.color.textPrimary,
@@ -286,7 +292,12 @@ const msgBubbleBase = {
 export const msgContentClassic = style([
   msgContent,
   msgBubbleBase,
-  { display: 'inline-block', alignSelf: 'flex-start', maxWidth: '100%' },
+  {
+    display: 'inline-block',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    selectors: { [`${msgBodyOwnRight} &`]: { alignSelf: 'flex-end' } },
+  },
 ]);
 
 export const msgContentClassicOwn = style([
@@ -297,7 +308,10 @@ export const msgContentClassicOwn = style([
 export const msgContentClassicGrouped = style([
   msgContentGrouped,
   msgBubbleBase,
-  { alignSelf: 'flex-start' },
+  {
+    alignSelf: 'flex-start',
+    selectors: { [`${msgBodyOwnRight} &`]: { alignSelf: 'flex-end' } },
+  },
 ]);
 
 export const msgContentClassicGroupedOwn = style([
@@ -912,6 +926,9 @@ export const replyQuote = style({
   ':hover': {
     color: vars.color.textPrimary,
   },
+  selectors: {
+    [`${msgBodyOwnRight} &`]: { alignSelf: 'flex-end', width: 'auto', maxWidth: '100%' },
+  },
 });
 
 export const replyMediaRow = style({
@@ -982,6 +999,7 @@ export const reactionsBar = style({
   flexWrap: 'wrap',
   gap: '4px',
   marginTop: '4px',
+  selectors: { [`${msgBodyOwnRight} &`]: { justifyContent: 'flex-end' } },
 });
 
 export const reactionChip = style({
@@ -1060,6 +1078,7 @@ export const reactionQuickAdd = style([
     selectors: {
       '[data-hovered="false"] &': { opacity: 0 },
       '[data-hovered="true"] &': { opacity: 1 },
+      [`${msgBodyOwnRight} &`]: { order: -1 },
     },
     '@media': {
       '(pointer: coarse)': {
@@ -1764,6 +1783,7 @@ export const threadBadge = style({
   cursor: 'pointer',
   transition: `background-color ${fast}`,
   ':hover': { backgroundColor: vars.color.bgTertiary },
+  selectors: { [`${msgBodyOwnRight} &`]: { alignSelf: 'flex-end' } },
 });
 
 export const threadBadgeIconWrap = style({

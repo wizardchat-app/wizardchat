@@ -27,6 +27,7 @@ export const SYNCED_PREFERENCE_KEYS = [
   'themedAppIcon',
   'chatFontSize',
   'chatDensity',
+  'alignOwnRight',
   'timeFormat',
   'uiZoom',
 ] as const satisfies readonly (keyof Preferences & keyof CoreSyncedSettings)[];
