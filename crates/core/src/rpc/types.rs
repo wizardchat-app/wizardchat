@@ -26,12 +26,14 @@ macro_rules! ts_type {
 
 ts_type!(
     /// Who may join a room
-    JoinRule(String) = "'invite' | 'public' | 'knock' | 'restricted' | 'knock_restricted'", "String"
+    JoinRule(String) = "'invite' | 'public' | 'knock' | 'restricted' | 'knock_restricted'",
+    "String"
 );
 
 ts_type!(
     /// Who may read a room's history
-    HistoryVisibility(String) = "'world_readable' | 'shared' | 'invited' | 'joined'", "String"
+    HistoryVisibility(String) = "'world_readable' | 'shared' | 'invited' | 'joined'",
+    "String"
 );
 
 ts_type!(
@@ -41,5 +43,6 @@ ts_type!(
 
 ts_type!(
     /// Where media lives: a plain `mxc://` URL, or an encrypted file
-    MediaSource(serde_json::Value) = "{ url: string } | { file: unknown }", "JSONValue"
+    MediaSource(serde_json::Value) = "{ url: string } | { file: unknown }",
+    "JSONValue"
 );
