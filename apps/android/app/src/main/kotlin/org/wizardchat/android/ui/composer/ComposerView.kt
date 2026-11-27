@@ -51,6 +51,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.OutputTransformation
 import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -94,6 +95,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -772,6 +774,7 @@ private fun InputField(state: TextFieldState, emotes: Map<String, PackImage>, pl
             .padding(vertical = WZ.Space.space5, horizontal = WZ.Space.space6),
         textStyle = wizardFont(WZ.FontSize.lg).copy(color = theme.textPrimary),
         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         outputTransformation = output,
         onTextLayout = { result -> layout = result() },
         cursorBrush = SolidColor(theme.accent),
